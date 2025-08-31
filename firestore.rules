@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users profile
+    match /users/{uid} {
+      allow read: if request.auth != null && (
+        request.auth.token.email == resource.data.email ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor','ta']
+      );
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+                    || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin'];
+    }
+
+    // Courses (public read)
+    match /courses/{courseId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor'];
+      // Lessons subcollection
+      match /lessons/{lessonId} {
+        allow read: if true;
+        allow create, update, delete: if request.auth != null &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor'];
+      }
+      // Quizzes
+      match /quizzes/{quizId} {
+        allow read: if true;
+        allow create, update, delete: if request.auth != null &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor'];
+      }
+    }
+
+    // Enrollments — user can write their own, read own; staff can read
+    match /enrollments/{enrId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor','ta']
+      );
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Attempts (quiz submissions)
+    match /attempts/{attId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor','ta']
+      );
+    }
+  }
+}
