@@ -1,54 +1,59 @@
 rules_version = '2';
+
+function isSignedIn() {
+  return request.auth != null;
+}
+
+function isSelf(uid) {
+  return isSignedIn() && request.auth.uid == uid;
+}
+
+// current user role ကို users collection ကနေ ယူပြီး staff စစ်ရန်
+function myRole() {
+  return isSignedIn()
+    ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+    : null;
+}
+function isStaff() {
+  return ['owner','admin','instructor','ta'].hasAny([myRole()]);
+}
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users profile
-    match /users/{uid} {
-      allow read: if request.auth != null && (
-        request.auth.token.email == resource.data.email ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor','ta']
-      );
-      allow create: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null && request.auth.uid == uid
-                    || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin'];
-    }
-
-    // Courses (public read)
+    // Public catalog ဖတ်လို့ရ
     match /courses/{courseId} {
       allow read: if true;
-      allow create, update, delete: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor'];
-      // Lessons subcollection
-      match /lessons/{lessonId} {
-        allow read: if true;
-        allow create, update, delete: if request.auth != null &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor'];
-      }
-      // Quizzes
-      match /quizzes/{quizId} {
-        allow read: if true;
-        allow create, update, delete: if request.auth != null &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor'];
-      }
+      allow create, update, delete: if isStaff();
+    }
+    match /courses/{courseId}/lessons/{lessonId} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+    }
+    match /courses/{courseId}/quizzes/{quizId} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
     }
 
-    // Enrollments — user can write their own, read own; staff can read
-    match /enrollments/{enrId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read: if request.auth != null && (
-        resource.data.userId == request.auth.uid ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor','ta']
-      );
-      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    // Users — ကိုယ်ပိုင် profile ကို ကိုယ်တိုင် create/update လုပ်နိုင်
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isStaff();
+      allow create: if isSelf(uid);
+      allow update: if isSelf(uid) || isStaff();
     }
 
-    // Attempts (quiz submissions)
-    match /attempts/{attId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read: if request.auth != null && (
-        resource.data.userId == request.auth.uid ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['owner','admin','instructor','ta']
-      );
+    // Enrollments — ကိုယ်တိုင် create/read OK; staff read OK
+    match /enrollments/{id} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isSelf(resource.data.userId) || isStaff();
+      allow delete, update: if isSelf(resource.data.userId) || isStaff();
+    }
+
+    // Quiz attempts — ကိုယ်တိုင် create/read OK; staff read OK
+    match /attempts/{id} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isSelf(resource.data.userId) || isStaff();
+      allow delete, update: if isStaff();
     }
   }
 }
