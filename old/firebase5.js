@@ -1,4 +1,4 @@
-// firebase.js — wire your real Firebase config here (Auth + Firestore re-exports)
+// firebase.js — wire your real Firebase config here
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import {
   getAuth,
@@ -9,23 +9,9 @@ import {
   signOut,
   updateProfile,
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  serverTimestamp,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  getDocs,
-  query,
-  orderBy,
-  where,
-  limit,
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-/* Replace with YOUR Firebase web config */
+/* 1) Replace with YOUR Firebase web config (Project settings → General → Your apps → Web) */
 const firebaseConfig = {
   apiKey: "AIzaSyBEkph2jnubq_FvZUcHOR2paKoOKhRaULg",
   authDomain: "openlearn-mm.firebaseapp.com",
@@ -36,11 +22,12 @@ const firebaseConfig = {
   measurementId: "G-E65G177ZNJ",
 };
 
+/* 2) Initialize */
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Re-exports so app.js can import from here only
+/* 3) Re-exports for app.js */
 export {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -48,16 +35,4 @@ export {
   sendPasswordResetEmail,
   signOut,
   updateProfile,
-  collection,
-  addDoc,
-  serverTimestamp,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  getDocs,
-  query,
-  orderBy,
-  where,
-  limit,
 };
