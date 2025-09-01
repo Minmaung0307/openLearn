@@ -3,21 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OpenLearn — v1Fix Ultimate</title>
+  <title>OpenLearn — Coursera Lite Pro</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
-    <button id="hamburger" class="btn ghost" aria-label="Toggle menu">☰</button>
-    <div class="brand">📘 OpenLearn</div>
-
-    <!-- Centered Full Search -->
+    <div class="row left">
+      <button id="hamburger" class="btn ghost" aria-label="Toggle menu">☰</button>
+      <div class="brand">📘 OpenLearn</div>
+    </div>
     <div class="top-search">
       <input id="topSearch" type="search" placeholder="Search courses…" />
       <button id="topSearchBtn" class="btn ghost" aria-label="Search">🔍</button>
     </div>
-
-    <div class="top-actions">
+    <div class="row right">
       <button id="btnSettings" class="btn ghost" title="Settings">⚙️</button>
       <button id="btnLogin" class="btn">Login</button>
       <button id="btnSignup" class="btn">Sign up</button>
@@ -32,33 +31,33 @@
   <div class="layout">
     <aside id="sidebar" class="sidebar collapsed" aria-label="Sidebar">
       <nav class="side-nav">
-        <button class="side-item active" data-page="courses" aria-label="Courses" data-label="Courses">
+        <button class="side-item active" data-page="courses" data-label="Courses" aria-label="Courses">
           <span class="ico">🏠</span><span class="side-label">Courses</span>
         </button>
-        <button class="side-item" data-page="mylearning" aria-label="My Learning" data-label="My Learning">
+        <button class="side-item" data-page="mylearning" data-label="My Learning" aria-label="My Learning">
           <span class="ico">📂</span><span class="side-label">My Learning</span>
         </button>
-        <button class="side-item" data-page="gradebook" aria-label="Gradebook" data-label="Gradebook">
+        <button class="side-item" data-page="gradebook" data-label="Gradebook" aria-label="Gradebook">
           <span class="ico">🧮</span><span class="side-label">Gradebook</span>
         </button>
 
-        <button class="side-section" data-toggle="admin">
+        <button class="side-section" data-toggle="admin" data-label="Admin">
           <span class="ico">🛡️</span><span class="side-label">Admin</span>
         </button>
         <div class="side-group" data-group="admin">
-          <button class="side-item admin-only hidden" data-page="admin" aria-label="Admin" data-label="Admin">
+          <button class="side-item admin-only hidden" data-page="admin" data-label="Dashboard" aria-label="Admin">
             <span class="ico">🛠️</span><span class="side-label">Dashboard</span>
           </button>
-          <button class="side-item admin-only hidden" data-page="analytics" aria-label="Analytics" data-label="Analytics">
+          <button class="side-item admin-only hidden" data-page="analytics" data-label="Analytics" aria-label="Analytics">
             <span class="ico">📊</span><span class="side-label">Analytics</span>
           </button>
         </div>
 
-        <button class="side-section" data-toggle="personal">
+        <button class="side-section" data-toggle="personal" data-label="Personal">
           <span class="ico">👤</span><span class="side-label">Personal</span>
         </button>
         <div class="side-group" data-group="personal">
-          <button class="side-item" data-page="settings" aria-label="Settings" data-label="Settings">
+          <button class="side-item" data-page="settings" data-label="Settings" aria-label="Settings">
             <span class="ico">⚙️</span><span class="side-label">Settings</span>
           </button>
         </div>
@@ -66,81 +65,74 @@
     </aside>
 
     <main class="content">
-      <!-- Catalog / Courses -->
       <section id="page-catalog" class="page visible">
         <div class="page-head">
-          <h2>Catalog</h2>
-          <button id="btnAddSample" class="btn ghost">＋ Add sample data</button>
+          <h2>Courses</h2>
+          <div class="row">
+            <button id="btnAddSample" class="btn ghost">＋ Add sample data</button>
+          </div>
         </div>
-        <div class="controls">
-          <input id="searchInput" placeholder="Search courses…" />
+        <div class="filters">
+          <select id="filterCategory">
+            <option value="">All Categories</option>
+          </select>
           <select id="filterLevel">
             <option value="">All Levels</option>
             <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
           </select>
-          <select id="filterCategory">
-            <option value="">All Categories</option>
-          </select>
           <select id="sortBy">
             <option value="title-asc">Title ↑</option>
             <option value="title-desc">Title ↓</option>
-            <option value="rating-desc">Rating ↓</option>
             <option value="price-asc">Price ↑</option>
             <option value="price-desc">Price ↓</option>
           </select>
         </div>
-        <div id="courseGrid" class="grid"></div>
+        <div id="courseGrid" class="cards"></div>
         <div class="pager">
           <button id="pgPrev" class="btn">Prev</button>
-          <span id="pgInfo" class="muted"></span>
+          <span id="pgInfo" class="muted">1</span>
           <button id="pgNext" class="btn">Next</button>
         </div>
       </section>
 
-      <!-- Course detail -->
       <section id="page-course" class="page">
-        <div class="page-head">
-          <h2 id="courseTitle">Course</h2>
-          <div class="row">
-            <button id="btnDownloadCertificate" class="btn">🎓 Download certificate</button>
-            <button id="btnDownloadTranscript" class="btn ghost">📄 Download transcript</button>
+        <div class="course-hero card">
+          <div class="meta">
+            <span class="badge" id="cCategory"></span>
+            <span class="badge" id="cLevel"></span>
+            <span class="badge" id="cPrice"></span>
           </div>
+          <h2 id="courseTitle">Course</h2>
+          <p id="courseSummary" class="muted"></p>
         </div>
-        <div id="courseHeader" class="course-header"></div>
-        <div class="course-body">
-          <aside class="syllabus">
+        <div class="course-layout">
+          <aside class="syllabus card">
             <div class="row between">
               <h4>Syllabus</h4>
               <button id="toggleSyllabus" class="btn ghost">☰</button>
             </div>
             <ol id="lessonList"></ol>
           </aside>
-          <article id="lessonContent" class="lesson-content"></article>
-          <aside class="course-tools">
+          <article id="lessonContent" class="lesson card"></article>
+          <aside class="tools">
             <div class="card">
               <h4>Progress</h4>
               <div id="progressBox" class="muted">-</div>
               <button id="btnMarkComplete" class="btn">Mark lesson complete</button>
-            </div>
-            <div class="card">
-              <h4>Discussion</h4>
-              <div id="comments"></div>
-              <form id="formComment" class="stack">
-                <textarea id="commentText" placeholder="Write a comment…" rows="2"></textarea>
-                <button class="btn">Post</button>
-              </form>
+              <div class="row">
+                <button id="btnDownloadCertificate" class="btn">🎓 Certificate</button>
+                <button id="btnDownloadTranscript" class="btn ghost">📄 Transcript</button>
+              </div>
             </div>
           </aside>
         </div>
       </section>
 
-      <!-- My Learning -->
       <section id="page-mylearning" class="page">
         <h2>My Learning</h2>
-        <div id="myCourses" class="grid"></div>
+        <div id="myCourses" class="cards"></div>
       </section>
 
-      <!-- Gradebook -->
       <section id="page-gradebook" class="page">
         <div class="page-head">
           <h2>Gradebook</h2>
@@ -155,22 +147,19 @@
         </table>
       </section>
 
-      <!-- Admin -->
       <section id="page-admin" class="page">
         <div class="page-head">
           <h2>Admin</h2>
           <button id="btnNewCourse" class="btn">＋ New course</button>
         </div>
-        <div class="card muted">Admin dashboard…</div>
+        <div class="card muted">Create/edit courses and manage content.</div>
       </section>
 
-      <!-- Analytics -->
       <section id="page-analytics" class="page">
         <h2>Analytics</h2>
         <div class="card muted">Charts & metrics…</div>
       </section>
 
-      <!-- Settings -->
       <section id="page-settings" class="page">
         <h2>Settings</h2>
         <div class="grid2">
@@ -204,7 +193,6 @@
     </main>
   </div>
 
-  <!-- New Course Dialog -->
   <dialog id="dlgCourse">
     <form id="formCourse" method="dialog" class="stack">
       <h3>New Course</h3>
@@ -222,7 +210,6 @@
     </form>
   </dialog>
 
-  <!-- Auth Dialogs -->
   <dialog id="dlgLogin"><form id="formLogin" method="dialog" class="stack">
     <h3>Login</h3>
     <input id="loginEmail" type="email" placeholder="Email" required />

@@ -1,4 +1,3 @@
-// firebase.js — wire your real Firebase config here (Auth + Firestore re-exports)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import {
   getAuth,
@@ -16,8 +15,6 @@ import {
   serverTimestamp,
   doc,
   getDoc,
-  setDoc,
-  updateDoc,
   getDocs,
   query,
   orderBy,
@@ -40,7 +37,6 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Re-exports so app.js can import from here only
 export {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -53,8 +49,6 @@ export {
   serverTimestamp,
   doc,
   getDoc,
-  setDoc,
-  updateDoc,
   getDocs,
   query,
   orderBy,
