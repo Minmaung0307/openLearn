@@ -1,4 +1,3 @@
-// Fully-formed app.js (no ellipsis)
 import {
   app, auth, db,
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile,
@@ -10,24 +9,18 @@ const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
 const esc = (s)=> (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 const toast=(m,ms=2200)=>{const t=$("#toast"); if(!t) return; t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), ms);};
 
-// Palettes
+// palettes
 const PALETTES={
   dark:{bg:"#0b0f17",fg:"#e7ecf3",card:"#121826",muted:"#9aa6b2",border:"#223",accent:"#66d9ef",btnBg:"#1f2937",btnFg:"#e7ecf3",btnPrimaryBg:"#2563eb",btnPrimaryFg:"#ffffff",inputBg:"#0b1220",inputFg:"#e7ecf3",hoverBg:"#0e1625"},
-  light:{bg:"#f7fafc",fg:"#0b1220",card:"#ffffff",muted:"#4a5568",border:"#dbe2ea",accent:"#2563eb",btnBg:"#e2e8f0",btnFg:"#0b1220",btnPrimaryBg:"#0f172a",btnPrimaryFg:"#ffffff",inputBg:"#ffffff",inputFg:"#0b1220",hoverBg:"#eef2f7"}
-  ,ocean:{bg:"#07131d",fg:"#dff3ff",card:"#0c2030",muted:"#8fb3c6",border:"#113347",accent:"#4cc9f0",btnBg:"#123247",btnFg:"#dff3ff",btnPrimaryBg:"#4cc9f0",btnPrimaryFg:"#08222f",inputBg:"#0b2231",inputFg:"#dff3ff",hoverBg:"#0f2b40"}
-  ,forest:{bg:"#0b140f",fg:"#eaf7eb",card:"#102017",muted:"#9fbcaa",border:"#163223",accent:"#34d399",btnBg:"#173425",btnFg:"#eaf7eb",btnPrimaryBg:"#34d399",btnPrimaryFg:"#082015",inputBg:"#0d2317",inputFg:"#eaf7eb",hoverBg:"#123222"}
-  ,grape:{bg:"#140a1a",fg:"#f3e8ff",card:"#1f0f2b",muted:"#c4a9d9",border:"#2b1840",accent:"#a78bfa",btnBg:"#2b1940",btnFg:"#f3e8ff",btnPrimaryBg:"#a78bfa",btnPrimaryFg:"#1a1130",inputBg:"#1a1030",inputFg:"#f3e8ff",hoverBg:"#241238"}
-  ,solarized:{bg:"#002b36",fg:"#eee8d5",card:"#073642",muted:"#93a1a1",border:"#0a3c48",accent:"#b58900",btnBg:"#0d3d49",btnFg:"#eee8d5",btnPrimaryBg:"#b58900",btnPrimaryFg:"#002b36",inputBg:"#003542",inputFg:"#eee8d5",hoverBg:"#09414e"}
-  ,rose:{bg:"#1a0b12",fg:"#ffe4e6",card:"#2a0f1f",muted:"#f8b4c0",border:"#351629",accent:"#fb7185",btnBg:"#3a1426",btnFg:"#ffe4e6",btnPrimaryBg:"#fb7185",btnPrimaryFg:"#2a0f1f",inputBg:"#2a0f1f",inputFg:"#ffe4e6",hoverBg:"#321425"}
-  ,bumblebee:{bg:"#11100b",fg:"#fff7cc",card:"#1b1a0f",muted:"#d6cf9a",border:"#2a2815",accent:"#facc15",btnBg:"#2a2815",btnFg:"#fff7cc",btnPrimaryBg:"#facc15",btnPrimaryFg:"#1b1a0f",inputBg:"#1b1a0f",inputFg:"#fff7cc",hoverBg:"#252310"}
+  light:{bg:"#f7fafc",fg:"#0b1220",card:"#ffffff",muted:"#4a5568",border:"#dbe2ea",accent:"#2563eb",btnBg:"#e2e8f0",btnFg:"#0b1220",btnPrimaryBg:"#0f172a",btnPrimaryFg:"#ffffff",inputBg:"#ffffff",inputFg:"#0b1220",hoverBg:"#eef2f7"},
+  ocean:{bg:"#07131d",fg:"#dff3ff",card:"#0c2030",muted:"#8fb3c6",border:"#113347",accent:"#4cc9f0",btnBg:"#123247",btnFg:"#dff3ff",btnPrimaryBg:"#4cc9f0",btnPrimaryFg:"#08222f",inputBg:"#0b2231",inputFg:"#dff3ff",hoverBg:"#0f2b40"},
+  forest:{bg:"#0b140f",fg:"#eaf7eb",card:"#102017",muted:"#9fbcaa",border:"#163223",accent:"#34d399",btnBg:"#173425",btnFg:"#eaf7eb",btnPrimaryBg:"#34d399",btnPrimaryFg:"#082015",inputBg:"#0d2317",inputFg:"#eaf7eb",hoverBg:"#123222"}
 };
 function applyPalette(name){
-  const p = PALETTES[name] || PALETTES.dark;
-  const r = document.documentElement;
-  const map = {bg:"--bg",fg:"--fg",card:"--card",muted:"--muted",border:"--border",accent:"--accent",btnBg:"--btnBg",btnFg:"--btnFg",btnPrimaryBg:"--btnPrimaryBg",btnPrimaryFg:"--btnPrimaryFg",inputBg:"--inputBg",inputFg:"--inputFg",hoverBg:"--hoverBg"};
-  for (const k in map){ r.style.setProperty(map[k], p[k]); }
+  const p=PALETTES[name]||PALETTES.dark, r=document.documentElement;
+  for (const [k,v] of Object.entries({bg:"--bg",fg:"--fg",card:"--card",muted:"--muted",border:"--border",accent:"--accent",btnBg:"--btnBg",btnFg:"--btnFg",btnPrimaryBg:"--btnPrimaryBg",btnPrimaryFg:"--btnPrimaryFg",inputBg:"--inputBg",inputFg:"--inputFg",hoverBg:"--hoverBg"})){ r.style.setProperty(v, p[k]); }
 }
-function applyFont(px){ document.documentElement.style.setProperty("--fontSize", px+"px"); const pv=$("#fontPreview"); if(pv) pv.textContent=px+" px"; }
+function applyFont(px){ document.documentElement.style.setProperty("--fontSize", px+"px"); $("#fontPreview") && ($("#fontPreview").textContent = px+" px"); }
 function initThemeControls(){
   const tSel=$("#themeSelect"), fSel=$("#fontSelect");
   const t=localStorage.getItem("ol_theme")||"dark", f=localStorage.getItem("ol_font")||"14";
@@ -38,29 +31,40 @@ function initThemeControls(){
   $("#btnSettings")?.addEventListener("click", ()=> showPage("settings"));
 }
 
-// Drawer & sections
-function initDrawer(){
+// Sidebar hover-expand + sections
+function initSidebar(){
   const sb=$("#sidebar");
-  $("#hamburger")?.addEventListener("click", ()=> sb.classList.toggle("collapsed"));
+  const expand=()=>{ sb.classList.add("expanded"); document.body.classList.add("sidebar-expanded"); };
+  const collapse=()=>{ sb.classList.remove("expanded"); document.body.classList.remove("sidebar-expanded"); };
+  // Desktop hover expand
+  if (window.matchMedia("(min-width:1025px)").matches){
+    sb.addEventListener("mouseenter", expand);
+    sb.addEventListener("mouseleave", collapse);
+  }
+  // Mobile toggle
+  $("#hamburger")?.addEventListener("click", ()=> sb.classList.toggle("expanded"));
+  // Sections
   $$("[data-toggle]").forEach(head=>{
     head.addEventListener("click", ()=>{
       const key=head.getAttribute("data-toggle");
-      const grp=document.querySelector(`[data-group="${key}"]`);
-      grp?.classList.toggle("collapsed");
+      // rule: clicking a section shows only its group (personal/admin)
+      $$("[data-group]").forEach(g=> g.classList.add("collapsed"));
+      const grp=$(`[data-group="${key}"]`);
+      grp?.classList.remove("collapsed");
     });
   });
 }
 
-// routing
+// Routing
 const PAGE_ALIAS={courses:"catalog"};
 function showPage(id){
   $$(".page").forEach(p=>p.classList.remove("visible"));
   $(`#page-${id}`)?.classList.add("visible");
-  $$(".side-item").forEach(x=> x.classList.toggle("active", (PAGE_ALIAS[x.dataset.page]||x.dataset.page)===id));
+  $$(".side-item").forEach(x=> x.classList.toggle("active",(PAGE_ALIAS[x.dataset.page]||x.dataset.page)===id));
 }
 
-// sidebar nav
-function bindSidebar(){
+// Sidebar items
+function bindSidebarNav(){
   $$(".side-item").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       const id=PAGE_ALIAS[btn.dataset.page]||btn.dataset.page;
@@ -69,55 +73,22 @@ function bindSidebar(){
   });
 }
 
-// dialogs/auth
-function bindDialogs(){
-  $$(".dlg-close").forEach(b=> b.addEventListener("click", ()=> b.closest("dialog")?.close()));
-  $("#btnLogin")?.addEventListener("click", ()=> $("#dlgLogin").showModal());
-  $("#btnSignup")?.addEventListener("click", ()=> $("#dlgSignup").showModal());
-  $("#lnkForgot")?.addEventListener("click", (e)=>{ e.preventDefault(); $("#dlgLogin").close(); $("#dlgForgot").showModal(); });
-  $("#lnkToSignup")?.addEventListener("click", (e)=>{ e.preventDefault(); $("#dlgLogin").close(); $("#dlgSignup").showModal(); });
-  $("#lnkToLogin")?.addEventListener("click", (e)=>{ e.preventDefault(); $("#dlgSignup").close(); $("#dlgLogin").showModal(); });
-
-  $("#formLogin")?.addEventListener("submit", async (e)=>{
-    e.preventDefault();
-    try{
-      await signInWithEmailAndPassword(auth, $("#loginEmail").value, $("#loginPassword").value);
-      $("#dlgLogin").close();
-    }catch(err){ console.error(err); toast(err.code||"Login failed"); }
-  });
-  $("#formSignup")?.addEventListener("submit", async (e)=>{
-    e.preventDefault();
-    const pw=$("#suPassword").value, cf=$("#suConfirm").value;
-    if (pw!==cf) return toast("Passwords don't match");
-    try{
-      const cred=await createUserWithEmailAndPassword(auth, $("#suEmail").value, pw);
-      const nm=$("#suName").value.trim(); if(nm) await updateProfile(cred.user,{displayName:nm});
-      $("#dlgSignup").close();
-    }catch(err){ console.error(err); toast(err.code||"Signup failed"); }
-  });
-  $("#formForgot")?.addEventListener("submit", async (e)=>{
-    e.preventDefault();
-    try{ await sendPasswordResetEmail(auth, $("#fpEmail").value.trim()); toast("Reset email sent"); $("#dlgForgot").close(); }
-    catch(err){ console.error(err); toast(err.code||"Reset failed"); }
-  });
-  $("#btnLogoutTop")?.addEventListener("click", async ()=>{ try{ await signOut(auth);}catch{} });
-}
-
-// auth state
+// Auth state + admin gate
 let currentUser=null;
+const STAFF_EMAILS=["admin@openlearn.local"];
 function gateUI(){
   $("#btnLogin")?.classList.toggle("hidden", !!currentUser);
   $("#btnSignup")?.classList.toggle("hidden", !!currentUser);
   $("#userMenu")?.classList.toggle("hidden", !currentUser);
   $("#userName") && ($("#userName").textContent = currentUser ? (currentUser.displayName || currentUser.email) : "");
-  const isStaff=false; // extend via roles
+  const isStaff = !!(currentUser && STAFF_EMAILS.includes(currentUser.email));
   $$(".admin-only").forEach(el=> el.classList.toggle("hidden", !isStaff));
   $("#btnTopAdmin")?.classList.toggle("hidden", !isStaff);
   $("#btnTopAdmin")?.addEventListener("click", ()=> showPage("admin"));
 }
 onAuthStateChanged(auth, u=>{ currentUser=u||null; gateUI(); });
 
-// header search
+// Header search
 function bindTopSearch(){
   const doSearch = ()=>{
     const q=$("#topSearch").value.toLowerCase().trim();
@@ -131,10 +102,11 @@ function bindTopSearch(){
   $("#topSearch")?.addEventListener("keydown", e=>{ if(e.key==="Enter") doSearch(); });
 }
 
-// catalog
-async function renderCatalog(){
+// Catalog render + sample autocreate
+async function renderCatalog(autofill=true){
   const grid=$("#courseGrid"); if (!grid) return;
   const snap = await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
+  if (autofill && snap.size===0){ await addSamples(true); return renderCatalog(false); }
   const cats=new Set();
   const html = snap.docs.map(d=>{
     const c=d.data(); cats.add(c.category||"");
@@ -165,8 +137,8 @@ async function renderCatalog(){
       const matches = (!cat || summary.includes(cat)) && (!lv || level===lv);
       el.style.display = matches ? "" : "none";
     });
-    const visible=[...document.querySelectorAll(".card.course")].filter(el=>el.style.display!=="none");
-    visible.sort((a,b)=>{
+    const vis=[...document.querySelectorAll(".card.course")].filter(el=>el.style.display!=="none");
+    vis.sort((a,b)=>{
       const ta=a.querySelector("strong").textContent.toLowerCase();
       const tb=b.querySelector("strong").textContent.toLowerCase();
       const pa=a.querySelector(".row.between span").textContent;
@@ -183,7 +155,7 @@ async function renderCatalog(){
   document.querySelectorAll("[data-open]").forEach(b=> b.addEventListener("click", ()=> openCourse(b.getAttribute("data-open")) ));
 }
 
-// open course
+// Course page
 async function openCourse(cid){
   showPage("course");
   const d=await getDoc(doc(db,"courses",cid));
@@ -215,9 +187,10 @@ function loadLesson(it){
     <video controls poster="https://picsum.photos/seed/lesson${it.index}/800/320"></video>`;
 }
 
-// admin
+// Admin new course
 function bindAdmin(){
   $("#btnNewCourse")?.addEventListener("click", ()=> $("#dlgCourse").showModal());
+  $$(".dlg-close").forEach(b=> b.addEventListener("click", ()=> b.closest("dialog")?.close()));
   $("#formCourse")?.addEventListener("submit", async (e)=>{
     e.preventDefault();
     try{
@@ -231,23 +204,56 @@ function bindAdmin(){
       };
       const ref=await addDoc(collection(db,"courses"), payload);
       toast("Course created"); $("#dlgCourse").close();
-      await renderCatalog(); openCourse(ref.id);
+      await renderCatalog(false); openCourse(ref.id);
     }catch(err){ console.error(err); toast(err.code||"Create failed"); }
   });
-  $("#btnAddSample")?.addEventListener("click", addSamples);
+  $("#btnAddSample")?.addEventListener("click", ()=> addSamples(true));
 }
-async function addSamples(){
+async function addSamples(alot=false){
   const samples=[
-    {title:"JS Essentials", category:"Web", level:"Beginner", price:0, summary:"Start JavaScript from zero."},
-    {title:"React Fast-Track", category:"Web", level:"Intermediate", price:49, summary:"Build modern UIs."},
-    {title:"Data Analysis with Python", category:"Data", level:"Intermediate", price:79, summary:"Pandas & plots."},
-    {title:"Cloud Fundamentals", category:"Cloud", level:"Beginner", price:29, summary:"AWS/GCP basics."}
+    {title:"JavaScript Essentials",category:"Web",level:"Beginner",price:0,summary:"Start JavaScript from zero."},
+    {title:"React Fast-Track",category:"Web",level:"Intermediate",price:49,summary:"Build modern UIs."},
+    {title:"Advanced React Patterns",category:"Web",level:"Advanced",price:69,summary:"Hooks, contexts, performance."},
+    {title:"Data Analysis with Python",category:"Data",level:"Intermediate",price:79,summary:"Pandas & plots."},
+    {title:"Intro to Machine Learning",category:"Data",level:"Beginner",price:59,summary:"Supervised, unsupervised."},
+    {title:"Cloud Fundamentals",category:"Cloud",level:"Beginner",price:29,summary:"AWS/GCP basics."},
+    {title:"DevOps CI/CD",category:"Cloud",level:"Intermediate",price:69,summary:"Pipelines, Docker, K8s."}
   ];
-  for(const c of samples){ await addDoc(collection(db,"courses"), {...c, createdAt:serverTimestamp()}); }
-  toast("Sample courses added"); renderCatalog();
+  const many = alot ? samples.concat(samples.map(s=>({...s,title:s.title+" II"}))) : samples;
+  for(const c of many){ await addDoc(collection(db,"courses"), {...c, createdAt:serverTimestamp()}); }
+  toast("Sample courses added"); renderCatalog(false); renderMyLearning(); renderGradebook();
 }
 
-// certificate & transcript
+// My Learning (demo: if no enrollments, take first 3 courses as enrolled)
+async function renderMyLearning(){
+  const grid=$("#myCourses"); if (!grid) return;
+  const cs = await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
+  const cards = cs.docs.slice(0, 6).map(d=>{
+    const c=d.data();
+    return `<div class="card course"><img class="course-cover" src="${esc(c.cover||'https://picsum.photos/seed/'+d.id+'/640/360')}" alt=""><div class="course-body">
+      <strong>${esc(c.title)}</strong><div class="muted">${esc(c.summary||'')}</div><button class="btn" data-open="${d.id}">Continue</button></div></div>`;
+  }).join("") || `<div class="muted">No enrollments yet. Browse Courses.</div>`;
+  grid.innerHTML = cards;
+  grid.querySelectorAll("[data-open]")?.forEach(b=> b.addEventListener("click", ()=> openCourse(b.getAttribute("data-open")) ));
+}
+
+// Gradebook sample rows
+async function renderGradebook(){
+  const sel=$("#gbCourseSelect"); const tbody=$("#gbTable tbody");
+  const cs = await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
+  sel.innerHTML = cs.docs.map(d=>`<option value="${d.id}">${esc(d.data().title)}</option>`).join("") || "";
+  const courseName = sel.options[sel.selectedIndex]?.text || "—";
+  const rows=[
+    {student:"alice@example.com", course:courseName, progress:"3/12", activity:"Today"},
+    {student:"bob@example.com", course:courseName, progress:"7/12", activity:"Yesterday"},
+    {student:"charlie@example.com", course:courseName, progress:"1/12", activity:"3 days ago"}
+  ];
+  tbody.innerHTML = rows.map(r=>`<tr><td>${esc(r.student)}</td><td>${esc(r.course)}</td><td>${esc(r.progress)}</td><td>${esc(r.activity)}</td></tr>`).join("");
+}
+$("#gbCourseSelect")?.addEventListener("change", renderGradebook);
+$("#gbRefresh")?.addEventListener("click", renderGradebook);
+
+// Certificate & transcript
 function downloadCertificate(courseTitle){
   const name=(currentUser?.displayName||currentUser?.email||"Student");
   const date=new Date().toLocaleDateString();
@@ -268,14 +274,13 @@ function downloadTranscript(courseTitle){
   const name=(currentUser?.displayName||currentUser?.email||'Student');
   const rows=[['Name','Course','Credits','Grade'], [name, courseTitle, '3.0','A']];
   const csv = rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='transcript.csv'; a.click();
+  const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='transcript.csv'; a.click();
 }
 
-// boot
+// Boot
 onAuthStateChanged(auth, u=>{ currentUser=u||null; gateUI(); });
 document.addEventListener("DOMContentLoaded", async ()=>{
-  initThemeControls(); initDrawer(); bindSidebar(); bindDialogs(); bindTopSearch(); bindAdmin();
+  initThemeControls(); initSidebar(); bindSidebarNav(); bindAdmin(); bindTopSearch();
   showPage("catalog");
-  try{ await renderCatalog(); }catch(e){ console.warn('catalog', e); }
+  try{ await renderCatalog(); await renderMyLearning(); await renderGradebook(); }catch(e){ console.warn('boot', e); }
 });
