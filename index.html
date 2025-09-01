@@ -3,15 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenLearn Pro v1Fix</title>
+  <title>OpenLearn Pro v1Fix+</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="topbar">
-  <button id="hamburger" class="btn ghost">☰</button>
-  <div class="brand">OpenLearn</div>
+  <button id="hamburger" class="btn ghost" aria-label="Toggle menu">☰</button>
+  <div class="brand">📘 OpenLearn</div>
+
+  <!-- NEW: Top search -->
+  <div class="top-search">
+    <input id="topSearch" type="search" placeholder="Search courses…" />
+    <button id="topSearchBtn" class="btn ghost" aria-label="Search">🔍</button>
+  </div>
+
   <div class="spacer"></div>
-  <button id="toggleTheme" class="btn ghost">🌓</button>
+  <button id="toggleTheme" class="btn ghost" title="Theme">🌓</button>
   <button id="btnLogin" class="btn">Login</button>
   <button id="btnSignup" class="btn">Sign up</button>
   <div id="userMenu" class="user-menu hidden">
@@ -23,23 +30,76 @@
 </header>
 
 <div class="layout">
-  <aside id="sidebar" class="sidebar">
+  <aside id="sidebar" class="sidebar" aria-label="Sidebar">
     <nav class="side-nav">
       <button class="side-item active" data-page="courses">🏠 Courses</button>
       <button class="side-item" data-page="mylearning">📂 My Learning</button>
       <button class="side-item" data-page="gradebook">🧮 Gradebook</button>
-      <div class="side-section">Admin</div>
+      <div class="side-section">🛡️ Admin</div>
       <button class="side-item admin-only hidden" data-page="admin">🛠️ Admin</button>
       <button class="side-item admin-only hidden" data-page="analytics">📊 Analytics</button>
-      <div class="side-section">Personal</div>
+      <div class="side-section">👤 Personal</div>
       <button class="side-item" data-page="settings">⚙️ Settings</button>
     </nav>
   </aside>
 
   <main class="content">
-    <section id="page-catalog" class="page visible"><h2>Catalog</h2></section>
-    <section id="page-course" class="page"><h2>Course Detail</h2></section>
-    <section id="page-mylearning" class="page"><h2>My Learning</h2></section>
+    <section id="page-catalog" class="page visible">
+      <h2>Catalog</h2>
+      <div class="controls">
+        <input id="searchInput" placeholder="Search courses…" />
+        <select id="filterLevel">
+          <option value="">All Levels</option>
+          <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+        </select>
+        <select id="filterCategory">
+          <option value="">All Categories</option>
+        </select>
+        <select id="sortBy">
+          <option value="title-asc">Title ↑</option>
+          <option value="title-desc">Title ↓</option>
+          <option value="rating-desc">Rating ↓</option>
+          <option value="price-asc">Price ↑</option>
+          <option value="price-desc">Price ↓</option>
+        </select>
+      </div>
+      <div id="courseGrid" class="grid"></div>
+      <div class="pager">
+        <button id="pgPrev" class="btn">Prev</button>
+        <span id="pgInfo" class="muted"></span>
+        <button id="pgNext" class="btn">Next</button>
+      </div>
+    </section>
+
+    <section id="page-course" class="page">
+      <h2>Course Detail</h2>
+      <div id="courseHeader" class="course-header"></div>
+      <div class="course-body">
+        <aside class="syllabus">
+          <h4>Syllabus</h4>
+          <ol id="lessonList"></ol>
+        </aside>
+        <article id="lessonContent" class="lesson-content"></article>
+        <aside class="course-tools">
+          <div class="card">
+            <h4>Progress</h4>
+            <div id="progressBox" class="muted">-</div>
+            <button id="btnMarkComplete" class="btn">Mark lesson complete</button>
+            <button id="btnCertificate" class="btn ghost">Get Certificate</button>
+          </div>
+          <div class="card">
+            <h4>Discussion</h4>
+            <div id="comments"></div>
+            <form id="formComment" class="stack">
+              <textarea id="commentText" placeholder="Write a comment…" rows="2"></textarea>
+              <button class="btn">Post</button>
+            </form>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="page-mylearning" class="page"><h2>My Learning</h2><div id="myCourses" class="grid"></div></section>
     <section id="page-gradebook" class="page">
       <h2>Gradebook</h2>
       <div class="row">
@@ -51,8 +111,8 @@
         <tbody></tbody>
       </table>
     </section>
-    <section id="page-admin" class="page"><h2>Admin</h2></section>
-    <section id="page-analytics" class="page"><h2>Analytics</h2></section>
+    <section id="page-admin" class="page"><h2>Admin</h2><div class="muted">Admin dashboard content…</div></section>
+    <section id="page-analytics" class="page"><h2>Analytics</h2><div class="muted">Charts & metrics…</div></section>
     <section id="page-settings" class="page">
       <h2>Settings</h2>
       <div class="card">
@@ -68,16 +128,41 @@
   </main>
 </div>
 
-<dialog id="dlgCourse">
-  <form method="dialog">
-    <h3>New Course</h3>
-    <input type="text" placeholder="Course title">
-    <menu>
-      <button type="submit" class="btn primary">Save</button>
-      <button type="button" class="btn ghost dlg-close">Close</button>
-    </menu>
-  </form>
-</dialog>
+<!-- Auth Dialogs -->
+<dialog id="dlgLogin"><form id="formLogin" method="dialog" class="stack">
+  <h3>Login</h3>
+  <input id="loginEmail" type="email" placeholder="Email" required />
+  <input id="loginPassword" type="password" placeholder="Password" required />
+  <menu class="row">
+    <button class="btn primary">Login</button>
+    <button type="button" class="btn ghost dlg-close">Close</button>
+  </menu>
+  <div class="muted">Forgot? <a href="#" id="lnkForgot">Reset</a></div>
+  <div class="muted">New? <a href="#" id="lnkToSignup">Sign up</a></div>
+</form></dialog>
+
+<dialog id="dlgSignup"><form id="formSignup" method="dialog" class="stack">
+  <h3>Sign up</h3>
+  <input id="suName" placeholder="Full name" />
+  <input id="suEmail" type="email" placeholder="Email" required />
+  <input id="suPassword" type="password" placeholder="Password (6+)" required />
+  <input id="suConfirm" type="password" placeholder="Confirm" required />
+  <input id="suAdminKey" placeholder="Admin Access Key (optional)" />
+  <menu class="row">
+    <button class="btn primary">Create account</button>
+    <button type="button" class="btn ghost dlg-close">Close</button>
+  </menu>
+  <div class="muted">Have an account? <a href="#" id="lnkToLogin">Login</a></div>
+</form></dialog>
+
+<dialog id="dlgForgot"><form id="formForgot" method="dialog" class="stack">
+  <h3>Reset password</h3>
+  <input id="fpEmail" type="email" placeholder="Email" required />
+  <menu class="row">
+    <button class="btn primary">Send reset email</button>
+    <button type="button" class="btn ghost dlg-close">Close</button>
+  </menu>
+</form></dialog>
 
 <div id="toast"></div>
 <script type="module" src="firebase.js"></script>
