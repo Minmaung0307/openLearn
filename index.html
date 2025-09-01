@@ -7,18 +7,10 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <!-- Topbar with hamburger + auth -->
     <header class="topbar">
-      <div class="brand">OpenLearn <span class="badge">v2</span></div>
-      <nav class="nav">
-        <button class="navlink active" data-page="catalog">Catalog</button>
-        <button class="navlink" data-page="mylearning">My Learning</button>
-        <button class="navlink admin-only hidden" data-page="admin">
-          Admin
-        </button>
-        <button class="navlink admin-only hidden" data-page="analytics">
-          Analytics
-        </button>
-      </nav>
+      <button id="hamburger" class="btn ghost">☰</button>
+      <div class="brand">OpenLearn <span class="badge">v1</span></div>
       <div class="spacer"></div>
       <button id="toggleTheme" class="btn ghost">🌓</button>
       <button id="btnLogin" class="btn">Login</button>
@@ -29,210 +21,240 @@
       </div>
     </header>
 
-    <main>
-      <!-- Catalog -->
-      <section id="page-catalog" class="page visible">
-        <div class="controls">
-          <input id="searchInput" placeholder="Search courses…" />
-          <select id="filterLevel">
-            <option value="">All Levels</option>
-            <option>Beginner</option>
-            <option>Intermediate</option>
-            <option>Advanced</option>
-          </select>
-          <select id="filterCategory">
-            <option value="">All Categories</option>
-          </select>
-          <select id="sortBy">
-            <option value="title-asc">Title ↑</option>
-            <option value="title-desc">Title ↓</option>
-            <option value="rating-desc">Rating ↓</option>
-            <option value="price-asc">Price ↑</option>
-            <option value="price-desc">Price ↓</option>
-          </select>
-        </div>
-        <div id="courseGrid" class="grid"></div>
-        <div class="pager">
-          <button id="pgPrev" class="btn">Prev</button>
-          <span id="pgInfo" class="muted"></span>
-          <button id="pgNext" class="btn">Next</button>
-        </div>
-      </section>
-
-      <!-- Course detail -->
-      <section id="page-course" class="page">
-        <div id="courseHeader" class="course-header"></div>
-        <div class="course-body">
-          <aside class="syllabus">
-            <h4>Syllabus</h4>
-            <ol id="lessonList"></ol>
-          </aside>
-          <article id="lessonContent" class="lesson-content"></article>
-          <aside class="course-tools">
-            <div class="card">
-              <h4>Progress</h4>
-              <div id="progressBox" class="muted">-</div>
-              <button id="btnMarkComplete" class="btn">
-                Mark lesson complete
-              </button>
-              <button id="btnCertificate" class="btn ghost">
-                Get Certificate
-              </button>
-            </div>
-            <div class="card">
-              <h4>Discussion</h4>
-              <div id="comments"></div>
-              <form id="formComment" class="stack">
-                <textarea
-                  id="commentText"
-                  placeholder="Write a comment…"
-                  rows="2"
-                ></textarea>
-                <button class="btn">Post</button>
-              </form>
-            </div>
-            <div class="card">
-              <h4>Assignments</h4>
-              <div id="assList"></div>
-              <form id="formSubmitAss" class="stack">
-                <input id="assFile" type="file" />
-                <button class="btn">Submit file</button>
-              </form>
-            </div>
-          </aside>
-        </div>
-      </section>
-
-      <!-- My Learning -->
-      <section id="page-mylearning" class="page">
-        <h2>My Learning</h2>
-        <div id="emptyMy" class="muted">You are not enrolled yet.</div>
-        <div id="myCourses" class="grid"></div>
-      </section>
-
-      <!-- Admin -->
-      <section id="page-admin" class="page">
-        <div class="tabs">
-          <button class="tab active" data-tab="courses">Courses</button>
-          <button class="tab" data-tab="lessons">Lessons</button>
-          <button class="tab" data-tab="quizzes">Quizzes</button>
-          <button class="tab" data-tab="users">Users</button>
-          <button class="tab" data-tab="assign">Assignments</button>
+    <!-- NEW: v1-style Left Sidebar Layout -->
+    <div class="layout">
+      <aside id="sidebar" class="sidebar">
+        <div class="side-head">
+          <div class="logo">📘</div>
+          <div class="title">OpenLearn</div>
         </div>
 
-        <div id="tab-courses" class="tabpane visible">
-          <div class="row">
-            <button id="btnNewCourse" class="btn">＋ New Course</button>
-            <button id="btnSeed" class="btn ghost">Load Demo Data</button>
+        <nav class="side-nav">
+          <button class="side-item active" data-page="catalog">
+            🏠 Catalog
+          </button>
+          <button class="side-item" data-page="mylearning">
+            📂 My Learning
+          </button>
+          <div class="side-section">Admin</div>
+          <button class="side-item admin-only hidden" data-page="admin">
+            🛠️ Dashboard
+          </button>
+          <button class="side-item admin-only hidden" data-page="analytics">
+            📊 Analytics
+          </button>
+        </nav>
+
+        <div class="side-footer">
+          <small class="muted">© OpenLearn</small>
+        </div>
+      </aside>
+
+      <main class="content">
+        <!-- Catalog -->
+        <section id="page-catalog" class="page visible">
+          <div class="controls">
+            <input id="searchInput" placeholder="Search courses…" />
+            <select id="filterLevel">
+              <option value="">All Levels</option>
+              <option>Beginner</option>
+              <option>Intermediate</option>
+              <option>Advanced</option>
+            </select>
+            <select id="filterCategory">
+              <option value="">All Categories</option>
+            </select>
+            <select id="sortBy">
+              <option value="title-asc">Title ↑</option>
+              <option value="title-desc">Title ↓</option>
+              <option value="rating-desc">Rating ↓</option>
+              <option value="price-asc">Price ↑</option>
+              <option value="price-desc">Price ↓</option>
+            </select>
           </div>
-          <table id="courseTable" class="table">
-            <thead>
-              <tr>
-                <th>Cover</th>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Level</th>
-                <th>Price</th>
-                <th>Rating</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-
-        <div id="tab-lessons" class="tabpane">
-          <div class="row">
-            <select id="lsCourseSelect"></select>
-            <button id="btnNewLesson" class="btn">＋ New Lesson</button>
-          </div>
-          <table id="lessonTable" class="table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Title</th>
-                <th>Type</th>
-                <th>Duration</th>
-                <th>Published</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-
-        <div id="tab-quizzes" class="tabpane">
-          <div class="row">
-            <select id="qzCourseSelect"></select>
-            <button id="btnNewQuiz" class="btn">＋ New Quiz</button>
-          </div>
-          <table id="quizTable" class="table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>#Q</th>
-                <th>Total</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-
-        <div id="tab-users" class="tabpane">
-          <table id="userTable" class="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Active</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+          <div id="courseGrid" class="grid"></div>
           <div class="pager">
-            <button id="usrPrev" class="btn">Prev</button>
-            <span id="usrInfo" class="muted"></span>
-            <button id="usrNext" class="btn">Next</button>
+            <button id="pgPrev" class="btn">Prev</button>
+            <span id="pgInfo" class="muted"></span>
+            <button id="pgNext" class="btn">Next</button>
           </div>
-        </div>
+        </section>
 
-        <div id="tab-assign" class="tabpane">
-          <div class="row">
-            <select id="asCourseSelect"></select>
-            <button id="btnNewAss" class="btn">＋ New Assignment</button>
+        <!-- Course detail -->
+        <section id="page-course" class="page">
+          <div id="courseHeader" class="course-header"></div>
+          <div class="course-body">
+            <aside class="syllabus">
+              <h4>Syllabus</h4>
+              <ol id="lessonList"></ol>
+            </aside>
+            <article id="lessonContent" class="lesson-content"></article>
+            <aside class="course-tools">
+              <div class="card">
+                <h4>Progress</h4>
+                <div id="progressBox" class="muted">-</div>
+                <button id="btnMarkComplete" class="btn">
+                  Mark lesson complete
+                </button>
+                <button id="btnCertificate" class="btn ghost">
+                  Get Certificate
+                </button>
+              </div>
+              <div class="card">
+                <h4>Discussion</h4>
+                <div id="comments"></div>
+                <form id="formComment" class="stack">
+                  <textarea
+                    id="commentText"
+                    placeholder="Write a comment…"
+                    rows="2"
+                  ></textarea>
+                  <button class="btn">Post</button>
+                </form>
+              </div>
+              <div class="card">
+                <h4>Assignments</h4>
+                <div id="assList"></div>
+                <form id="formSubmitAss" class="stack">
+                  <input id="assFile" type="file" />
+                  <button class="btn">Submit file</button>
+                </form>
+              </div>
+            </aside>
           </div>
-          <table id="assTable" class="table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Due</th>
-                <th>Max</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </section>
+        </section>
 
-      <!-- Analytics -->
-      <section id="page-analytics" class="page">
-        <h2>Analytics</h2>
-        <div class="grid2">
-          <div class="card">
-            <h4>Totals</h4>
-            <div id="anTotals" class="muted">-</div>
+        <!-- My Learning -->
+        <section id="page-mylearning" class="page">
+          <h2>My Learning</h2>
+          <div id="emptyMy" class="muted">You are not enrolled yet.</div>
+          <div id="myCourses" class="grid"></div>
+        </section>
+
+        <!-- Admin -->
+        <section id="page-admin" class="page">
+          <div class="tabs">
+            <button class="tab active" data-tab="courses">Courses</button>
+            <button class="tab" data-tab="lessons">Lessons</button>
+            <button class="tab" data-tab="quizzes">Quizzes</button>
+            <button class="tab" data-tab="users">Users</button>
+            <button class="tab" data-tab="assign">Assignments</button>
           </div>
-          <div class="card">
-            <h4>Recent Signups</h4>
-            <div id="anSignups" class="muted">-</div>
+
+          <div id="tab-courses" class="tabpane visible">
+            <div class="row">
+              <button id="btnNewCourse" class="btn">＋ New Course</button>
+              <button id="btnSeed" class="btn ghost">Load Demo Data</button>
+            </div>
+            <table id="courseTable" class="table">
+              <thead>
+                <tr>
+                  <th>Cover</th>
+                  <th>Title</th>
+                  <th>Category</th>
+                  <th>Level</th>
+                  <th>Price</th>
+                  <th>Rating</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
           </div>
-        </div>
-      </section>
-    </main>
+
+          <div id="tab-lessons" class="tabpane">
+            <div class="row">
+              <select id="lsCourseSelect"></select>
+              <button id="btnNewLesson" class="btn">＋ New Lesson</button>
+            </div>
+            <table id="lessonTable" class="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Duration</th>
+                  <th>Published</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div id="tab-quizzes" class="tabpane">
+            <div class="row">
+              <select id="qzCourseSelect"></select>
+              <button id="btnNewQuiz" class="btn">＋ New Quiz</button>
+            </div>
+            <table id="quizTable" class="table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>#Q</th>
+                  <th>Total</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div id="tab-users" class="tabpane">
+            <table id="userTable" class="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Active</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div class="pager">
+              <button id="usrPrev" class="btn">Prev</button>
+              <span id="usrInfo" class="muted"></span>
+              <button id="usrNext" class="btn">Next</button>
+            </div>
+          </div>
+
+          <div id="tab-assign" class="tabpane">
+            <div class="row">
+              <select id="asCourseSelect"></select>
+              <button id="btnNewAss" class="btn">＋ New Assignment</button>
+            </div>
+            <table id="assTable" class="table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Due</th>
+                  <th>Max</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Analytics -->
+        <section id="page-analytics" class="page">
+          <h2>Analytics</h2>
+          <div class="grid2">
+            <div class="card">
+              <h4>Totals</h4>
+              <div id="anTotals" class="muted">-</div>
+            </div>
+            <div class="card">
+              <h4>Recent Signups</h4>
+              <div id="anSignups" class="muted">-</div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
 
     <!-- Dialogs -->
     <dialog id="dlgLogin">
