@@ -22,7 +22,7 @@ import {
   limit,
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-/* Replace with YOUR Firebase web config */
+/* Replace with YOUR Firebase web config before enabling DB mode */
 const firebaseConfig = {
   apiKey: "AIzaSyBEkph2jnubq_FvZUcHOR2paKoOKhRaULg",
   authDomain: "openlearn-mm.firebaseapp.com",

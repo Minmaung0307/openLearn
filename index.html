@@ -1,185 +1,212 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OpenLearn — Coursera Lite Pro v2.3</title>
-  <link rel="stylesheet" href="./styles.css" />
-</head>
-<body>
-  <header class="topbar">
-    <div class="row left">
-      <button id="hamburger" class="btn ghost" aria-label="Toggle menu">☰</button>
-      <a href="./" class="brand">📘 OpenLearn</a>
-    </div>
-    <div class="top-search">
-      <input id="topSearch" type="search" placeholder="Search courses…" />
-      <button id="topSearchBtn" class="btn ghost" aria-label="Search">🔍</button>
-    </div>
-    <div class="row right">
-      <a id="btnSettings" class="btn ghost desktop-only" title="Settings">⚙️</a>
-      <a id="btnLogin" class="btn" href="./login.html">Login</a>
-      <a id="btnSignup" class="btn" href="./login.html#signup">Sign up</a>
-      <div id="userMenu" class="user-menu hidden">
-        <span id="userName"></span>
-        <button id="btnLogoutTop" class="btn ghost">Logout</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenLearn — Coursera Lite Pro v2.4</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="row left">
+        <button id="hamburger" class="btn ghost">☰</button>
+        <a href="./" class="brand">📘 OpenLearn</a>
       </div>
-      <button id="btnTopAdmin" class="btn admin-only">Admin</button>
-    </div>
-  </header>
-
-  <aside id="sidebar" class="sidebar" aria-label="Sidebar">
-    <nav class="side-nav">
-      <button class="side-item active" data-page="courses" data-label="Courses" aria-label="Courses">
-        <span class="ico">📚</span><span class="side-label">Courses</span>
-      </button>
-      <button class="side-item" data-page="mylearning" data-label="My Learning" aria-label="My Learning">
-        <span class="ico">🎒</span><span class="side-label">My Learning</span>
-      </button>
-      <button class="side-item" data-page="gradebook" data-label="Gradebook" aria-label="Gradebook">
-        <span class="ico">🧮</span><span class="side-label">Gradebook</span>
-      </button>
-
-      <div class="side-section-title" data-label="Admin"><span class="ico">🛡️</span><span class="side-label">Admin</span></div>
-      <div class="side-group" data-group="admin">
-        <button class="side-item" data-page="admin" data-label="Dashboard" aria-label="Admin">
-          <span class="ico">🛠️</span><span class="side-label">Dashboard</span>
-        </button>
-        <button class="side-item" data-page="analytics" data-label="Analytics" aria-label="Analytics">
-          <span class="ico">📊</span><span class="side-label">Analytics</span>
-        </button>
+      <div class="top-search" id="searchBox">
+        <input id="topSearch" type="search" placeholder="Search courses…" />
+        <button id="topSearchBtn" class="btn ghost">🔍</button>
       </div>
-
-      <div class="side-section-title" data-label="Personal"><span class="ico">👤</span><span class="side-label">Personal</span></div>
-      <div class="side-group" data-group="personal">
-        <button class="side-item" data-page="profile" data-label="Profile" aria-label="Profile">
-          <span class="ico">📇</span><span class="side-label">Profile</span>
-        </button>
-        <button class="side-item" data-page="settings" data-label="Settings" aria-label="Settings">
-          <span class="ico">⚙️</span><span class="side-label">Settings</span>
-        </button>
-      </div>
-    </nav>
-  </aside>
-
-  <main class="content">
-    <section id="page-catalog" class="page visible">
-      <div class="page-head">
-        <h2>Courses</h2>
-        <div class="row">
-          <button id="btnAddSample" class="btn primary">＋ Add sample data</button>
+      <div class="row right">
+        <a id="btnLogin" class="btn" href="./login.html">Login</a>
+        <a id="btnSignup" class="btn" href="./login.html#signup">Sign up</a>
+        <div id="userMenu" class="user-menu hidden">
+          <span id="userName"></span>
+          <button id="btnLogoutTop" class="btn ghost">Logout</button>
         </div>
       </div>
-      <div class="filters">
-        <select id="filterCategory"><option value="">All Categories</option></select>
-        <select id="filterLevel"><option value="">All Levels</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
-        <select id="sortBy"><option value="title-asc">Title ↑</option><option value="title-desc">Title ↓</option><option value="price-asc">Price ↑</option><option value="price-desc">Price ↓</option></select>
-      </div>
-      <div id="courseGrid" class="cards"></div>
-      <div class="pager">
-        <button id="pgPrev" class="btn">Prev</button><span id="pgInfo" class="muted">1</span><button id="pgNext" class="btn">Next</button>
-      </div>
-    </section>
+    </header>
 
-    <section id="page-course" class="page">
-      <div class="course-hero card">
-        <div class="meta">
-          <span class="badge" id="cCategory"></span>
-          <span class="badge" id="cLevel"></span>
-          <span class="badge" id="cCredits"></span>
-          <span class="badge" id="cPrice"></span>
-          <span class="badge" id="cRating"></span>
+    <aside id="sidebar" class="sidebar">
+      <nav class="side-nav">
+        <button
+          class="side-item active"
+          data-page="courses"
+          data-label="Courses"
+        >
+          <span class="ico">📚</span>
+        </button>
+        <button
+          class="side-item"
+          data-page="mylearning"
+          data-label="My Learning"
+        >
+          <span class="ico">📂</span>
+        </button>
+        <button class="side-item" data-page="gradebook" data-label="Gradebook">
+          <span class="ico">🧮</span>
+        </button>
+
+        <button class="side-section" data-toggle="admin" data-label="Admin">
+          <span class="ico">🛡️</span>
+        </button>
+        <div class="side-group collapsed" data-group="admin">
+          <button class="side-item" data-page="admin" data-label="Dashboard">
+            <span class="ico">🛠️</span>
+          </button>
+          <button
+            class="side-item"
+            data-page="analytics"
+            data-label="Analytics"
+          >
+            <span class="ico">📊</span>
+          </button>
         </div>
-        <h2 id="courseTitle">Course</h2>
-        <p id="courseSummary" class="muted"></p>
-        <div class="progress"><i id="progressFill" style="width:0%"></i></div>
-      </div>
-      <div class="course-layout">
-        <aside class="syllabus card">
-          <div class="row between"><h4>Syllabus</h4><button id="toggleSyllabus" class="btn ghost">☰</button></div>
-          <ol id="lessonList"></ol>
-        </aside>
-        <article id="lessonContent" class="lesson card"></article>
-        <aside class="tools">
-          <div class="card">
-            <h4>Actions</h4>
-            <div id="progressBox" class="muted">Progress: 0%</div>
-            <button id="btnMarkComplete" class="btn">Mark lesson complete</button>
-            <div class="row">
-              <button id="btnDownloadCertificate" class="btn">🎓 Certificate</button>
-              <button id="btnDownloadTranscript" class="btn ghost">📄 Transcript</button>
-            </div>
-          </div>
-        </aside>
-      </div>
-    </section>
 
-    <section id="page-mylearning" class="page">
-      <div class="page-head"><h2>My Learning</h2></div>
-      <div id="myCourses" class="cards"></div>
-    </section>
-
-    <section id="page-gradebook" class="page">
-      <div class="page-head"><h2>Gradebook</h2><div class="row"><select id="gbCourseSelect"></select><button id="gbRefresh" class="btn">Refresh</button></div></div>
-      <table class="table" id="gbTable"><thead><tr><th>Student</th><th>Course</th><th>Score</th><th>Credits</th><th>Progress</th><th>Last Activity</th></tr></thead><tbody></tbody></table>
-    </section>
-
-    <section id="page-admin" class="page">
-      <div class="page-head"><h2>Admin</h2><button id="btnNewCourse" class="btn">＋ New course</button></div>
-      <div class="card muted">Create/edit courses and manage content.</div>
-    </section>
-
-    <section id="page-analytics" class="page"><h2>Analytics</h2><div class="card muted">Charts & metrics…</div></section>
-
-    <section id="page-profile" class="page">
-      <h2>Profile</h2>
-      <div class="grid2">
-        <div class="card">
-          <h4>Student</h4>
-          <div id="pfEmail" class="muted">—</div>
-          <div id="pfStats">Courses: 0 • Credits: 0 • Avg score: 0</div>
+        <button
+          class="side-section"
+          data-toggle="personal"
+          data-label="Personal"
+        >
+          <span class="ico">👤</span>
+        </button>
+        <div class="side-group" data-group="personal">
+          <button class="side-item" data-page="profile" data-label="Profile">
+            <span class="ico">🙍</span>
+          </button>
+          <button class="side-item" data-page="settings" data-label="Settings">
+            <span class="ico">⚙️</span>
+          </button>
         </div>
-        <div class="card">
-          <h4>Certificates</h4>
-          <div class="muted">Download from course pages.</div>
-        </div>
-      </div>
-    </section>
+      </nav>
+    </aside>
 
-    <section id="page-settings" class="page">
-      <h2>Settings</h2>
-      <div class="grid2">
-        <div class="card"><h4>Theme</h4>
-          <select id="themeSelect">
-            <option value="dark">Dark (Default)</option><option value="light">Light</option><option value="ocean">Ocean</option>
-            <option value="forest">Forest</option><option value="grape">Grape</option><option value="solarized">Solarized</option>
-            <option value="rose">Rose</option><option value="bumblebee">Bumblebee</option>
+    <main class="content">
+      <!-- Courses -->
+      <section id="page-courses" class="page visible">
+        <div class="page-head">
+          <h2>Courses</h2>
+          <button id="btnAddSample" class="btn primary">
+            ＋ Add sample data
+          </button>
+        </div>
+        <div class="filters">
+          <select id="filterCategory">
+            <option value="">All Categories</option>
+          </select>
+          <select id="filterLevel">
+            <option value="">All Levels</option>
+          </select>
+          <select id="sortBy">
+            <option value="title-asc">Title ↑</option>
+            <option value="title-desc">Title ↓</option>
           </select>
         </div>
-        <div class="card"><h4>Font size</h4>
-          <select id="fontSelect"><option value="13">13 px</option><option value="14" selected>14 px</option><option value="15">15 px</option><option value="16">16 px</option><option value="17">17 px</option><option value="18">18 px</option></select>
-          <div class="muted" id="fontPreview">14 px</div>
-        </div>
-      </div>
-    </section>
-  </main>
+        <div id="courseGrid" class="cards"></div>
+      </section>
 
-  <!-- New Course Dialog -->
-  <dialog id="dlgCourse">
-    <form id="formCourse" method="dialog" class="stack big-form">
-      <h3 class="dlg-title">New Course</h3>
-      <input id="cTitle" placeholder="Title" required />
-      <input id="cCategory" placeholder="Category (e.g., Web, Data)" />
-      <select id="cLevel"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
-      <input id="cPrice" type="number" placeholder="Price (USD)" />
-      <input id="cCredits" type="number" placeholder="Credits (e.g., 3)" />
-      <textarea id="cSummary" placeholder="Short summary" rows="6"></textarea>
-      <menu class="row between"><button class="btn primary">Create</button><button type="button" class="btn ghost dlg-close">Close</button></menu>
-    </form>
-  </dialog>
+      <!-- My Learning -->
+      <section id="page-mylearning" class="page">
+        <h2>My Learning</h2>
+        <div id="myCourses" class="cards"></div>
+      </section>
 
-  <div id="toast"></div>
-  <script type="module" src="./firebase.js"></script>
-  <script type="module" src="./app.js"></script>
-</body>
+      <!-- Gradebook -->
+      <section id="page-gradebook" class="page">
+        <h2>Gradebook</h2>
+        <table class="table" id="gbTable">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Course</th>
+              <th>Progress</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- Admin -->
+      <section id="page-admin" class="page">
+        <h2>Admin Dashboard</h2>
+        <button id="btnNewCourse" class="btn">＋ New course</button>
+        <table class="table" id="adminTable">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Level</th>
+              <th>Rating</th>
+              <th>Hours</th>
+              <th>Price</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <!-- Analytics -->
+      <section id="page-analytics" class="page"><h2>Analytics</h2></section>
+
+      <!-- Profile -->
+      <section id="page-profile" class="page"><h2>Profile</h2></section>
+
+      <!-- Settings -->
+      <section id="page-settings" class="page">
+        <h2>Settings</h2>
+        <label
+          >Theme:
+          <select id="themeSelect">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select></label
+        >
+        <label
+          >Font size:
+          <select id="fontSelect">
+            <option value="14">14px</option>
+            <option value="16">16px</option>
+          </select></label
+        >
+      </section>
+    </main>
+
+    <!-- New Course Modal -->
+    <dialog id="dlgCourse">
+      <form id="formCourse" method="dialog" class="stack big-form">
+        <h3>New Course</h3>
+        <input id="cTitle" placeholder="Title" required />
+        <input id="cCategory" placeholder="Category" />
+        <select id="cLevel">
+          <option>Beginner</option>
+          <option>Intermediate</option>
+          <option>Advanced</option>
+        </select>
+        <input
+          id="cRating"
+          type="number"
+          step="0.1"
+          placeholder="Rating (4.5)"
+        />
+        <input id="cHours" type="number" placeholder="Hours" />
+        <input id="cPrice" type="number" placeholder="Price (USD)" />
+        <input id="cImg" placeholder="Image URL" />
+        <textarea id="cSummary" placeholder="Description"></textarea>
+        <menu class="row">
+          <button class="btn primary">Create</button>
+          <button type="button" class="btn ghost dlg-close">Close</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <footer>
+      <a href="#">Contact</a> • <a href="#">Guide</a> •
+      <a href="#">Privacy</a> • <a href="#">Policy</a>
+      <div class="social"><a href="#">FB</a> <a href="#">Twitter</a></div>
+    </footer>
+
+    <div id="toast"></div>
+    <script type="module" src="./firebase.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
 </html>
