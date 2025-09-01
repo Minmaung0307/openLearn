@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OpenLearn — Coursera Lite Pro v2.3</title>
+  <title>OpenLearn — Coursera Lite Pro v2.2.1</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -17,7 +17,7 @@
       <button id="topSearchBtn" class="btn ghost" aria-label="Search">🔍</button>
     </div>
     <div class="row right">
-      <a id="btnSettings" class="btn ghost desktop-only" title="Settings">⚙️</a>
+      <a id="btnSettings" class="btn ghost" title="Settings">⚙️</a>
       <a id="btnLogin" class="btn" href="./login.html">Login</a>
       <a id="btnSignup" class="btn" href="./login.html#signup">Sign up</a>
       <div id="userMenu" class="user-menu hidden">
@@ -31,17 +31,19 @@
   <aside id="sidebar" class="sidebar" aria-label="Sidebar">
     <nav class="side-nav">
       <button class="side-item active" data-page="courses" data-label="Courses" aria-label="Courses">
-        <span class="ico">📚</span><span class="side-label">Courses</span>
+        <span class="ico">🏠</span><span class="side-label">Courses</span>
       </button>
       <button class="side-item" data-page="mylearning" data-label="My Learning" aria-label="My Learning">
-        <span class="ico">🎒</span><span class="side-label">My Learning</span>
+        <span class="ico">📂</span><span class="side-label">My Learning</span>
       </button>
       <button class="side-item" data-page="gradebook" data-label="Gradebook" aria-label="Gradebook">
         <span class="ico">🧮</span><span class="side-label">Gradebook</span>
       </button>
 
-      <div class="side-section-title" data-label="Admin"><span class="ico">🛡️</span><span class="side-label">Admin</span></div>
-      <div class="side-group" data-group="admin">
+      <button class="side-section" data-toggle="admin" data-label="Admin">
+        <span class="ico">🛡️</span><span class="side-label">Admin</span>
+      </button>
+      <div class="side-group collapsed" data-group="admin">
         <button class="side-item" data-page="admin" data-label="Dashboard" aria-label="Admin">
           <span class="ico">🛠️</span><span class="side-label">Dashboard</span>
         </button>
@@ -50,11 +52,10 @@
         </button>
       </div>
 
-      <div class="side-section-title" data-label="Personal"><span class="ico">👤</span><span class="side-label">Personal</span></div>
+      <button class="side-section" data-toggle="personal" data-label="Personal">
+        <span class="ico">👤</span><span class="side-label">Personal</span>
+      </button>
       <div class="side-group" data-group="personal">
-        <button class="side-item" data-page="profile" data-label="Profile" aria-label="Profile">
-          <span class="ico">📇</span><span class="side-label">Profile</span>
-        </button>
         <button class="side-item" data-page="settings" data-label="Settings" aria-label="Settings">
           <span class="ico">⚙️</span><span class="side-label">Settings</span>
         </button>
@@ -83,16 +84,9 @@
 
     <section id="page-course" class="page">
       <div class="course-hero card">
-        <div class="meta">
-          <span class="badge" id="cCategory"></span>
-          <span class="badge" id="cLevel"></span>
-          <span class="badge" id="cCredits"></span>
-          <span class="badge" id="cPrice"></span>
-          <span class="badge" id="cRating"></span>
-        </div>
+        <div class="meta"><span class="badge" id="cCategory"></span><span class="badge" id="cLevel"></span><span class="badge" id="cPrice"></span></div>
         <h2 id="courseTitle">Course</h2>
         <p id="courseSummary" class="muted"></p>
-        <div class="progress"><i id="progressFill" style="width:0%"></i></div>
       </div>
       <div class="course-layout">
         <aside class="syllabus card">
@@ -102,13 +96,9 @@
         <article id="lessonContent" class="lesson card"></article>
         <aside class="tools">
           <div class="card">
-            <h4>Actions</h4>
-            <div id="progressBox" class="muted">Progress: 0%</div>
+            <h4>Progress</h4><div id="progressBox" class="muted">-</div>
             <button id="btnMarkComplete" class="btn">Mark lesson complete</button>
-            <div class="row">
-              <button id="btnDownloadCertificate" class="btn">🎓 Certificate</button>
-              <button id="btnDownloadTranscript" class="btn ghost">📄 Transcript</button>
-            </div>
+            <div class="row"><button id="btnDownloadCertificate" class="btn">🎓 Certificate</button><button id="btnDownloadTranscript" class="btn ghost">📄 Transcript</button></div>
           </div>
         </aside>
       </div>
@@ -121,7 +111,7 @@
 
     <section id="page-gradebook" class="page">
       <div class="page-head"><h2>Gradebook</h2><div class="row"><select id="gbCourseSelect"></select><button id="gbRefresh" class="btn">Refresh</button></div></div>
-      <table class="table" id="gbTable"><thead><tr><th>Student</th><th>Course</th><th>Score</th><th>Credits</th><th>Progress</th><th>Last Activity</th></tr></thead><tbody></tbody></table>
+      <table class="table" id="gbTable"><thead><tr><th>Student</th><th>Course</th><th>Progress</th><th>Last Activity</th></tr></thead><tbody></tbody></table>
     </section>
 
     <section id="page-admin" class="page">
@@ -130,21 +120,6 @@
     </section>
 
     <section id="page-analytics" class="page"><h2>Analytics</h2><div class="card muted">Charts & metrics…</div></section>
-
-    <section id="page-profile" class="page">
-      <h2>Profile</h2>
-      <div class="grid2">
-        <div class="card">
-          <h4>Student</h4>
-          <div id="pfEmail" class="muted">—</div>
-          <div id="pfStats">Courses: 0 • Credits: 0 • Avg score: 0</div>
-        </div>
-        <div class="card">
-          <h4>Certificates</h4>
-          <div class="muted">Download from course pages.</div>
-        </div>
-      </div>
-    </section>
 
     <section id="page-settings" class="page">
       <h2>Settings</h2>
@@ -167,14 +142,13 @@
   <!-- New Course Dialog -->
   <dialog id="dlgCourse">
     <form id="formCourse" method="dialog" class="stack big-form">
-      <h3 class="dlg-title">New Course</h3>
+      <h3>New Course</h3>
       <input id="cTitle" placeholder="Title" required />
       <input id="cCategory" placeholder="Category (e.g., Web, Data)" />
       <select id="cLevel"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
       <input id="cPrice" type="number" placeholder="Price (USD)" />
-      <input id="cCredits" type="number" placeholder="Credits (e.g., 3)" />
-      <textarea id="cSummary" placeholder="Short summary" rows="6"></textarea>
-      <menu class="row between"><button class="btn primary">Create</button><button type="button" class="btn ghost dlg-close">Close</button></menu>
+      <textarea id="cSummary" placeholder="Short summary" rows="5"></textarea>
+      <menu class="row"><button class="btn primary">Create</button><button type="button" class="btn ghost dlg-close">Close</button></menu>
     </form>
   </dialog>
 

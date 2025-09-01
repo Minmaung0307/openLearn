@@ -6,7 +6,7 @@ import {
 
 const $ = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
-const esc = (s)=> (s||"").replace(/[&<>\"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const esc = (s)=> (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 const toast=(m,ms=2200)=>{const t=$("#toast"); if(!t) return; t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), ms);};
 
 // palettes
@@ -31,7 +31,7 @@ function initThemeControls(){
   $("#btnSettings")?.addEventListener("click", ()=> showPage("settings"));
 }
 
-// Sidebar hover-expand (labels only when expanded)
+// Sidebar hover-expand + sections (labels only when expanded)
 function initSidebar(){
   const sb=$("#sidebar");
   const expand=()=>{ sb.classList.add("expanded"); document.body.classList.add("sidebar-expanded"); };
@@ -41,6 +41,14 @@ function initSidebar(){
     sb.addEventListener("mouseleave", collapse);
   }
   $("#hamburger")?.addEventListener("click", ()=> sb.classList.toggle("expanded"));
+  // Independent toggles (Admin/Personal) — do not hide Settings when Admin opens
+  $$("[data-toggle]").forEach(head=>{
+    head.addEventListener("click", ()=>{
+      const key=head.getAttribute("data-toggle");
+      const grp=$(`[data-group="${key}"]`);
+      grp?.classList.toggle("collapsed");
+    });
+  });
 }
 
 // Routing
@@ -49,7 +57,6 @@ function showPage(id){
   $$(".page").forEach(p=>p.classList.remove("visible"));
   $(`#page-${id}`)?.classList.add("visible");
   $$(".side-item").forEach(x=> x.classList.toggle("active",(PAGE_ALIAS[x.dataset.page]||x.dataset.page)===id));
-  if (id==="profile") renderProfile();
 }
 
 // Sidebar items
@@ -62,14 +69,13 @@ function bindSidebarNav(){
   });
 }
 
-// Auth state + logout (mobile-friendly: only login OR logout shown)
+// Auth state + logout
 let currentUser=null;
 function gateUI(){
-  const loggedIn=!!currentUser;
-  $("#btnLogin")?.classList.toggle("hidden", loggedIn);
-  $("#btnSignup")?.classList.toggle("hidden", loggedIn);
-  $("#userMenu")?.classList.toggle("hidden", !loggedIn);
-  $("#userName") && ($("#userName").textContent = loggedIn ? (currentUser.displayName || currentUser.email) : "");
+  $("#btnLogin")?.classList.toggle("hidden", !!currentUser);
+  $("#btnSignup")?.classList.toggle("hidden", !!currentUser);
+  $("#userMenu")?.classList.toggle("hidden", !currentUser);
+  $("#userName") && ($("#userName").textContent = currentUser ? (currentUser.displayName || currentUser.email) : "");
   $$(".admin-only").forEach(el=> el.classList.remove("hidden"));
   $("#btnTopAdmin")?.classList.remove("hidden");
   $("#btnTopAdmin")?.addEventListener("click", ()=> showPage("admin"));
@@ -95,18 +101,6 @@ function bindTopSearch(){
   $("#topSearch")?.addEventListener("keydown", e=>{ if(e.key==="Enter") doSearch(); });
 }
 
-/* ---------- DB probe to stop Firestore 400 spam ---------- */
-let USE_DB=true;
-async function probeDbOnce(){
-  try{
-    await getDocs(query(collection(db,"__ping"), limit(1)));
-    USE_DB=true;
-  }catch(e){
-    console.warn("Firestore disabled (using local fallback):", e?.code||e);
-    USE_DB=false;
-  }
-}
-
 /* ---------- Local fallback when Firestore writes fail ---------- */
 function getLocalCourses(){
   try{ return JSON.parse(localStorage.getItem("ol_local_courses")||"[]"); }catch{return [];}
@@ -115,33 +109,21 @@ function setLocalCourses(arr){
   localStorage.setItem("ol_local_courses", JSON.stringify(arr||[]));
 }
 async function safeAddCourse(payload){
-  if (!USE_DB){
-    const list=getLocalCourses(); const id="loc_"+Math.random().toString(36).slice(2,9);
-    list.push({id, ...payload}); setLocalCourses(list);
-    return {id, ...payload, __local:true};
-  }
   try{
     const ref=await addDoc(collection(db,"courses"), payload);
     return {id:ref.id, ...payload};
   }catch(e){
-    console.warn("Firestore add failed, falling back to local", e);
-    USE_DB=false;
+    console.warn("Firestore add failed, using local fallback", e);
     const list=getLocalCourses(); const id="loc_"+Math.random().toString(36).slice(2,9);
     list.push({id, ...payload}); setLocalCourses(list);
     return {id, ...payload, __local:true};
   }
 }
 async function fetchAllCourses(){
-  if (!USE_DB){
-    return getLocalCourses();
-  }
   try{
     const snap=await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
     if (snap.size>0) return snap.docs.map(d=>({id:d.id, ...d.data()}));
-  }catch(e){
-    console.warn("Fetch Firestore failed, fallback to local", e);
-    USE_DB=false;
-  }
+  }catch(e){ console.warn("Fetch Firestore failed, fallback to local", e); }
   return getLocalCourses();
 }
 /* --------------------------------------------------------------- */
@@ -156,14 +138,12 @@ async function renderCatalog(autofill=true){
     cats.add(c.category||"");
     const search=[c.title,c.summary,c.category,c.level].join(" ");
     const id=c.id;
-    const rating = c.rating || 4.6;
-    const stars = "★".repeat(Math.round(rating)) + "☆".repeat(5-Math.round(rating));
     return `<div class="card course" data-id="${id}" data-search="${esc(search)}">
       <img class="course-cover" src="${esc(c.cover||('https://picsum.photos/seed/'+id+'/640/360'))}" alt="cover">
       <div class="course-body">
         <div class="row between"><strong>${esc(c.title)}</strong><span class="badge">${esc(c.level||'')}</span></div>
         <div class="muted">${esc(c.summary||'')}</div>
-        <div class="row between"><span>${(c.price||0)>0? '$'+c.price : 'Free'} • ${stars} ${rating.toFixed(1)}</span><button class="btn" data-open="${id}">Open</button></div>
+        <div class="row between"><span>${(c.price||0)>0? '$'+c.price : 'Free'}</span><button class="btn" data-open="${id}">Open</button></div>
       </div>
     </div>`;
   }).join("") || `<div class="muted">No courses yet.</div>`;
@@ -216,15 +196,7 @@ async function openCourse(cid){
   $("#courseSummary").textContent=c.summary||"";
   $("#cCategory").textContent=c.category||"";
   $("#cLevel").textContent=c.level||"";
-  $("#cCredits").textContent=(c.credits||3)+" cr";
   $("#cPrice").textContent=(c.price||0)>0? '$'+c.price : 'Free';
-  const rating = c.rating || 4.6;
-  $("#cRating").textContent = `★ ${rating.toFixed(1)}`;
-
-  const prog = Math.min(100, Math.floor((c.progress||0)));
-  $("#progressFill").style.width = prog + "%";
-  $("#progressBox").textContent = "Progress: " + prog + "%";
-
   const list=$("#lessonList"); list.innerHTML="";
   const items=[
     {index:1,title:"Welcome & Overview",content:"Intro video placeholder"},
@@ -233,14 +205,10 @@ async function openCourse(cid){
   ];
   items.forEach(it=>{ const li=document.createElement("li"); li.textContent=`${it.index}. ${it.title}`; li.addEventListener("click", ()=> loadLesson(it)); list.appendChild(li); });
   loadLesson(items[0]);
-  $("#btnMarkComplete")?.addEventListener("click", ()=> { 
-    const cur = Math.min(100, (parseInt($("#progressFill").style.width)||0) + 10);
-    $("#progressFill").style.width = cur+"%"; $("#progressBox").textContent = "Progress: "+cur+"%"; 
-    toast("Marked complete"); 
-  });
+  $("#btnMarkComplete")?.addEventListener("click", ()=> toast("Marked complete"));
   $("#toggleSyllabus")?.addEventListener("click", ()=> $(".syllabus")?.classList.toggle("collapsed"));
-  $("#btnDownloadCertificate")?.addEventListener("click", ()=> downloadCertificate(c.title, rating, c.credits||3));
-  $("#btnDownloadTranscript")?.addEventListener("click", ()=> downloadTranscript(c.title, rating, c.credits||3));
+  $("#btnDownloadCertificate")?.addEventListener("click", ()=> downloadCertificate(c.title));
+  $("#btnDownloadTranscript")?.addEventListener("click", ()=> downloadTranscript(c.title));
 }
 function loadLesson(it){
   $("#lessonContent").innerHTML = `<h3>${esc(it.title)}</h3>
@@ -261,9 +229,6 @@ function bindAdmin(){
         category: $("#cCategory").value.trim(),
         level: $("#cLevel").value,
         price: Number($("#cPrice").value||0),
-        credits: Number($("#cCredits").value||3),
-        rating: 4.6,
-        progress: 0,
         summary: $("#cSummary").value.trim(),
         createdAt: Date.now()
       };
@@ -277,16 +242,16 @@ function bindAdmin(){
 }
 async function addSamples(alot=false){
   const base=[
-    {title:"JavaScript Essentials",category:"Web",level:"Beginner",price:0,credits:3,rating:4.7,summary:"Start JavaScript from zero."},
-    {title:"React Fast-Track",category:"Web",level:"Intermediate",price:49,credits:2,rating:4.6,summary:"Build modern UIs."},
-    {title:"Advanced React Patterns",category:"Web",level:"Advanced",price:69,credits:2,rating:4.5,summary:"Hooks, contexts, performance."},
-    {title:"Data Analysis with Python",category:"Data",level:"Intermediate",price:79,credits:3,rating:4.8,summary:"Pandas & plots."},
-    {title:"Intro to Machine Learning",category:"Data",level:"Beginner",price:59,credits:3,rating:4.7,summary:"Supervised, unsupervised."},
-    {title:"Cloud Fundamentals",category:"Cloud",level:"Beginner",price:29,credits:2,rating:4.6,summary:"AWS/GCP basics."},
-    {title:"DevOps CI/CD",category:"Cloud",level:"Intermediate",price:69,credits:3,rating:4.6,summary:"Pipelines, Docker, K8s."}
+    {title:"JavaScript Essentials",category:"Web",level:"Beginner",price:0,summary:"Start JavaScript from zero."},
+    {title:"React Fast-Track",category:"Web",level:"Intermediate",price:49,summary:"Build modern UIs."},
+    {title:"Advanced React Patterns",category:"Web",level:"Advanced",price:69,summary:"Hooks, contexts, performance."},
+    {title:"Data Analysis with Python",category:"Data",level:"Intermediate",price:79,summary:"Pandas & plots."},
+    {title:"Intro to Machine Learning",category:"Data",level:"Beginner",price:59,summary:"Supervised, unsupervised."},
+    {title:"Cloud Fundamentals",category:"Cloud",level:"Beginner",price:29,summary:"AWS/GCP basics."},
+    {title:"DevOps CI/CD",category:"Cloud",level:"Intermediate",price:69,summary:"Pipelines, Docker, K8s."}
   ];
-  const many = alot ? base : base.slice(0,7);
-  for(const c of many){ await safeAddCourse({...c, createdAt: Date.now(), progress: 0}); }
+  const many = alot ? base.concat(base.map(s=>({...s,title:s.title+" II"}))) : base;
+  for(const c of many){ await safeAddCourse({...c, createdAt: Date.now()}); }
   toast("Sample courses added"); await renderCatalog(false); renderMyLearning(); renderGradebook();
 }
 
@@ -296,11 +261,8 @@ async function renderMyLearning(){
   const cs = await fetchAllCourses();
   const cards = cs.slice(0, 6).map(c=>{
     const id=c.id;
-    const rating = c.rating || 4.6;
     return `<div class="card course"><img class="course-cover" src="${esc(c.cover||'https://picsum.photos/seed/'+id+'/640/360')}" alt=""><div class="course-body">
-      <strong>${esc(c.title)}</strong><div class="muted">${esc(c.summary||'')}</div>
-      <div class="row between"><span>★ ${rating.toFixed(1)} • ${c.credits||3} cr</span><button class="btn" data-open="${id}">Continue</button></div>
-      </div></div>`;
+      <strong>${esc(c.title)}</strong><div class="muted">${esc(c.summary||'')}</div><button class="btn" data-open="${id}">Continue</button></div></div>`;
   }).join("") || `<div class="muted">No enrollments yet. Browse Courses.</div>`;
   grid.innerHTML = cards;
   grid.querySelectorAll("[data-open]")?.forEach(b=> b.addEventListener("click", ()=> openCourse(b.getAttribute("data-open")) ));
@@ -313,47 +275,37 @@ async function renderGradebook(){
   sel.innerHTML = cs.map(c=>`<option value="${c.id}">${esc(c.title)}</option>`).join("") || "";
   const courseName = sel.options[sel.selectedIndex]?.text || "—";
   const rows=[
-    {student:"alice@example.com", course:courseName, score:"89%", credits:3, progress:"3/12", activity:"Today"},
-    {student:"bob@example.com", course:courseName, score:"78%", credits:2, progress:"7/12", activity:"Yesterday"},
-    {student:"charlie@example.com", course:courseName, score:"92%", credits:3, progress:"1/12", activity:"3 days ago"}
+    {student:"alice@example.com", course:courseName, progress:"3/12", activity:"Today"},
+    {student:"bob@example.com", course:courseName, progress:"7/12", activity:"Yesterday"},
+    {student:"charlie@example.com", course:courseName, progress:"1/12", activity:"3 days ago"}
   ];
-  tbody.innerHTML = rows.map(r=>`<tr><td>${esc(r.student)}</td><td>${esc(r.course)}</td><td>${esc(r.score)}</td><td>${esc(r.credits)}</td><td>${esc(r.progress)}</td><td>${esc(r.activity)}</td></tr>`).join("");
+  tbody.innerHTML = rows.map(r=>`<tr><td>${esc(r.student)}</td><td>${esc(r.course)}</td><td>${esc(r.progress)}</td><td>${esc(r.activity)}</td></tr>`).join("");
 }
 $("#gbCourseSelect")?.addEventListener("change", renderGradebook);
 $("#gbRefresh")?.addEventListener("click", renderGradebook);
 
-// Certificate & transcript (with rating/credits)
-function downloadCertificate(courseTitle, rating=4.6, credits=3){
+// Certificate & transcript
+function downloadCertificate(courseTitle){
   const name=(currentUser?.displayName||currentUser?.email||"Student");
   const date=new Date().toLocaleDateString();
   const c=document.createElement('canvas'); c.width=1400; c.height=900; const ctx=c.getContext('2d');
   const css=getComputedStyle(document.documentElement);
   ctx.fillStyle=css.getPropertyValue('--card')||'#fff'; ctx.fillRect(0,0,c.width,c.height);
-  ctx.strokeStyle=css.getPropertyValue('--accent')||'#000'; ctx.lineWidth=10; ctx.strokeRect(20,20,c.width-40,c.height-40);
+  ctx.strokeStyle=css.getPropertyValue('--accent')||'#000'; ctx.lineWidth=10; ctx.strokeRect(20,20,c.width,c.height);
   ctx.fillStyle=css.getPropertyValue('--fg')||'#000';
-  ctx.font='54px serif'; ctx.fillText('Certificate of Completion', 360, 170);
-  ctx.font='36px serif'; ctx.fillText('Awarded to', 600, 260);
-  ctx.font='64px serif'; ctx.fillText(name, 420, 350);
-  ctx.font='32px serif'; ctx.fillText('for completing the course', 460, 410);
-  ctx.font='44px serif'; ctx.fillText(courseTitle, 420, 470);
-  ctx.font='28px serif'; ctx.fillText('Credits: '+credits+'  •  Rating: '+rating.toFixed(1)+' ★', 420, 520);
-  ctx.font='28px serif'; ctx.fillText('Date: '+date, 420, 570);
+  ctx.font='48px serif'; ctx.fillText('Certificate of Completion', 380, 170);
+  ctx.font='36px serif'; ctx.fillText('This certifies that', 560, 260);
+  ctx.font='64px serif'; ctx.fillText(name, 420, 360);
+  ctx.font='32px serif'; ctx.fillText('has successfully completed the course', 460, 420);
+  ctx.font='44px serif'; ctx.fillText(courseTitle, 420, 480);
+  ctx.font='28px serif'; ctx.fillText('Date: '+date, 420, 560);
   const a=document.createElement('a'); a.download=`certificate_${courseTitle.replace(/\s+/g,'_')}.png`; a.href=c.toDataURL('image/png'); a.click();
 }
-function downloadTranscript(courseTitle, rating=4.6, credits=3){
+function downloadTranscript(courseTitle){
   const name=(currentUser?.displayName||currentUser?.email||'Student');
-  const rows=[['Name','Course','Credits','Rating','Score','Progress'],
-              [name, courseTitle, String(credits), rating.toFixed(1), 'A (90-100)', '100%']];
+  const rows=[['Name','Course','Credits','Grade'], [name, courseTitle, '3.0','A']];
   const csv = rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='transcript.csv'; a.click();
-}
-
-// Profile page
-function renderProfile(){
-  $("#pfEmail").textContent = currentUser?.email||"—";
-  const cs=getLocalCourses();
-  const stats = { count: cs.length, credits: cs.reduce((a,c)=>a+(c.credits||3),0), avg: (cs.reduce((a,c)=>a+(c.rating||4.6),0)/(cs.length||1)).toFixed(1)};
-  $("#pfStats").textContent = `Courses: ${stats.count} • Credits: ${stats.credits} • Avg score: ${stats.avg}`;
 }
 
 // Boot
@@ -361,5 +313,5 @@ onAuthStateChanged(auth, u=>{ currentUser=u||null; gateUI(); });
 document.addEventListener("DOMContentLoaded", async ()=>{
   initThemeControls(); initSidebar(); bindSidebarNav(); bindAdmin(); bindTopSearch();
   showPage("catalog");
-  try{ await probeDbOnce(); await renderCatalog(); await renderMyLearning(); await renderGradebook(); renderProfile(); }catch(e){ console.warn('boot', e); }
+  try{ await renderCatalog(); await renderMyLearning(); await renderGradebook(); }catch(e){ console.warn('boot', e); }
 });
