@@ -4,8 +4,10 @@ const $ = (s,root=document)=>root.querySelector(s);
 const toast=(m,ms=2200)=>{let t=$("#toast"); if(!t){ t=document.createElement("div"); t.id="toast"; document.body.appendChild(t);} t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), ms); };
 
 function show(card){ ["form","signup","forgot"].forEach(k=> document.getElementById(k+"Card")?.classList.add("hidden")); document.getElementById(card+"Card")?.classList.remove("hidden"); }
-function route(){ if (location.hash==="#signup") show("signup"); else show("form"); }
+function route(){ if (location.hash==="#signup") show("signup"); else if (location.hash==="#forgot") show("forgot"); else show("form"); }
 window.addEventListener("hashchange", route); route();
+
+document.getElementById("lnkForgot")?.addEventListener("click",(e)=>{e.preventDefault(); location.hash="#forgot";});
 
 document.getElementById("formLogin")?.addEventListener("submit", async (e)=>{
   e.preventDefault();

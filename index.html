@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OpenLearn — Coursera Lite Pro</title>
+  <title>OpenLearn — Coursera Lite Pro v2.1</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -24,7 +24,7 @@
         <span id="userName"></span>
         <button id="btnLogoutTop" class="btn ghost">Logout</button>
       </div>
-      <button id="btnTopAdmin" class="btn admin-only hidden">Admin</button>
+      <button id="btnTopAdmin" class="btn admin-only">Admin</button>
     </div>
   </header>
 
@@ -44,10 +44,10 @@
         <span class="ico">🛡️</span><span class="side-label">Admin</span>
       </button>
       <div class="side-group collapsed" data-group="admin">
-        <button class="side-item admin-only hidden" data-page="admin" data-label="Dashboard" aria-label="Admin">
+        <button class="side-item" data-page="admin" data-label="Dashboard" aria-label="Admin">
           <span class="ico">🛠️</span><span class="side-label">Dashboard</span>
         </button>
-        <button class="side-item admin-only hidden" data-page="analytics" data-label="Analytics" aria-label="Analytics">
+        <button class="side-item" data-page="analytics" data-label="Analytics" aria-label="Analytics">
           <span class="ico">📊</span><span class="side-label">Analytics</span>
         </button>
       </div>
@@ -68,7 +68,7 @@
       <div class="page-head">
         <h2>Courses</h2>
         <div class="row">
-          <button id="btnAddSample" class="btn ghost">＋ Add sample data</button>
+          <button id="btnAddSample" class="btn primary">＋ Add sample data</button>
         </div>
       </div>
       <div class="filters">

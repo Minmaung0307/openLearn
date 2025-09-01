@@ -31,26 +31,22 @@ function initThemeControls(){
   $("#btnSettings")?.addEventListener("click", ()=> showPage("settings"));
 }
 
-// Sidebar hover-expand + sections
+// Sidebar hover-expand + sections (no click needed to read labels)
 function initSidebar(){
   const sb=$("#sidebar");
   const expand=()=>{ sb.classList.add("expanded"); document.body.classList.add("sidebar-expanded"); };
   const collapse=()=>{ sb.classList.remove("expanded"); document.body.classList.remove("sidebar-expanded"); };
-  // Desktop hover expand
   if (window.matchMedia("(min-width:1025px)").matches){
     sb.addEventListener("mouseenter", expand);
     sb.addEventListener("mouseleave", collapse);
   }
-  // Mobile toggle
   $("#hamburger")?.addEventListener("click", ()=> sb.classList.toggle("expanded"));
-  // Sections
+  // Sections: clicking a section shows only that group
   $$("[data-toggle]").forEach(head=>{
     head.addEventListener("click", ()=>{
       const key=head.getAttribute("data-toggle");
-      // rule: clicking a section shows only its group (personal/admin)
       $$("[data-group]").forEach(g=> g.classList.add("collapsed"));
-      const grp=$(`[data-group="${key}"]`);
-      grp?.classList.remove("collapsed");
+      const grp=$(`[data-group="${key}"]`); grp?.classList.remove("collapsed");
     });
   });
 }
@@ -69,21 +65,21 @@ function bindSidebarNav(){
     btn.addEventListener("click", ()=>{
       const id=PAGE_ALIAS[btn.dataset.page]||btn.dataset.page;
       showPage(id);
+      if (id==="admin") { /* keep settings icon visible */ }
     });
   });
 }
 
-// Auth state + admin gate
+// Auth state (Admin menu visible for demo regardless of login)
 let currentUser=null;
-const STAFF_EMAILS=["admin@openlearn.local"];
 function gateUI(){
   $("#btnLogin")?.classList.toggle("hidden", !!currentUser);
   $("#btnSignup")?.classList.toggle("hidden", !!currentUser);
   $("#userMenu")?.classList.toggle("hidden", !currentUser);
   $("#userName") && ($("#userName").textContent = currentUser ? (currentUser.displayName || currentUser.email) : "");
-  const isStaff = !!(currentUser && STAFF_EMAILS.includes(currentUser.email));
-  $$(".admin-only").forEach(el=> el.classList.toggle("hidden", !isStaff));
-  $("#btnTopAdmin")?.classList.toggle("hidden", !isStaff);
+  // Admin button always visible in this demo build
+  $$(".admin-only").forEach(el=> el.classList.remove("hidden"));
+  $("#btnTopAdmin")?.classList.remove("hidden");
   $("#btnTopAdmin")?.addEventListener("click", ()=> showPage("admin"));
 }
 onAuthStateChanged(auth, u=>{ currentUser=u||null; gateUI(); });
@@ -102,21 +98,49 @@ function bindTopSearch(){
   $("#topSearch")?.addEventListener("keydown", e=>{ if(e.key==="Enter") doSearch(); });
 }
 
+/* ---------- Local fallback when Firestore writes fail ---------- */
+function getLocalCourses(){
+  try{ return JSON.parse(localStorage.getItem("ol_local_courses")||"[]"); }catch{return [];}
+}
+function setLocalCourses(arr){
+  localStorage.setItem("ol_local_courses", JSON.stringify(arr||[]));
+}
+async function safeAddCourse(payload){
+  try{
+    const ref=await addDoc(collection(db,"courses"), payload);
+    return {id:ref.id, ...payload};
+  }catch(e){
+    console.warn("Firestore add failed, using local fallback", e);
+    const list=getLocalCourses(); const id="loc_"+Math.random().toString(36).slice(2,9);
+    list.push({id, ...payload}); setLocalCourses(list);
+    return {id, ...payload, __local:true};
+  }
+}
+async function fetchAllCourses(){
+  try{
+    const snap=await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
+    if (snap.size>0) return snap.docs.map(d=>({id:d.id, ...d.data()}));
+  }catch(e){ console.warn("Fetch Firestore failed, fallback to local", e); }
+  return getLocalCourses();
+}
+/* --------------------------------------------------------------- */
+
 // Catalog render + sample autocreate
 async function renderCatalog(autofill=true){
   const grid=$("#courseGrid"); if (!grid) return;
-  const snap = await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
-  if (autofill && snap.size===0){ await addSamples(true); return renderCatalog(false); }
+  let list = await fetchAllCourses();
+  if (autofill && list.length===0){ await addSamples(true); list = await fetchAllCourses(); }
   const cats=new Set();
-  const html = snap.docs.map(d=>{
-    const c=d.data(); cats.add(c.category||"");
+  const html = list.map(c=>{
+    cats.add(c.category||"");
     const search=[c.title,c.summary,c.category,c.level].join(" ");
-    return `<div class="card course" data-id="${d.id}" data-search="${esc(search)}">
-      <img class="course-cover" src="${esc(c.cover||('https://picsum.photos/seed/'+d.id+'/640/360'))}" alt="cover">
+    const id=c.id;
+    return `<div class="card course" data-id="${id}" data-search="${esc(search)}">
+      <img class="course-cover" src="${esc(c.cover||('https://picsum.photos/seed/'+id+'/640/360'))}" alt="cover">
       <div class="course-body">
         <div class="row between"><strong>${esc(c.title)}</strong><span class="badge">${esc(c.level||'')}</span></div>
         <div class="muted">${esc(c.summary||'')}</div>
-        <div class="row between"><span>${(c.price||0)>0? '$'+c.price : 'Free'}</span><button class="btn" data-open="${d.id}">Open</button></div>
+        <div class="row between"><span>${(c.price||0)>0? '$'+c.price : 'Free'}</span><button class="btn" data-open="${id}">Open</button></div>
       </div>
     </div>`;
   }).join("") || `<div class="muted">No courses yet.</div>`;
@@ -155,25 +179,28 @@ async function renderCatalog(autofill=true){
   document.querySelectorAll("[data-open]").forEach(b=> b.addEventListener("click", ()=> openCourse(b.getAttribute("data-open")) ));
 }
 
-// Course page
+// Course page (supports local-fallback id)
 async function openCourse(cid){
   showPage("course");
-  const d=await getDoc(doc(db,"courses",cid));
-  if(!d.exists()){ toast("Course not found"); return; }
-  const c=d.data();
+  let c=null;
+  if (cid.startsWith("loc_")){
+    c = getLocalCourses().find(x=>x.id===cid);
+  }else{
+    try{ const d=await getDoc(doc(db,"courses",cid)); if(d.exists()) c=d.data(); }catch(e){ console.warn(e); }
+  }
+  if(!c){ toast("Course not found"); return; }
   $("#courseTitle").textContent=c.title||"Course";
   $("#courseSummary").textContent=c.summary||"";
   $("#cCategory").textContent=c.category||"";
   $("#cLevel").textContent=c.level||"";
   $("#cPrice").textContent=(c.price||0)>0? '$'+c.price : 'Free';
   const list=$("#lessonList"); list.innerHTML="";
-  const ls=await getDocs(query(collection(db,"lessons"), where("courseId","==",cid), orderBy("index","asc"), limit(200)));
-  let items=ls.docs.map(x=>x.data());
-  if(items.length===0){ items=[
+  // simple demo syllabus if none
+  const items=[
     {index:1,title:"Welcome & Overview",content:"Intro video placeholder"},
     {index:2,title:"Module 1 — Basics",content:"Slides / video"},
     {index:3,title:"Quiz 1",content:"5 questions"}
-  ];}
+  ];
   items.forEach(it=>{ const li=document.createElement("li"); li.textContent=`${it.index}. ${it.title}`; li.addEventListener("click", ()=> loadLesson(it)); list.appendChild(li); });
   loadLesson(items[0]);
   $("#btnMarkComplete")?.addEventListener("click", ()=> toast("Marked complete"));
@@ -195,22 +222,24 @@ function bindAdmin(){
     e.preventDefault();
     try{
       const payload={
+        id: undefined,
         title: $("#cTitle").value.trim(),
         category: $("#cCategory").value.trim(),
         level: $("#cLevel").value,
         price: Number($("#cPrice").value||0),
         summary: $("#cSummary").value.trim(),
-        createdAt: serverTimestamp()
+        createdAt: Date.now()
       };
-      const ref=await addDoc(collection(db,"courses"), payload);
+      const obj=await safeAddCourse(payload);
       toast("Course created"); $("#dlgCourse").close();
-      await renderCatalog(false); openCourse(ref.id);
+      await renderCatalog(false); openCourse(obj.id);
+      renderMyLearning(); renderGradebook();
     }catch(err){ console.error(err); toast(err.code||"Create failed"); }
   });
   $("#btnAddSample")?.addEventListener("click", ()=> addSamples(true));
 }
 async function addSamples(alot=false){
-  const samples=[
+  const base=[
     {title:"JavaScript Essentials",category:"Web",level:"Beginner",price:0,summary:"Start JavaScript from zero."},
     {title:"React Fast-Track",category:"Web",level:"Intermediate",price:49,summary:"Build modern UIs."},
     {title:"Advanced React Patterns",category:"Web",level:"Advanced",price:69,summary:"Hooks, contexts, performance."},
@@ -219,19 +248,19 @@ async function addSamples(alot=false){
     {title:"Cloud Fundamentals",category:"Cloud",level:"Beginner",price:29,summary:"AWS/GCP basics."},
     {title:"DevOps CI/CD",category:"Cloud",level:"Intermediate",price:69,summary:"Pipelines, Docker, K8s."}
   ];
-  const many = alot ? samples.concat(samples.map(s=>({...s,title:s.title+" II"}))) : samples;
-  for(const c of many){ await addDoc(collection(db,"courses"), {...c, createdAt:serverTimestamp()}); }
-  toast("Sample courses added"); renderCatalog(false); renderMyLearning(); renderGradebook();
+  const many = alot ? base.concat(base.map(s=>({...s,title:s.title+" II"}))) : base;
+  for(const c of many){ await safeAddCourse({...c, createdAt: Date.now()}); }
+  toast("Sample courses added"); await renderCatalog(false); renderMyLearning(); renderGradebook();
 }
 
-// My Learning (demo: if no enrollments, take first 3 courses as enrolled)
+// My Learning: take first 6 available
 async function renderMyLearning(){
   const grid=$("#myCourses"); if (!grid) return;
-  const cs = await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
-  const cards = cs.docs.slice(0, 6).map(d=>{
-    const c=d.data();
-    return `<div class="card course"><img class="course-cover" src="${esc(c.cover||'https://picsum.photos/seed/'+d.id+'/640/360')}" alt=""><div class="course-body">
-      <strong>${esc(c.title)}</strong><div class="muted">${esc(c.summary||'')}</div><button class="btn" data-open="${d.id}">Continue</button></div></div>`;
+  const cs = await fetchAllCourses();
+  const cards = cs.slice(0, 6).map(c=>{
+    const id=c.id;
+    return `<div class="card course"><img class="course-cover" src="${esc(c.cover||'https://picsum.photos/seed/'+id+'/640/360')}" alt=""><div class="course-body">
+      <strong>${esc(c.title)}</strong><div class="muted">${esc(c.summary||'')}</div><button class="btn" data-open="${id}">Continue</button></div></div>`;
   }).join("") || `<div class="muted">No enrollments yet. Browse Courses.</div>`;
   grid.innerHTML = cards;
   grid.querySelectorAll("[data-open]")?.forEach(b=> b.addEventListener("click", ()=> openCourse(b.getAttribute("data-open")) ));
@@ -240,8 +269,8 @@ async function renderMyLearning(){
 // Gradebook sample rows
 async function renderGradebook(){
   const sel=$("#gbCourseSelect"); const tbody=$("#gbTable tbody");
-  const cs = await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
-  sel.innerHTML = cs.docs.map(d=>`<option value="${d.id}">${esc(d.data().title)}</option>`).join("") || "";
+  const cs = await fetchAllCourses();
+  sel.innerHTML = cs.map(c=>`<option value="${c.id}">${esc(c.title)}</option>`).join("") || "";
   const courseName = sel.options[sel.selectedIndex]?.text || "—";
   const rows=[
     {student:"alice@example.com", course:courseName, progress:"3/12", activity:"Today"},

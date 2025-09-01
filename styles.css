@@ -28,11 +28,17 @@ a:hover{text-decoration:underline}
 .sidebar{position:fixed;left:0;top:58px;bottom:0;width:var(--sbw);background:var(--card);border-right:1px solid var(--border);transition:width .18s ease;z-index:40}
 .sidebar.expanded{width:var(--sbwExpanded)}
 .side-nav{padding:6px}
-.side-item,.side-section{display:flex;align-items:center;gap:10px;width:100%;text-align:left;margin:4px 0;padding:.7rem .6rem;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--fg);cursor:pointer;white-space:nowrap}
+.side-item,.side-section{position:relative;display:flex;align-items:center;gap:10px;width:100%;text-align:left;margin:4px 0;padding:.7rem .6rem;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--fg);cursor:pointer;white-space:nowrap}
 .side-item:hover,.side-section:hover{background:var(--hoverBg)}
 .side-item.active{border-color:var(--border);outline:2px solid color-mix(in oklab, var(--accent) 40%, transparent)}
-.sidebar.collapsed .side-label{display:none}
 .sidebar .ico{font-size:1.5rem;width:1.8rem;text-align:center}
+/* Tooltip labels when collapsed (no click needed) */
+.sidebar:not(.expanded) .side-item:hover::after,
+.sidebar:not(.expanded) .side-section:hover::after{
+  content: attr(data-label);
+  position:absolute; left:calc(100% + 8px); top:50%; transform:translateY(-50%);
+  background:var(--card); border:1px solid var(--border); padding:.35rem .5rem; border-radius:8px; box-shadow:0 6px 18px #0006;
+}
 .side-group{padding-left:6px;transition:max-height .18s ease;overflow:hidden}
 .side-group.collapsed{max-height:0}
 .side-group:not(.collapsed){max-height:600px}
@@ -40,6 +46,11 @@ a:hover{text-decoration:underline}
 /* Content keeps clear of sidebar width */
 .content{margin-left:var(--sbw);padding:14px;margin-top:58px;transition:margin-left .18s ease}
 body.sidebar-expanded .content{margin-left:var(--sbwExpanded)}
+
+/* Filters full-width */
+.filters{display:flex;gap:10px;margin:10px 0}
+.filters select{flex:1}
+@media(max-width:720px){.filters{flex-direction:column} .filters select{width:100%}}
 
 /* Cards & layout */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
