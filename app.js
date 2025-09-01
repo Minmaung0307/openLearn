@@ -1,10 +1,14 @@
 // OpenLearn Pro v2 — app.js
 import {
-  ADMIN_KEY, BOOTSTRAP_ADMINS, app, auth, db, storage,
+  // ADMIN_KEY, BOOTSTRAP_ADMINS, 
+  app, auth, db, storage,
   onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile,
   doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection, query, where, orderBy, limit, startAfter, getDocs, serverTimestamp,
   ref, uploadBytesResumable, getDownloadURL
 } from "./v1/firebase.js";
+
+const ADMIN_KEY = (window.ADMIN_KEY ?? "ADMIN2025");
+const BOOTSTRAP_ADMINS = (window.BOOTSTRAP_ADMINS ?? ["admin@openlearn.local"]);
 
 // ===== Utils =====
 const $ = (sel, root=document)=>root.querySelector(sel);
