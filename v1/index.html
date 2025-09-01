@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OpenLearn Pro — Mini LMS (Firebase)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Zm1 14.93V20h-2v-3.07A8.015 8.015 0 0 1 4.07 13H1v-2h3.07A8.015 8.015 0 0 1 11 4.07V1h2v3.07A8.015 8.015 0 0 1 19.93 11H23v2h-3.07A8.015 8.015 0 0 1 13 16.93ZM12 8a4 4 0 1 0 4 4 4.005 4.005 0 0 0-4-4Z"/></svg>
+      <span>OpenLearn Pro</span>
+    </div>
+    <div class="search-wrap">
+      <input id="searchInput" type="search" placeholder="သင်တန်း ရှာဖွေပါ..." />
+    </div>
+    <nav class="actions">
+      <button id="btnLogin" class="btn ghost">Login</button>
+      <button id="btnSignup" class="btn primary">Sign Up</button>
+      <div id="userMenu" class="user-menu hidden">
+        <span id="userName"></span>
+        <button id="btnLogout" class="btn danger">Logout</button>
+      </div>
+      <button id="btnDark" class="btn ghost" title="Dark Mode">🌓</button>
+    </nav>
+  </header>
+
+  <aside class="sidebar">
+    <button data-page="catalog" class="navlink active">📚 Courses</button>
+    <button data-page="course" class="navlink hidden" id="navCourse">📖 Course</button>
+    <button data-page="mylearning" class="navlink">🎒 My Learning</button>
+    <button data-page="gradebook" class="navlink instructor-only hidden">📊 Gradebook</button>
+    <button data-page="admin" class="navlink admin-only hidden">🛠️ Admin</button>
+    <button data-page="settings" class="navlink">⚙️ Settings</button>
+  </aside>
+
+  <main class="content">
+    <!-- Catalog -->
+    <section id="page-catalog" class="page visible">
+      <div class="toolbar">
+        <select id="filterLevel">
+          <option value="">All Levels</option>
+          <option>Beginner</option>
+          <option>Intermediate</option>
+          <option>Advanced</option>
+        </select>
+        <select id="filterCategory">
+          <option value="">All Categories</option>
+        </select>
+        <select id="sortBy">
+          <option value="title-asc">Title (A→Z)</option>
+          <option value="title-desc">Title (Z→A)</option>
+          <option value="price-asc">Price (Low→High)</option>
+          <option value="price-desc">Price (High→Low)</option>
+          <option value="rating-desc">Rating (High→Low)</option>
+        </select>
+      </div>
+      <div id="courseGrid" class="grid"></div>
+      <div class="pager">
+        <button id="pgPrev" class="btn ghost">Prev</button>
+        <span id="pgInfo" class="muted"></span>
+        <button id="pgNext" class="btn ghost">Next</button>
+      </div>
+    </section>
+
+    <!-- Course Detail / Syllabus -->
+    <section id="page-course" class="page">
+      <div id="courseHeader" class="course-head"></div>
+      <div class="course-body">
+        <aside class="syllabus">
+          <h3>Syllabus</h3>
+          <ol id="lessonList" class="lessons"></ol>
+        </aside>
+        <article class="lesson-view">
+          <div id="lessonContent" class="lesson-content muted">သင်ခန်းစာ တစ်ခုရွေးပါ…</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- My Learning -->
+    <section id="page-mylearning" class="page">
+      <h2>My Learning</h2>
+      <div id="myCourses" class="grid"></div>
+      <p id="emptyMy" class="muted">သင်စာရင်း မရှိသေးပါ — Courses တွင် Enroll လုပ်ပါ။</p>
+    </section>
+
+    <!-- Gradebook (Instructor/Admin) -->
+    <section id="page-gradebook" class="page">
+      <div class="grade-head">
+        <h2>Gradebook</h2>
+        <select id="gbCourseSelect"></select>
+      </div>
+      <div class="table-wrap">
+        <table class="table" id="gradeTable">
+          <thead><tr><th>User</th><th>Quiz</th><th>Score</th><th>Out of</th><th>Date</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button id="gbPrev" class="btn ghost">Prev</button>
+        <span id="gbInfo" class="muted"></span>
+        <button id="gbNext" class="btn ghost">Next</button>
+      </div>
+    </section>
+
+    <!-- Admin -->
+    <section id="page-admin" class="page">
+      <div class="tabs">
+        <button class="tab active" data-tab="courses">Courses</button>
+        <button class="tab" data-tab="lessons">Lessons</button>
+        <button class="tab" data-tab="quizzes">Quizzes</button>
+        <button class="tab" data-tab="users">Users</button>
+      </div>
+
+      <div id="tab-courses" class="tabpane visible">
+        <div class="admin-head">
+          <h2>Courses</h2>
+          <button id="btnNewCourse" class="btn primary">＋ New Course</button>
+          <button id="btnSeed" class="btn ghost">Load Demo Data</button>
+        </div>
+        <div class="table-wrap">
+          <table class="table" id="courseTable">
+            <thead>
+              <tr><th>Image</th><th>Title</th><th>Category</th><th>Level</th><th>Price</th><th>Rating</th><th>Actions</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tab-lessons" class="tabpane">
+        <div class="admin-head">
+          <h2>Lessons</h2>
+          <select id="lsCourseSelect"></select>
+          <button id="btnNewLesson" class="btn primary">＋ New Lesson</button>
+        </div>
+        <div class="table-wrap">
+          <table class="table" id="lessonTable">
+            <thead><tr><th>#</th><th>Title</th><th>Type</th><th>Duration</th><th>Published</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tab-quizzes" class="tabpane">
+        <div class="admin-head">
+          <h2>Quizzes</h2>
+          <select id="qzCourseSelect"></select>
+          <button id="btnNewQuiz" class="btn primary">＋ New Quiz</button>
+        </div>
+        <div class="table-wrap">
+          <table class="table" id="quizTable">
+            <thead><tr><th>Title</th><th>Questions</th><th>Total Points</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tab-users" class="tabpane">
+        <div class="admin-head">
+          <h2>Users</h2>
+        </div>
+        <div class="table-wrap">
+          <table class="table" id="userTable">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button id="usrPrev" class="btn ghost">Prev</button>
+          <span id="usrInfo" class="muted"></span>
+          <button id="usrNext" class="btn ghost">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section id="page-settings" class="page">
+      <h2>Settings</h2>
+      <div class="settings-grid">
+        <div class="card">
+          <h3>Theme</h3>
+          <button id="toggleTheme" class="btn">Toggle Dark / Light</button>
+        </div>
+        <div class="card">
+          <h3>Account</h3>
+          <button id="btnSendReset" class="btn">Send password reset email</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- AUTH MODALS -->
+  <dialog id="dlgLogin" class="modal">
+    <form method="dialog" class="modal-body" id="formLogin">
+      <h3>Login</h3>
+      <input type="email" id="loginEmail" placeholder="Email" required>
+      <input type="password" id="loginPassword" placeholder="Password" required>
+      <menu class="modal-actions">
+        <button type="submit" class="btn primary">Login</button>
+        <button value="cancel" class="btn ghost">Cancel</button>
+      </menu>
+      <div class="aux">
+        <a href="#" id="lnkForgot">Forgot password?</a> | <a href="#" id="lnkToSignup">Create an account</a>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgSignup" class="modal">
+    <form method="dialog" class="modal-body" id="formSignup">
+      <h3>Sign Up</h3>
+      <input type="text" id="suName" placeholder="Full name" required>
+      <input type="email" id="suEmail" placeholder="Email" required>
+      <input type="password" id="suPassword" placeholder="Password (min 6 chars)" minlength="6" required>
+      <input type="password" id="suConfirm" placeholder="Confirm password" minlength="6" required>
+      <input type="text" id="suAdminKey" placeholder="Admin Access Key (optional)" />
+      <small class="muted">Use <b>ADMIN2025</b> to create an admin/instructor account.</small>
+      <menu class="modal-actions">
+        <button type="submit" class="btn primary">Create Account</button>
+        <button value="cancel" class="btn ghost">Cancel</button>
+      </menu>
+      <div class="aux">
+        <a href="#" id="lnkToLogin">Already have an account? Login</a>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgForgot" class="modal">
+    <form method="dialog" class="modal-body" id="formForgot">
+      <h3>Reset Password</h3>
+      <input type="email" id="fpEmail" placeholder="Email" required>
+      <menu class="modal-actions">
+        <button type="submit" class="btn primary">Send Reset Email</button>
+        <button value="cancel" class="btn ghost">Cancel</button>
+      </menu>
+      <small class="muted">Email မှာ reset link ရပါလိမ့်မယ် (Firebase Auth).</small>
+    </form>
+  </dialog>
+
+  <!-- COURSE EDITOR -->
+  <dialog id="dlgCourse" class="modal">
+    <form method="dialog" class="modal-body" id="formCourse">
+      <h3 id="courseDlgTitle">New Course</h3>
+      <input type="text" id="cTitle" placeholder="Course title" required>
+      <input type="text" id="cCategory" placeholder="Category (e.g., Programming)" required>
+      <select id="cLevel" required>
+        <option>Beginner</option>
+        <option>Intermediate</option>
+        <option>Advanced</option>
+      </select>
+      <input type="number" id="cPrice" placeholder="Price (USD)" min="0" step="0.01" required>
+      <input type="number" id="cRating" placeholder="Rating (0-5)" min="0" max="5" step="0.1" required>
+      <input type="number" id="cHours" placeholder="Hours" min="1" step="1" required>
+      <textarea id="cDesc" rows="4" placeholder="Short description" required></textarea>
+      <label class="file"><input type="file" id="cImage" accept="image/*"><span>Upload image</span></label>
+      <menu class="modal-actions">
+        <button type="submit" class="btn primary">Save</button>
+        <button value="cancel" class="btn ghost">Cancel</button>
+      </menu>
+      <input type="hidden" id="cId">
+    </form>
+  </dialog>
+
+  <!-- LESSON EDITOR -->
+  <dialog id="dlgLesson" class="modal">
+    <form method="dialog" class="modal-body" id="formLesson">
+      <h3 id="lessonDlgTitle">New Lesson</h3>
+      <input type="text" id="lTitle" placeholder="Lesson title" required>
+      <select id="lType">
+        <option value="video">Video</option>
+        <option value="article">Article</option>
+      </select>
+      <input type="number" id="lOrder" placeholder="Order (1..n)" min="1" step="1" required>
+      <input type="number" id="lDuration" placeholder="Duration (mins)" min="1" step="1" required>
+      <textarea id="lContent" rows="5" placeholder="Article HTML or description"></textarea>
+      <label class="file"><input type="file" id="lVideo" accept="video/*"><span>Upload video (optional)</span></label>
+      <input type="url" id="lVideoURL" placeholder="Or paste video URL (mp4 / YouTube link)">
+      <label class="checkbox"><input type="checkbox" id="lPublished"> Published</label>
+      <menu class="modal-actions">
+        <button type="submit" class="btn primary">Save</button>
+        <button value="cancel" class="btn ghost">Cancel</button>
+      </menu>
+      <input type="hidden" id="lId">
+      <input type="hidden" id="lCourseId">
+    </form>
+  </dialog>
+
+  <!-- QUIZ EDITOR -->
+  <dialog id="dlgQuiz" class="modal">
+    <form method="dialog" class="modal-body" id="formQuiz">
+      <h3 id="quizDlgTitle">New Quiz</h3>
+      <input type="text" id="qTitle" placeholder="Quiz title" required>
+      <div id="qQuestions"></div>
+      <div class="row">
+        <button id="btnAddQ" class="btn ghost" type="button">＋ Add Question</button>
+      </div>
+      <menu class="modal-actions">
+        <button type="submit" class="btn primary">Save</button>
+        <button value="cancel" class="btn ghost">Cancel</button>
+      </menu>
+      <input type="hidden" id="qId">
+      <input type="hidden" id="qCourseId">
+    </form>
+  </dialog>
+
+  <!-- TAKE QUIZ -->
+  <dialog id="dlgTakeQuiz" class="modal">
+    <form method="dialog" class="modal-body" id="formTakeQuiz">
+      <h3 id="tqTitle">Quiz</h3>
+      <div id="tqBody"></div>
+      <menu class="modal-actions">
+        <button type="submit" class="btn primary">Submit</button>
+        <button value="cancel" class="btn ghost">Cancel</button>
+      </menu>
+      <input type="hidden" id="tqQuizId">
+      <input type="hidden" id="tqCourseId">
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module" src="firebase.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

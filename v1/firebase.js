@@ -1,5 +1,9 @@
-// firebase.js — put YOUR project config here (replace placeholders)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+// firebase.js — Fill your Firebase config then reload.
+// Uses Firebase v10 modular CDN builds.
+
+export const ADMIN_KEY = "ADMIN2025";
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -8,7 +12,7 @@ import {
   signOut,
   sendPasswordResetEmail,
   updateProfile,
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getFirestore,
   doc,
@@ -25,18 +29,15 @@ import {
   startAfter,
   getDocs,
   serverTimestamp,
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {
   getStorage,
   ref,
   uploadBytesResumable,
   getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-export const ADMIN_KEY = "ADMIN2025";
-export const BOOTSTRAP_ADMINS = ["admin@openlearn.local"];
-
-// TODO: REPLACE WITH YOUR CONFIG (Project settings → Your apps → Web)
+// === Fill your Firebase config here ===
 const firebaseConfig = {
   apiKey: "AIzaSyBEkph2jnubq_FvZUcHOR2paKoOKhRaULg",
   authDomain: "openlearn-mm.firebaseapp.com",
@@ -46,12 +47,14 @@ const firebaseConfig = {
   appId: "1:977262127138:web:0ee1d4ac3c45f1334f427b",
   measurementId: "G-E65G177ZNJ",
 };
+// =====================================
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
+// re-export helpers for convenience
 export {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
