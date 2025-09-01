@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login — OpenLearn</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="auth-body">
+  <div class="auth-card card" id="formCard">
+    <a href="./" class="brand big">📘 OpenLearn</a>
+    <h2>Welcome back</h2>
+    <form id="formLogin" class="stack">
+      <input id="loginEmail" type="email" placeholder="Email" required />
+      <input id="loginPassword" type="password" placeholder="Password" required />
+      <button class="btn primary">Login</button>
+    </form>
+    <div class="muted small">
+      <a href="#" id="lnkForgot">Forgot password?</a> •
+      <a href="./login.html#signup" id="lnkToSignup">Create account</a>
+    </div>
+  </div>
+
+  <div class="auth-card card hidden" id="signupCard">
+    <a href="./" class="brand big">📘 OpenLearn</a>
+    <h2>Create account</h2>
+    <form id="formSignup" class="stack">
+      <input id="suName" placeholder="Full name" />
+      <input id="suEmail" type="email" placeholder="Email" required />
+      <input id="suPassword" type="password" placeholder="Password (6+)" required />
+      <input id="suConfirm" type="password" placeholder="Confirm" required />
+      <button class="btn primary">Sign up</button>
+    </form>
+    <div class="muted small">
+      Already have an account? <a href="./login.html" id="lnkToLogin">Login</a>
+    </div>
+  </div>
+
+  <div class="auth-card card hidden" id="forgotCard">
+    <a href="./" class="brand big">📘 OpenLearn</a>
+    <h2>Reset password</h2>
+    <form id="formForgot" class="stack">
+      <input id="fpEmail" type="email" placeholder="Email" required />
+      <button class="btn primary">Send reset email</button>
+    </form>
+    <div class="muted small"><a href="./login.html">Back to login</a></div>
+  </div>
+
+  <div id="toast"></div>
+  <script type="module" src="./firebase.js"></script>
+  <script type="module" src="./login.js"></script>
+</body>
+</html>

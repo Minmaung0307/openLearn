@@ -31,7 +31,7 @@ function initThemeControls(){
   $("#btnSettings")?.addEventListener("click", ()=> showPage("settings"));
 }
 
-// Sidebar hover-expand + sections (labels only when expanded)
+// Sidebar hover-expand + sections (no click needed to read labels)
 function initSidebar(){
   const sb=$("#sidebar");
   const expand=()=>{ sb.classList.add("expanded"); document.body.classList.add("sidebar-expanded"); };
@@ -41,12 +41,12 @@ function initSidebar(){
     sb.addEventListener("mouseleave", collapse);
   }
   $("#hamburger")?.addEventListener("click", ()=> sb.classList.toggle("expanded"));
-  // Independent toggles (Admin/Personal) — do not hide Settings when Admin opens
+  // Sections: clicking a section shows only that group
   $$("[data-toggle]").forEach(head=>{
     head.addEventListener("click", ()=>{
       const key=head.getAttribute("data-toggle");
-      const grp=$(`[data-group="${key}"]`);
-      grp?.classList.toggle("collapsed");
+      $$("[data-group]").forEach(g=> g.classList.add("collapsed"));
+      const grp=$(`[data-group="${key}"]`); grp?.classList.remove("collapsed");
     });
   });
 }
@@ -65,27 +65,24 @@ function bindSidebarNav(){
     btn.addEventListener("click", ()=>{
       const id=PAGE_ALIAS[btn.dataset.page]||btn.dataset.page;
       showPage(id);
+      if (id==="admin") { /* keep settings icon visible */ }
     });
   });
 }
 
-// Auth state + logout
+// Auth state (Admin menu visible for demo regardless of login)
 let currentUser=null;
 function gateUI(){
   $("#btnLogin")?.classList.toggle("hidden", !!currentUser);
   $("#btnSignup")?.classList.toggle("hidden", !!currentUser);
   $("#userMenu")?.classList.toggle("hidden", !currentUser);
   $("#userName") && ($("#userName").textContent = currentUser ? (currentUser.displayName || currentUser.email) : "");
+  // Admin button always visible in this demo build
   $$(".admin-only").forEach(el=> el.classList.remove("hidden"));
   $("#btnTopAdmin")?.classList.remove("hidden");
   $("#btnTopAdmin")?.addEventListener("click", ()=> showPage("admin"));
 }
 onAuthStateChanged(auth, u=>{ currentUser=u||null; gateUI(); });
-document.addEventListener("click", async (e)=>{
-  if (e.target && e.target.id==="btnLogoutTop"){
-    try{ await signOut(auth); location.href="./login.html"; }catch(err){ console.error(err); toast(err.code||"Logout failed"); }
-  }
-});
 
 // Header search
 function bindTopSearch(){
@@ -198,6 +195,7 @@ async function openCourse(cid){
   $("#cLevel").textContent=c.level||"";
   $("#cPrice").textContent=(c.price||0)>0? '$'+c.price : 'Free';
   const list=$("#lessonList"); list.innerHTML="";
+  // simple demo syllabus if none
   const items=[
     {index:1,title:"Welcome & Overview",content:"Intro video placeholder"},
     {index:2,title:"Module 1 — Basics",content:"Slides / video"},
@@ -255,7 +253,7 @@ async function addSamples(alot=false){
   toast("Sample courses added"); await renderCatalog(false); renderMyLearning(); renderGradebook();
 }
 
-// My Learning
+// My Learning: take first 6 available
 async function renderMyLearning(){
   const grid=$("#myCourses"); if (!grid) return;
   const cs = await fetchAllCourses();
@@ -291,7 +289,7 @@ function downloadCertificate(courseTitle){
   const c=document.createElement('canvas'); c.width=1400; c.height=900; const ctx=c.getContext('2d');
   const css=getComputedStyle(document.documentElement);
   ctx.fillStyle=css.getPropertyValue('--card')||'#fff'; ctx.fillRect(0,0,c.width,c.height);
-  ctx.strokeStyle=css.getPropertyValue('--accent')||'#000'; ctx.lineWidth=10; ctx.strokeRect(20,20,c.width,c.height);
+  ctx.strokeStyle=css.getPropertyValue('--accent')||'#000'; ctx.lineWidth=10; ctx.strokeRect(20,20,c.width-40,c.height-40);
   ctx.fillStyle=css.getPropertyValue('--fg')||'#000';
   ctx.font='48px serif'; ctx.fillText('Certificate of Completion', 380, 170);
   ctx.font='36px serif'; ctx.fillText('This certifies that', 560, 260);

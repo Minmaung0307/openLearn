@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OpenLearn — Coursera Lite Pro v2.2.1</title>
+  <title>OpenLearn — Coursera Lite Pro v2.1</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -28,7 +28,7 @@
     </div>
   </header>
 
-  <aside id="sidebar" class="sidebar" aria-label="Sidebar">
+  <aside id="sidebar" class="sidebar collapsed" aria-label="Sidebar">
     <nav class="side-nav">
       <button class="side-item active" data-page="courses" data-label="Courses" aria-label="Courses">
         <span class="ico">🏠</span><span class="side-label">Courses</span>
@@ -141,13 +141,13 @@
 
   <!-- New Course Dialog -->
   <dialog id="dlgCourse">
-    <form id="formCourse" method="dialog" class="stack big-form">
+    <form id="formCourse" method="dialog" class="stack">
       <h3>New Course</h3>
       <input id="cTitle" placeholder="Title" required />
       <input id="cCategory" placeholder="Category (e.g., Web, Data)" />
       <select id="cLevel"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
       <input id="cPrice" type="number" placeholder="Price (USD)" />
-      <textarea id="cSummary" placeholder="Short summary" rows="5"></textarea>
+      <textarea id="cSummary" placeholder="Short summary" rows="3"></textarea>
       <menu class="row"><button class="btn primary">Create</button><button type="button" class="btn ghost dlg-close">Close</button></menu>
     </form>
   </dialog>
