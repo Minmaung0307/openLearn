@@ -1,42 +1,17 @@
-// firebase.js — put YOUR project config here (replace placeholders)
+// firebase.js — wire your real Firebase config here
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import {
   getAuth,
   onAuthStateChanged,
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut,
+  createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  signOut,
   updateProfile,
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  addDoc,
-  deleteDoc,
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  getDocs,
-  serverTimestamp,
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-import {
-  getStorage,
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-export const ADMIN_KEY = "ADMIN2025";
-export const BOOTSTRAP_ADMINS = ["admin@openlearn.local"];
-
-// TODO: REPLACE WITH YOUR CONFIG (Project settings → Your apps → Web)
+/* 1) Replace with YOUR Firebase web config (Project settings → General → Your apps → Web) */
 const firebaseConfig = {
   apiKey: "AIzaSyBEkph2jnubq_FvZUcHOR2paKoOKhRaULg",
   authDomain: "openlearn-mm.firebaseapp.com",
@@ -47,33 +22,17 @@ const firebaseConfig = {
   measurementId: "G-E65G177ZNJ",
 };
 
+/* 2) Initialize */
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
 
+/* 3) Re-exports for app.js */
 export {
   onAuthStateChanged,
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut,
+  createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  signOut,
   updateProfile,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  addDoc,
-  deleteDoc,
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  getDocs,
-  serverTimestamp,
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
 };

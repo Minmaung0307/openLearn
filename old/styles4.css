@@ -1,7 +1,6 @@
 :root{--bg:#0b0f17;--fg:#e7ecf3;--muted:#9aa6b2;--card:#121826;--accent:#66d9ef;--border:#223;--fontSize:14px}
-html,body{margin:0;background:var(--bg);color:var(--fg);font:var(--fontSize)/1.45 system-ui,Segoe UI,Roboto,Arial}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:var(--fontSize)/1.4 system-ui,Segoe UI,Roboto,Arial}
 .hidden{display:none!important}
-.muted{color:var(--muted)}
 .btn{background:#1f2937;border:1px solid var(--border);color:var(--fg);padding:8px 12px;border-radius:10px;cursor:pointer}
 .btn.ghost{background:transparent}
 .btn.primary{background:#2d3748}
@@ -27,7 +26,6 @@ html,body{margin:0;background:var(--bg);color:var(--fg);font:var(--fontSize)/1.4
 
 .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
 .table{width:100%;border-collapse:collapse}
 .table th,.table td{border-bottom:1px solid var(--border);padding:8px;word-break:break-word}
 
@@ -37,7 +35,9 @@ html,body{margin:0;background:var(--bg);color:var(--fg);font:var(--fontSize)/1.4
 .lesson-content iframe,.lesson-content video{width:100%;height:300px;border:0;border-radius:10px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px}
 
-@media(max-width:1024px){ .course-body{grid-template-columns:1fr} }
+@media(max-width:1024px){
+  .course-body{grid-template-columns:1fr}
+}
 
 dialog{border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--fg)}
 dialog form{padding:14px;min-width:320px}
