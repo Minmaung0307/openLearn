@@ -1,29 +1,89 @@
 {
-  "version": 3,
+  "version": 4,
   "items": [
     {
       "id": "web-fundamentals",
       "title": "Web Fundamentals",
       "category": "Web",
       "level": "Beginner",
-      "rating": 4.6,
+      "rating": 4.7,
       "price": 0,
       "hours": 8,
       "credits": 3,
       "thumb": "/images/web-fundamentals.jpg",
-      "description": "HTML/CSS/JS basics with hands-on exercises."
+      "description": "Start with HTML/CSS/JS and ship your first page."
     },
     {
       "id": "python-101",
       "title": "Python 101",
       "category": "Programming",
       "level": "Beginner",
-      "rating": 4.5,
+      "rating": 4.6,
       "price": 29,
       "hours": 10,
       "credits": 3,
       "thumb": "/images/python-101.jpg",
-      "description": "Learn Python from zero with examples."
+      "description": "Learn Python from zero to scripts."
+    },
+    {
+      "id": "react-pro",
+      "title": "React Pro",
+      "category": "Web",
+      "level": "Intermediate",
+      "rating": 4.8,
+      "price": 49,
+      "hours": 14,
+      "credits": 4,
+      "thumb": "/images/react-pro.jpg",
+      "description": "Hooks, state machines and performance tricks."
+    },
+    {
+      "id": "data-science",
+      "title": "Data Science",
+      "category": "Data",
+      "level": "Intermediate",
+      "rating": 4.5,
+      "price": 59,
+      "hours": 20,
+      "credits": 5,
+      "thumb": "/images/data-science.jpg",
+      "description": "Pandas, visualization, EDA and ML intro."
+    },
+    {
+      "id": "ui-ux",
+      "title": "UI/UX Design",
+      "category": "Design",
+      "level": "Beginner",
+      "rating": 4.4,
+      "price": 0,
+      "hours": 9,
+      "credits": 3,
+      "thumb": "/images/ui-ux.jpg",
+      "description": "Design fundamentals & Figma basics."
+    },
+    {
+      "id": "node-api",
+      "title": "Node API",
+      "category": "Backend",
+      "level": "Intermediate",
+      "rating": 4.6,
+      "price": 39,
+      "hours": 12,
+      "credits": 4,
+      "thumb": "/images/node-api.jpg",
+      "description": "REST patterns, auth and testing."
+    },
+    {
+      "id": "sql-master",
+      "title": "SQL Mastery",
+      "category": "Data",
+      "level": "Advanced",
+      "rating": 4.7,
+      "price": 25,
+      "hours": 11,
+      "credits": 3,
+      "thumb": "/images/sql-master.jpg",
+      "description": "Query tuning and window functions."
     }
   ]
 }

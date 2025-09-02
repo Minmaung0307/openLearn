@@ -1,23 +1,9 @@
 {
   "id": "python-101",
   "title": "Python 101",
-  "description": "Python for absolute beginners.",
-  "category": "Programming",
-  "level": "Beginner",
-  "rating": 4.5,
-  "price": 29,
-  "hours": 10,
   "credits": 3,
   "lessons": [
-    {
-      "i": 1,
-      "file": "lessons/01-intro.html",
-      "title": "Intro to Python"
-    },
-    {
-      "i": 2,
-      "file": "lessons/02-syntax.html",
-      "title": "Syntax & Types"
-    }
+    { "i": 1, "file": "lessons/01.html", "title": "Setup" },
+    { "i": 2, "file": "lessons/02.html", "title": "Basics" }
   ]
 }
