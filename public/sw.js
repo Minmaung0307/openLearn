@@ -1,4 +1,4 @@
-const CACHE = "ol-v6";
+const CACHE = "ol-v8";
 const ASSETS = [
   "/", "/index.html", "/styles.css", "/app.js", "/firebase.js",
   "/manifest.json", "/login.html", "/login.js",
