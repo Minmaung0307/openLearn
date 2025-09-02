@@ -1,9 +1,0 @@
-{
-  "id": "python-101",
-  "title": "Python 101",
-  "credits": 3,
-  "lessons": [
-    { "i": 1, "file": "lessons/01.html", "title": "Setup" },
-    { "i": 2, "file": "lessons/02.html", "title": "Basics" }
-  ]
-}
