@@ -1,0 +1,29 @@
+{
+  "version": 3,
+  "items": [
+    {
+      "id": "web-fundamentals",
+      "title": "Web Fundamentals",
+      "category": "Web",
+      "level": "Beginner",
+      "rating": 4.6,
+      "price": 0,
+      "hours": 8,
+      "credits": 3,
+      "thumb": "/images/web-fundamentals.jpg",
+      "description": "HTML/CSS/JS basics with hands-on exercises."
+    },
+    {
+      "id": "python-101",
+      "title": "Python 101",
+      "category": "Programming",
+      "level": "Beginner",
+      "rating": 4.5,
+      "price": 29,
+      "hours": 10,
+      "credits": 3,
+      "thumb": "/images/python-101.jpg",
+      "description": "Learn Python from zero with examples."
+    }
+  ]
+}

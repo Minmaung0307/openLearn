@@ -1,0 +1,28 @@
+{
+  "id": "web-fundamentals",
+  "title": "Web Fundamentals",
+  "description": "Start building for the web.",
+  "category": "Web",
+  "level": "Beginner",
+  "rating": 4.6,
+  "price": 0,
+  "hours": 8,
+  "credits": 3,
+  "lessons": [
+    {
+      "i": 1,
+      "file": "lessons/01-intro.html",
+      "title": "Introduction"
+    },
+    {
+      "i": 2,
+      "file": "lessons/02-basics.html",
+      "title": "HTML/CSS Basics"
+    },
+    {
+      "i": 3,
+      "file": "lessons/03-media.html",
+      "title": "Media & Forms"
+    }
+  ]
+}

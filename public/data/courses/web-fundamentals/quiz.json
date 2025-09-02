@@ -1,0 +1,16 @@
+{
+  "title": "Quiz 1",
+  "passScore": 70,
+  "items": [
+    {
+      "type": "short",
+      "q": "What does CSS stand for?",
+      "a": "Cascading Style Sheets"
+    },
+    {
+      "type": "tf",
+      "q": "HTML is a programming language.",
+      "a": false
+    }
+  ]
+}

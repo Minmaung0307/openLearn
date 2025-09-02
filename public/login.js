@@ -1,0 +1,1 @@
+document.getElementById("doLogin").addEventListener("click",()=>{ alert("Demo login in this bundle."); location.href="/"; });
