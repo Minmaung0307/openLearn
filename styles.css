@@ -218,6 +218,7 @@ textarea {
 
 /* Content */
 .content {
+  min-height:calc(100vh - 58px - 56px);
   margin-left: var(--sbw);
   padding: 14px;
   margin-top: 58px;
@@ -356,6 +357,23 @@ dialog h3 {
   margin: 0 0 8px 0;
 }
 
+/* Dialog sizes */
+dialog form,
+#dlgStatic article {
+  min-width: 80vw;
+  max-width: 1100px;
+}
+#dlgStatic {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--fg);
+}
+#stBody {
+  max-height: 70vh;
+  overflow: auto;
+}
+
 /* Footer */
 .footer {
   margin-left: var(--sbw);
@@ -367,6 +385,11 @@ dialog h3 {
   .footer {
     margin-left: 0;
   }
+}
+.footer .soc svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--fg);
 }
 .footer .soc {
   display: inline-flex;
@@ -396,4 +419,25 @@ dialog h3 {
 }
 #toast.show {
   opacity: 1;
+}
+
+.big-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.big-form h3 {
+  grid-column: 1/-1;
+}
+.big-form textarea {
+  grid-column: 1/-1;
+  min-height: 120px;
+}
+.big-form menu {
+  grid-column: 1/-1;
+}
+.big-form input,
+.big-form select,
+.big-form textarea {
+  font-size: 1rem;
 }
