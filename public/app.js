@@ -36,12 +36,38 @@ function show(id){
   if(id==="dashboard") initDashboardLive();
   if(id==="analytics") renderAnalytics();
 }
+// 2) Sidebar: hover-to-expand + ensure buttons clickable (no overlay)
 function initSidebar(){
   const sb=$("#sidebar");
+  if(!sb) return;
   sb.addEventListener("mouseenter",()=>sb.classList.add("open"));
   sb.addEventListener("mouseleave",()=>sb.classList.remove("open"));
-  $$("#sidebar .navbtn").forEach(b=> b.addEventListener("click", ()=> show(b.dataset.goto)));
+  $$("#sidebar .navbtn").forEach(b=>{
+    b.disabled = false;
+    b.style.pointerEvents = "auto";
+    b.addEventListener("click", ()=> show(b.dataset.goto));
+  });
+  // if any overlay accidentally blocks clicks, remove here
+  document.querySelectorAll(".overlay, .backdrop").forEach(el=> el.remove());
+  document.body.style.pointerEvents = "auto";
 }
+
+// 3) Footer guest-lock: not logged in => block clicks
+function initGuestLock(){
+  document.addEventListener("click",(e)=>{
+    const link = e.target.closest("[data-guest-lock]");
+    if(!link) return;
+    if(!USER){ // no login
+      e.preventDefault();
+      alert("Please log in to view this page.");
+    }
+  });
+}
+
+// Call in DOMContentLoaded (ensure these 2 are present)
+document.addEventListener("DOMContentLoaded", ()=>{
+  initGuestLock();
+});
 
 // ─── Catalog ──────────────────────────────────────────────────────────────────
 async function loadCatalog(){
@@ -326,44 +352,67 @@ function renderAnalytics(){
   chartB = new Chart(ctxB, { type:"bar", data:{ labels, datasets:[{ label:"Enrollments", data: values }] }, options:{ plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true }}}});
 }
 
-// ─── Auth header & role-based visibility ──────────────────────────────────────
+// 1) Robust auth header + role-based visibility + clickability unfreeze
 function initAuthHeader(){
-  const login=$("#btnLogin"), logout=$("#btnLogout");
-  const setUI = async (u)=>{
-    if (!u){
-      USER=null;
-      login.style.display="inline-block"; logout.style.display="none";
-      $("#btnNewCourse").style.display="none";
-      $("#navAnalytics").style.display="none";
-      return;
+  const loginBtn  = $("#btnLogin");
+  const logoutBtn = $("#btnLogout");
+  const newCourse = $("#btnNewCourse");
+  const navAnalytics = $("#navAnalytics");
+  const annNewBtn = $("#annNew");
+
+  async function applyUser(u){
+    // default: logged out
+    USER = null;
+    loginBtn.style.display  = "inline-block";
+    logoutBtn.style.display = "none";
+    if (newCourse)   newCourse.style.display   = "none";
+    if (navAnalytics)navAnalytics.style.display= "none";
+    if (annNewBtn)   annNewBtn.style.display   = "none";
+
+    if (!u) return;
+
+    // build USER object
+    USER = { uid: u.uid, email: u.email, role: "student" };
+
+    try {
+      // try Firestore role
+      if (LIVE) {
+        const snap = await getDoc(doc(collection(db,"users"), u.uid));
+        if (snap.exists()) USER.role = snap.data().role || "student";
+      } else {
+        // local fallback (optional remember)
+        USER.role = JSON.parse(localStorage.getItem("ol_role")||"\"student\"");
+      }
+    } catch {
+      // ignore
     }
-    // default role student
-    USER={ email:u.email, uid:u.uid, role:"student" };
-    if (LIVE){
-      try{
-        const ud = await getDoc(doc(collection(db,"users"), u.uid));
-        if (ud.exists()) USER.role = ud.data().role || "student";
-      }catch(_){}
-    } else {
-      const saved = JSON.parse(localStorage.getItem("ol_role")||"\"student\"");
-      USER.role = saved;
-    }
-    // role-based menus
-    $("#btnNewCourse").style.display = isStaff() ? "" : "none";
-    $("#navAnalytics").style.display = isStaff() ? "" : "none";
-    $("#annNew").style.display = isStaff() ? "" : "none";
-    // header
-    login.style.display="none"; logout.style.display="inline-block";
-  };
-  if (LIVE){
-    onAuthStateChanged(auth, (u)=>{ setUI(u); });
-  } else {
-    const lu = JSON.parse(localStorage.getItem("ol_user")||"null");
-    setUI(lu);
+
+    // header switch
+    loginBtn.style.display  = "none";
+    logoutBtn.style.display = "inline-block";
+
+    // role menus
+    const staff = isStaff();
+    if (newCourse)   newCourse.style.display    = staff ? "" : "none";
+    if (navAnalytics)navAnalytics.style.display = staff ? "" : "none";
+    if (annNewBtn)   annNewBtn.style.display    = staff ? "" : "none";
+
+    // sometimes a full-width overlay or dialog leaves pointer-events off; unfreeze app
+    document.body.style.pointerEvents = "auto";
+    $("#sidebar")?.classList.remove("disabled");
   }
-  logout.addEventListener("click", async ()=>{
-    if (LIVE) await signOut(auth); else localStorage.removeItem("ol_user");
-    location.reload();
+
+  if (LIVE) {
+    onAuthStateChanged(auth, (u)=>{ applyUser(u); });
+  } else {
+    const u = JSON.parse(localStorage.getItem("ol_user")||"null");
+    applyUser(u);
+  }
+
+  // logout click
+  logoutBtn?.addEventListener("click", async ()=>{
+    try { LIVE ? await signOut(auth) : localStorage.removeItem("ol_user"); }
+    finally { location.reload(); }
   });
 }
 
