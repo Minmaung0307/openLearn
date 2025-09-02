@@ -1,13 +1,9 @@
 const CACHE_NAME = "ol-v1";
 const ASSETS = [
-  "/",
-  "/index.html",
-  "/styles.css",
-  "/app.js",
-  "/firebase.js",
-  "/login.html",
-  "/login.js",
-  "/manifest.json",
+  "/", "/index.html", "/styles.css", "/app.js", "/firebase.js",
+  "/login.html", "/login.js", "/manifest.json",
+  "/icons/icon-192.png", "/icons/icon-256.png", "/icons/icon-384.png",
+  "/icons/icon-512.png", "/icons/icon-512-maskable.png"
 ];
 
 self.addEventListener("install", (e) => {
