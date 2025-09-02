@@ -928,3 +928,29 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   await renderCatalog(); // fills ALL
   renderAdminTable?.(); renderAnalytics?.(); showPage("courses");
 });
+
+// ---- robust button wiring (works even if DOM re-renders)
+function wireGlobalClicks(){
+  document.addEventListener("click", (e)=>{
+    const newBtn = e.target.closest("#btnNewCourse");
+    const sampleBtn = e.target.closest("#btnAddSample");
+    const closeDlg = e.target.closest(".dlg-close");
+    const dlg = document.querySelector("#dlgCourse");
+
+    if (newBtn) {
+      if (dlg && dlg.showModal) dlg.showModal();
+      else toast("New course dialog not found");
+    }
+    if (sampleBtn) {
+      addSamples().catch(err=>{ console.error(err); toast("Add sample failed"); });
+    }
+    if (closeDlg) {
+      const d = closeDlg.closest("dialog"); if (d) d.close();
+    }
+  });
+}
+
+// call it on boot
+document.addEventListener("DOMContentLoaded", ()=>{
+  try { wireGlobalClicks(); } catch(e){ console.error(e); }
+});
