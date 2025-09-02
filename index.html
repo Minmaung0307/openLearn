@@ -5,11 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>OpenLearn — Coursera Lite Pro v2.5</title>
     <link rel="stylesheet" href="./styles.css" />
+    <!-- …meta/title/css… -->
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="icon" href="./icons/icon-192.png" />
     <!-- PayPal SDK (prod သုံးမယ်ဆိုရင် client-id ထည့်) -->
     <script
       src="https://www.paypal.com/sdk/js?client-id=AVpfmQ8DyyatFaAGQ3Jg58XtUt_2cJDr1leqcc_JI8LvKIR2N5WB_yljqCOTTCtvK1hFJ7Q9X0ojXsEC&currency=USD"
       data-namespace="paypalSDK"
     ></script>
+    <!-- EmailJS (for contact form) -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script>
+      try {
+        emailjs.init("WT0GOYrL9HnDKvLUf");
+      } catch (e) {
+        console.warn("EmailJS not init");
+      }
+    </script>
   </head>
   <body>
     <!-- Topbar -->
@@ -27,13 +39,15 @@
         </button>
       </div>
       <div class="row right">
-        <!-- Mobile only: search icon -->
         <button
           id="mobileSearchBtn"
           class="btn ghost mobile-only"
           aria-label="Search"
         >
           🔍
+        </button>
+        <button id="btnInstallPwa" class="btn ghost hidden" title="Install app">
+          ⬇️ Install
         </button>
         <a id="btnLogin" class="btn" href="./login.html">Login</a>
         <a id="btnSignup" class="btn" href="./login.html#signup">Sign up</a>
@@ -150,13 +164,14 @@
         <div class="page-head"><h2>My Learning</h2></div>
         <div id="myCourses" class="cards"></div>
 
-        <!-- Inline Reader (book-like) -->
+        <!-- Inside #page-mylearning -->
         <article id="reader" class="reader card hidden">
           <div class="reader-top row between">
             <div class="row">
               <button id="rdBack" class="btn">← Back</button>
               <button id="rdBookmark" class="btn ghost">🔖 Bookmark</button>
               <button id="rdNote" class="btn ghost">📝 Add Note</button>
+              <button id="rdNotes" class="btn ghost">📒 View Notes</button>
             </div>
             <div class="small" id="rdMeta">Score: — • Credits: —</div>
           </div>
@@ -169,6 +184,15 @@
             <button id="rdNext" class="btn">Next</button>
           </div>
         </article>
+
+        <!-- Notes dialog -->
+        <dialog id="dlgNotes">
+          <article class="stack">
+            <h3>Your Notes</h3>
+            <div id="notesList" class="stack"></div>
+            <menu><button class="btn dlg-close">Close</button></menu>
+          </article>
+        </dialog>
       </section>
 
       <!-- Gradebook -->
@@ -428,5 +452,10 @@
     <div id="toast"></div>
     <script type="module" src="./firebase.js"></script>
     <script type="module" src="./app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+    </script>
   </body>
 </html>

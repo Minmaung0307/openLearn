@@ -218,7 +218,7 @@ textarea {
 
 /* Content */
 .content {
-  min-height:calc(100vh - 58px - 56px);
+  min-height: calc(100vh - 58px - 56px);
   margin-left: var(--sbw);
   padding: 14px;
   margin-top: 58px;
@@ -357,11 +357,16 @@ dialog h3 {
   margin: 0 0 8px 0;
 }
 
-/* Dialog sizes */
+/* Dialog wider (80vw) for static pages & course form */
 dialog form,
-#dlgStatic article {
+#dlgStatic article,
+#dlgNotes article {
   min-width: 80vw;
   max-width: 1100px;
+}
+#stBody {
+  max-height: 70vh;
+  overflow: auto;
 }
 #dlgStatic {
   border: 1px solid var(--border);
@@ -381,7 +386,20 @@ dialog form,
   border-top: 1px solid var(--border);
   background: var(--card);
 }
+/* Mobile drawer for sidebar */
 @media (max-width: 1024px) {
+  .sidebar {
+    transform: translateX(-100%);
+    position: fixed;
+    z-index: 60;
+  }
+  .sidebar.show {
+    transform: translateX(0);
+  }
+  .content {
+    min-height: calc(100vh - 58px - 56px);
+    margin-left: 0;
+  }
   .footer {
     margin-left: 0;
   }
@@ -421,6 +439,7 @@ dialog form,
   opacity: 1;
 }
 
+/* Big new-course form layout */
 .big-form {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -1,55 +1,18 @@
 import {
-  app,
-  auth,
-  db,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  updateProfile,
-  collection,
-  addDoc,
-  serverTimestamp,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  orderBy,
-  where,
-  limit,
+  app, auth, db,
+  onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile,
+  collection, addDoc, serverTimestamp, doc, getDoc, getDocs, query, orderBy, where, limit
 } from "./firebase.js";
 
 /* ===== helpers ===== */
-const $ = (s, root = document) => root.querySelector(s);
-const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
-const esc = (s) =>
-  (s || "").replace(
-    /[&<>\"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[
-        c
-      ])
-  );
-const toast = (m, ms = 2200) => {
-  let t = $("#toast");
-  if (!t) {
-    t = document.createElement("div");
-    t.id = "toast";
-    document.body.appendChild(t);
-  }
-  t.textContent = m;
-  t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), ms);
-};
-const readJSON = (k, d) => {
-  try {
-    return JSON.parse(localStorage.getItem(k) || JSON.stringify(d));
-  } catch {
-    return d;
-  }
-};
-const writeJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const $ = (s,root=document)=>root.querySelector(s);
+const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
+// FIX: make esc safe for numbers/objects
+const esc = (s)=> String(s ?? "").replace(/[&<>\"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const toast=(m,ms=2200)=>{let t=$("#toast"); if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t);} t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),ms);};
+const readJSON=(k,d)=>{ try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d));}catch{ return d; } };
+const writeJSON=(k,v)=> localStorage.setItem(k, JSON.stringify(v));
+
 
 /* ===== theme / font ===== */
 const PALETTES = {
@@ -199,24 +162,32 @@ function applyFont(px) {
   $("#fontPreview") && ($("#fontPreview").textContent = px + " px");
 }
 
-/* ===== sidebar (hover→expand→labels) ===== */
-function initSidebar() {
-  const sb = $("#sidebar");
-  const expand = () => {
-    sb.classList.add("expanded");
-    document.body.classList.add("sidebar-expanded");
-  };
-  const collapse = () => {
-    sb.classList.remove("expanded");
-    document.body.classList.remove("sidebar-expanded");
-  };
-  if (window.matchMedia("(min-width:1025px)").matches) {
+/* ===== sidebar (hover + mobile drawer) ===== */
+function initSidebar(){
+  const sb=$("#sidebar");
+  const expand=()=>{ sb.classList.add("expanded"); document.body.classList.add("sidebar-expanded"); };
+  const collapse=()=>{ sb.classList.remove("expanded"); document.body.classList.remove("sidebar-expanded"); };
+
+  // Desktop hover expand
+  if (window.matchMedia("(min-width:1025px)").matches){
     sb.addEventListener("mouseenter", expand);
     sb.addEventListener("mouseleave", collapse);
   }
-  $("#hamburger")?.addEventListener("click", () =>
-    sb.classList.toggle("expanded")
-  );
+
+  // Mobile drawer
+  const isMobile=()=> window.matchMedia("(max-width:1024px)").matches;
+  $("#hamburger")?.addEventListener("click", ()=>{
+    if(isMobile()) sb.classList.toggle("show");
+    else sb.classList.toggle("expanded");
+  });
+  // Tap outside to close on mobile
+  document.addEventListener("click",(e)=>{
+    if(!isMobile()) return;
+    if (sb.classList.contains("show")) {
+      const inside = e.target.closest("#sidebar") || e.target.closest("#hamburger");
+      if(!inside) sb.classList.remove("show");
+    }
+  });
 }
 
 /* ===== router ===== */
@@ -239,64 +210,45 @@ function bindSidebarNav() {
 }
 
 /* ===== Search ===== */
-function bindSearch() {
+function bindSearch(){
   const doSearch = (q) => {
-    // FIX: don't mix ?? with || without parentheses
-    const raw = q ?? $("#topSearch")?.value ?? "";
+    const raw = (q ?? ($("#topSearch")?.value ?? ""));
     const term = String(raw).toLowerCase().trim();
-
     showPage("courses");
-    document.querySelectorAll("#courseGrid .card.course").forEach((card) => {
-      const text = (card.dataset.search || "").toLowerCase();
+    document.querySelectorAll("#courseGrid .card.course").forEach(card=>{
+      const text=(card.dataset.search||"").toLowerCase();
       card.style.display = !term || text.includes(term) ? "" : "none";
     });
   };
-
-  $("#topSearchBtn")?.addEventListener("click", () => doSearch());
-  $("#topSearch")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") doSearch();
-  });
-
-  $("#mobileSearchBtn")?.addEventListener("click", () =>
-    $("#mobileSearchPanel").classList.remove("hidden")
-  );
-  $("#mSearchClose")?.addEventListener("click", () =>
-    $("#mobileSearchPanel").classList.add("hidden")
-  );
-  $("#mSearchGo")?.addEventListener("click", () => {
-    const mv = $("#mSearchInput")?.value ?? "";
-    doSearch(mv);
-    $("#mobileSearchPanel").classList.add("hidden");
-  });
+  $("#topSearchBtn")?.addEventListener("click", ()=>doSearch());
+  $("#topSearch")?.addEventListener("keydown", e=>{ if(e.key==="Enter") doSearch(); });
+  $("#mobileSearchBtn")?.addEventListener("click", ()=> $("#mobileSearchPanel").classList.remove("hidden"));
+  $("#mSearchClose")?.addEventListener("click", ()=> $("#mobileSearchPanel").classList.add("hidden"));
+  $("#mSearchGo")?.addEventListener("click", ()=>{ doSearch($("#mSearchInput")?.value ?? ""); $("#mobileSearchPanel").classList.add("hidden"); });
 }
 
 /* ===== DB probe / local fallback ===== */
-let USE_DB = true;
-async function probeDbOnce() {
-  try {
-    const cfgOk = !/YOUR_PROJECT|YOUR_API_KEY|YOUR_APP_ID/.test(
-      JSON.stringify(app.options)
-    );
-    if (!cfgOk) throw new Error("cfg-missing");
-    await getDocs(query(collection(db, "__ping"), limit(1)));
-    USE_DB = true;
-  } catch (e) {
-    console.warn("Firestore disabled → local mode:", e?.code || e);
-    USE_DB = false;
-  }
+let USE_DB=true;
+async function probeDbOnce(){
+  try{
+    const cfgOk=!/YOUR_PROJECT|YOUR_API_KEY|YOUR_APP_ID/.test(JSON.stringify(app.options));
+    if(!cfgOk) throw new Error("cfg-missing");
+    await getDocs(query(collection(db,"__ping"), limit(1)));
+    USE_DB=true;
+  }catch(e){ console.warn("Firestore disabled → local mode:", e?.code||e); USE_DB=false; }
 }
 
-/* ===== local storage ===== */
-const getLocalCourses = () => readJSON("ol_local_courses", []);
-const setLocalCourses = (a) => writeJSON("ol_local_courses", a || []);
-const getEnrolls = () => new Set(readJSON("ol_enrolls", []));
-const setEnrolls = (s) => writeJSON("ol_enrolls", Array.from(s));
-const getNotes = () => readJSON("ol_notes", {}); // { [courseId]: [ {page, text, ts} ] }
-const setNotes = (x) => writeJSON("ol_notes", x);
-const getBookmarks = () => readJSON("ol_bms", {}); // { [courseId]: page }
-const setBookmarks = (x) => writeJSON("ol_bms", x);
-const getAnns = () => readJSON("ol_anns", []); // [{id,title,ts}]
-const setAnns = (x) => writeJSON("ol_anns", x);
+/* ===== local data ===== */
+const getLocalCourses = ()=> readJSON("ol_local_courses", []);
+const setLocalCourses = (a)=> writeJSON("ol_local_courses", a||[]);
+const getEnrolls = ()=> new Set(readJSON("ol_enrolls", []));
+const setEnrolls = (s)=> writeJSON("ol_enrolls", Array.from(s));
+const getNotes = ()=> readJSON("ol_notes", {});        // { [courseId]: [ {page, text, ts} ] }
+const setNotes = (x)=> writeJSON("ol_notes", x);
+const getBookmarks = ()=> readJSON("ol_bms", {});      // { [courseId]: page }
+const setBookmarks = (x)=> writeJSON("ol_bms", x);
+const getAnns = ()=> readJSON("ol_anns", []);          // [{id,title,ts}]
+const setAnns = (x)=> writeJSON("ol_anns", x);
 
 /* ===== data access ===== */
 async function fetchAll() {
@@ -613,148 +565,73 @@ function renderMyLearning() {
     );
 }
 
-const SAMPLE_PAGES = (title) => [
-  {
-    type: "lesson",
-    html: `
-      <h3>${esc(title)} — Welcome</h3>
-      <p>လိဂ်ထည့်ခြင်း: ဒီသင်ခန်းစာမှာ overview ကို ကြည့်ဖို့ video နဲ့ together.</p>
-      <video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v1/800/320">
-        <source src="" type="video/mp4">
-      </video>
-    `,
-  },
-  {
-    type: "reading",
-    html: `
-      <h3>Chapter 1 — Concepts</h3>
-      <p>စပ်စုဖော်ပြချက်…</p>
-      <img style="width:100%;border-radius:10px" src="https://picsum.photos/seed/p1/800/360" alt="figure">
-      <ul>
-        <li>Key point A</li><li>Key point B</li><li>Key point C</li>
-      </ul>
-      <audio controls style="width:100%"></audio>
-    `,
-  },
-  {
-    type: "exercise",
-    html: `
-      <h3>Practice — Quick Tasks</h3>
-      <ol>
-        <li>Code snippet ကို ပြင်ပြီး console မှာ result ကြည့်ပါ</li>
-        <li>Screenshot အဖြစ် တင်ပို့ပါ</li>
-      </ol>
-      <input type="file" />
-    `,
-  },
-  {
-    type: "quiz",
-    html: `
-      <h3>Quiz 1</h3>
-      <p>Q1) Short answer…</p>
-      <input id="q1" placeholder="Your answer" style="width:100%">
-      <p>Q2) True/False</p>
-      <label><input name="q2" type="radio" value="T"> True</label>
-      <label><input name="q2" type="radio" value="F"> False</label>
-      <div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>
-    `,
-  },
-  {
-    type: "media",
-    html: `
-      <h3>Supplement — Audio/Video</h3>
-      <p>နားထောင်ပြီး မှတ်စုယူပါ</p>
-      <audio controls style="width:100%"></audio>
-      <video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v2/800/320"></video>
-    `,
-  },
-  {
-    type: "final",
-    html: `
-      <h3>Final Project</h3>
-      <p>အပိုင်းတစ်ခုပေါင်းစပ်ပြီး mini project တင်သွင်းပါ</p>
-      <input type="file" />
-      <p class="small muted">Finish နိင်လျှင် certificate/transcript ကို Admin မှာနေရာသတ်မှတ်ထားသော နမူနာ စာရွက်တင်ပေးထားပါတယ်။ နိုင်ငံတော်လိုအပ်ချက်အလိုက် Production မှာပင် ထုတ်နိုင်မယ့် UI ထပ်တိုးပေးပါမယ်။</p>
-    `,
-  },
+/* ===== Reader: richer content + Notes dialog ===== */
+const SAMPLE_PAGES=(title)=>[
+  {type:"lesson", html:`<h3>${esc(title)} — Welcome</h3>
+    <p>Intro video:</p>
+    <video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v1/800/320"><source src="" type="video/mp4"></video>`},
+  {type:"reading", html:`<h3>Chapter 1</h3>
+    <p>Reading with image & audio:</p>
+    <img style="width:100%;border-radius:10px" src="https://picsum.photos/seed/p1/800/360" alt="">
+    <audio controls style="width:100%"></audio>`},
+  {type:"exercise", html:`<h3>Practice</h3><ol><li>Edit code & capture result</li><li>Upload</li></ol><input type="file">`},
+  {type:"quiz", html:`<h3>Quiz 1</h3>
+    <p>Q1) Short answer</p><input id="q1" placeholder="Your answer" style="width:100%">
+    <p>Q2) True/False</p>
+    <label><input name="q2" type="radio" value="T"> True</label>
+    <label><input name="q2" type="radio" value="F"> False</label>
+    <div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>`},
+  {type:"media", html:`<h3>Supplement</h3><audio controls style="width:100%"></audio>
+    <video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v2/800/320"></video>`},
+  {type:"final", html:`<h3>Final Project</h3><input type="file"><p class="small muted">Complete to earn certificate/transcript (demo).</p>`}
 ];
 
 let RD = { cid: null, pages: [], i: 0, credits: 0, score: 0 };
-function openReader(cid) {
-  const c =
-    ALL.find((x) => x.id === cid) ||
-    getLocalCourses().find((x) => x.id === cid);
-  if (!c) return;
-  RD = {
-    cid,
-    pages: SAMPLE_PAGES(c.title),
-    i: getBookmarks()[cid] || 0,
-    credits: c.credits || 3,
-    score: Math.floor(80 + Math.random() * 20),
-  };
+function openReader(cid){
+  const c=(ALL.find(x=>x.id===cid) || getLocalCourses().find(x=>x.id===cid)); if(!c) return;
+  const bms=getBookmarks(); const startIndex = Number.isInteger(bms[cid]) ? bms[cid] : 0;
+  RD={cid, pages:SAMPLE_PAGES(c.title), i:startIndex, credits:(c.credits||3), score: Math.floor(80+Math.random()*20)};
   $("#reader").classList.remove("hidden");
-  $("#rdMeta").textContent = `Score: ${RD.score}% • Credits: ${RD.credits}`;
+  $("#rdMeta").textContent=`Score: ${RD.score}% • Credits: ${RD.credits}`;
   renderPage();
-  $("#rdBack").onclick = () => {
-    $("#reader").classList.add("hidden");
+
+  $("#rdBack").onclick=()=>{ $("#reader").classList.add("hidden"); };
+  $("#rdPrev").onclick=()=>{ RD.i=Math.max(0,RD.i-1); renderPage(); };
+  $("#rdNext").onclick=()=>{ RD.i=Math.min(RD.pages.length-1,RD.i+1); renderPage(); };
+  $("#rdBookmark").onclick=()=>{ const b=getBookmarks(); b[cid]=RD.i; setBookmarks(b); toast("Bookmarked"); };
+  $("#rdNote").onclick=()=>{
+    const t=prompt("Write a note"); if(!t) return;
+    const ns=getNotes(); ns[cid]=(ns[cid]||[]); ns[cid].push({page:RD.i,text:t,ts:Date.now()}); setNotes(ns); toast("Note added");
   };
-  $("#rdPrev").onclick = () => {
-    RD.i = Math.max(0, RD.i - 1);
-    renderPage();
-  };
-  $("#rdNext").onclick = () => {
-    RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
-    renderPage();
-  };
-  $("#rdBookmark").onclick = () => {
-    const bms = getBookmarks();
-    bms[cid] = RD.i;
-    setBookmarks(bms);
-    toast("Bookmarked");
-  };
-  $("#rdNote").onclick = () => {
-    const t = prompt("Write a note");
-    if (!t) return;
-    const ns = getNotes();
-    ns[cid] = ns[cid] || [];
-    ns[cid].push({ page: RD.i, text: t, ts: Date.now() });
-    setNotes(ns);
-    toast("Note added");
-  };
-}
-function renderPage() {
-  const p = RD.pages[RD.i];
-  $("#rdTitle").textContent = `${RD.i + 1}. ${p.type.toUpperCase()}`;
-  $("#rdPage").innerHTML = p.html;
-  $("#rdPageInfo").textContent = `${RD.i + 1} / ${RD.pages.length}`;
-  const pct = Math.round(((RD.i + 1) / RD.pages.length) * 100);
-  $("#rdProgress").style.width = pct + "%";
+  $("#rdNotes") && ($("#rdNotes").onclick = ()=> openNotesDialog(cid));
 }
 
-/* ===== Gradebook (Score + Credits added) ===== */
-function renderGradebook() {
-  const tbody = $("#gbTable tbody");
-  if (!tbody) return;
-  const set = getEnrolls();
-  const list = (ALL.length ? ALL : getLocalCourses()).filter((c) =>
-    set.has(c.id)
-  );
-  const rows = list.map((c) => ({
-    student: "you@example.com",
-    course: c.title,
-    score: 80 + Math.floor(Math.random() * 20) + "%",
-    credits: c.credits || 3,
-    progress: Math.floor(Math.random() * 90) + 10 + "%",
-  }));
-  tbody.innerHTML =
-    rows
-      .map(
-        (r) =>
-          `<tr><td>${esc(r.student)}</td><td>${esc(r.course)}</td><td>${esc(
-            r.score
-          )}</td><td>${esc(r.credits)}</td><td>${esc(r.progress)}</td></tr>`
-      )
-      .join("") || "<tr><td colspan='5' class='muted'>No data</td></tr>";
+function renderPage(){
+  const p=RD.pages[RD.i];
+  $("#rdTitle").textContent = `${RD.i+1}. ${p.type.toUpperCase()}`;
+  $("#rdPage").innerHTML = p.html;
+  $("#rdPageInfo").textContent = `${RD.i+1} / ${RD.pages.length}`;
+  $("#rdProgress").style.width = Math.round((RD.i+1)/RD.pages.length*100) + "%";
+
+  // tiny quiz demo feedback
+  const btn=$("#qSubmit"); const msg=$("#qMsg");
+  if(btn){ btn.onclick=()=>{ msg.textContent="Submitted ✔️ (demo grade +5)"; }; }
+}
+
+/* Notes viewer dialog */
+function openNotesDialog(cid){
+  const ns=getNotes()[cid]||[];
+  const box=$("#notesList");
+  box.innerHTML = ns.length? ns.map(n=>`<div class="card"><div class="small muted">${new Date(n.ts).toLocaleString()} • Page ${n.page+1}</div><div>${esc(n.text)}</div></div>`).join("") : `<div class="muted">No notes yet.</div>`;
+  $("#dlgNotes").showModal();
+}
+
+/* ===== Gradebook FIX: esc will handle numbers now ===== */
+function renderGradebook(){
+  const tbody=$("#gbTable tbody"); if(!tbody) return;
+  const set=getEnrolls(); const list=(ALL.length?ALL:getLocalCourses()).filter(c=> set.has(c.id));
+  const rows=list.map(c=>({student:"you@example.com", course:c.title, score:(80+Math.floor(Math.random()*20))+"%", credits:c.credits||3, progress:(Math.floor(Math.random()*90)+10)+"%"}));
+  tbody.innerHTML = rows.map(r=>`<tr><td>${esc(r.student)}</td><td>${esc(r.course)}</td><td>${esc(r.score)}</td><td>${esc(r.credits)}</td><td>${esc(r.progress)}</td></tr>`).join("") || "<tr><td colspan='5' class='muted'>No data</td></tr>";
 }
 
 /* ===== Admin modal + table ===== */
@@ -951,6 +828,56 @@ $("#btnAnnPost")?.addEventListener("click", () => {
   renderAnnouncements();
 });
 
+/* ===== EmailJS: contact form handler (in static dialog) ===== */
+function bindEmailJS(){
+  document.addEventListener("click",(e)=>{
+    const k = e.target.closest("[data-open-static]")?.getAttribute("data-open-static");
+    if (k!=="contact") return;
+    // inject a form into #stBody if not already
+    const body=$("#stBody");
+    if (!body.querySelector("#contactForm")){
+      body.insertAdjacentHTML("beforeend", `
+        <hr/>
+        <form id="contactForm" class="stack" style="margin-top:8px">
+          <input name="from_name" placeholder="Your name" required>
+          <input name="reply_to" type="email" placeholder="Your email" required>
+          <textarea name="message" placeholder="Message" rows="5" required></textarea>
+          <button id="sendEmailBtn" class="btn primary" type="submit">Send</button>
+        </form>
+      `);
+    }
+    const form=$("#contactForm");
+    form.onsubmit= async (ev)=>{
+      ev.preventDefault();
+      try{
+        // Replace with your EmailJS service/template/public key
+        await emailjs.send("YOUR_SERVICE_ID","YOUR_TEMPLATE_ID",{
+          from_name: form.from_name.value,
+          reply_to: form.reply_to.value,
+          message: form.message.value
+        });
+        toast("Email sent ✔️");
+        form.reset();
+      }catch(err){ console.error(err); toast("Email failed"); }
+    };
+  });
+}
+
+/* ===== PWA: install prompt ===== */
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  $("#btnInstallPwa")?.classList.remove("hidden");
+});
+$("#btnInstallPwa")?.addEventListener("click", async ()=>{
+  if(!deferredPrompt) return toast("Not available");
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt=null;
+  $("#btnInstallPwa")?.classList.add("hidden");
+});
+
 /* ===== Footer static content ===== */
 const STATIC = {
   contact: `<p><strong>Contact us</strong></p><p>Email: support@openlearn.local</p><p>Phone: +1 (555) 010-0101</p>`,
@@ -981,54 +908,23 @@ function gateUI() {
   $("#pfEmail") &&
     ($("#pfEmail").textContent = logged ? currentUser.email || "—" : "—");
 }
-onAuthStateChanged(auth, (u) => {
-  currentUser = u || null;
-  gateUI();
-});
-document.addEventListener("click", async (e) => {
-  if (e.target && e.target.id === "btnLogoutTop") {
-    try {
-      await signOut(auth);
-      location.href = "./login.html";
-    } catch (err) {
-      console.error(err);
-      toast(err.code || "Logout failed");
-    }
+onAuthStateChanged(auth, u=>{ currentUser=u||null; gateUI(); });
+
+document.addEventListener("click", async (e)=>{
+  if(e.target && e.target.id==="btnLogoutTop"){
+    try{ await signOut(auth); location.href="./login.html"; }catch(err){ console.error(err); toast(err.code||"Logout failed"); }
   }
 });
 
 /* ===== Boot ===== */
-document.addEventListener("DOMContentLoaded", async () => {
-  // theme init
-  const t = localStorage.getItem("ol_theme") || "dark",
-    f = localStorage.getItem("ol_font") || "14";
-  applyPalette(t);
-  applyFont(f);
-  $("#themeSelect")?.addEventListener("change", (e) => {
-    const v = e.target.value;
-    localStorage.setItem("ol_theme", v);
-    applyPalette(v);
-  });
-  $("#fontSelect")?.addEventListener("change", (e) => {
-    const v = e.target.value;
-    localStorage.setItem("ol_font", v);
-    applyFont(v);
-  });
+document.addEventListener("DOMContentLoaded", async ()=>{
+  const t=localStorage.getItem("ol_theme")||"dark", f=localStorage.getItem("ol_font")||"14";
+  applyPalette(t); applyFont(f);
+  $("#themeSelect")?.addEventListener("change",(e)=>{ const v=e.target.value; localStorage.setItem("ol_theme", v); applyPalette(v); });
+  $("#fontSelect")?.addEventListener("change",(e)=>{ const v=e.target.value; localStorage.setItem("ol_font", v); applyFont(v); });
 
-  initSidebar();
-  bindSidebarNav();
-  bindSearch();
-  bindAdmin();
-  try {
-    await probeDbOnce();
-    await renderCatalog();
-    renderAdminTable();
-    renderAnalytics();
-  } catch (e) {
-    console.warn(e);
-  }
-  $("#btnAddSample")?.addEventListener("click", addSamples);
-
-  // default route
-  showPage("courses");
+  initSidebar(); bindSidebarNav(); bindSearch(); bindEmailJS();
+  try{ await probeDbOnce(); }catch{}
+  await renderCatalog(); // fills ALL
+  renderAdminTable?.(); renderAnalytics?.(); showPage("courses");
 });
