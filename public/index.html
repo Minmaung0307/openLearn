@@ -82,15 +82,31 @@
 
   <!-- Student Dashboard -->
   <section id="page-stu-dashboard" class="page">
-    <h2>Dashboard</h2>
-    <div id="adminDashComposer" class="card ol-hidden" style="margin-bottom:10px">
-      <div class="row">
-        <input id="dashTitle" placeholder="Announcement title" class="grow"/>
-        <button class="btn primary" id="postDash">Post</button>
-      </div>
-      <textarea id="dashBody" placeholder="Write announcement..." style="width:100%;height:100px;margin-top:8px"></textarea>
+    <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Dashboard</h2></div>
+
+    <!-- Announcement toolbar (staff only) -->
+    <div class="row" id="announceToolbar" style="margin-bottom:10px">
+      <button id="btn-new-post" class="btn primary">+ New Announcement</button>
     </div>
 
+    <!-- Composer (modal) -->
+    <dialog id="postModal" class="ol-modal card">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+        <b id="postModalTitle">New Announcement</b>
+        <button class="btn small" id="closePostModal" type="button">Close</button>
+      </div>
+      <form id="postForm" class="authpane">
+        <label>Title <input id="pmTitle" required></label>
+        <label style="grid-column:1/-1">Body <textarea id="pmBody" rows="6" required></textarea></label>
+        <input type="hidden" id="pmId">
+        <div class="auth-actions">
+          <button class="btn" type="button" id="cancelPost">Cancel</button>
+          <button class="btn primary" type="submit" id="savePost">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Calendar block -->
     <div class="card" style="margin-top:10px">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3 class="h4">Student Calendar</h3>
@@ -100,7 +116,8 @@
           <button class="btn" id="addCal">Add</button>
         </div>
       </div>
-      <div id="calGrid" class="calendar"></div>
+      <div id="calGrid" class="calendar" style="margin-bottom:8px"></div>
+      <div id="calList"></div>
     </div>
 
     <div id="stuDashPanel" class="card" style="margin-top:10px">No announcements yet.</div>
@@ -108,7 +125,7 @@
 
   <!-- Admin -->
   <section id="page-admin" class="page">
-    <h2>Admin · Courses</h2>
+    <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Admin · Courses</h2></div>
     <div class="card">
       <table class="ol-table" id="adminCourseTable">
         <thead><tr><th>ID</th><th>Title</th><th>Category</th><th>Level</th><th>Price</th><th>Rating</th><th>Hours</th><th></th></tr></thead>
@@ -119,12 +136,35 @@
 
   <!-- Profile -->
   <section id="page-profile" class="page">
-    <h2>Profile</h2><div id="profilePanel" class="card"></div>
+    <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Profile</h2></div>
+    <div id="profilePanel" class="card"></div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="btn-edit-profile">Edit Profile</button></div>
   </section>
+
+  <!-- Profile Edit Modal -->
+  <dialog id="profileModal" class="ol-modal card">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+      <b>Edit Profile</b>
+      <button class="btn small" id="closeProfileModal" type="button">Close</button>
+    </div>
+    <form id="profileForm" class="authpane">
+      <label>Display name <input name="displayName"></label>
+      <label>Photo URL <input name="photoURL" placeholder="https://..."></label>
+      <label style="grid-column:1/-1">Bio <textarea name="bio" rows="4"></textarea></label>
+      <label>Website <input name="site" placeholder="https://..."></label>
+      <label>GitHub <input name="github" placeholder="https://github.com/..."></label>
+      <label>LinkedIn <input name="linkedin" placeholder="https://linkedin.com/in/..."></label>
+      <label>Portfolio <input name="portfolio" placeholder="https://..."></label>
+      <div class="auth-actions">
+        <button class="btn" type="button" id="cancelProfile">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- Settings -->
   <section id="page-settings" class="page">
-    <h2>Settings</h2>
+    <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Settings</h2></div>
     <div id="settingsPanel" class="card narrow">
       <div class="row">
         <label>Theme&nbsp;
@@ -158,7 +198,7 @@
 
   <!-- Live Chat -->
   <section id="page-livechat" class="page">
-    <h2>Live Chat</h2>
+    <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Live Chat</h2></div>
     <div id="chatPanel" class="card narrow">
       <div class="row">
         <label>Room&nbsp;
@@ -176,6 +216,63 @@
         <input id="chatmsg" placeholder="Type a message…" class="grow">
         <button class="btn" id="sendChat">Send</button>
       </div>
+    </div>
+  </section>
+
+  <!-- LINK PAGES -->
+  <section id="page-contact" class="page">
+    <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Contact</h2></div>
+    <div class="card page-hero contact">
+      <h3>Get in touch</h3>
+      <p>Need help with enrollment, billing, or course content? Drop us a line.</p>
+      <div class="row">
+        <input id="cName" placeholder="Your name">
+        <input id="cEmail" placeholder="you@example.com" type="email">
+      </div>
+      <textarea id="cMsg" rows="5" placeholder="How can we help?"></textarea>
+      <div class="row" style="justify-content:flex-end"><button class="btn primary" id="cSend">Send</button></div>
+      <div id="cStatus" class="muted" style="margin-top:6px"></div>
+    </div>
+  </section>
+
+  <section id="page-guide" class="page">
+    <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Guide</h2></div>
+    <div class="card page-hero guide">
+      <h3>How to use this site</h3>
+      <ol class="guide-steps">
+        <li><b>Courses</b> — Browse catalog, <i>Add sample data</i>, <i>Enroll</i>. Paid courses (future) go through PayPal; Free → direct enroll.</li>
+        <li><b>My Learning</b> — Open a course via <i>Continue</i>. Reader supports chapters, images, audio/video, quizzes, assignments, and a final exam. Progress bar updates as you go.</li>
+        <li><b>Gradebook</b> — Check progress/score/credits. Use <i>Certificate</i> or <i>Transcript</i> to print/save PDF.</li>
+        <li><b>Dashboard</b> — See announcements & calendar. Staff can <i>+ New Announcement</i>, edit/delete posts, and manage calendar items.</li>
+        <li><b>Admin</b> — Create/Edit/Delete courses with a big modal form. Also see a table of all courses.</li>
+        <li><b>Profile</b> — View your info. Use <i>Edit Profile</i> to add photo, bio, and portfolio links (Website/GitHub/LinkedIn).</li>
+        <li><b>Settings</b> — Change Theme & Font size (applies globally—including sidebar/login).</li>
+        <li><b>Live Chat</b> — Post messages in #general, #course, or DM (basic local demo).</li>
+        <li><b>Footer Links</b> — Contact/Guide/Privacy/Policy pages (each with a back button).</li>
+      </ol>
+      <p class="muted">Tip: On mobile, use the ☰ burger to open/close the sidebar. Labels remain readable.</p>
+    </div>
+  </section>
+
+  <section id="page-privacy" class="page">
+    <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Privacy</h2></div>
+    <div class="card page-hero privacy">
+      <h3>Your privacy matters</h3>
+      <p>We store only what's needed to run the app. For demo mode, data is kept in your browser (localStorage).</p>
+      <ul>
+        <li>Profile: display name, photo URL, portfolio links</li>
+        <li>Learning: enrollments, progress, quiz/assignment scores</li>
+        <li>Announcements & chat: stored locally in this demo</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="page-policy" class="page">
+    <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Policy</h2></div>
+    <div class="card page-hero policy">
+      <h3>Terms & policies</h3>
+      <p>Please use content responsibly. Do not share paid materials outside your account. Be kind in chats & forums.</p>
+      <p>Courses may be updated; we’ll announce changes on the Dashboard.</p>
     </div>
   </section>
 

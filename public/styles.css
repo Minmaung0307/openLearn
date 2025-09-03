@@ -74,12 +74,25 @@ a{color:inherit;text-decoration:none}
 .calendar .cell .d{font-size:12px;color:var(--muted)}
 .calendar .event{margin-top:6px;font-size:12px;padding:4px 6px;border-radius:6px;background:#0e1628;border:1px solid var(--border)}
 .calendar .event .t{font-weight:600}
+#calList .row{justify-content:space-between;border-bottom:1px dashed var(--border);padding:6px 0}
+
+.page-hero{padding:16px;border-radius:16px}
+.page-hero.contact{background:linear-gradient(135deg,#143,#034);}
+.page-hero.guide{background:linear-gradient(135deg,#24123a,#1a2446);}
+.page-hero.privacy{background:linear-gradient(135deg,#1d2b22,#17332c);}
+.page-hero.policy{background:linear-gradient(135deg,#3a2812,#2b1d0f);}
+.page-hero h3{margin-top:0}
+.guide-steps{line-height:1.7}
+
+.profile-card{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:start}
+.profile-card img{width:96px;height:96px;border-radius:12px;object-fit:cover;background:#0003}
 
 @media (max-width: 820px){
   #btn-burger{display:inline-flex}
   #sidebar{transform:translateX(-100%);width:260px}
   #sidebar.open{transform:translateX(0)}
   #sidebar:hover{width:260px}
+  #sidebar .navbtn span{opacity:1}  /* mobile: labels readable */
   #main{margin-left:0}
 }
 

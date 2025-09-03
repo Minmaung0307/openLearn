@@ -12,7 +12,7 @@ function showPage(id){
   if(id==='mylearning') renderMyLearning();
   if(id==='gradebook') renderGradebook();
   if(id==='admin')     renderAdmin();
-  if(id==='stu-dashboard'){ initStudentDashboard(); renderCalendar(); }
+  if(id==='stu-dashboard'){ initStudentDashboard(); renderCalendar(); renderCalendarList(); }
   if(id==='profile')   renderProfile(currentUser, currentRole);
   localStorage.setItem('ol:last', id);
 }
@@ -24,7 +24,7 @@ import {
   doc, getDoc, setDoc
 } from '/firebase.js';
 
-const BOOTSTRAP_ADMINS = ['admin@openlearn.com'];
+const BOOTSTRAP_ADMINS = ['admin@openlearn.local'];
 
 /* Burger (mobile) */
 $('#btn-burger')?.addEventListener('click', ()=> $('#sidebar').classList.toggle('open'));
@@ -119,6 +119,7 @@ onAuthStateChanged(auth, async (u)=>{
   }
   renderProfile(currentUser, currentRole);
   renderAdminVisibility(currentRole);
+  toggleStaffUI();
 });
 
 /* localStorage helpers */
@@ -187,7 +188,7 @@ function renderMyLearning(){
   }).join('') || `<div class="card">No enrollments yet.</div>`;
 }
 
-/* reader */
+/* reader with quizzes/assignments/final */
 function openReader(cid){
   showPage('mylearning');
   const grid=$('#mylearn-grid'), r=$('#reader');
@@ -199,18 +200,21 @@ function openReader(cid){
     {h:'Introduction', body:'Welcome to the course. This section gives you an overview.'},
     {h:'Chapter 1: Concepts', body:'Core ideas and visual examples with an image.'},
     {h:'Chapter 2: Media', body:'Audio and video sample below for richer learning.'},
-    {h:'Exercise', body:'Try a short quiz and a reflection question.'}
+    {h:'Exercise', body:'Short quiz and a reflection assignment.'},
+    {h:'Final Exam', body:'Single best-answer question to finish the course.'}
   ];
-  let ix=0;
+  let ix=0, score=0;
+
   const renderBody=()=>{
     const c=chapters[ix];
+    const pct = Math.round(((ix+1)/chapters.length)*100);
     r.innerHTML = `
       <div class="row">
         <button class="btn" id="back" type="button">← Back</button>
-        <div class="grow"></div><div id="prog">${Math.round(((ix+1)/chapters.length)*100)}%</div>
+        <div class="grow"></div><div id="prog">${pct}%</div>
       </div>
       <div style="height:8px;background:#0002;border-radius:6px;margin:8px 0">
-        <div id="bar" style="height:8px;width:${((ix+1)/chapters.length)*100}%;background:var(--primary);border-radius:6px"></div>
+        <div id="bar" style="height:8px;width:${pct}%;background:var(--primary);border-radius:6px"></div>
       </div>
       <h3>${esc(c.h)} — (${ix+1}/${chapters.length})</h3>
       <p>${esc(c.body)}</p>
@@ -225,56 +229,286 @@ function openReader(cid){
       ${ix===3?`
         <div class="card" style="margin-top:10px">
           <b>Quick Quiz</b>
-          <div><label><input type="radio" name="q1"> Option A</label></div>
-          <div><label><input type="radio" name="q1"> Option B</label></div>
-          <div><label><input type="radio" name="q1"> Option C</label></div>
+          <div><label><input type="radio" name="q1" value="A"> Option A</label></div>
+          <div><label><input type="radio" name="q1" value="B"> Option B</label></div>
+          <div><label><input type="radio" name="q1" value="C"> Option C</label></div>
+          <b style="display:block;margin-top:10px">Short Answer</b>
+          <textarea id="shortAns" rows="3" placeholder="Write a short reflection..."></textarea>
+          <b style="display:block;margin-top:10px">Assignment (optional link)</b>
+          <input id="assLink" placeholder="Paste your assignment link (Google Doc / GitHub)"/>
           <button class="btn" id="submitQuiz" style="margin-top:8px">Submit</button>
+          <div id="quizStatus" class="muted" style="margin-top:6px"></div>
+        </div>`:''}
+      ${ix===4?`
+        <div class="card" style="margin-top:10px">
+          <b>Final Exam</b>
+          <p>Which statement is true?</p>
+          <div><label><input type="radio" name="final" value="X"> X</label></div>
+          <div><label><input type="radio" name="final" value="Y"> Y (correct)</label></div>
+          <div><label><input type="radio" name="final" value="Z"> Z</label></div>
+          <button class="btn primary" id="finishBtn" style="margin-top:8px">Finish & Generate Certificate</button>
+          <div id="finalStatus" class="muted" style="margin-top:6px"></div>
         </div>`:''}
       <div class="row" style="margin-top:12px">
         <button class="btn" id="prev" ${ix===0?'disabled':''}>Previous</button>
         <div class="grow"></div>
         <button class="btn primary" id="next" ${ix===chapters.length-1?'disabled':''}>Next</button>
       </div>`;
+
     $('#back').onclick=()=>{ r.classList.remove('open'); grid.classList.remove('hidden'); showPage('mylearning'); window.scrollTo({top:0,behavior:'smooth'}); };
     $('#prev').onclick=()=>{ if(ix>0){ ix--; renderBody(); } };
     $('#next').onclick=()=>{ if(ix<chapters.length-1){ ix++; renderBody(); } };
-    $('#submitQuiz')?.addEventListener('click', ()=> alert('Submitted! (demo)'));
+
+    $('#submitQuiz')?.addEventListener('click', ()=>{
+      const correct = ($$('input[name="q1"]')).find(x=>x.checked)?.value === 'B';
+      const sa = $('#shortAns')?.value.trim();
+      score = correct ? 80 : 50;
+      if(sa?.length>50) score += 10;
+      if($('#assLink')?.value.trim()) score += 10;
+      $('#quizStatus').textContent = `Recorded — provisional score ${score}%`;
+    });
+
+    $('#finishBtn')?.addEventListener('click', ()=>{
+      const fin = ($$('input[name="final"]')).find(x=>x.checked)?.value === 'Y';
+      if(!fin) { $('#finalStatus').textContent='Pick the correct answer to finish.'; return; }
+      // set progress 100 and score
+      const enr=read('ol:enrollments',[]);
+      const row = enr.find(e=>e.courseId===cid); if(row){ row.progress=100; row.score = Math.max(row.score||0, score||90); save('ol:enrollments',enr); }
+      renderGradebook(); renderMyLearning();
+      openCertificate(row?.courseTitle||cid, row?.score||90, currentUser?.email||'Student');
+      alert('Congratulations! Certificate generated preview opened.');
+    });
   };
   renderBody();
 }
 
-/* gradebook */
+/* gradebook + cert/transcript */
 function renderGradebook(){
   const data=read('ol:enrollments',[]);
   $('#gradebook').innerHTML = `
     <table class="ol-table">
-      <thead><tr><th>Course</th><th>Progress</th><th>Score</th><th>Credits</th></tr></thead>
-      <tbody>${data.map(e=>`<tr><td>${esc(e.courseTitle||e.courseId)}</td><td>${Math.round(e.progress||0)}%</td><td>${Math.round(e.score||0)}%</td><td>${e.credits||3}</td></tr>`).join('')}</tbody>
+      <thead><tr><th>Course</th><th>Progress</th><th>Score</th><th>Credits</th><th>Docs</th></tr></thead>
+      <tbody>${
+        data.map(e=>`<tr>
+          <td>${esc(e.courseTitle||e.courseId)}</td>
+          <td>${Math.round(e.progress||0)}%</td>
+          <td>${Math.round(e.score||0)}%</td>
+          <td>${e.credits||3}</td>
+          <td>
+            <button class="btn small" data-cert="${esc(e.courseTitle||e.courseId)}">Certificate</button>
+            <button class="btn small" data-tr="${esc(e.courseTitle||e.courseId)}">Transcript</button>
+          </td>
+        </tr>`).join('')
+      }</tbody>
     </table>`;
+}
+
+/* certificate / transcript windows (print to PDF via browser) */
+function openCertificate(courseTitle, score, name){
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(`
+    <html><head><title>Certificate</title>
+      <style>
+        body{font-family:Inter,system-ui,sans-serif;background:#f7fafc;color:#0b0f17;padding:40px}
+        .wrap{border:6px solid #1f2937;border-radius:16px;padding:40px;text-align:center}
+        h1{font-size:38px;margin:0 0 8px} h2{margin:0 0 20px}
+        .muted{color:#475569}
+      </style>
+    </head><body>
+      <div class="wrap">
+        <h1>Certificate of Completion</h1>
+        <p class="muted">This certifies that</p>
+        <h2>${esc(name)}</h2>
+        <p class="muted">has successfully completed</p>
+        <h2>${esc(courseTitle)}</h2>
+        <p>Final Score: <b>${Math.round(score||0)}%</b></p>
+        <p class="muted">Date: ${new Date().toLocaleDateString()}</p>
+      </div>
+      <script>window.print()</script>
+    </body></html>
+  `);
+  w.document.close();
+}
+function openTranscript(){
+  const enr=read('ol:enrollments',[]);
+  const name=currentUser?.email||'Student';
+  const rows = enr.map(e=>`<tr><td>${esc(e.courseTitle||e.courseId)}</td><td>${Math.round(e.score||0)}%</td><td>${e.credits||3}</td></tr>`).join('');
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(`
+    <html><head><title>Transcript</title>
+      <style>
+        body{font-family:Inter,system-ui,sans-serif;background:#f8fafc;color:#0b0f17;padding:40px}
+        table{width:100%;border-collapse:collapse} th,td{border-bottom:1px solid #cbd5e1;padding:10px;text-align:left}
+      </style>
+    </head><body>
+      <h2>Unofficial Transcript — ${esc(name)}</h2>
+      <table><thead><tr><th>Course</th><th>Score</th><th>Credits</th></tr></thead><tbody>${rows}</tbody></table>
+      <p style="margin-top:14px">Issued: ${new Date().toLocaleString()}</p>
+      <script>window.print()</script>
+    </body></html>
+  `);
+  w.document.close();
 }
 
 /* profile */
 function renderProfile(u, role){
+  const p = read('ol:profileSelf', {displayName:'',photoURL:'',bio:'',site:'',github:'',linkedin:'',portfolio:''});
   $('#profilePanel').innerHTML = u
-    ? `<div><b>${esc(u.email||'')}</b></div><div class="muted">UID: ${esc(u.uid||'-')}</div><div class="muted">Role: ${esc(role||'student')}</div>`
+    ? `<div class="profile-card">
+        <img src="${esc(p.photoURL||'https://picsum.photos/seed/profile/200/200')}" alt="">
+        <div>
+          <div><b>${esc(p.displayName||u.email||'Student')}</b></div>
+          <div class="muted">UID: ${esc(u.uid||'-')} · Role: ${esc(role||'student')}</div>
+          <p>${esc(p.bio||'')}</p>
+          <div class="row">
+            ${p.site? `<a class="badge" href="${esc(p.site)}" target="_blank">Website</a>`:''}
+            ${p.github? `<a class="badge" href="${esc(p.github)}" target="_blank">GitHub</a>`:''}
+            ${p.linkedin? `<a class="badge" href="${esc(p.linkedin)}" target="_blank">LinkedIn</a>`:''}
+            ${p.portfolio? `<a class="badge" href="${esc(p.portfolio)}" target="_blank">Portfolio</a>`:''}
+          </div>
+        </div>
+      </div>`
     : `<div class="muted">Not signed in.</div>`;
 }
 function renderAdminVisibility(role){
-  $('#adminDashComposer').classList.toggle('ol-hidden', !['owner','admin','instructor','ta'].includes(role));
+  const isStaff=['owner','admin','instructor','ta'].includes(role);
+  $('#announceToolbar')?.classList.toggle('ol-hidden', !isStaff);
 }
+function toggleStaffUI(){ renderAdminVisibility(currentRole); }
 
-/* dashboard */
+/* profile modal handlers */
+const profModal=$('#profileModal'), profForm=$('#profileForm');
+$('#btn-edit-profile')?.addEventListener('click', ()=>{
+  const p = read('ol:profileSelf', {});
+  for (const k of ['displayName','photoURL','bio','site','github','linkedin','portfolio']) {
+    profForm[k].value = p[k]||'';
+  }
+  profModal.showModal();
+});
+$('#closeProfileModal').addEventListener('click', ()=> profModal.close());
+$('#cancelProfile').addEventListener('click', ()=> profModal.close());
+profForm.addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const fd = new FormData(profForm);
+  const obj = Object.fromEntries(fd.entries());
+  save('ol:profileSelf', obj);
+  profModal.close();
+  renderProfile(currentUser, currentRole);
+  alert('Profile updated.');
+});
+
+/* dashboard announcements */
 function initStudentDashboard(){
-  const posts=JSON.parse(localStorage.getItem('ol:posts')||'[]');
+  const posts=read('ol:posts',[]);
   $('#stuDashPanel').innerHTML = posts.length
-    ? posts.map(p=>`<div class="card"><div class="h4">${esc(p.t)}</div><div class="muted">${new Date(p.at).toLocaleString()}</div><p>${esc(p.b||'')}</p></div>`).join('')
+    ? posts.map(p=>`<div class="card" data-post="${esc(p.id)}">
+        <div class="row"><div class="h4">${esc(p.t)}</div><div class="grow"></div><div class="muted">${new Date(p.at).toLocaleString()}</div></div>
+        <p>${esc(p.b||'')}</p>
+        ${['owner','admin','instructor','ta'].includes(currentRole)?`
+          <div class="row" style="justify-content:flex-end;gap:6px">
+            <button class="btn small" data-edit-post="${esc(p.id)}">Edit</button>
+            <button class="btn small" data-del-post="${esc(p.id)}">Delete</button>
+          </div>`:''
+        }
+      </div>`).join('')
     : 'No announcements yet.';
 }
-$('#postDash')?.addEventListener('click', ()=>{
-  const t=$('#dashTitle')?.value.trim(), b=$('#dashBody')?.value.trim(); if(!t) return alert('Title required');
-  const posts=JSON.parse(localStorage.getItem('ol:posts')||'[]'); posts.unshift({t,b,at:Date.now()});
-  localStorage.setItem('ol:posts', JSON.stringify(posts));
-  $('#dashTitle').value=''; $('#dashBody').value=''; initStudentDashboard(); alert('Posted!');
+function upsertPost({id,t,b}){
+  const arr=read('ol:posts',[]);
+  if(id){
+    const i=arr.findIndex(x=>x.id===id); if(i>=0) arr[i]={...arr[i],t,b,at:Date.now()};
+  }else{
+    arr.unshift({id:'p_'+Date.now(), t, b, at:Date.now()});
+  }
+  save('ol:posts',arr); initStudentDashboard();
+}
+/* post modal */
+const postModal=$('#postModal');
+$('#btn-new-post')?.addEventListener('click', ()=>{
+  if(!['owner','admin','instructor','ta'].includes(currentRole)) return alert('Staff only');
+  $('#postModalTitle').textContent='New Announcement';
+  $('#pmId').value=''; $('#pmTitle').value=''; $('#pmBody').value='';
+  postModal.showModal();
+});
+$('#closePostModal').addEventListener('click', ()=> postModal.close());
+$('#cancelPost').addEventListener('click', ()=> postModal.close());
+$('#postForm').addEventListener('submit',(e)=>{
+  e.preventDefault();
+  const id=$('#pmId').value||null, t=$('#pmTitle').value.trim(), b=$('#pmBody').value.trim();
+  if(!t||!b) return;
+  upsertPost({id,t,b}); postModal.close();
+});
+document.addEventListener('click',(e)=>{
+  const ep=e.target.closest('[data-edit-post]'); if(ep){
+    const id=ep.dataset.editPost; const p=read('ol:posts',[]).find(x=>x.id===id); if(!p) return;
+    $('#postModalTitle').textContent='Edit Announcement';
+    $('#pmId').value=id; $('#pmTitle').value=p.t; $('#pmBody').value=p.b;
+    postModal.showModal(); return;
+  }
+  const dp=e.target.closest('[data-del-post]'); if(dp){
+    const id=dp.dataset.delPost; if(!confirm('Delete this post?')) return;
+    const arr=read('ol:posts',[]).filter(x=>x.id!==id); save('ol:posts',arr); initStudentDashboard(); return;
+  }
+});
+
+/* calendar + list + edit/delete */
+function renderCalendar(){
+  const grid = $('#calGrid'); if(!grid) return;
+  const list = read('ol:cal',[]);
+  const now = new Date(); const y=now.getFullYear(), m=now.getMonth();
+  const first = new Date(y,m,1); const startDay = first.getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const cells=[];
+  for(let i=0;i<startDay;i++) cells.push({blank:true});
+  for(let d=1; d<=daysInMonth; d++){
+    const iso = new Date(y,m,d).toISOString().slice(0,10);
+    const events = list.filter(e=>e.date===iso);
+    cells.push({d, iso, events});
+  }
+  grid.innerHTML = cells.map(c=> c.blank? `<div class="cell"></div>`
+    : `<div class="cell" data-day="${c.iso}">
+        <div class="d">${c.d}</div>
+        ${c.events.map(e=>`<div class="event" data-eid="${esc(e.id)}"><div class="t">${esc(e.title)}</div></div>`).join('')}
+      </div>`
+  ).join('');
+}
+function renderCalendarList(){
+  const list = read('ol:cal',[]);
+  $('#calList').innerHTML = list.length? list.map(e=>`
+    <div class="row" data-eid="${esc(e.id)}">
+      <div>${esc(e.date)} · <b>${esc(e.title)}</b></div>
+      ${['owner','admin','instructor','ta'].includes(currentRole)?`
+      <div class="row">
+        <button class="btn small" data-edit-cal="${esc(e.id)}">Edit</button>
+        <button class="btn small" data-del-cal="${esc(e.id)}">Delete</button>
+      </div>`:''}
+    </div>
+  `).join(''): `<div class="muted">No events yet.</div>`;
+}
+$('#addCal')?.addEventListener('click', ()=>{
+  const t=$('#calTitle')?.value.trim(), d=$('#calDate')?.value;
+  if(!t||!d) return alert('Title & date required');
+  const arr=read('ol:cal',[]); 
+  arr.push({id:'e_'+Date.now(), title:t,date:d});
+  save('ol:cal', JSON.stringify(arr)); // extra stringify not needed but safe
+  $('#calTitle').value=''; $('#calDate').value='';
+  save('ol:cal',arr);
+  renderCalendar(); renderCalendarList();
+  alert('Event added.');
+});
+document.addEventListener('click',(e)=>{
+  const ec=e.target.closest('[data-edit-cal]'); if(ec){
+    if(!['owner','admin','instructor','ta'].includes(currentRole)) return alert('Staff only');
+    const id=ec.dataset.editCal; const arr=read('ol:cal',[]); const it=arr.find(x=>x.id===id); if(!it) return;
+    const nt = prompt('Edit title', it.title||''); if(nt==null) return;
+    const nd = prompt('Edit date (YYYY-MM-DD)', it.date||''); if(!nd) return;
+    it.title=nt; it.date=nd; save('ol:cal',arr); renderCalendar(); renderCalendarList(); return;
+  }
+  const dc=e.target.closest('[data-del-cal]'); if(dc){
+    if(!['owner','admin','instructor','ta'].includes(currentRole)) return alert('Staff only');
+    const id=dc.dataset.delCal; if(!confirm('Delete event?')) return;
+    let arr=read('ol:cal',[]); arr=arr.filter(x=>x.id!==id); save('ol:cal',arr); renderCalendar(); renderCalendarList(); return;
+  }
 });
 
 /* admin course table */
@@ -344,22 +578,23 @@ function roomKey(){
 }
 function renderChat(){
   const key = roomKey();
-  const arr = JSON.parse(localStorage.getItem('ol:chat:'+key)||'[]');
-  $('#chatlog').innerHTML = arr.map(m=>`<div class="row"><b>${esc(m.from)}</b><span class="muted">${new Date(m.at).toLocaleTimeString()}</span><div class="grow"></div></div><div style="margin:-6px 0 8px 0">${esc(m.text)}</div>`).join('') || `<div class="muted">No messages in ${esc(key)}.</div>`;
+  const arr = read('ol:chat:'+key,[]);
+  $('#chatlog').innerHTML = arr.length? arr.map(m=>`<div class="row"><b>${esc(m.from)}</b><span class="muted">${new Date(m.at).toLocaleTimeString()}</span><div class="grow"></div></div><div style="margin:-6px 0 8px 0">${esc(m.text)}</div>`).join('') : `<div class="muted">No messages in ${esc(key)}.</div>`;
 }
 $('#chatRoomSel').addEventListener('change', renderChat);
 $('#chatTarget').addEventListener('input', renderChat);
 $('#sendChat').addEventListener('click', ()=>{
   const key=roomKey(), text=$('#chatmsg').value.trim(); if(!text) return;
-  const arr = JSON.parse(localStorage.getItem('ol:chat:'+key)||'[]');
+  const arr = read('ol:chat:'+key,[]);
   arr.push({from: currentUser?.email || 'guest', text, at: Date.now()});
-  localStorage.setItem('ol:chat:'+key, JSON.stringify(arr));
+  save('ol:chat:'+key, arr);
   $('#chatmsg').value=''; renderChat();
 });
 
 /* delegates (clicks) */
 document.addEventListener('click', (ev)=>{
   const nav = ev.target.closest('.navbtn');    if(nav){ showPage(nav.dataset.page); return; }
+  const go = ev.target.closest('[data-go]');    if(go){ showPage(go.dataset.go); return; }
   const addSamples = ev.target.closest('#btn-add-samples'); if(addSamples){ appendSamples(); return; }
   const newCourse = ev.target.closest('#btn-new-course');   if(newCourse){ openCourseModal('new'); return; }
   const editBtn = ev.target.closest('[data-edit]'); if(editBtn){ const id=editBtn.dataset.edit; const list=read('ol:courses',[]); const c=list.find(x=>x.id===id); if(c) openCourseModal('edit', c); return; }
@@ -367,6 +602,12 @@ document.addEventListener('click', (ev)=>{
   const enrollBtn = ev.target.closest('[data-enroll]'); if(enrollBtn){ enroll(enrollBtn.dataset.enroll); return; }
   const contBtn = ev.target.closest('[data-continue]'); if(contBtn){ openReader(contBtn.dataset.continue); return; }
   const footerLink = ev.target.closest('[data-link]'); if(footerLink){ showPage(footerLink.dataset.link); return; }
+
+  const certBtn = ev.target.closest('[data-cert]'); if(certBtn){
+    const title=certBtn.dataset.cert; const enr=read('ol:enrollments',[]).find(e=>(e.courseTitle||e.courseId)===title);
+    openCertificate(title, enr?.score||0, currentUser?.email||'Student'); return;
+  }
+  const trBtn = ev.target.closest('[data-tr]'); if(trBtn){ openTranscript(); return; }
 });
 
 /* search */
@@ -384,6 +625,13 @@ $('#topSearch').addEventListener('input', ()=>{
     </article>`).join('');
 });
 
+/* Contact send (demo) */
+$('#cSend')?.addEventListener('click', ()=>{
+  const n=$('#cName').value.trim(), e=$('#cEmail').value.trim(), m=$('#cMsg').value.trim();
+  if(!n||!e||!m) return $('#cStatus').textContent='Please fill all fields.';
+  $('#cStatus').textContent='Thanks! We will get back soon. (demo)';
+});
+
 /* theme + font (global) */
 const $root=document.documentElement; const THEMES=['dark','rose','amber','slate','emerald','purple','orange','teal','indigo','ocean'];
 function applyTheme(t){ $root.classList.remove(...THEMES.map(x=>'theme-'+x)); if(t!=='dark') $root.classList.add('theme-'+t); localStorage.setItem('ol:theme',t); }
@@ -396,37 +644,8 @@ function boot(){
   applyTheme(localStorage.getItem('ol:theme')||'dark');
   applyFont(localStorage.getItem('ol:font')||'16px');
   if(!read('ol:courses',[]).length) appendSamples();
-  renderCatalog(); renderMyLearning(); renderGradebook(); initStudentDashboard(); renderAdmin(); renderChat(); renderCalendar();
+  renderCatalog(); renderMyLearning(); renderGradebook(); initStudentDashboard(); renderAdmin(); renderChat(); renderCalendar(); renderCalendarList();
   const saved = localStorage.getItem('ol:last') || 'catalog';
   showPage(saved);
 }
 document.addEventListener('DOMContentLoaded', boot);
-
-/* mini calendar (local) */
-function renderCalendar(){
-  const grid = $('#calGrid'); if(!grid) return;
-  const list = JSON.parse(localStorage.getItem('ol:cal')||'[]');
-  const now = new Date(); const y=now.getFullYear(), m=now.getMonth();
-  const first = new Date(y,m,1); const startDay = first.getDay();
-  const daysInMonth = new Date(y, m+1, 0).getDate();
-  const cells=[];
-  for(let i=0;i<startDay;i++) cells.push({blank:true});
-  for(let d=1; d<=daysInMonth; d++){
-    const iso = new Date(y,m,d).toISOString().slice(0,10);
-    const events = list.filter(e=>e.date===iso);
-    cells.push({d, iso, events});
-  }
-  grid.innerHTML = cells.map(c=> c.blank? `<div class="cell"></div>`
-    : `<div class="cell"><div class="d">${c.d}</div>${c.events.map(e=>`<div class="event"><div class="t">${esc(e.title)}</div></div>`).join('')}</div>`
-  ).join('');
-}
-$('#addCal')?.addEventListener('click', ()=>{
-  const t=$('#calTitle')?.value.trim(), d=$('#calDate')?.value;
-  if(!t||!d) return alert('Title & date required');
-  const arr=JSON.parse(localStorage.getItem('ol:cal')||'[]'); 
-  arr.push({title:t,date:d});
-  localStorage.setItem('ol:cal', JSON.stringify(arr));
-  $('#calTitle').value=''; $('#calDate').value='';
-  renderCalendar();
-  alert('Event added.');
-});
