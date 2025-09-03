@@ -1,26 +1,17 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // Public read for thumbnails & static assets
-    match /{allPaths=**} {
-      allow read: if true;
-    }
-
-    // Staff-only writable buckets
-    match /course-images/{file=**} {
-      allow write: if request.auth != null
-                   && request.auth.token.role in ['owner','admin','instructor','ta'];
+    match /{allPaths=**} { allow read: if true; }
+    match /lesson-attachments/{file=**} {
+      allow write: if request.auth != null && ['owner','admin','instructor','ta']
+        .hasAny([get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role]);
     }
     match /lesson-videos/{file=**} {
-      allow write: if request.auth != null
-                   && request.auth.token.role in ['owner','admin','instructor','ta'];
+      allow write: if request.auth != null && ['owner','admin','instructor','ta']
+        .hasAny([get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role]);
     }
-
-    // Students can upload assignment files under their folder
-    match /assignment-submits/{uid}/{file=**} {
-      allow write: if request.auth != null && request.auth.uid == uid;
-      allow read:  if request.auth != null && request.auth.uid == uid || request.auth.token.role in ['owner','admin','instructor','ta'];
+    match /assignment-submits/{file=**} {
+      allow write: if request.auth != null;
     }
   }
 }
