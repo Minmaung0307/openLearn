@@ -2,85 +2,90 @@ const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>Array.from(r.quer
 const esc = s => (s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const seedImg = id => `https://picsum.photos/seed/${encodeURIComponent(id)}/640/360`;
 
+/* page router */
 function showPage(id){
   $$('.page').forEach(p=>p.classList.remove('active'));
-  $('#page-'+id)?.classList.add('active');
-  localStorage.setItem('ol:last', id);
-  window.scrollTo(0,0);
+  const sec = $('#page-'+id);
+  if(sec){ sec.classList.add('active'); localStorage.setItem('ol:last', id); window.scrollTo(0,0); }
+  if(id==='mylearning') renderMyLearning();
+  if(id==='gradebook') renderGradebook();
+  if(id==='admin')     renderAdmin();
+  if(id==='stu-dashboard') initStudentDashboard();
+  if(id==='profile')   renderProfile(currentUser, currentRole);
 }
 
-// ---- Firebase (auth only; Firestore optional) ----
+/* Firebase (auth only) */
 import {
   auth, db, onAuthStateChanged,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut,
   doc, getDoc, setDoc
 } from '/firebase.js';
+const BOOTSTRAP_ADMINS = ['admin@openlearn.com'];
+let currentUser=null, currentRole='guest';
 
-const BOOTSTRAP_ADMINS = ['admin@openlearn.local'];
-
-// ---- Auth Modal ----
-const authModal = $('#authModal');
-function openAuth(tab='login'){
-  $('#authTitle').textContent = tab==='signup'?'Sign up':(tab==='forgot'?'Reset password':'Sign in');
-  $$('.ol-tabs .tab').forEach(t=>t.classList.toggle('active', t.dataset.authtab===tab));
-  $('#authLogin').classList.toggle('ol-hidden', tab!=='login');
-  $('#authSignup').classList.toggle('ol-hidden', tab!=='signup');
-  $('#authForgot').classList.toggle('ol-hidden', tab!=='forgot');
-  $('#authMsg').textContent = '';
-  try{ authModal.showModal(); }catch{}
+/* Login modal: links to swap panes */
+function openLogin(){ swapAuth('login'); try{$('#authModal').showModal();}catch{} }
+function swapAuth(which){
+  $('#authLogin').classList.toggle('ol-hidden', which!=='login');
+  $('#authSignup').classList.toggle('ol-hidden', which!=='signup');
+  $('#authForgot').classList.toggle('ol-hidden', which!=='forgot');
 }
-$('#authClose').addEventListener('click', ()=> authModal.close());
-$$('.ol-tabs .tab').forEach(t=> t.addEventListener('click', ()=> openAuth(t.dataset.authtab)));
-$('#btn-login').addEventListener('click', ()=> openAuth('login'));
+$('#btn-login').addEventListener('click', openLogin);
 $('#btn-logout').addEventListener('click', async ()=>{ await signOut(auth); alert('Logged out'); });
+$('#linkSignup').addEventListener('click', (e)=>{e.preventDefault(); swapAuth('signup');});
+$('#linkForgot').addEventListener('click', (e)=>{e.preventDefault(); swapAuth('forgot');});
+$('#backToLogin1').addEventListener('click', (e)=>{e.preventDefault(); swapAuth('login');});
+$('#backToLogin2').addEventListener('click', (e)=>{e.preventDefault(); swapAuth('login');});
 
+/* auth submit */
 $('#authLogin').addEventListener('submit', async (e)=>{
   e.preventDefault();
   try{
     await signInWithEmailAndPassword(auth,$('#loginEmail').value.trim(),$('#loginPass').value);
-    $('#authMsg').textContent='Signed in ✓'; setTimeout(()=>authModal.close(),250);
-  }catch(err){ $('#authMsg').textContent=err?.message||'Login failed'; }
+    $('#authModal').close();
+  }catch(err){ alert(err?.message||'Login failed'); }
 });
 $('#authSignup').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const email=$('#signupEmail').value.trim(), pass=$('#signupPass').value;
   try{
     const res=await createUserWithEmailAndPassword(auth,email,pass);
-    const uref=doc(db,'users',res.user.uid); const s=await getDoc(uref);
-    const role = BOOTSTRAP_ADMINS.includes(email) ? 'admin' : 'student';
-    if(!s.exists()) await setDoc(uref,{role,email,createdAt:Date.now()});
-    localStorage.setItem('ol:role', role);
-    $('#authMsg').textContent='Account created ✓'; setTimeout(()=>authModal.close(),300);
-  }catch(err){ $('#authMsg').textContent=err?.message||'Sign up failed'; }
+    const uref=doc(db,'users',res.user.uid), snap=await getDoc(uref);
+    const role=BOOTSTRAP_ADMINS.includes(email)?'admin':'student';
+    if(!snap.exists()) await setDoc(uref,{role,email,createdAt:Date.now()});
+    $('#authModal').close();
+  }catch(err){ alert(err?.message||'Sign up failed'); }
 });
 $('#authForgot').addEventListener('submit', async (e)=>{
   e.preventDefault();
-  try{ await sendPasswordResetEmail(auth,$('#forgotEmail').value.trim()); $('#authMsg').textContent='Reset email sent ✓'; }
-  catch(err){ $('#authMsg').textContent=err?.message||'Failed'; }
+  try{ await sendPasswordResetEmail(auth,$('#forgotEmail').value.trim()); alert('Reset link sent'); }
+  catch(err){ alert(err?.message||'Failed'); }
 });
 
+/* auth state → role */
 onAuthStateChanged(auth, async (u)=>{
+  currentUser=u||null;
   $('#btn-login').style.display=u?'none':'inline-flex';
   $('#btn-logout').style.display=u?'inline-flex':'none';
   if(u){
-    let role='student';
     try{
       const snap=await getDoc(doc(db,'users',u.uid));
-      role = snap.exists()? (snap.data().role||'student') : (BOOTSTRAP_ADMINS.includes(u.email||'')?'admin':'student');
-      if(!snap.exists()) await setDoc(doc(db,'users',u.uid),{role,email:u.email||'',createdAt:Date.now()});
-    }catch{ role = localStorage.getItem('ol:role') || (BOOTSTRAP_ADMINS.includes(u.email||'')?'admin':'student'); }
-    localStorage.setItem('ol:role', role);
-    renderProfile(u, role); renderAdminVisibility(role);
-  } else {
-    renderProfile(null,'guest'); renderAdminVisibility('guest');
+      currentRole = snap.exists()? (snap.data().role||'student') : (BOOTSTRAP_ADMINS.includes(u.email||'')?'admin':'student');
+      if(!snap.exists()) await setDoc(doc(db,'users',u.uid),{role:currentRole,email:u.email||'',createdAt:Date.now()});
+    }catch{ currentRole = localStorage.getItem('ol:role') || 'student'; }
+  }else{
+    currentRole='guest';
   }
+  localStorage.setItem('ol:role', currentRole);
+  renderProfile(currentUser, currentRole);
+  renderAdminVisibility(currentRole);
 });
 
-// ---- Local storage helpers ----
+/* storage helpers */
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 const read=(k,d=[])=>{try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch{return d}};
 
-// ---- Sample data (always visible, distinct images) ----
+/* sample seeds */
 const baseSamples=[
   {id:'web101',title:'HTML & CSS Basics',category:'Web',level:'Beginner',rating:4.6,price:0,hours:6,credits:3,description:'Learn the building blocks of the web.'},
   {id:'js201', title:'Modern JavaScript', category:'Web',level:'Intermediate',rating:4.5,price:29,hours:12,credits:4,description:'ES6, modules, async, and more.'},
@@ -90,15 +95,19 @@ const baseSamples=[
   {id:'ux101', title:'UX Design Fundamentals', category:'Design',level:'Beginner',rating:4.3,price:0,hours:7,credits:2,description:'Research to wireframes.'},
   {id:'pm101', title:'Project Management', category:'Business',level:'Beginner',rating:4.2,price:9,hours:6,credits:2,description:'Plan, execute, deliver.'}
 ];
-function forceInsertSamples(){
-  const stamp=Date.now();
-  const withImgs = baseSamples.map(s=> ({...s, img: seedImg(s.id+'-'+stamp)}));
-  save('ol:courses', withImgs);
-  renderCatalog(); renderAdmin();
-  showPage('catalog');
+/* Add samples → append more every click (IDs/Images unique) */
+function appendSamples(){
+  const list = read('ol:courses',[]);
+  const batch = baseSamples.map((s,i)=> {
+    const stamp = Date.now().toString().slice(-6) + '-' + i + '-' + (list.length+i);
+    return {...s, id:`${s.id}-${stamp}`, img:seedImg(`${s.id}-${stamp}`)};
+  });
+  const merged = list.concat(batch);
+  save('ol:courses', merged);
+  renderCatalog(); renderAdmin(); showPage('catalog');
 }
 
-// ---- Catalog ----
+/* Catalog */
 function renderCatalog(){
   const courses=read('ol:courses',[]);
   $('#catalog-grid').innerHTML = courses.map(c=>`
@@ -115,7 +124,7 @@ function renderCatalog(){
   `).join('') || `<div class="card">No courses yet. Click “Add sample data”.</div>`;
 }
 
-// ---- Enroll / MyLearning / Reader ----
+/* Enroll / MyLearning / Reader */
 function enroll(cid){
   const list=read('ol:enrollments',[]);
   const courses=read('ol:courses',[]);
@@ -125,7 +134,7 @@ function enroll(cid){
     save('ol:enrollments',list);
   }
   renderMyLearning();
-  showPage('mylearning');  // ← auto navigate
+  showPage('mylearning'); // auto go
 }
 function renderMyLearning(){
   const enr=read('ol:enrollments',[]), courses=read('ol:courses',[]);
@@ -149,7 +158,7 @@ function openReader(cid){
   $('#back').onclick=()=> showPage('mylearning');
 }
 
-// ---- Gradebook ----
+/* Gradebook */
 function renderGradebook(){
   const data=read('ol:enrollments',[]);
   $('#gradebook').innerHTML = `
@@ -159,16 +168,15 @@ function renderGradebook(){
     </table>`;
 }
 
-// ---- Profile ----
+/* Profile */
 function renderProfile(u, role){
   $('#profilePanel').innerHTML = u
-    ? `<div><b>${esc(u.email||'')}</b></div><div class="muted">UID: ${esc(u.uid||'-')}</div><div class="muted">Role: ${esc(role)}</div>`
+    ? `<div><b>${esc(u.email||'')}</b></div><div class="muted">UID: ${esc(u.uid||'-')}</div><div class="muted">Role: ${esc(role||'student')}</div>`
     : `<div class="muted">Not signed in.</div>`;
 }
 
-// ---- Dashboard (announcements) ----
+/* Dashboard (announcements) */
 function renderAdminVisibility(role){
-  // Admin button always visible for demo; composer only staff
   $('#adminDashComposer').classList.toggle('ol-hidden', !['owner','admin','instructor','ta'].includes(role));
 }
 function initStudentDashboard(){
@@ -184,7 +192,7 @@ $('#postDash').addEventListener('click', ()=>{
   $('#dashTitle').value=''; $('#dashBody').value=''; initStudentDashboard();
 });
 
-// ---- Admin (table + edit/delete) ----
+/* Admin table */
 function renderAdmin(){
   const tbody = $('#adminCourseTable tbody');
   const list = read('ol:courses',[]);
@@ -199,12 +207,10 @@ function renderAdmin(){
     </tr>`).join('') || `<tr><td colspan="8">No courses.</td></tr>`;
 }
 
-// ---- Course Modal ----
-const courseModal = $('#courseModal');
-const courseForm  = $('#courseForm');
+/* Course modal */
+const courseModal=$('#courseModal'), courseForm=$('#courseForm');
 $('#courseClose').addEventListener('click', ()=> courseModal.close());
 $('#courseCancel').addEventListener('click', ()=> courseModal.close());
-
 function openCourseModal(mode='new', course=null){
   $('#courseModalTitle').textContent = mode==='edit' ? 'Edit Course' : 'New Course';
   courseForm.reset();
@@ -224,7 +230,6 @@ function openCourseModal(mode='new', course=null){
   }
   courseModal.showModal();
 }
-
 courseForm.addEventListener('submit', (e)=>{
   e.preventDefault();
   const fd = new FormData(courseForm);
@@ -242,13 +247,13 @@ courseForm.addEventListener('submit', (e)=>{
   renderCatalog(); renderAdmin();
 });
 
-// ---- Global click delegation (sidebar, buttons, admin icons, footer links) ----
+/* global click delegation (menus, buttons, footer links) */
 document.addEventListener('click', (ev)=>{
   const nav = ev.target.closest('.navbtn');
-  if(nav){ showPage(nav.dataset.page); if(nav.dataset.page==='admin') renderAdmin(); return; }
+  if(nav){ showPage(nav.dataset.page); return; }
 
   const addSamples = ev.target.closest('#btn-add-samples');
-  if(addSamples){ forceInsertSamples(); return; }
+  if(addSamples){ appendSamples(); return; }
 
   const newCourse = ev.target.closest('#btn-new-course');
   if(newCourse){ openCourseModal('new'); return; }
@@ -272,7 +277,7 @@ document.addEventListener('click', (ev)=>{
   if(footerLink){ showPage(footerLink.dataset.link); return; }
 });
 
-// ---- Search ----
+/* search */
 $('#topSearch').addEventListener('input', ()=>{
   const q=$('#topSearch')?.value?.trim()?.toLowerCase() || '';
   const list=read('ol:courses',[]);
@@ -287,19 +292,18 @@ $('#topSearch').addEventListener('input', ()=>{
     </article>`).join('');
 });
 
-// ---- Settings (Theme + Font) ----
+/* theme + font */
 const $root=document.documentElement; const THEMES=['dark','rose','amber','slate'];
 function applyTheme(t){ $root.classList.remove(...THEMES.map(x=>'theme-'+x)); if(t!=='dark') $root.classList.add('theme-'+t); localStorage.setItem('ol:theme',t); }
 function applyFont(px){ $root.style.setProperty('--font', px); localStorage.setItem('ol:font', px); }
 $('#themeSel')?.addEventListener('change', e=> applyTheme(e.target.value));
 $('#fontSel')?.addEventListener('change', e=> applyFont(e.target.value));
 
-// ---- Boot ----
+/* boot */
 function boot(){
   applyTheme(localStorage.getItem('ol:theme')||'dark');
   applyFont(localStorage.getItem('ol:font')||'16px');
-  // If no courses, force-insert once at first boot? (optional)
-  if(!read('ol:courses',[]).length) forceInsertSamples();
+  if(!read('ol:courses',[]).length) appendSamples(); /* first-time seed */
   renderCatalog(); renderMyLearning(); renderGradebook(); initStudentDashboard(); renderAdmin();
   showPage(localStorage.getItem('ol:last') || 'catalog');
 }

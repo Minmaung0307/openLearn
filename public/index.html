@@ -24,7 +24,6 @@
     <button class="navbtn" data-page="mylearning" title="My Learning"><i>🎒</i><span>My Learning</span></button>
     <button class="navbtn" data-page="gradebook" title="Gradebook"><i>🗂️</i><span>Gradebook</span></button>
     <button class="navbtn" data-page="stu-dashboard" title="Dashboard"><i>🏠</i><span>Dashboard</span></button>
-    <!-- Admin is visible for demo; composer is role-gated -->
     <button class="navbtn" data-page="admin" title="Admin"><i>🛠️</i><span>Admin</span></button>
     <button class="navbtn" data-page="profile" title="Profile"><i>👤</i><span>Profile</span></button>
     <button class="navbtn" data-page="settings" title="Settings"><i>⚙️</i><span>Settings</span></button>
@@ -66,7 +65,7 @@
     <div id="stuDashPanel" class="card" style="margin-top:10px">No announcements yet.</div>
   </section>
 
-  <!-- Admin (course table + edit/delete) -->
+  <!-- Admin -->
   <section id="page-admin" class="page">
     <h2>Admin · Courses</h2>
     <div class="card">
@@ -102,7 +101,7 @@
           </select>
         </label>
       </div>
-      <p class="muted">Theme/Font ပြောင်းလိုက်တာနဲ့ sidebar/menu/login modal အပါအဝင် app တစ်ခုလုံး လိုက်ပြောင်းမယ်။</p>
+      <p class="muted">Theme/Font ကိုပြောင်းလိုက်တာနဲ့ app တစ်ခုလုံး (sidebar/menu/login modal အပါအဝင်) လိုက်ပြောင်းမယ်။</p>
     </div>
   </section>
 
@@ -118,7 +117,7 @@
     </div>
   </section>
 
-  <!-- Static Link Pages -->
+  <!-- Static Pages -->
   <section id="page-contact" class="page">
     <h2>Contact</h2>
     <div class="card narrow"><p>Email: contact@openlearn.local</p><p>Phone: +95-xxx-xxx</p></div>
@@ -138,68 +137,55 @@
 
   <footer id="footer">
     <div class="row">
-      <div class="grow">© OpenLearn · 
+      <div class="grow">
+        © OpenLearn · 
         <a href="#" data-link="contact">Contact</a> · 
         <a href="#" data-link="guide">Guide</a> · 
         <a href="#" data-link="privacy">Privacy</a> · 
         <a href="#" data-link="policy">Policy</a>
       </div>
       <div class="row" style="gap:10px">
-        <!-- Inline SVG social icons (no missing files) -->
-        <a href="#" title="YouTube" aria-label="YouTube">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.7 3.5 12 3.5 12 3.5s-7.7 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.7.6 9.4.6 9.4.6s7.7 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.5 15.5v-7l6 3.5-6 3.5Z"/></svg>
-        </a>
-        <a href="#" title="TikTok" aria-label="TikTok">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21 8.3a7 7 0 0 1-4.9-2V16a6 6 0 1 1-6-6c.3 0 .7 0 1 .1V13a3 3 0 1 0 3 3V2h2a5 5 0 0 0 4 3.9V8.3Z"/></svg>
-        </a>
-        <a href="#" title="Facebook" aria-label="Facebook">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M13 22v-9h3l1-4h-4V6a2 2 0 0 1 2-2h2V1h-3a5 5 0 0 0-5 5v3H6v4h3v9h4Z"/></svg>
-        </a>
-        <a href="#" title="Instagram" aria-label="Instagram">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm8-1a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V6Zm-4 5a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm2-5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg>
-        </a>
-        <a href="#" title="Twitter/X" aria-label="Twitter">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h3l-7 8 8 12h-6l-5-7-5 7H0l8-10L1 2h6l4 6 7-6Z"/></svg>
-        </a>
+        <a href="#" title="YouTube" aria-label="YouTube"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.7 3.5 12 3.5 12 3.5s-7.7 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.7.6 9.4.6 9.4.6s7.7 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.5 15.5v-7l6 3.5-6 3.5Z"/></svg></a>
+        <a href="#" title="TikTok" aria-label="TikTok"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21 8.3a7 7 0 0 1-4.9-2V16a6 6 0 1 1-6-6c.3 0 .7 0 1 .1V13a3 3 0 1 0 3 3V2h2a5 5 0 0 0 4 3.9V8.3Z"/></svg></a>
+        <a href="#" title="Facebook" aria-label="Facebook"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M13 22v-9h3l1-4h-4V6a2 2 0 0 1 2-2h2V1h-3a5 5 0 0 0-5 5v3H6v4h3v9h4Z"/></svg></a>
+        <a href="#" title="Instagram" aria-label="Instagram"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm8-1a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V6Zm-4 5a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm2-5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg></a>
+        <a href="#" title="Twitter/X" aria-label="Twitter"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h3l-7 8 8 12h-6l-5-7-5 7H0l8-10L1 2h6l4 6 7-6Z"/></svg></a>
       </div>
     </div>
   </footer>
 </main>
 
-<!-- Login Modal -->
+<!-- Login Modal (Logo → Email → Password → Login → Sign up & Forgot) -->
 <dialog id="authModal" class="ol-modal card">
-  <div class="ol-modal-head">
-    <b id="authTitle">Sign in</b>
-    <div class="grow"></div>
-    <button class="btn small" id="authClose" type="button">Close</button>
-  </div>
-  <div class="ol-tabs">
-    <button class="tab active" data-authtab="login"  type="button">Login</button>
-    <button class="tab"         data-authtab="signup" type="button">Sign up</button>
-    <button class="tab"         data-authtab="forgot" type="button">Forgot</button>
-  </div>
-  <form id="authLogin"  class="authpane" method="dialog">
+  <div id="authLogo">🎓 OpenLearn</div>
+  <form id="authLogin" class="authpane" method="dialog">
     <label>Email <input id="loginEmail" type="email" required></label>
     <label>Password <input id="loginPass" type="password" required></label>
-    <div class="auth-actions"><button class="btn primary" id="doLogin" type="submit">Sign in</button></div>
+    <div class="auth-actions"><button class="btn primary" id="doLogin" type="submit">Login</button></div>
+    <div class="auth-links">
+      <a href="#" id="linkSignup">Sign up</a>
+      <a href="#" id="linkForgot">Forgot password</a>
+    </div>
   </form>
+
+  <!-- hidden panes for signup/forgot -->
   <form id="authSignup" class="authpane ol-hidden" method="dialog">
     <label>Email <input id="signupEmail" type="email" required></label>
     <label>Password <input id="signupPass" type="password" required></label>
     <div class="auth-actions"><button class="btn primary" id="doSignup" type="submit">Create account</button></div>
+    <div class="auth-links"><a href="#" id="backToLogin1">Back to login</a></div>
   </form>
   <form id="authForgot" class="authpane ol-hidden" method="dialog">
     <label>Email <input id="forgotEmail" type="email" required></label>
     <div class="auth-actions"><button class="btn" id="doForgot" type="submit">Send reset link</button></div>
+    <div class="auth-links"><a href="#" id="backToLogin2">Back to login</a></div>
   </form>
-  <p id="authMsg" class="muted" style="margin-top:8px"></p>
 </dialog>
 
 <!-- New/Edit Course Modal -->
 <dialog id="courseModal" class="ol-modal card">
-  <div class="ol-modal-head">
+  <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
     <b id="courseModalTitle">New Course</b>
-    <div class="grow"></div>
     <button class="btn small" id="courseClose" type="button">Close</button>
   </div>
   <form id="courseForm" class="authpane">
