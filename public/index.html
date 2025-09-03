@@ -10,6 +10,7 @@
 <body>
 <header id="topbar">
   <div class="row">
+    <button id="btn-burger" class="btn" aria-label="Menu">☰</button>
     <div id="logo">🎓 OpenLearn</div>
     <input id="topSearch" placeholder="Search courses..."/>
     <div class="grow"></div>
@@ -32,6 +33,33 @@
 </aside>
 
 <main id="main">
+  <!-- Fullscreen Login Page (shown when signed-out) -->
+  <section id="page-auth" class="page">
+    <div id="authCard" class="card ol-modal">
+      <div id="authLogo">🎓 OpenLearn</div>
+      <form id="authLoginPage" class="authpane">
+        <label>Email <input id="loginEmailPage" type="email" required></label>
+        <label>Password <input id="loginPassPage" type="password" required></label>
+        <div class="auth-actions"><button class="btn primary" id="doLoginPage" type="submit">Login</button></div>
+        <div class="auth-links">
+          <a href="#" id="pageLinkSignup">Sign up</a>
+          <a href="#" id="pageLinkForgot">Forgot password</a>
+        </div>
+      </form>
+      <form id="authSignupPage" class="authpane ol-hidden">
+        <label>Email <input id="signupEmailPage" type="email" required></label>
+        <label>Password <input id="signupPassPage" type="password" required></label>
+        <div class="auth-actions"><button class="btn primary" id="doSignupPage" type="submit">Create account</button></div>
+        <div class="auth-links"><a href="#" id="pageBackToLogin1">Back to login</a></div>
+      </form>
+      <form id="authForgotPage" class="authpane ol-hidden">
+        <label>Email <input id="forgotEmailPage" type="email" required></label>
+        <div class="auth-actions"><button class="btn" id="doForgotPage" type="submit">Send reset link</button></div>
+        <div class="auth-links"><a href="#" id="pageBackToLogin2">Back to login</a></div>
+      </form>
+    </div>
+  </section>
+
   <!-- Courses -->
   <section id="page-catalog" class="page active">
     <div class="row" style="margin-bottom:10px">
@@ -92,16 +120,26 @@
             <option value="rose">Rose</option>
             <option value="amber">Amber</option>
             <option value="slate">Slate</option>
+            <option value="emerald">Emerald</option>
+            <option value="purple">Purple</option>
+            <option value="orange">Orange</option>
+            <option value="teal">Teal</option>
+            <option value="indigo">Indigo</option>
+            <option value="ocean">Ocean</option>
           </select>
         </label>
         <div class="grow"></div>
         <label>Font size&nbsp;
           <select id="fontSel">
-            <option>14px</option><option selected>16px</option><option>18px</option><option>20px</option>
+            <option value="14px">Small</option>
+            <option value="16px" selected>Base</option>
+            <option value="18px">Comfortable</option>
+            <option value="20px">Large</option>
+            <option value="22px">Extra Large</option>
           </select>
         </label>
       </div>
-      <p class="muted">Theme/Font ကိုပြောင်းလိုက်တာနဲ့ app တစ်ခုလုံး (sidebar/menu/login modal အပါအဝင်) လိုက်ပြောင်းမယ်။</p>
+      <p class="muted">Theme/Font ပြောင်းတာနဲ့ app တစ်ခုလုံး (sidebar/menu/login) လိုက်ပြောင်းမယ်။</p>
     </div>
   </section>
 
@@ -109,7 +147,18 @@
   <section id="page-livechat" class="page">
     <h2>Live Chat</h2>
     <div id="chatPanel" class="card narrow">
-      <div id="chatlog" style="max-height:260px;overflow:auto"></div>
+      <div class="row">
+        <label>Room&nbsp;
+          <select id="chatRoomSel">
+            <option value="general">#general</option>
+            <option value="course">#course (current)</option>
+            <option value="dm">DM (email)</option>
+            <option value="ta">DM TA</option>
+          </select>
+        </label>
+        <input id="chatTarget" placeholder="course-id or email (for DM/TA)" style="flex:1" />
+      </div>
+      <div id="chatlog" style="max-height:260px;overflow:auto;margin-top:8px"></div>
       <div class="row" style="margin-top:8px">
         <input id="chatmsg" placeholder="Type a message…" class="grow">
         <button class="btn" id="sendChat">Send</button>
@@ -117,22 +166,32 @@
     </div>
   </section>
 
-  <!-- Static Pages -->
+  <!-- Link Pages with Back -->
   <section id="page-contact" class="page">
-    <h2>Contact</h2>
-    <div class="card narrow"><p>Email: contact@openlearn.local</p><p>Phone: +95-xxx-xxx</p></div>
+    <div class="card narrow">
+      <div class="backrow"><button class="btn" data-back>← Back</button><h2 class="h4">Contact</h2></div>
+      <p>Need help? Reach out to us. This is a sample content block with headings & lists.</p>
+      <ul><li>Email: contact@openlearn.local</li><li>Phone: +95-xxx-xxx</li><li>Office hours: 9am–6pm</li></ul>
+    </div>
   </section>
   <section id="page-guide" class="page">
-    <h2>Guide</h2>
-    <div class="card narrow"><p>How to enroll, learn, and get certificates…</p></div>
+    <div class="card narrow">
+      <div class="backrow"><button class="btn" data-back>← Back</button><h2 class="h4">Guide</h2></div>
+      <p>How to enroll, learn, and get certificates. Chapters:</p>
+      <ol><li>Find a course</li><li>Enroll (Free/Paid)</li><li>Learn & submit</li><li>Pass & download certificate</li></ol>
+    </div>
   </section>
   <section id="page-privacy" class="page">
-    <h2>Privacy</h2>
-    <div class="card narrow"><p>Your data and privacy statement here.</p></div>
+    <div class="card narrow">
+      <div class="backrow"><button class="btn" data-back>← Back</button><h2 class="h4">Privacy</h2></div>
+      <p>Your privacy matters. We store minimal metadata locally for demo purposes only.</p>
+    </div>
   </section>
   <section id="page-policy" class="page">
-    <h2>Policy</h2>
-    <div class="card narrow"><p>Terms, refunds, honor code…</p></div>
+    <div class="card narrow">
+      <div class="backrow"><button class="btn" data-back>← Back</button><h2 class="h4">Policy</h2></div>
+      <p>Honor code, refund policy, academic integrity, accessibility commitment.</p>
+    </div>
   </section>
 
   <footer id="footer">
@@ -155,20 +214,15 @@
   </footer>
 </main>
 
-<!-- Login Modal (Logo → Email → Password → Login → Sign up & Forgot) -->
+<!-- Old modal kept (optional) -->
 <dialog id="authModal" class="ol-modal card">
   <div id="authLogo">🎓 OpenLearn</div>
   <form id="authLogin" class="authpane" method="dialog">
     <label>Email <input id="loginEmail" type="email" required></label>
     <label>Password <input id="loginPass" type="password" required></label>
     <div class="auth-actions"><button class="btn primary" id="doLogin" type="submit">Login</button></div>
-    <div class="auth-links">
-      <a href="#" id="linkSignup">Sign up</a>
-      <a href="#" id="linkForgot">Forgot password</a>
-    </div>
+    <div class="auth-links"><a href="#" id="linkSignup">Sign up</a><a href="#" id="linkForgot">Forgot password</a></div>
   </form>
-
-  <!-- hidden panes for signup/forgot -->
   <form id="authSignup" class="authpane ol-hidden" method="dialog">
     <label>Email <input id="signupEmail" type="email" required></label>
     <label>Password <input id="signupPass" type="password" required></label>
