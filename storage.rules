@@ -1,25 +1,14 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // public read thumbnails
-    match /{allPaths=**} {
-      allow read: if true;
-    }
-
+    match /{allPaths=**} { allow read: if true; }
     function isStaff() {
       return request.auth != null &&
         ['owner','admin','instructor','ta']
         .hasAny([get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role]);
     }
-
-    match /course-images/{file=**} {
-      allow write: if isStaff();
-    }
-    match /lesson-videos/{file=**} {
-      allow write: if isStaff();
-    }
-
-    // students can submit
+    match /course-images/{file=**} { allow write: if isStaff(); }
+    match /lesson-videos/{file=**} { allow write: if isStaff(); }
     match /assignment-submits/{uid}/{file=**} {
       allow write: if request.auth != null && request.auth.uid == uid;
       allow read: if isStaff() || (request.auth != null && request.auth.uid == uid);

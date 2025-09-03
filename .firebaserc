@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "openlearn-mm"
-  }
+  },
+  "targets": {
+    "openlearn-mm": {
+      "storage": {
+        "prod": [
+          "openlearn-mm.appspot.com"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
