@@ -24,6 +24,7 @@
     <button class="navbtn" data-page="mylearning" title="My Learning"><i>🎒</i><span>My Learning</span></button>
     <button class="navbtn" data-page="gradebook" title="Gradebook"><i>🗂️</i><span>Gradebook</span></button>
     <button class="navbtn" data-page="stu-dashboard" title="Dashboard"><i>🏠</i><span>Dashboard</span></button>
+    <button class="navbtn" data-page="admin" title="Admin"><i>🛠️</i><span>Admin</span></button>
     <button class="navbtn" data-page="profile" title="Profile"><i>👤</i><span>Profile</span></button>
     <button class="navbtn" data-page="settings" title="Settings"><i>⚙️</i><span>Settings</span></button>
     <button class="navbtn" data-page="livechat" title="Live Chat"><i>💬</i><span>Live Chat</span></button>
@@ -51,7 +52,7 @@
     <h2>Gradebook</h2><div id="gradebook" class="card"></div>
   </section>
 
-  <!-- Student Dashboard (announcements visible to all; create form only for staff) -->
+  <!-- Student Dashboard -->
   <section id="page-stu-dashboard" class="page">
     <h2>Dashboard</h2>
     <div id="adminDashComposer" class="card ol-hidden">
@@ -59,9 +60,20 @@
         <input id="dashTitle" placeholder="Announcement title" class="grow"/>
         <button class="btn primary" id="postDash">Post</button>
       </div>
-      <textarea id="dashBody" placeholder="Write announcement..." style="width:100%;height:100px;margin-top:8px;background:#0e1628;border:1px solid var(--border);color:inherit;border-radius:10px;padding:10px"></textarea>
+      <textarea id="dashBody" placeholder="Write announcement..." style="width:100%;height:100px;margin-top:8px"></textarea>
     </div>
     <div id="stuDashPanel" class="card" style="margin-top:10px">No announcements yet.</div>
+  </section>
+
+  <!-- Admin (course table + edit/delete) -->
+  <section id="page-admin" class="page">
+    <h2>Admin · Courses</h2>
+    <div class="card">
+      <table class="ol-table" id="adminCourseTable">
+        <thead><tr><th>ID</th><th>Title</th><th>Category</th><th>Level</th><th>Price</th><th>Rating</th><th>Hours</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </section>
 
   <!-- Profile -->
@@ -89,7 +101,7 @@
           </select>
         </label>
       </div>
-      <p class="muted">Theme/Font စိတ်ကြိုက်ပြောင်းလဲနိုင်သည်—App တစ်ခုလုံး (sidebar/login modal/buttons 포함) ကို ချက်ချင်း သက်ရောက်မယ်။</p>
+      <p class="muted">Theme/Font ကိုပြောင်းလိုက်တာနဲ့ sidebar/menu/login modal ပါအပါအဝင် app တစ်ခုလုံး လိုက်ပြောင်းမယ်။</p>
     </div>
   </section>
 
@@ -119,38 +131,62 @@
   </footer>
 </main>
 
-<!-- Login Modal (top tabs, standard layout) -->
+<!-- Login Modal -->
 <dialog id="authModal" class="ol-modal card">
   <div class="ol-modal-head">
     <b id="authTitle">Sign in</b>
     <div class="grow"></div>
     <button class="btn small" id="authClose" type="button">Close</button>
   </div>
-
   <div class="ol-tabs">
     <button class="tab active" data-authtab="login"  type="button">Login</button>
     <button class="tab"         data-authtab="signup" type="button">Sign up</button>
     <button class="tab"         data-authtab="forgot" type="button">Forgot</button>
   </div>
-
   <form id="authLogin"  class="authpane" method="dialog">
     <label>Email <input id="loginEmail" type="email" required></label>
     <label>Password <input id="loginPass" type="password" required></label>
     <div class="auth-actions"><button class="btn primary" id="doLogin" type="submit">Sign in</button></div>
   </form>
-
   <form id="authSignup" class="authpane ol-hidden" method="dialog">
     <label>Email <input id="signupEmail" type="email" required></label>
     <label>Password <input id="signupPass" type="password" required></label>
     <div class="auth-actions"><button class="btn primary" id="doSignup" type="submit">Create account</button></div>
   </form>
-
   <form id="authForgot" class="authpane ol-hidden" method="dialog">
     <label>Email <input id="forgotEmail" type="email" required></label>
     <div class="auth-actions"><button class="btn" id="doForgot" type="submit">Send reset link</button></div>
   </form>
-
   <p id="authMsg" class="muted" style="margin-top:8px"></p>
+</dialog>
+
+<!-- New/Edit Course Modal -->
+<dialog id="courseModal" class="ol-modal card">
+  <div class="ol-modal-head">
+    <b id="courseModalTitle">New Course</b>
+    <div class="grow"></div>
+    <button class="btn small" id="courseClose" type="button">Close</button>
+  </div>
+  <form id="courseForm" class="authpane">
+    <label>Title <input name="title" required></label>
+    <label>Category <input name="category" value="General" required></label>
+    <label>Level
+      <select name="level">
+        <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+      </select>
+    </label>
+    <label>Price (USD) <input name="price" type="number" step="0.01" value="0"></label>
+    <label>Rating (0–5) <input name="rating" type="number" step="0.1" value="4.5"></label>
+    <label>Hours <input name="hours" type="number" step="1" value="6"></label>
+    <label>Credits <input name="credits" type="number" step="1" value="3"></label>
+    <label>Image URL <input name="img" placeholder="auto if empty"></label>
+    <label style="grid-column:1/-1">Description <textarea name="description" rows="3"></textarea></label>
+    <input type="hidden" name="id">
+    <div class="auth-actions">
+      <button class="btn" type="button" id="courseCancel">Cancel</button>
+      <button class="btn primary" type="submit" id="courseSave">Save</button>
+    </div>
+  </form>
 </dialog>
 
 <script type="module" src="/config.js"></script>
