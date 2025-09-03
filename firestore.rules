@@ -1,13 +1,100 @@
 rules_version = '2';
-function isSignedIn(){ return request.auth != null; }
-function myRole(){ return isSignedIn() ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : null; }
-function isStaff(){ return ['owner','admin','instructor','ta'].hasAny([myRole()]); }
+
+function isSignedIn() { return request.auth != null; }
+function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
+function myRole() {
+  return isSignedIn()
+    ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+    : null;
+}
+function isStaff() {
+  // safer & widely-compatible membership check
+  return ['owner','admin','instructor','ta'].hasAny([myRole()]);
+}
+function isStudent() {
+  return ['student'].hasAny([myRole()]);
+}
+function isOwnerOrSelf(uid) {
+  return isStaff() || isSelf(uid);
+}
+function validRole(newRole) {
+  return ['owner','admin','instructor','ta','student'].hasAny([newRole]);
+}
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /courses/{id}{ allow read: if true; allow create,update,delete: if isStaff(); }
-    match /users/{uid}{ allow read: if isSignedIn() && request.auth.uid==uid || isStaff(); allow create: if isSignedIn() && request.auth.uid==uid; allow update: if isSignedIn() && request.auth.uid==uid || isStaff(); }
-    match /enrollments/{id}{ allow create: if isSignedIn() && request.resource.data.userId==request.auth.uid; allow read: if isStaff() || (isSignedIn() && request.auth.uid==resource.data.userId); allow update,delete: if isStaff() || (isSignedIn() && request.auth.uid==resource.data.userId); }
-    match /attempts/{id}{ allow create: if isSignedIn() && request.resource.data.userId==request.auth.uid; allow read: if isStaff() || (isSignedIn() && request.auth.uid==resource.data.userId); allow update,delete: if isStaff(); }
-    match /certificates/{id}{ allow create: if isSignedIn() && request.resource.data.userId==request.auth.uid; allow read: if isSignedIn() && (request.auth.uid==resource.data.userId || isStaff()); allow update,delete: if isStaff(); }
+
+    // ===== Courses =====
+    match /courses/{courseId} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasAll(['title','category','level'])
+        && (request.resource.data.price is number)
+        && (request.resource.data.rating is number)
+        && (request.resource.data.hours is number)
+        && (request.resource.data.credits is number);
+    }
+
+    match /courses/{courseId}/lessons/{lessonId} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+    }
+
+    match /courses/{courseId}/quizzes/{quizId} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+    }
+
+    match /courses/{courseId}/comments/{commentId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.uid);
+    }
+
+    match /courses/{courseId}/assignments/{assId} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+    }
+
+    match /courses/{courseId}/submissions/{sid} {
+      allow read: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.uid);
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.uid);
+    }
+
+    // ===== Users =====
+    match /users/{uid} {
+      allow read: if isOwnerOrSelf(uid);
+
+      // first create: user can create their own doc, but cannot self-escalate role
+      allow create: if isSelf(uid)
+        && (!('role' in request.resource.data) || request.resource.data.role == 'student');
+
+      // update: self may update everything except changing role; staff can change role
+      allow update: if isSelf(uid)
+        ? !(('role' in request.resource.data) && request.resource.data.role != resource.data.role)
+        : isStaff() && (!('role' in request.resource.data) || validRole(request.resource.data.role));
+    }
+
+    // ===== Enrollments =====
+    match /enrollments/{id} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read:   if isStaff() || (isSignedIn() && request.auth.uid == resource.data.userId);
+      allow update, delete: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.userId);
+    }
+
+    // ===== Attempts =====
+    match /attempts/{id} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read:   if isStaff() || (isSignedIn() && request.auth.uid == resource.data.userId);
+      allow update, delete: if isStaff();
+    }
+
+    // Optional public cache
+    match /public/{docId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
   }
 }
