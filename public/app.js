@@ -1,21 +1,22 @@
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const esc = s => (s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const seedImg = id => `https://picsum.photos/seed/${encodeURIComponent(id)}/600/360`;
+const seedImg = id => `https://picsum.photos/seed/${encodeURIComponent(id)}/640/360`;
 
 function showPage(id){
   $$('.page').forEach(p=>p.classList.remove('active'));
   $('#page-'+id)?.classList.add('active');
   localStorage.setItem('ol:last', id);
+  window.scrollTo(0,0);
 }
 
-// ---- Firebase ----
+// ---- Firebase (auth only; Firestore optional) ----
 import {
   auth, db, onAuthStateChanged,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut,
   doc, getDoc, setDoc
 } from '/firebase.js';
 
-const BOOTSTRAP_ADMINS = ['admin@openlearn.com'];
+const BOOTSTRAP_ADMINS = ['admin@openlearn.local'];
 
 // ---- Auth Modal ----
 const authModal = $('#authModal');
@@ -67,36 +68,38 @@ onAuthStateChanged(auth, async (u)=>{
       const snap=await getDoc(doc(db,'users',u.uid));
       role = snap.exists()? (snap.data().role||'student') : (BOOTSTRAP_ADMINS.includes(u.email||'')?'admin':'student');
       if(!snap.exists()) await setDoc(doc(db,'users',u.uid),{role,email:u.email||'',createdAt:Date.now()});
-    }catch(e){
-      role = localStorage.getItem('ol:role') || (BOOTSTRAP_ADMINS.includes(u.email||'')?'admin':'student');
-    }
+    }catch{ role = localStorage.getItem('ol:role') || (BOOTSTRAP_ADMINS.includes(u.email||'')?'admin':'student'); }
     localStorage.setItem('ol:role', role);
-    renderProfile(u, role);
-    renderAdminVisibility(role);
+    renderProfile(u, role); renderAdminVisibility(role);
   } else {
     renderProfile(null,'guest'); renderAdminVisibility('guest');
   }
 });
 
-// ---- Local data helpers ----
+// ---- Local storage helpers ----
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 const read=(k,d=[])=>{try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch{return d}};
 
-// ---- Samples ----
-const samples=[
-  {id:'web101',title:'HTML & CSS Basics',img:seedImg('web101'),category:'Web',level:'Beginner',rating:4.6,price:0,hours:6,credits:3,description:'Learn the building blocks of the web.'},
-  {id:'js201', title:'Modern JavaScript', img:seedImg('js201'),category:'Web',level:'Intermediate',rating:4.5,price:29,hours:12,credits:4,description:'ES6, modules, async, and more.'},
-  {id:'py101', title:'Python for Everyone', img:seedImg('py101'),category:'Data',level:'Beginner',rating:4.7,price:0,hours:10,credits:3,description:'Python fundamentals with practice.'},
-  {id:'sql200',title:'SQL Essentials',   img:seedImg('sql200'),category:'Data',level:'Intermediate',rating:4.4,price:19,hours:8,credits:2,description:'Queries, joins, and optimization.'},
-  {id:'ml300', title:'Intro to Machine Learning', img:seedImg('ml300'),category:'AI',level:'Intermediate',rating:4.5,price:39,hours:14,credits:4,description:'ML concepts and scikit-learn.'},
-  {id:'ux101', title:'UX Design Fundamentals', img:seedImg('ux101'),category:'Design',level:'Beginner',rating:4.3,price:0,hours:7,credits:2,description:'Research to wireframes.'},
-  {id:'pm101', title:'Project Management', img:seedImg('pm101'),category:'Business',level:'Beginner',rating:4.2,price:9,hours:6,credits:2,description:'Plan, execute, deliver.'}
+// ---- Sample data (always visible, distinct images) ----
+const baseSamples=[
+  {id:'web101',title:'HTML & CSS Basics',category:'Web',level:'Beginner',rating:4.6,price:0,hours:6,credits:3,description:'Learn the building blocks of the web.'},
+  {id:'js201', title:'Modern JavaScript', category:'Web',level:'Intermediate',rating:4.5,price:29,hours:12,credits:4,description:'ES6, modules, async, and more.'},
+  {id:'py101', title:'Python for Everyone', category:'Data',level:'Beginner',rating:4.7,price:0,hours:10,credits:3,description:'Python fundamentals with practice.'},
+  {id:'sql200',title:'SQL Essentials',   category:'Data',level:'Intermediate',rating:4.4,price:19,hours:8,credits:2,description:'Queries, joins, and optimization.'},
+  {id:'ml300', title:'Intro to Machine Learning', category:'AI',level:'Intermediate',rating:4.5,price:39,hours:14,credits:4,description:'ML concepts and scikit-learn.'},
+  {id:'ux101', title:'UX Design Fundamentals', category:'Design',level:'Beginner',rating:4.3,price:0,hours:7,credits:2,description:'Research to wireframes.'},
+  {id:'pm101', title:'Project Management', category:'Business',level:'Beginner',rating:4.2,price:9,hours:6,credits:2,description:'Plan, execute, deliver.'}
 ];
+function forceInsertSamples(){
+  const stamp=Date.now();
+  const withImgs = baseSamples.map(s=> ({...s, img: seedImg(s.id+'-'+stamp)}));
+  save('ol:courses', withImgs);
+  renderCatalog(); renderAdmin();
+  showPage('catalog');
+}
 
 // ---- Catalog ----
 function renderCatalog(){
-  const cur=read('ol:courses',[]);
-  if(!cur.length) save('ol:courses', samples.slice());
   const courses=read('ol:courses',[]);
   $('#catalog-grid').innerHTML = courses.map(c=>`
     <article class="card" data-id="${esc(c.id)}">
@@ -109,7 +112,7 @@ function renderCatalog(){
         <button class="btn primary" data-open="${esc(c.id)}">Open</button>
       </div>
     </article>
-  `).join('');
+  `).join('') || `<div class="card">No courses yet. Click “Add sample data”.</div>`;
 }
 
 // ---- Enroll / MyLearning / Reader ----
@@ -121,7 +124,8 @@ function enroll(cid){
     list.push({courseId:cid,courseTitle:c.title,progress:0,score:0,credits:c.credits||3,price:c.price||0});
     save('ol:enrollments',list);
   }
-  renderMyLearning(); alert('Enrolled ✓');
+  renderMyLearning();
+  showPage('mylearning');  // ← auto navigate
 }
 function renderMyLearning(){
   const enr=read('ol:enrollments',[]), courses=read('ol:courses',[]);
@@ -133,7 +137,7 @@ function renderMyLearning(){
       <div class="row"><div class="muted">${esc(c.category||'')}</div><div class="grow"></div><div>${c.price?'$'+c.price:'Free'}</div></div>
       <div class="row"><button class="btn primary" data-continue="${esc(e.courseId)}">Continue</button></div>
     </article>`;
-  }).join('');
+  }).join('') || `<div class="card">No enrollments yet.</div>`;
 }
 function openReader(cid){
   const r=$('#reader');
@@ -164,12 +168,8 @@ function renderProfile(u, role){
 
 // ---- Dashboard (announcements) ----
 function renderAdminVisibility(role){
-  const isStaff = ['owner','admin','instructor','ta'].includes(role);
-  // Show/Hide Admin page button
-  const adminBtn = $$('#sidebar .navbtn').find(b=> b.dataset.page==='admin');
-  if(adminBtn){ adminBtn.style.display = isStaff ? '' : 'none'; }
-  // Composer
-  $('#adminDashComposer').classList.toggle('ol-hidden', !isStaff);
+  // Admin button always visible for demo; composer only staff
+  $('#adminDashComposer').classList.toggle('ol-hidden', !['owner','admin','instructor','ta'].includes(role));
 }
 function initStudentDashboard(){
   const posts=JSON.parse(localStorage.getItem('ol:posts')||'[]');
@@ -181,7 +181,7 @@ $('#postDash').addEventListener('click', ()=>{
   const t=$('#dashTitle').value.trim(), b=$('#dashBody').value.trim(); if(!t) return;
   const posts=JSON.parse(localStorage.getItem('ol:posts')||'[]'); posts.unshift({t,b,at:Date.now()});
   localStorage.setItem('ol:posts', JSON.stringify(posts));
-  $('#dashTitle').value=''; $('#dashBody').value=''; initStudentDashboard(); alert('Posted ✓');
+  $('#dashTitle').value=''; $('#dashBody').value=''; initStudentDashboard();
 });
 
 // ---- Admin (table + edit/delete) ----
@@ -190,19 +190,13 @@ function renderAdmin(){
   const list = read('ol:courses',[]);
   tbody.innerHTML = list.map(c=>`
     <tr data-id="${esc(c.id)}">
-      <td>${esc(c.id)}</td>
-      <td>${esc(c.title)}</td>
-      <td>${esc(c.category)}</td>
-      <td>${esc(c.level)}</td>
-      <td>${c.price?('$'+c.price):'Free'}</td>
-      <td>${esc(c.rating)}</td>
-      <td>${esc(c.hours)}</td>
+      <td>${esc(c.id)}</td><td>${esc(c.title)}</td><td>${esc(c.category)}</td><td>${esc(c.level)}</td>
+      <td>${c.price?('$'+c.price):'Free'}</td><td>${esc(c.rating)}</td><td>${esc(c.hours)}</td>
       <td style="text-align:right">
         <button class="iconbtn" data-edit="${esc(c.id)}" title="Edit">✏️</button>
         <button class="iconbtn" data-del="${esc(c.id)}" title="Delete">🗑️</button>
       </td>
-    </tr>
-  `).join('');
+    </tr>`).join('') || `<tr><td colspan="8">No courses.</td></tr>`;
 }
 
 // ---- Course Modal ----
@@ -248,13 +242,13 @@ courseForm.addEventListener('submit', (e)=>{
   renderCatalog(); renderAdmin();
 });
 
-// ---- Global click delegation (sidebar, buttons, admin icons, add-samples/new) ----
+// ---- Global click delegation (sidebar, buttons, admin icons, footer links) ----
 document.addEventListener('click', (ev)=>{
   const nav = ev.target.closest('.navbtn');
   if(nav){ showPage(nav.dataset.page); if(nav.dataset.page==='admin') renderAdmin(); return; }
 
   const addSamples = ev.target.closest('#btn-add-samples');
-  if(addSamples){ const cur=read('ol:courses',[]); samples.forEach(s=>{ if(!cur.find(x=>x.id===s.id)) cur.push(s); }); save('ol:courses',cur); renderCatalog(); renderAdmin(); alert('7 samples added ✓'); return; }
+  if(addSamples){ forceInsertSamples(); return; }
 
   const newCourse = ev.target.closest('#btn-new-course');
   if(newCourse){ openCourseModal('new'); return; }
@@ -273,6 +267,9 @@ document.addEventListener('click', (ev)=>{
 
   const contBtn = ev.target.closest('[data-continue]');
   if(contBtn){ openReader(contBtn.dataset.continue); return; }
+
+  const footerLink = ev.target.closest('[data-link]');
+  if(footerLink){ showPage(footerLink.dataset.link); return; }
 });
 
 // ---- Search ----
@@ -301,8 +298,9 @@ $('#fontSel')?.addEventListener('change', e=> applyFont(e.target.value));
 function boot(){
   applyTheme(localStorage.getItem('ol:theme')||'dark');
   applyFont(localStorage.getItem('ol:font')||'16px');
-  renderCatalog(); renderMyLearning(); renderGradebook(); initStudentDashboard();
-  renderAdmin(); // in case admin page opens first
+  // If no courses, force-insert once at first boot? (optional)
+  if(!read('ol:courses',[]).length) forceInsertSamples();
+  renderCatalog(); renderMyLearning(); renderGradebook(); initStudentDashboard(); renderAdmin();
   showPage(localStorage.getItem('ol:last') || 'catalog');
 }
 document.addEventListener('DOMContentLoaded', boot);

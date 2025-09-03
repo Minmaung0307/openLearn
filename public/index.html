@@ -24,6 +24,7 @@
     <button class="navbtn" data-page="mylearning" title="My Learning"><i>🎒</i><span>My Learning</span></button>
     <button class="navbtn" data-page="gradebook" title="Gradebook"><i>🗂️</i><span>Gradebook</span></button>
     <button class="navbtn" data-page="stu-dashboard" title="Dashboard"><i>🏠</i><span>Dashboard</span></button>
+    <!-- Admin is visible for demo; composer is role-gated -->
     <button class="navbtn" data-page="admin" title="Admin"><i>🛠️</i><span>Admin</span></button>
     <button class="navbtn" data-page="profile" title="Profile"><i>👤</i><span>Profile</span></button>
     <button class="navbtn" data-page="settings" title="Settings"><i>⚙️</i><span>Settings</span></button>
@@ -84,7 +85,7 @@
   <!-- Settings -->
   <section id="page-settings" class="page">
     <h2>Settings</h2>
-    <div id="settingsPanel" class="card">
+    <div id="settingsPanel" class="card narrow">
       <div class="row">
         <label>Theme&nbsp;
           <select id="themeSel">
@@ -101,14 +102,14 @@
           </select>
         </label>
       </div>
-      <p class="muted">Theme/Font ကိုပြောင်းလိုက်တာနဲ့ sidebar/menu/login modal ပါအပါအဝင် app တစ်ခုလုံး လိုက်ပြောင်းမယ်။</p>
+      <p class="muted">Theme/Font ပြောင်းလိုက်တာနဲ့ sidebar/menu/login modal အပါအဝင် app တစ်ခုလုံး လိုက်ပြောင်းမယ်။</p>
     </div>
   </section>
 
   <!-- Live Chat -->
   <section id="page-livechat" class="page">
     <h2>Live Chat</h2>
-    <div id="chatPanel" class="card">
+    <div id="chatPanel" class="card narrow">
       <div id="chatlog" style="max-height:260px;overflow:auto"></div>
       <div class="row" style="margin-top:8px">
         <input id="chatmsg" placeholder="Type a message…" class="grow">
@@ -117,15 +118,49 @@
     </div>
   </section>
 
+  <!-- Static Link Pages -->
+  <section id="page-contact" class="page">
+    <h2>Contact</h2>
+    <div class="card narrow"><p>Email: contact@openlearn.local</p><p>Phone: +95-xxx-xxx</p></div>
+  </section>
+  <section id="page-guide" class="page">
+    <h2>Guide</h2>
+    <div class="card narrow"><p>How to enroll, learn, and get certificates…</p></div>
+  </section>
+  <section id="page-privacy" class="page">
+    <h2>Privacy</h2>
+    <div class="card narrow"><p>Your data and privacy statement here.</p></div>
+  </section>
+  <section id="page-policy" class="page">
+    <h2>Policy</h2>
+    <div class="card narrow"><p>Terms, refunds, honor code…</p></div>
+  </section>
+
   <footer id="footer">
     <div class="row">
-      <div class="grow">© OpenLearn</div>
-      <div class="row">
-        <img src="/icons/social-youtube.png" width="20" height="20" alt="YouTube"/>
-        <img src="/icons/social-tiktok.png" width="20" height="20" alt="TikTok"/>
-        <img src="/icons/social-facebook.png" width="20" height="20" alt="Facebook"/>
-        <img src="/icons/social-instagram.png" width="20" height="20" alt="Instagram"/>
-        <img src="/icons/social-twitter.png" width="20" height="20" alt="Twitter"/>
+      <div class="grow">© OpenLearn · 
+        <a href="#" data-link="contact">Contact</a> · 
+        <a href="#" data-link="guide">Guide</a> · 
+        <a href="#" data-link="privacy">Privacy</a> · 
+        <a href="#" data-link="policy">Policy</a>
+      </div>
+      <div class="row" style="gap:10px">
+        <!-- Inline SVG social icons (no missing files) -->
+        <a href="#" title="YouTube" aria-label="YouTube">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.7 3.5 12 3.5 12 3.5s-7.7 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.7.6 9.4.6 9.4.6s7.7 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.5 15.5v-7l6 3.5-6 3.5Z"/></svg>
+        </a>
+        <a href="#" title="TikTok" aria-label="TikTok">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21 8.3a7 7 0 0 1-4.9-2V16a6 6 0 1 1-6-6c.3 0 .7 0 1 .1V13a3 3 0 1 0 3 3V2h2a5 5 0 0 0 4 3.9V8.3Z"/></svg>
+        </a>
+        <a href="#" title="Facebook" aria-label="Facebook">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M13 22v-9h3l1-4h-4V6a2 2 0 0 1 2-2h2V1h-3a5 5 0 0 0-5 5v3H6v4h3v9h4Z"/></svg>
+        </a>
+        <a href="#" title="Instagram" aria-label="Instagram">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm8-1a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V6Zm-4 5a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm2-5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg>
+        </a>
+        <a href="#" title="Twitter/X" aria-label="Twitter">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h3l-7 8 8 12h-6l-5-7-5 7H0l8-10L1 2h6l4 6 7-6Z"/></svg>
+        </a>
       </div>
     </div>
   </footer>
@@ -171,9 +206,7 @@
     <label>Title <input name="title" required></label>
     <label>Category <input name="category" value="General" required></label>
     <label>Level
-      <select name="level">
-        <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
-      </select>
+      <select name="level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
     </label>
     <label>Price (USD) <input name="price" type="number" step="0.01" value="0"></label>
     <label>Rating (0–5) <input name="rating" type="number" step="0.1" value="4.5"></label>
