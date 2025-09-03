@@ -33,7 +33,7 @@
 </aside>
 
 <main id="main">
-  <!-- Fullscreen Login Page (shown when signed-out) -->
+  <!-- Fullscreen Login Page (signed-out only) -->
   <section id="page-auth" class="page">
     <div id="authCard" class="card ol-modal">
       <div id="authLogo">🎓 OpenLearn</div>
@@ -83,13 +83,26 @@
   <!-- Student Dashboard -->
   <section id="page-stu-dashboard" class="page">
     <h2>Dashboard</h2>
-    <div id="adminDashComposer" class="card ol-hidden">
+    <div id="adminDashComposer" class="card ol-hidden" style="margin-bottom:10px">
       <div class="row">
         <input id="dashTitle" placeholder="Announcement title" class="grow"/>
         <button class="btn primary" id="postDash">Post</button>
       </div>
       <textarea id="dashBody" placeholder="Write announcement..." style="width:100%;height:100px;margin-top:8px"></textarea>
     </div>
+
+    <div class="card" style="margin-top:10px">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3 class="h4">Student Calendar</h3>
+        <div class="row">
+          <input id="calTitle" placeholder="Event title" />
+          <input id="calDate" type="date" />
+          <button class="btn" id="addCal">Add</button>
+        </div>
+      </div>
+      <div id="calGrid" class="calendar"></div>
+    </div>
+
     <div id="stuDashPanel" class="card" style="margin-top:10px">No announcements yet.</div>
   </section>
 
@@ -166,34 +179,6 @@
     </div>
   </section>
 
-  <!-- Link Pages with Back -->
-  <section id="page-contact" class="page">
-    <div class="card narrow">
-      <div class="backrow"><button class="btn" data-back>← Back</button><h2 class="h4">Contact</h2></div>
-      <p>Need help? Reach out to us. This is a sample content block with headings & lists.</p>
-      <ul><li>Email: contact@openlearn.local</li><li>Phone: +95-xxx-xxx</li><li>Office hours: 9am–6pm</li></ul>
-    </div>
-  </section>
-  <section id="page-guide" class="page">
-    <div class="card narrow">
-      <div class="backrow"><button class="btn" data-back>← Back</button><h2 class="h4">Guide</h2></div>
-      <p>How to enroll, learn, and get certificates. Chapters:</p>
-      <ol><li>Find a course</li><li>Enroll (Free/Paid)</li><li>Learn & submit</li><li>Pass & download certificate</li></ol>
-    </div>
-  </section>
-  <section id="page-privacy" class="page">
-    <div class="card narrow">
-      <div class="backrow"><button class="btn" data-back>← Back</button><h2 class="h4">Privacy</h2></div>
-      <p>Your privacy matters. We store minimal metadata locally for demo purposes only.</p>
-    </div>
-  </section>
-  <section id="page-policy" class="page">
-    <div class="card narrow">
-      <div class="backrow"><button class="btn" data-back>← Back</button><h2 class="h4">Policy</h2></div>
-      <p>Honor code, refund policy, academic integrity, accessibility commitment.</p>
-    </div>
-  </section>
-
   <footer id="footer">
     <div class="row">
       <div class="grow">
@@ -214,7 +199,7 @@
   </footer>
 </main>
 
-<!-- Old modal kept (optional) -->
+<!-- Login Modal -->
 <dialog id="authModal" class="ol-modal card">
   <div id="authLogo">🎓 OpenLearn</div>
   <form id="authLogin" class="authpane" method="dialog">
@@ -236,7 +221,7 @@
   </form>
 </dialog>
 
-<!-- New/Edit Course Modal -->
+<!-- New Course Modal -->
 <dialog id="courseModal" class="ol-modal card">
   <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
     <b id="courseModalTitle">New Course</b>

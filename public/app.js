@@ -1,5 +1,5 @@
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
-const esc = s => (s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc = s => (s??'').toString().replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));
 const seedImg = id => `https://picsum.photos/seed/${encodeURIComponent(id)}/640/360`;
 
 let currentUser=null, currentRole='guest', lastPage='catalog', lastNonAuthPage='catalog';
@@ -12,29 +12,29 @@ function showPage(id){
   if(id==='mylearning') renderMyLearning();
   if(id==='gradebook') renderGradebook();
   if(id==='admin')     renderAdmin();
-  if(id==='stu-dashboard') initStudentDashboard();
+  if(id==='stu-dashboard'){ initStudentDashboard(); renderCalendar(); }
   if(id==='profile')   renderProfile(currentUser, currentRole);
+  localStorage.setItem('ol:last', id);
 }
 
-/* Firebase (auth only; from firebase.js) */
+/* Firebase (from firebase.js) */
 import {
   auth, db, onAuthStateChanged,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut,
   doc, getDoc, setDoc
 } from '/firebase.js';
+
 const BOOTSTRAP_ADMINS = ['admin@openlearn.com'];
 
-/* Burger menu */
-$('#btn-burger')?.addEventListener('click', ()=>{
-  $('#sidebar').classList.toggle('open');
-});
+/* Burger (mobile) */
+$('#btn-burger')?.addEventListener('click', ()=> $('#sidebar').classList.toggle('open'));
 document.addEventListener('click', (e)=>{
   if(window.matchMedia('(max-width:820px)').matches){
     if(e.target.closest('.navbtn')) $('#sidebar').classList.remove('open');
   }
 });
 
-/* Auth Modal (kept) + Fullscreen Auth Page */
+/* Auth modal + fullscreen auth */
 function swapPane(group, which){
   const m = group==='modal';
   (m?$('#authLogin'):$('#authLoginPage')).classList.toggle('ol-hidden', which!=='login');
@@ -45,7 +45,6 @@ function openLoginModal(){ swapPane('modal','login'); try{$('#authModal').showMo
 $('#btn-login').addEventListener('click', openLoginModal);
 $('#btn-logout').addEventListener('click', async ()=>{ await signOut(auth); });
 
-/* Modal auth events */
 $('#linkSignup').addEventListener('click',(e)=>{e.preventDefault(); swapPane('modal','signup');});
 $('#linkForgot').addEventListener('click',(e)=>{e.preventDefault(); swapPane('modal','forgot');});
 $('#backToLogin1').addEventListener('click',(e)=>{e.preventDefault(); swapPane('modal','login');});
@@ -72,13 +71,12 @@ $('#authForgot').addEventListener('submit', async (e)=>{
   catch(err){ alert(err?.message||'Failed'); }
 });
 
-/* Fullscreen auth page events */
+/* Fullscreen Auth page handlers */
 function swapAuthPage(which){ swapPane('page', which); }
 $('#pageLinkSignup').addEventListener('click',(e)=>{e.preventDefault(); swapAuthPage('signup');});
 $('#pageLinkForgot').addEventListener('click',(e)=>{e.preventDefault(); swapAuthPage('forgot');});
 $('#pageBackToLogin1').addEventListener('click',(e)=>{e.preventDefault(); swapAuthPage('login');});
 $('#pageBackToLogin2').addEventListener('click',(e)=>{e.preventDefault(); swapAuthPage('login');});
-
 $('#authLoginPage').addEventListener('submit', async (e)=>{
   e.preventDefault();
   try{ await signInWithEmailAndPassword(auth,$('#loginEmailPage').value.trim(),$('#loginPassPage').value); }
@@ -112,24 +110,22 @@ onAuthStateChanged(auth, async (u)=>{
       if(!snap.exists()) await setDoc(doc(db,'users',u.uid),{role:currentRole,email:u.email||'',createdAt:Date.now()});
     }catch{ currentRole = localStorage.getItem('ol:role') || 'student'; }
     localStorage.setItem('ol:role', currentRole);
-    // hide full-screen login page, show last page
     $('#page-auth').classList.remove('active');
     showPage(lastNonAuthPage || 'catalog');
   } else {
     currentRole='guest';
     localStorage.setItem('ol:role','guest');
-    // show full-screen login page only
     showPage('auth'); $('#page-auth').classList.add('active');
   }
   renderProfile(currentUser, currentRole);
   renderAdminVisibility(currentRole);
 });
 
-/* Local storage helpers */
+/* localStorage helpers */
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 const read=(k,d=[])=>{try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch{return d}};
 
-/* Samples */
+/* samples */
 const baseSamples=[
   {id:'web101',title:'HTML & CSS Basics',category:'Web',level:'Beginner',rating:4.6,price:0,hours:6,credits:3,description:'Learn the building blocks of the web.'},
   {id:'js201', title:'Modern JavaScript', category:'Web',level:'Intermediate',rating:4.5,price:29,hours:12,credits:4,description:'ES6, modules, async, and more.'},
@@ -149,7 +145,7 @@ function appendSamples(){
   renderCatalog(); renderAdmin(); showPage('catalog');
 }
 
-/* Catalog (Enroll only) */
+/* catalog */
 function renderCatalog(){
   const courses=read('ol:courses',[]);
   $('#catalog-grid').innerHTML = courses.map(c=>`
@@ -163,7 +159,7 @@ function renderCatalog(){
   `).join('') || `<div class="card">No courses yet. Click “Add sample data”.</div>`;
 }
 
-/* Enroll / MyLearning / Reader */
+/* enroll & myLearning */
 function enroll(cid){
   const list=read('ol:enrollments',[]);
   const courses=read('ol:courses',[]);
@@ -173,11 +169,14 @@ function enroll(cid){
     save('ol:enrollments',list);
   }
   renderMyLearning();
-  showPage('mylearning'); // open My Learning after enroll
+  showPage('mylearning');
 }
 function renderMyLearning(){
   const enr=read('ol:enrollments',[]), courses=read('ol:courses',[]);
-  $('#mylearn-grid').innerHTML = enr.map(e=>{
+  const grid = $('#mylearn-grid');
+  grid.classList.remove('hidden');
+  $('#reader').classList.remove('open');
+  grid.innerHTML = enr.map(e=>{
     const c=courses.find(x=>x.id===e.courseId)||{};
     return `<article class="card">
       <img class="course-thumb" src="${esc(c.img||seedImg(e.courseId))}" alt="">
@@ -187,23 +186,64 @@ function renderMyLearning(){
     </article>`;
   }).join('') || `<div class="card">No enrollments yet.</div>`;
 }
+
+/* reader */
 function openReader(cid){
-  const r=$('#reader');
-  r.dataset.courseId=cid; showPage('mylearning'); r.style.display='';
-  r.innerHTML = `
-    <div class="row">
-      <button class="btn" id="back" type="button">← Back</button>
-      <div class="grow"></div><div id="prog">0%</div>
-    </div>
-    <div style="height:8px;background:#0002;border-radius:6px;margin:8px 0"><div id="bar" style="height:8px;width:0;background:var(--primary);border-radius:6px"></div></div>
-    <div>
-      <h3>${esc(cid)}</h3>
-      <p>Sample chapter content — text, image, audio, video, quizzes… (demo).</p>
-    </div>`;
-  $('#back').onclick=()=> showPage('mylearning');
+  showPage('mylearning');
+  const grid=$('#mylearn-grid'), r=$('#reader');
+  grid.classList.add('hidden');
+  r.classList.add('open');
+  r.dataset.courseId=cid;
+
+  const chapters=[
+    {h:'Introduction', body:'Welcome to the course. This section gives you an overview.'},
+    {h:'Chapter 1: Concepts', body:'Core ideas and visual examples with an image.'},
+    {h:'Chapter 2: Media', body:'Audio and video sample below for richer learning.'},
+    {h:'Exercise', body:'Try a short quiz and a reflection question.'}
+  ];
+  let ix=0;
+  const renderBody=()=>{
+    const c=chapters[ix];
+    r.innerHTML = `
+      <div class="row">
+        <button class="btn" id="back" type="button">← Back</button>
+        <div class="grow"></div><div id="prog">${Math.round(((ix+1)/chapters.length)*100)}%</div>
+      </div>
+      <div style="height:8px;background:#0002;border-radius:6px;margin:8px 0">
+        <div id="bar" style="height:8px;width:${((ix+1)/chapters.length)*100}%;background:var(--primary);border-radius:6px"></div>
+      </div>
+      <h3>${esc(c.h)} — (${ix+1}/${chapters.length})</h3>
+      <p>${esc(c.body)}</p>
+      ${ix===1?`<img class="course-thumb" src="${seedImg(cid+'-chapter')}" alt="">`:''}
+      ${ix===2?`
+        <audio controls style="width:100%;margin-top:8px">
+          <source src="https://www.kozco.com/tech/piano2-CoolEdit.mp3" type="audio/mpeg">
+        </audio>
+        <video controls style="width:100%;margin-top:8px">
+          <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4">
+        </video>`:''}
+      ${ix===3?`
+        <div class="card" style="margin-top:10px">
+          <b>Quick Quiz</b>
+          <div><label><input type="radio" name="q1"> Option A</label></div>
+          <div><label><input type="radio" name="q1"> Option B</label></div>
+          <div><label><input type="radio" name="q1"> Option C</label></div>
+          <button class="btn" id="submitQuiz" style="margin-top:8px">Submit</button>
+        </div>`:''}
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="prev" ${ix===0?'disabled':''}>Previous</button>
+        <div class="grow"></div>
+        <button class="btn primary" id="next" ${ix===chapters.length-1?'disabled':''}>Next</button>
+      </div>`;
+    $('#back').onclick=()=>{ r.classList.remove('open'); grid.classList.remove('hidden'); showPage('mylearning'); window.scrollTo({top:0,behavior:'smooth'}); };
+    $('#prev').onclick=()=>{ if(ix>0){ ix--; renderBody(); } };
+    $('#next').onclick=()=>{ if(ix<chapters.length-1){ ix++; renderBody(); } };
+    $('#submitQuiz')?.addEventListener('click', ()=> alert('Submitted! (demo)'));
+  };
+  renderBody();
 }
 
-/* Gradebook */
+/* gradebook */
 function renderGradebook(){
   const data=read('ol:enrollments',[]);
   $('#gradebook').innerHTML = `
@@ -213,31 +253,31 @@ function renderGradebook(){
     </table>`;
 }
 
-/* Profile */
+/* profile */
 function renderProfile(u, role){
   $('#profilePanel').innerHTML = u
     ? `<div><b>${esc(u.email||'')}</b></div><div class="muted">UID: ${esc(u.uid||'-')}</div><div class="muted">Role: ${esc(role||'student')}</div>`
     : `<div class="muted">Not signed in.</div>`;
 }
-
-/* Dashboard (announcements) */
 function renderAdminVisibility(role){
   $('#adminDashComposer').classList.toggle('ol-hidden', !['owner','admin','instructor','ta'].includes(role));
 }
+
+/* dashboard */
 function initStudentDashboard(){
   const posts=JSON.parse(localStorage.getItem('ol:posts')||'[]');
   $('#stuDashPanel').innerHTML = posts.length
     ? posts.map(p=>`<div class="card"><div class="h4">${esc(p.t)}</div><div class="muted">${new Date(p.at).toLocaleString()}</div><p>${esc(p.b||'')}</p></div>`).join('')
     : 'No announcements yet.';
 }
-$('#postDash').addEventListener('click', ()=>{
-  const t=$('#dashTitle').value.trim(), b=$('#dashBody').value.trim(); if(!t) return;
+$('#postDash')?.addEventListener('click', ()=>{
+  const t=$('#dashTitle')?.value.trim(), b=$('#dashBody')?.value.trim(); if(!t) return alert('Title required');
   const posts=JSON.parse(localStorage.getItem('ol:posts')||'[]'); posts.unshift({t,b,at:Date.now()});
   localStorage.setItem('ol:posts', JSON.stringify(posts));
-  $('#dashTitle').value=''; $('#dashBody').value=''; initStudentDashboard();
+  $('#dashTitle').value=''; $('#dashBody').value=''; initStudentDashboard(); alert('Posted!');
 });
 
-/* Admin table */
+/* admin course table */
 function renderAdmin(){
   const tbody = $('#adminCourseTable tbody');
   const list = read('ol:courses',[]);
@@ -252,7 +292,7 @@ function renderAdmin(){
     </tr>`).join('') || `<tr><td colspan="8">No courses.</td></tr>`;
 }
 
-/* Course modal */
+/* new/edit course modal */
 const courseModal=$('#courseModal'), courseForm=$('#courseForm');
 $('#courseClose').addEventListener('click', ()=> courseModal.close());
 $('#courseCancel').addEventListener('click', ()=> courseModal.close());
@@ -292,7 +332,7 @@ courseForm.addEventListener('submit', (e)=>{
   renderCatalog(); renderAdmin();
 });
 
-/* Live Chat (local demo rooms) */
+/* chat (local demo) */
 function roomKey(){
   const mode = $('#chatRoomSel').value;
   const tgt  = ($('#chatTarget').value||'').trim();
@@ -317,37 +357,19 @@ $('#sendChat').addEventListener('click', ()=>{
   $('#chatmsg').value=''; renderChat();
 });
 
-/* Global click delegation */
+/* delegates (clicks) */
 document.addEventListener('click', (ev)=>{
-  const nav = ev.target.closest('.navbtn');
-  if(nav){ showPage(nav.dataset.page); return; }
-
-  const addSamples = ev.target.closest('#btn-add-samples');
-  if(addSamples){ appendSamples(); return; }
-
-  const newCourse = ev.target.closest('#btn-new-course');
-  if(newCourse){ openCourseModal('new'); return; }
-
-  const editBtn = ev.target.closest('[data-edit]');
-  if(editBtn){ const id=editBtn.dataset.edit; const list=read('ol:courses',[]); const c=list.find(x=>x.id===id); if(c) openCourseModal('edit', c); return; }
-
-  const delBtn = ev.target.closest('[data-del]');
-  if(delBtn){ const id=delBtn.dataset.del; if(confirm('Delete course?')){ let list=read('ol:courses',[]); list=list.filter(x=>x.id!==id); save('ol:courses',list); renderCatalog(); renderAdmin(); } return; }
-
-  const enrollBtn = ev.target.closest('[data-enroll]');
-  if(enrollBtn){ enroll(enrollBtn.dataset.enroll); return; }
-
-  const contBtn = ev.target.closest('[data-continue]');
-  if(contBtn){ openReader(contBtn.dataset.continue); return; }
-
-  const backBtn = ev.target.closest('[data-back]');
-  if(backBtn){ showPage(lastNonAuthPage || 'catalog'); return; }
-
-  const footerLink = ev.target.closest('[data-link]');
-  if(footerLink){ showPage(footerLink.dataset.link); return; }
+  const nav = ev.target.closest('.navbtn');    if(nav){ showPage(nav.dataset.page); return; }
+  const addSamples = ev.target.closest('#btn-add-samples'); if(addSamples){ appendSamples(); return; }
+  const newCourse = ev.target.closest('#btn-new-course');   if(newCourse){ openCourseModal('new'); return; }
+  const editBtn = ev.target.closest('[data-edit]'); if(editBtn){ const id=editBtn.dataset.edit; const list=read('ol:courses',[]); const c=list.find(x=>x.id===id); if(c) openCourseModal('edit', c); return; }
+  const delBtn = ev.target.closest('[data-del]'); if(delBtn){ const id=delBtn.dataset.del; if(confirm('Delete course?')){ let list=read('ol:courses',[]); list=list.filter(x=>x.id!==id); save('ol:courses',list); renderCatalog(); renderAdmin(); } return; }
+  const enrollBtn = ev.target.closest('[data-enroll]'); if(enrollBtn){ enroll(enrollBtn.dataset.enroll); return; }
+  const contBtn = ev.target.closest('[data-continue]'); if(contBtn){ openReader(contBtn.dataset.continue); return; }
+  const footerLink = ev.target.closest('[data-link]'); if(footerLink){ showPage(footerLink.dataset.link); return; }
 });
 
-/* Search */
+/* search */
 $('#topSearch').addEventListener('input', ()=>{
   const q=$('#topSearch')?.value?.trim()?.toLowerCase() || '';
   const list=read('ol:courses',[]);
@@ -362,20 +384,49 @@ $('#topSearch').addEventListener('input', ()=>{
     </article>`).join('');
 });
 
-/* Theme + Font */
+/* theme + font (global) */
 const $root=document.documentElement; const THEMES=['dark','rose','amber','slate','emerald','purple','orange','teal','indigo','ocean'];
 function applyTheme(t){ $root.classList.remove(...THEMES.map(x=>'theme-'+x)); if(t!=='dark') $root.classList.add('theme-'+t); localStorage.setItem('ol:theme',t); }
 function applyFont(px){ $root.style.setProperty('--font', px); localStorage.setItem('ol:font', px); }
 $('#themeSel')?.addEventListener('change', e=> applyTheme(e.target.value));
 $('#fontSel')?.addEventListener('change', e=> applyFont(e.target.value));
 
-/* Boot */
+/* boot */
 function boot(){
   applyTheme(localStorage.getItem('ol:theme')||'dark');
   applyFont(localStorage.getItem('ol:font')||'16px');
   if(!read('ol:courses',[]).length) appendSamples();
-  renderCatalog(); renderMyLearning(); renderGradebook(); initStudentDashboard(); renderAdmin(); renderChat();
+  renderCatalog(); renderMyLearning(); renderGradebook(); initStudentDashboard(); renderAdmin(); renderChat(); renderCalendar();
   const saved = localStorage.getItem('ol:last') || 'catalog';
   showPage(saved);
 }
 document.addEventListener('DOMContentLoaded', boot);
+
+/* mini calendar (local) */
+function renderCalendar(){
+  const grid = $('#calGrid'); if(!grid) return;
+  const list = JSON.parse(localStorage.getItem('ol:cal')||'[]');
+  const now = new Date(); const y=now.getFullYear(), m=now.getMonth();
+  const first = new Date(y,m,1); const startDay = first.getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const cells=[];
+  for(let i=0;i<startDay;i++) cells.push({blank:true});
+  for(let d=1; d<=daysInMonth; d++){
+    const iso = new Date(y,m,d).toISOString().slice(0,10);
+    const events = list.filter(e=>e.date===iso);
+    cells.push({d, iso, events});
+  }
+  grid.innerHTML = cells.map(c=> c.blank? `<div class="cell"></div>`
+    : `<div class="cell"><div class="d">${c.d}</div>${c.events.map(e=>`<div class="event"><div class="t">${esc(e.title)}</div></div>`).join('')}</div>`
+  ).join('');
+}
+$('#addCal')?.addEventListener('click', ()=>{
+  const t=$('#calTitle')?.value.trim(), d=$('#calDate')?.value;
+  if(!t||!d) return alert('Title & date required');
+  const arr=JSON.parse(localStorage.getItem('ol:cal')||'[]'); 
+  arr.push({title:t,date:d});
+  localStorage.setItem('ol:cal', JSON.stringify(arr));
+  $('#calTitle').value=''; $('#calDate').value='';
+  renderCalendar();
+  alert('Event added.');
+});
