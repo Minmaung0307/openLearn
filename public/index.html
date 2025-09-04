@@ -22,6 +22,27 @@
         console.warn("EmailJS not init");
       }
     </script>
+    <!-- public/config.js -->
+    <script>
+      window.OPENLEARN_CFG = {
+        firebase: {
+          apiKey: "AIzaSyBEkph2jnubq_FvZUcHOR2paKoOKhRaULg",
+          authDomain: "openlearn-mm.firebaseapp.com",
+          databaseURL: "https://openlearn-mm-default-rtdb.firebaseio.com",
+          projectId: "openlearn-mm",
+          storageBucket: "openlearn-mm.firebasestorage.app",
+          messagingSenderId: "977262127138",
+          appId: "1:977262127138:web:0ee1d4ac3c45f1334f427b",
+          measurementId: "G-E65G177ZNJ",
+        },
+        paypalClientId: window.PAYPAL_CLIENT_ID || "", // အရင်ထည့်ထားတာရှိရင် အလိုလိုယူမယ်
+        emailjs: window.EMAILJS || {
+          publicKey: "",
+          serviceId: "",
+          templateId: "",
+        },
+      };
+    </script>
     <!-- index.html (inside <head>) -->
     <script src="/config.js"></script>
     <script type="module" src="/firebase.js"></script>

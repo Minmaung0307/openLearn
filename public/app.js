@@ -1,6 +1,7 @@
 import {
   app, auth, db,
-  onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile,
+  onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+  updateProfile, sendPasswordResetEmail, updateProfile,
   collection, addDoc, serverTimestamp, doc, getDoc, getDocs, query, orderBy, where, limit
 } from "./firebase.js";
 

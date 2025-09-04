@@ -463,3 +463,21 @@ dialog form,
 .chat-box{height:260px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--card)}
 .msg{margin:6px 0}
 .msg b{margin-right:6px}
+
+/* Center the login dialog (modal) */
+#authModal::backdrop { background: rgba(0,0,0,.5); }
+#authModal.ol-modal {
+  padding: 0;
+  border: none;
+}
+#authModal.ol-modal.card {
+  max-width: 520px;
+  width: min(90vw, 520px);
+}
+dialog.ol-modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;   /* center */
+  background: transparent;
+}
