@@ -1,54 +1,56 @@
-// /firebase.js  (type="module" ဖြင့် လှမ်းခေါ်မယ်)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, updateProfile
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-import {
-  getFirestore, collection, addDoc, serverTimestamp, doc, getDoc,
-  getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, where, limit
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-import {
-  getStorage, ref, uploadBytes, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+// /firebase.js  (type=module)
+const CDN = "https://www.gstatic.com/firebasejs/10.12.2";
 
-const cfg = window.OPENLEARN_CFG?.firebase;
-if (!cfg) throw new Error("config.js missing: window.OPENLEARN_CFG.firebase");
+const appMod   = await import(`${CDN}/firebase-app.js`);
+const authMod  = await import(`${CDN}/firebase-auth.js`);
+const fsMod    = await import(`${CDN}/firebase-firestore.js`);
 
-export const app = initializeApp(cfg);
-export const auth = getAuth(app);
-export const db   = getFirestore(app);
-export const stg  = getStorage(app);
+const cfg = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.firebase) || null;
 
-// ===== Auth helpers =====
-export async function doLogin(email, pass){ return signInWithEmailAndPassword(auth, email, pass); }
-export async function doSignup(email, pass){ return createUserWithEmailAndPassword(auth, email, pass); }
-export async function doForgot(email){ return sendPasswordResetEmail(auth, email); }
-export async function doLogout(){ return signOut(auth); }
-export function onAuth(cb){ return onAuthStateChanged(auth, cb); }
+let app = null, auth = null, db = null;
+let USE_DB = false;
 
-// ===== Firestore helpers (Announcements / Courses minimal) =====
-export const col = (name)=> collection(db, name);
-export const docRef = (name,id)=> doc(db, name, id);
-
-export async function addAnnouncement({title,body,uid}){
-  return addDoc(col("announcements"), { title, body, uid, ts: serverTimestamp() });
-}
-export async function listAnnouncements(){
-  const q = query(col("announcements"), orderBy("ts","desc"), limit(50));
-  const snap = await getDocs(q);
-  return snap.docs.map(d=>({id:d.id, ...d.data()}));
+if (cfg) {
+  app = appMod.initializeApp(cfg);
+  auth = authMod.getAuth(app);
+  try {
+    db = fsMod.getFirestore(app);
+    USE_DB = true;
+  } catch {
+    USE_DB = false;
+  }
+} else {
+  console.warn("config.js missing firebase → running in LOCAL mode (no login, no cloud DB).");
+  // create a dummy app/auth to avoid crashes where imported names are expected
+  app = { options: { localOnly: true } };
+  // Fake auth shim (minimal) so onAuthStateChanged etc. won’t crash in local mode
+  const listeners = new Set();
+  auth = {
+    currentUser: null,
+    _emit(u){ this.currentUser=u; listeners.forEach(fn=>fn(u)); }
+  };
+  // emit null once
+  setTimeout(()=>auth._emit(null), 0);
+  USE_DB = false;
 }
 
-// Courses (catalog)
-export async function listCourses(limitN=50){
-  const q = query(col("courses"), orderBy("title"), limit(limitN));
-  const snap = await getDocs(q);
-  return snap.docs.map(d=>({id:d.id, ...d.data()}));
-}
-export async function createCourse(data){
-  data.ts = serverTimestamp();
-  return addDoc(col("courses"), data);
-}
-export async function updateCourse(id, data){ return updateDoc(docRef("courses", id), data); }
-export async function deleteCourse(id){ return deleteDoc(docRef("courses", id)); }
+// ==== re-exports (named) ====
+// app/auth/db handles
+export { app, auth, db };
+// auth functions
+export const {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updateProfile
+} = authMod;
+// firestore functions
+export const {
+  collection, addDoc, serverTimestamp,
+  doc, getDoc, getDocs, query, orderBy, where, limit
+} = fsMod;
+
+// helper for other modules to know mode
+export { USE_DB };
