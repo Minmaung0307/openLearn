@@ -1,14 +1,13 @@
-// addon 16 placeholder
-
-(()=> {
-  // Step16: Small accessibility & focus management
-  document.addEventListener('keydown', (e)=>{
-    if (e.key==='Escape'){
-      document.querySelectorAll('.modal:not([hidden])').forEach(m=> m.hidden=true);
-    }
-  });
-  // Focus outlines for keyboard users only
-  const s=document.createElement('style');
-  s.textContent=`*:focus{outline:2px solid var(--primary,#2563eb);outline-offset:2px}`;
-  document.head.appendChild(s);
+// /addons/step16-a11y-small-fixes.js (သို့) addon အသစ်
+(function(){
+  const noisy = [
+    "google.firestore.v1.Firestore/Listen/channel",
+    "TYPE=terminate"
+  ];
+  const orig = console.error;
+  console.error = function(...args){
+    const msg = (args && args[0] && String(args[0])) || "";
+    if (noisy.some(k => msg.includes(k))) return; // swallow noisy stream terminations
+    return orig.apply(console, args);
+  };
 })();
