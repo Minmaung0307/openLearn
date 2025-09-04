@@ -8,7 +8,6 @@
     <!-- …meta/title/css… -->
     <link rel="manifest" href="./manifest.json" />
     <link rel="icon" href="./icons/icon-192.png" />
-    <script src="/config.js"></script>
     <!-- PayPal SDK (prod သုံးမယ်ဆိုရင် client-id ထည့်) -->
     <script
       src="https://www.paypal.com/sdk/js?client-id=AVpfmQ8DyyatFaAGQ3Jg58XtUt_2cJDr1leqcc_JI8LvKIR2N5WB_yljqCOTTCtvK1hFJ7Q9X0ojXsEC&currency=USD"
@@ -23,6 +22,10 @@
         console.warn("EmailJS not init");
       }
     </script>
+    <!-- index.html (inside <head>) -->
+    <script src="/config.js"></script>
+    <script type="module" src="/firebase.js"></script>
+    <script type="module" src="/app.js"></script>
   </head>
   <body>
     <!-- Topbar -->
@@ -322,20 +325,28 @@
         </div>
       </section>
       <section id="page-dashboard" class="page hidden">
-  <div class="card">
-    <h3>Student Dashboard</h3>
-    <div class="row">
-      <div class="grow">
-        <div id="chatBox" class="chat-box"></div>
-        <div class="row">
-          <input id="chatInput" class="grow" placeholder="Type a message…">
-          <button id="chatSend" class="btn">Send</button>
+        <div class="card">
+          <h3>Student Dashboard</h3>
+          <div class="row">
+            <div class="grow">
+              <div id="chatBox" class="chat-box"></div>
+              <div class="row">
+                <input
+                  id="chatInput"
+                  class="grow"
+                  placeholder="Type a message…"
+                />
+                <button id="chatSend" class="btn">Send</button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
-</section>
-<script>document.addEventListener("DOMContentLoaded",()=>{ initChat().catch(()=>{}); });</script>
+      </section>
+      <script>
+        document.addEventListener("DOMContentLoaded", () => {
+          initChat().catch(() => {});
+        });
+      </script>
     </main>
 
     <!-- Footer (icons + info pages) -->

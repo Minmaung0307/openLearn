@@ -1,56 +1,57 @@
-// /firebase.js  (type=module)
-const CDN = "https://www.gstatic.com/firebasejs/10.12.2";
-
-const appMod   = await import(`${CDN}/firebase-app.js`);
-const authMod  = await import(`${CDN}/firebase-auth.js`);
-const fsMod    = await import(`${CDN}/firebase-firestore.js`);
-
-const cfg = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.firebase) || null;
-
-let app = null, auth = null, db = null;
-let USE_DB = false;
-
-if (cfg) {
-  app = appMod.initializeApp(cfg);
-  auth = authMod.getAuth(app);
-  try {
-    db = fsMod.getFirestore(app);
-    USE_DB = true;
-  } catch {
-    USE_DB = false;
-  }
-} else {
-  console.warn("config.js missing firebase → running in LOCAL mode (no login, no cloud DB).");
-  // create a dummy app/auth to avoid crashes where imported names are expected
-  app = { options: { localOnly: true } };
-  // Fake auth shim (minimal) so onAuthStateChanged etc. won’t crash in local mode
-  const listeners = new Set();
-  auth = {
-    currentUser: null,
-    _emit(u){ this.currentUser=u; listeners.forEach(fn=>fn(u)); }
-  };
-  // emit null once
-  setTimeout(()=>auth._emit(null), 0);
-  USE_DB = false;
-}
-
-// ==== re-exports (named) ====
-// app/auth/db handles
-export { app, auth, db };
-// auth functions
-export const {
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+import {
+  getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut,
   sendPasswordResetEmail,
-  updateProfile
-} = authMod;
-// firestore functions
-export const {
-  collection, addDoc, serverTimestamp,
-  doc, getDoc, getDocs, query, orderBy, where, limit
-} = fsMod;
+  signOut,
+  updateProfile,
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  orderBy,
+  where,
+  limit,
+} from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-// helper for other modules to know mode
-export { USE_DB };
+/* Replace with YOUR Firebase web config before enabling DB mode */
+const firebaseConfig = {
+  apiKey: "AIzaSyBEkph2jnubq_FvZUcHOR2paKoOKhRaULg",
+  authDomain: "openlearn-mm.firebaseapp.com",
+  projectId: "openlearn-mm",
+  storageBucket: "openlearn-mm.firebasestorage.app",
+  messagingSenderId: "977262127138",
+  appId: "1:977262127138:web:0ee1d4ac3c45f1334f427b",
+  measurementId: "G-E65G177ZNJ",
+};
+
+export const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+
+export {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+  updateProfile,
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  orderBy,
+  where,
+  limit,
+};
