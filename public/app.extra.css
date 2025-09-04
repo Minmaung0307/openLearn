@@ -125,3 +125,13 @@
 }
 #sidebar .side-icon:active,
 .sidebar .side-icon:active { transform: translateY(1px); }
+
+/* small red count badge on header icons */
+.ol-badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:16px; height:16px; padding:0 4px; margin-left:2px;
+  background:#ef4444; color:#fff; font-size:11px; border-radius:999px;
+}
+.modal{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5); }
+.modal[hidden]{ display:none; }
+.modal-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; }

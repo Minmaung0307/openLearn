@@ -1,38 +1,72 @@
 (()=> {
-  // Dev/local bootstrap admins (global may already exist)
+  // Admin bootstrap (လက်ရှိထည့်ပြီးသားတွေချန်)
   window.BOOTSTRAP_ADMINS = window.BOOTSTRAP_ADMINS || ["admin@openlearn.local"];
 
-  window.isStaff = function(){
+  // True for owner/admin only (Announcements = Admin only)
+  window.isAdmin = function(){
     try {
       const email = (window.auth?.currentUser?.email)
                  || (JSON.parse(localStorage.getItem('ol:fakeUser')||'{}').email);
       if (!email) return false;
       if ((window.BOOTSTRAP_ADMINS||[]).includes(email)) return true;
+
       const u = JSON.parse(localStorage.getItem('ol:user:'+email) || 'null');
-      if (u?.role && ['owner','admin','instructor','ta'].includes(u.role)) return true;
-      if (['owner','admin','instructor','ta'].includes(window.currentRole)) return true;
+      if (u?.role && ['owner','admin'].includes(u.role)) return true;
+      if (['owner','admin'].includes(window.currentRole)) return true;
+      const force = localStorage.getItem('ol:forceRole');
+      if (['owner','admin'].includes(force)) return true;
       return false;
     } catch { return false; }
   };
 
-  // Local fallback announcements creator
-  window.tryCreateAnnouncement = function(data){
-    if (!window.isStaff()) { alert('Staff only'); return false; }
-    const k='ol:ann';
-    const list=JSON.parse(localStorage.getItem(k)||'[]');
-    list.unshift({ id: Date.now(), title: data.title||'Untitled', body: data.body||'', ts: Date.now() });
-    localStorage.setItem(k, JSON.stringify(list));
-    window.refreshAnnouncements?.();
-    return true;
+  // Announcements storage helpers (local fallback)
+  const ANN_KEY = 'ol:ann';
+  window.annStorage = {
+    list(){ return JSON.parse(localStorage.getItem(ANN_KEY)||'[]'); },
+    save(list){ localStorage.setItem(ANN_KEY, JSON.stringify(list)); },
+    add(item){
+      const list = this.list();
+      list.unshift({ id: Date.now(), title:item.title||'Untitled', body:item.body||'', ts: Date.now() });
+      this.save(list);
+      return list[0];
+    },
+    update(id, patch){
+      const list = this.list();
+      const a = list.find(x=>x.id===id); if (!a) return false;
+      Object.assign(a, patch);
+      this.save(list); return true;
+    },
+    remove(id){
+      const list = this.list().filter(x=>x.id!==id);
+      this.save(list); return true;
+    }
   };
 
-  // Sidebar visibility control (set true for everyone; change to window.isStaff() to restrict)
-  function guardSidebar(){
-    const show = (sel,on)=>{ const el=document.querySelector(sel); if (el) el.style.display = on?'':'none'; };
-    show('#nav-analytics', true);
-    show('#nav-calendar',  true);
+  // Finals storage (icon badge အတွက်)
+  const FIN_KEY = 'ol:finals';
+  window.finalStorage = {
+    list(){ return JSON.parse(localStorage.getItem(FIN_KEY)||'[]'); },
+    save(list){ localStorage.setItem(FIN_KEY, JSON.stringify(list)); },
+    add(item){
+      const list = this.list();
+      list.unshift({ id: Date.now(), courseId:item.courseId||'', title:item.title||'Final Exam', dueTs:item.dueTs||Date.now() });
+      this.save(list); return list[0];
+    },
+    remove(id){ this.save(this.list().filter(x=>x.id!==id)); }
+  };
+
+  // Bridge auth → role (admin fallback)
+  function bridge(){
+    if (window.onAuthStateChanged && window.auth){
+      window.onAuthStateChanged(window.auth, (user)=>{
+        const email=user?.email||null;
+        if (email && (window.BOOTSTRAP_ADMINS||[]).includes(email)) window.currentRole='admin';
+        window.dispatchEvent(new CustomEvent('ol:login', { detail:{ email, role: window.currentRole||'student' }}));
+      });
+    } else {
+      const force = localStorage.getItem('ol:forceRole');
+      if (force) window.currentRole=force;
+    }
   }
-  window.addEventListener('ol:login', guardSidebar);
-  window.addEventListener('ol:route',  guardSidebar);
-  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', guardSidebar); else guardSidebar();
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', bridge); else bridge();
 })();

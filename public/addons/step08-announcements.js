@@ -1,6 +1,8 @@
 (()=> {
-  const ID='dashboardSec';
-  window.ensureDashboardUI = function(){
+  const ID='dashboardAnnouncements';
+  function host(){ return document.getElementById('main') || document.querySelector('main') || document.body; }
+
+  window.ensureDashboardAnnouncements = function(){
     if (document.getElementById(ID)) return;
     const s=document.createElement('section'); s.id=ID; s.style.display='none';
     s.innerHTML = `
@@ -17,28 +19,29 @@
         </div>
       </div>
       <div id="annList" class="stack"></div>`;
-    (document.getElementById('main')||document.body).appendChild(s);
+    host().appendChild(s);
   };
 
   function renderList(){
-    const list = JSON.parse(localStorage.getItem('ol:ann')||'[]');
-    const host = document.getElementById('annList');
-    if (!host) return;
-    if (!list.length){ host.innerHTML='<div class="muted">No announcement yet</div>'; return; }
-    host.innerHTML = list.map(a=>`
-      <div class="card p-3 row justify-between">
-        <div class="stack">
-          <strong>${a.title}</strong>
-          <div class="muted small">${new Date(a.ts).toLocaleString()}</div>
-          <p>${(a.body||'').replace(/</g,'&lt;')}</p>
-        </div>
-        ${ (window.isStaff?.() ? `
-        <div class="row gap-2">
-          <button class="btn" data-ann-edit="${a.id}">Edit</button>
-          <button class="btn" data-ann-del="${a.id}">Delete</button>
-        </div>` : '')
-        }
-      </div>`).join('');
+    const list = window.annStorage?.list() || [];
+    const host = document.getElementById('annList'); if (!host) return;
+    if (!list.length){ host.innerHTML='<div class="muted">No announcement yet</div>'; }
+    else {
+      host.innerHTML = list.map(a=>`
+        <div class="card p-3 row justify-between">
+          <div class="stack">
+            <strong>${a.title}</strong>
+            <div class="muted small">${new Date(a.ts).toLocaleString()}</div>
+            <p>${(a.body||'').replace(/</g,'&lt;')}</p>
+          </div>
+          ${ (window.isAdmin?.() ? `
+          <div class="row gap-2">
+            <button class="btn" data-ann-edit="${a.id}">Edit</button>
+            <button class="btn" data-ann-del="${a.id}">Delete</button>
+          </div>` : '') }
+        </div>`).join('');
+    }
+    window.updateHeaderIndicators?.(); // header badges refresh
   }
   window.refreshAnnouncements = renderList;
 
@@ -52,52 +55,50 @@
 
     if (btn){
       btn.onclick = ()=>{
-        if (!window.isStaff?.()) { alert('Staff only'); return; }
+        if (!window.isAdmin?.()) { alert('Admin only'); return; }
         form.style.display=''; t.value=''; b.value='';
       };
     }
     if (cc) cc.onclick = ()=> form.style.display='none';
     if (sv) sv.onclick = ()=>{
-      const ok = window.tryCreateAnnouncement?.({ title: (t.value||'').trim(), body: (b.value||'').trim() });
-      if (ok){ form.style.display='none'; renderList(); }
+      if (!window.isAdmin?.()) return alert('Admin only');
+      if (!t.value.trim()) return alert('Title required');
+      window.annStorage?.add({ title: t.value.trim(), body: b.value.trim() });
+      form.style.display='none'; renderList();
     };
 
     document.getElementById('annList')?.addEventListener('click', (e)=>{
       const del = e.target.closest('[data-ann-del]');
       const edt = e.target.closest('[data-ann-edit]');
       if (del){
-        if (!window.isStaff?.()) return alert('Staff only');
+        if (!window.isAdmin?.()) return alert('Admin only');
         const id = +del.getAttribute('data-ann-del');
-        const k='ol:ann'; const list=JSON.parse(localStorage.getItem(k)||'[]');
-        const after = list.filter(x=>x.id!==id);
-        localStorage.setItem(k, JSON.stringify(after));
-        renderList();
+        window.annStorage?.remove(id); renderList();
       }
       if (edt){
-        if (!window.isStaff?.()) return alert('Staff only');
+        if (!window.isAdmin?.()) return alert('Admin only');
         const id = +edt.getAttribute('data-ann-edit');
-        const k='ol:ann'; const list=JSON.parse(localStorage.getItem(k)||'[]');
-        const item = list.find(x=>x.id===id); if (!item) return;
-        const title = prompt('Title', item.title||''); if (title==null) return;
-        const body  = prompt('Body',  item.body||'');  if (body==null)  return;
-        item.title = title; item.body = body;
-        localStorage.setItem(k, JSON.stringify(list));
-        renderList();
+        const cur = window.annStorage?.list().find(x=>x.id===id); if(!cur) return;
+        const title = prompt('Title', cur.title||''); if (title==null) return;
+        const body  = prompt('Body',  cur.body ||''); if (body==null)  return;
+        window.annStorage?.update(id, { title, body }); renderList();
       }
     });
   };
 
   function show(v){ const s=document.getElementById(ID); if(s) s.style.display=v?'':'none'; }
-  async function maybe(name){
+  function maybe(name){
     if (name!=='dashboard'){ show(false); return; }
-    window.ensureDashboardUI?.();
+    window.ensureDashboardAnnouncements?.();
     window.wireAnnouncements?.();
     window.refreshAnnouncements?.();
     const addBtn=document.getElementById('btnAddAnnouncement');
-    if (addBtn) addBtn.style.display = (window.isStaff?.() ? '' : 'none');
+    if (addBtn) addBtn.style.display = (window.isAdmin?.() ? '' : 'none');
     show(true);
   }
+
   window.addEventListener('ol:route', e=> maybe(e.detail.name));
   window.addEventListener('ol:login', ()=> maybe('dashboard'));
-  if (document.readyState==='complete') maybe(window.currentRoute||''); else document.addEventListener('DOMContentLoaded', ()=> maybe(window.currentRoute||''));
+  if (document.readyState==='complete') maybe((window.currentRoute||'').replace(/^#\/?/,''));
+  else document.addEventListener('DOMContentLoaded', ()=> maybe((window.currentRoute||'').replace(/^#\/?/,'')));
 })();
