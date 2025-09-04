@@ -79,3 +79,49 @@
 .sidebar .side-icon:active {
   transform: translateY(1px);
 }
+
+/* === Sidebar icon buttons (Analytics / Calendar included) === */
+#sidebar .side-icon,
+.sidebar .side-icon {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+
+  width:56px;             /* collapsed size = မင်းရဲ့အခြား icon size နဲ့ညီအောင် */
+  height:56px;
+  border-radius:12px;
+  border:1px solid var(--border, #1f2a3b);
+  background:var(--card, #111827);
+  color:var(--fg, #eaf1ff);
+
+  cursor:pointer;         /* hand pointer */
+  line-height:1;
+  user-select:none;
+  outline:none;
+  margin:6px 8px;         /* အခြား item တွေလို spacing */
+}
+
+#sidebar .side-icon .ico,
+.sidebar .side-icon .ico { font-size:20px; line-height:1; }
+
+#sidebar:hover .side-icon,
+.sidebar:hover .side-icon {
+  width:200px;            /* drawer ချဲ့တဲ့အချိန် */
+  justify-content:flex-start;
+  padding:0 12px;
+}
+
+#sidebar .side-icon .label,
+.sidebar .side-icon .label { display:none; white-space:nowrap; font-size:14px; opacity:.95; }
+
+#sidebar:hover .side-icon .label,
+.sidebar:hover .side-icon .label { display:inline-block; margin-left:8px; }
+
+#sidebar .side-icon:hover,
+.sidebar .side-icon:hover {
+  background: color-mix(in srgb, var(--primary, #2563eb) 18%, transparent);
+  border-color: color-mix(in srgb, var(--primary, #2563eb) 45%, #1f2a3b);
+}
+#sidebar .side-icon:active,
+.sidebar .side-icon:active { transform: translateY(1px); }
