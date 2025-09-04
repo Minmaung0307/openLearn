@@ -11,12 +11,12 @@
       const id = 'paypal-sdk';
       if (document.getElementById(id)) return res();
       const cid = window.CONFIG?.PAYPAL_CLIENT_ID;
-      if (!cid) return res(); // no SDK → we’ll fall back to demo confirm
+      if (!cid) return res(); // no SDK → fallback demo
       const s=document.createElement('script');
       s.id=id;
       s.src=`https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(cid)}&currency=USD`;
       s.onload=()=>res();
-      s.onerror=()=>res(); // still resolve → we’ll use demo
+      s.onerror=()=>res();
       document.head.appendChild(s);
     });
   }
@@ -51,14 +51,13 @@
     await loadPayPalOnce();
     if (!window.paypal || !window.CONFIG?.PAYPAL_CLIENT_ID){
       // fallback demo
-      $('#ppHint').textContent = 'PayPal not configured (showing demo confirm).';
+      $('#ppHint').textContent = 'PayPal not configured (demo confirm).';
       container.innerHTML = '';
       return (onApprove)=>{
         const ok = confirm(`Pay $${price} with demo?`);
         if (ok) onApprove();
       };
     }
-    // Real PayPal buttons
     container.innerHTML = '<div id="paypal-buttons"></div>';
     return (onApprove)=>{
       window.paypal.Buttons({
@@ -97,10 +96,9 @@
     `;
     $('#detailsModal').hidden=false;
 
-    // Paid → mount PayPal
     if (c.price) {
       const mount = await renderPayPalButtons(document.getElementById('ppContainer'), Number(c.price));
-      $('#dtEnroll').style.display='none'; // we use PayPal button instead
+      $('#dtEnroll').style.display='none';
       mount(()=> {
         const mine=getE(); if (!mine.find(x=>x.courseId===c.id)){
           mine.push({courseId:c.id, progress:0, score:0, ts:Date.now()});
@@ -115,22 +113,24 @@
     }
   };
 
-  $('#dtEnroll')?.addEventListener('click', ()=>{
-    if (!currentCourse) return;
-    const c=currentCourse;
-    const mine=getE(); if (!mine.find(x=>x.courseId===c.id)){
-      mine.push({courseId:c.id, progress:0, score:0, ts:Date.now()});
-      setE(mine);
-    }
-    alert('Enrolled! Open it from My Learning.');
-    $('#detailsModal').hidden=true;
-  });
-
-  // DETAILS & ENROLL triggers on cards
   document.addEventListener('click', (e)=>{
     const a=e.target.closest('[data-course-details]');
     if (a){ e.preventDefault(); window.showCourseDetails(a.getAttribute('data-course-details')); }
     const b=e.target.closest('[data-enroll]');
     if (b){ e.preventDefault(); window.showCourseDetails(b.getAttribute('data-enroll')); }
+  });
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const btn = document.getElementById('dtEnroll');
+    if (btn) btn.addEventListener('click', ()=>{
+      if (!currentCourse) return;
+      const c=currentCourse;
+      const mine=getE(); if (!mine.find(x=>x.courseId===c.id)){
+        mine.push({courseId:c.id, progress:0, score:0, ts:Date.now()});
+        setE(mine);
+      }
+      alert('Enrolled! Open it from My Learning.');
+      document.getElementById('detailsModal').hidden=true;
+    });
   });
 })();

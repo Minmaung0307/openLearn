@@ -1,9 +1,25 @@
 (()=> {
   const ID='dashboardSec';
-  function ensureUI(){
+  window.ensureDashboardUI = function(){
     if (document.getElementById(ID)) return;
-    // (UI ကို အပေါ်လို index.html မှာ ထည့်ထားလို့ ဒီမှာအလုပ်မလိုပေ) 
-  }
+    const s=document.createElement('section'); s.id=ID; s.style.display='none';
+    s.innerHTML = `
+      <div class="row items-center justify-between">
+        <h2 class="h2">Announcements</h2>
+        <button id="btnAddAnnouncement" class="btn">Add Announcement</button>
+      </div>
+      <div id="annForm" class="card p-3" style="display:none">
+        <input id="annTitle" class="field" placeholder="Title">
+        <textarea id="annBody" class="field" placeholder="Body"></textarea>
+        <div class="row gap-2 mt-2">
+          <button id="annSave" class="btn btn-primary">Save</button>
+          <button id="annCancel" class="btn">Cancel</button>
+        </div>
+      </div>
+      <div id="annList" class="stack"></div>`;
+    (document.getElementById('main')||document.body).appendChild(s);
+  };
+
   function renderList(){
     const list = JSON.parse(localStorage.getItem('ol:ann')||'[]');
     const host = document.getElementById('annList');
@@ -24,7 +40,9 @@
         }
       </div>`).join('');
   }
-  function wire(){
+  window.refreshAnnouncements = renderList;
+
+  window.wireAnnouncements = function(){
     const btn = document.getElementById('btnAddAnnouncement');
     const form = document.getElementById('annForm');
     const sv = document.getElementById('annSave');
@@ -40,11 +58,10 @@
     }
     if (cc) cc.onclick = ()=> form.style.display='none';
     if (sv) sv.onclick = ()=>{
-      const ok = window.tryCreateAnnouncement?.({ title: t.value.trim(), body: b.value.trim() });
+      const ok = window.tryCreateAnnouncement?.({ title: (t.value||'').trim(), body: (b.value||'').trim() });
       if (ok){ form.style.display='none'; renderList(); }
     };
 
-    // Edit/Delete
     document.getElementById('annList')?.addEventListener('click', (e)=>{
       const del = e.target.closest('[data-ann-del]');
       const edt = e.target.closest('[data-ann-edit]');
@@ -54,7 +71,7 @@
         const k='ol:ann'; const list=JSON.parse(localStorage.getItem(k)||'[]');
         const after = list.filter(x=>x.id!==id);
         localStorage.setItem(k, JSON.stringify(after));
-        renderList(); return;
+        renderList();
       }
       if (edt){
         if (!window.isStaff?.()) return alert('Staff only');
@@ -65,20 +82,22 @@
         const body  = prompt('Body',  item.body||'');  if (body==null)  return;
         item.title = title; item.body = body;
         localStorage.setItem(k, JSON.stringify(list));
-        renderList(); return;
+        renderList();
       }
     });
-  }
+  };
+
   function show(v){ const s=document.getElementById(ID); if(s) s.style.display=v?'':'none'; }
   async function maybe(name){
     if (name!=='dashboard'){ show(false); return; }
-    ensureUI(); wire(); renderList(); show(true);
-    // Staff-guard: Add btn ကို role မပြောင်းမချင်း ခဏ hide
+    window.ensureDashboardUI?.();
+    window.wireAnnouncements?.();
+    window.refreshAnnouncements?.();
     const addBtn=document.getElementById('btnAddAnnouncement');
     if (addBtn) addBtn.style.display = (window.isStaff?.() ? '' : 'none');
+    show(true);
   }
   window.addEventListener('ol:route', e=> maybe(e.detail.name));
-  window.addEventListener('ol:login', ()=> maybe('dashboard')); // login role refresh
-  // initial try
-  maybe(window.currentRoute||'');
+  window.addEventListener('ol:login', ()=> maybe('dashboard'));
+  if (document.readyState==='complete') maybe(window.currentRoute||''); else document.addEventListener('DOMContentLoaded', ()=> maybe(window.currentRoute||''));
 })();
