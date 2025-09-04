@@ -1,61 +1,47 @@
-// step23-sidebar-fix.js — Ensure Dashboard/Admin buttons exist & visible.
-// Labels show when sidebar is expanded OR on hover (compact).
+// Sidebar FIX: remove analytics/calendar, ensure Dashboard/Admin icons
 (() => {
-  const $ = (q, r=document)=>r.querySelector(q);
-
-  function sideNav() {
-    const side = $('#sidebar') || $('aside') || $('.sidebar');
-    if (!side) return null;
-    return $('nav', side) || side;
+  function sidebar() {
+    return document.querySelector("#sidebar nav");
   }
-
-  function sampleClass() {
-    const ref = $('#sidebar .navbtn') || $('#sidebar .side-icon') || $('.navbtn') || $('.side-icon');
-    return ref ? ref.className : 'navbtn side-icon';
-  }
-
-  function mkBtn(id, label, icon, hash) {
+  function makeBtn(id, label, icon, hash) {
     let el = document.getElementById(id);
-    const cls = sampleClass();
-    if (!el) { el = document.createElement('button'); el.id = id; el.type = 'button'; }
-    el.className = cls;
-    if (!el.classList.contains('navbtn')) el.classList.add('navbtn');
-    if (!el.classList.contains('side-icon')) el.classList.add('side-icon');
-    el.innerHTML = `<span class="ico">${icon}</span><span class="label">${label}</span>`;
-    el.title = label; el.setAttribute('aria-label', label);
-    el.style.display = ''; el.tabIndex = 0; el.style.cursor = 'pointer';
-    const go = () => (location.hash = hash);
-    el.onclick = go;
-    el.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } };
+    if (!el) {
+      el = document.createElement("button");
+      el.id = id;
+      el.type = "button";
+      el.className = "navbtn side-icon";
+      el.innerHTML = `<span class="ico">${icon}</span><span class="label">${label}</span>`;
+    }
+    el.title = label;
+    el.setAttribute("aria-label", label);
+    el.onclick = () => (location.hash = hash);
     return el;
   }
 
-  function insertAfter(ref, node, container) {
-    if (!ref || !ref.parentNode) { (container||sideNav())?.appendChild(node); return; }
-    ref.parentNode.insertBefore(node, ref.nextSibling);
-  }
-
   function run() {
-    const nav = sideNav(); if (!nav) return;
+    const side = sidebar();
+    if (!side) return;
 
-    // remove analytics/calendar if still exist
-    ['nav-analytics','nav-calendar'].forEach(id => { const x = document.getElementById(id); if (x) x.remove(); });
+    // remove analytics/calendar
+    ["nav-analytics", "nav-calendar"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
 
-    const coursesBtn =
-      document.getElementById('nav-courses') ||
-      $('button[data-page="catalog"]', nav) ||
-      $('button[title="Courses"]', nav) || $('button', nav);
+    // ensure Dashboard/Admin exist
+    const coursesBtn = side.querySelector('[data-page="catalog"]');
+    const dash = makeBtn("nav-dashboard", "Dashboard", "🏠", "#/stu-dashboard");
+    const admin = makeBtn("nav-admin", "Admin", "🛠️", "#/admin");
 
-    const dash = mkBtn('nav-dashboard', 'Dashboard', '🏠', '#/stu-dashboard');
-    if (!document.getElementById('nav-dashboard')) insertAfter(coursesBtn, dash, nav);
-
-    const admin = mkBtn('nav-admin', 'Admin', '🛠️', '#/admin');
-    if (!document.getElementById('nav-admin')) insertAfter(dash, admin, nav);
-
-    // Always visible
-    ['nav-dashboard','nav-admin'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+    if (!document.getElementById("nav-dashboard")) {
+      coursesBtn?.insertAdjacentElement("afterend", dash);
+    }
+    if (!document.getElementById("nav-admin")) {
+      dash.insertAdjacentElement("afterend", admin);
+    }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
-  else run();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run);
+  } else run();
 })();
