@@ -1,0 +1,113 @@
+rules_version = '2';
+
+function isSignedIn() {
+  return request.auth != null;
+}
+function isSelf(uid) {
+  return isSignedIn() && request.auth.uid == uid;
+}
+function myRole() {
+  return isSignedIn()
+    ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+    : null;
+}
+function isStaff() {
+  // ⚠️ hasAny မဟုတ်ပါ — membership check ကို "in" သုံးပါ
+  return myRole() in ['owner','admin','instructor','ta'];
+}
+function isStudent() {
+  return myRole() in ['student'];
+}
+function isOwnerOrSelf(uid) {
+  return isStaff() || isSelf(uid);
+}
+
+// Optional: users/role escalation မဖြစ်အောင် guard
+function validRole(newRole) {
+  return newRole in ['owner','admin','instructor','ta','student'];
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== Courses =====
+    match /courses/{courseId} {
+      allow read: if true;
+      // Only staff can create/update/delete
+      allow create, update, delete: if isStaff();
+      // Optional: validate fields on write
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasAll(['title','category','level'])
+        && (request.resource.data.price is number)
+        && (request.resource.data.rating is number)
+        && (request.resource.data.hours is number)
+        && (request.resource.data.credits is number);
+    }
+
+    match /courses/{courseId}/lessons/{lessonId} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+    }
+
+    match /courses/{courseId}/quizzes/{quizId} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+    }
+
+    match /courses/{courseId}/comments/{commentId} {
+      allow read: if true;
+      // anyone signed-in can create with their uid
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      // owner of comment OR staff can edit/delete
+      allow update, delete: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.uid);
+    }
+
+    match /courses/{courseId}/assignments/{assId} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+    }
+
+    match /courses/{courseId}/submissions/{sid} {
+      // student can read their own; staff can read all
+      allow read: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.uid);
+      // only create your own submission
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid;
+      // student can update/delete their own; staff can manage all
+      allow update, delete: if isStaff() || (isSignedIn() && request.auth.uid == resource.data.uid);
+    }
+
+    // ===== Users profile =====
+    match /users/{uid} {
+      allow read: if isOwnerOrSelf(uid);
+      // first-time create: user can create their own doc
+      allow create: if isSelf(uid)
+        && (!('role' in request.resource.data) || request.resource.data.role == 'student'); // prevent self-escalation
+      // update: user can update self (except role), staff can update any (including role)
+      allow update: if isSelf(uid)
+                      ? !(('role' in request.resource.data) && request.resource.data.role != resource.data.role)
+                      : isStaff() && (!('role' in request.resource.data) || validRole(request.resource.data.role));
+    }
+
+    // ===== Enrollments =====
+    match /enrollments/{id} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read:   if isStaff() || (isSignedIn() && request.auth.uid == resource.data.userId);
+      allow update, delete:
+                    if isStaff() || (isSignedIn() && request.auth.uid == resource.data.userId);
+    }
+
+    // ===== Quiz Attempts =====
+    match /attempts/{id} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read:   if isStaff() || (isSignedIn() && request.auth.uid == resource.data.userId);
+      allow update, delete: if isStaff();  // students can’t tamper results
+    }
+
+    // (Optional) Public settings / catalog mirror collection
+    match /public/{docId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+  }
+}
