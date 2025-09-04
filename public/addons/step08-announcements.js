@@ -1,6 +1,13 @@
-// addon 08 placeholder
-
 (()=> {
-  // Step08: (if step18 core already created in prev message, this ensures re-export)
-  window.refreshAnnouncements?.();
+  const ID='dashboardSec';
+  function show(v){ const s=document.getElementById(ID); if (s) s.style.display = v?'':'none'; }
+  async function maybeMount(name){
+    if (name!=='dashboard'){ show(false); return; }
+    window.ensureDashboardUI?.();
+    window.wireAnnouncements?.();
+    await window.refreshAnnouncements?.();
+    show(true);
+  }
+  window.addEventListener('ol:route', e=> maybeMount(e.detail.name));
+  maybeMount(window.currentRoute||'');
 })();

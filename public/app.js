@@ -25,7 +25,7 @@ import {
   doc, getDoc, setDoc
 } from '/firebase.js';
 
-const BOOTSTRAP_ADMINS = ['admin@openlearn.com'];
+const BOOTSTRAP_ADMINS = ['admin@openlearn.com', 'minmaung0307@gmail.com'];
 
 /* Dynamic © year */
 $('#copyYear').textContent = `© OpenLearn ${new Date().getFullYear()}`;

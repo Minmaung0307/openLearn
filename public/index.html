@@ -44,6 +44,30 @@
         document.head.appendChild(s);
       })();
     </script>
+    <script>
+      (() => {
+        function ensure() {
+          const bar =
+            document.getElementById("topbar") ||
+            document.querySelector("header");
+          if (!bar) return;
+          if (bar.querySelector("#btn-top-ann")) return;
+          const wrap = document.createElement("span");
+          wrap.style.marginLeft = "auto";
+          wrap.innerHTML = `
+      <button id="btn-top-ann" class="btn">Announcements</button>
+      <button id="btn-top-final" class="btn">Final Exam</button>`;
+          bar.appendChild(wrap);
+          document.getElementById("btn-top-ann").onclick = () =>
+            (location.hash = "#/dashboard");
+          document.getElementById("btn-top-final").onclick = () =>
+            (location.hash = "#/mylearning");
+        }
+        if (document.readyState === "loading")
+          document.addEventListener("DOMContentLoaded", ensure);
+        else ensure();
+      })();
+    </script>
   </head>
   <body>
     <header id="topbar">
