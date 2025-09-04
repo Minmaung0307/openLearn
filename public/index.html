@@ -6,6 +6,16 @@
   <link rel="manifest" href="/manifest.json"/>
   <link rel="icon" href="/icons/icon-192.png"/>
   <link rel="stylesheet" href="/styles.css"/>
+  <!-- PayPal SDK (optional; provide client-id in config.js via window.PAYPAL_CLIENT_ID) -->
+  <script>
+    (function injectPayPal(){
+      const id = (window.PAYPAL_CLIENT_ID||'').trim();
+      if(!id) return;
+      const s=document.createElement('script');
+      s.src=`https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(id)}&currency=USD`;
+      s.async=true; document.head.appendChild(s);
+    })();
+  </script>
 </head>
 <body>
 <header id="topbar">
@@ -33,10 +43,11 @@
 </aside>
 
 <main id="main">
-  <!-- Fullscreen Login Page (signed-out only) -->
+  <!-- Fullscreen Auth (signed-out only) -->
   <section id="page-auth" class="page">
     <div id="authCard" class="card ol-modal">
       <div id="authLogo">🎓 OpenLearn</div>
+      <!-- Login -->
       <form id="authLoginPage" class="authpane">
         <label>Email <input id="loginEmailPage" type="email" required></label>
         <label>Password <input id="loginPassPage" type="password" required></label>
@@ -46,12 +57,14 @@
           <a href="#" id="pageLinkForgot">Forgot password</a>
         </div>
       </form>
+      <!-- Signup -->
       <form id="authSignupPage" class="authpane ol-hidden">
         <label>Email <input id="signupEmailPage" type="email" required></label>
         <label>Password <input id="signupPassPage" type="password" required></label>
         <div class="auth-actions"><button class="btn primary" id="doSignupPage" type="submit">Create account</button></div>
         <div class="auth-links"><a href="#" id="pageBackToLogin1">Back to login</a></div>
       </form>
+      <!-- Forgot -->
       <form id="authForgotPage" class="authpane ol-hidden">
         <label>Email <input id="forgotEmailPage" type="email" required></label>
         <div class="auth-actions"><button class="btn" id="doForgotPage" type="submit">Send reset link</button></div>
@@ -60,7 +73,7 @@
     </div>
   </section>
 
-  <!-- Courses -->
+  <!-- Catalog -->
   <section id="page-catalog" class="page active">
     <div class="row" style="margin-bottom:10px">
       <button class="btn" id="btn-add-samples">Add sample data</button>
@@ -80,16 +93,14 @@
     <h2>Gradebook</h2><div id="gradebook" class="card"></div>
   </section>
 
-  <!-- Student Dashboard -->
+  <!-- Dashboard -->
   <section id="page-stu-dashboard" class="page">
     <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Dashboard</h2></div>
 
-    <!-- Announcement toolbar (staff only) -->
     <div class="row" id="announceToolbar" style="margin-bottom:10px">
-      <button id="btn-new-post" class="btn primary">+ New Announcement</button>
+      <button id="btn-new-post" class="btn primary">+ Add Announcement</button>
     </div>
 
-    <!-- Composer (modal) -->
     <dialog id="postModal" class="ol-modal card">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
         <b id="postModalTitle">New Announcement</b>
@@ -106,7 +117,6 @@
       </form>
     </dialog>
 
-    <!-- Calendar block -->
     <div class="card" style="margin-top:10px">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3 class="h4">Student Calendar</h3>
@@ -138,7 +148,10 @@
   <section id="page-profile" class="page">
     <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Profile</h2></div>
     <div id="profilePanel" class="card"></div>
-    <div class="row" style="margin-top:10px"><button class="btn" id="btn-edit-profile">Edit Profile</button></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="btn-edit-profile">Edit Profile</button>
+      <button class="btn" id="btn-view-card">View Card</button>
+    </div>
   </section>
 
   <!-- Profile Edit Modal -->
@@ -150,6 +163,7 @@
     <form id="profileForm" class="authpane">
       <label>Display name <input name="displayName"></label>
       <label>Photo URL <input name="photoURL" placeholder="https://..."></label>
+      <label>Date of Birth <input type="date" name="dob"></label>
       <label style="grid-column:1/-1">Bio <textarea name="bio" rows="4"></textarea></label>
       <label>Website <input name="site" placeholder="https://..."></label>
       <label>GitHub <input name="github" placeholder="https://github.com/..."></label>
@@ -192,7 +206,7 @@
           </select>
         </label>
       </div>
-      <p class="muted">Theme/Font ပြောင်းတာနဲ့ app တစ်ခုလုံး (sidebar/menu/login) လိုက်ပြောင်းမယ်။</p>
+      <p class="muted">Theme/Font ပြောင်းတာနဲ့ app တစ်ခုလုံး လိုက်ပြောင်းမယ်။</p>
     </div>
   </section>
 
@@ -240,17 +254,15 @@
     <div class="card page-hero guide">
       <h3>How to use this site</h3>
       <ol class="guide-steps">
-        <li><b>Courses</b> — Browse catalog, <i>Add sample data</i>, <i>Enroll</i>. Paid courses (future) go through PayPal; Free → direct enroll.</li>
-        <li><b>My Learning</b> — Open a course via <i>Continue</i>. Reader supports chapters, images, audio/video, quizzes, assignments, and a final exam. Progress bar updates as you go.</li>
-        <li><b>Gradebook</b> — Check progress/score/credits. Use <i>Certificate</i> or <i>Transcript</i> to print/save PDF.</li>
-        <li><b>Dashboard</b> — See announcements & calendar. Staff can <i>+ New Announcement</i>, edit/delete posts, and manage calendar items.</li>
-        <li><b>Admin</b> — Create/Edit/Delete courses with a big modal form. Also see a table of all courses.</li>
-        <li><b>Profile</b> — View your info. Use <i>Edit Profile</i> to add photo, bio, and portfolio links (Website/GitHub/LinkedIn).</li>
-        <li><b>Settings</b> — Change Theme & Font size (applies globally—including sidebar/login).</li>
-        <li><b>Live Chat</b> — Post messages in #general, #course, or DM (basic local demo).</li>
-        <li><b>Footer Links</b> — Contact/Guide/Privacy/Policy pages (each with a back button).</li>
+        <li><b>Courses</b> — Browse catalog, use <i>Details</i> to preview, <i>Enroll</i> to join (Paid → PayPal/MMK; Free → direct).</li>
+        <li><b>My Learning</b> — Press <i>Continue</i>. Chapters + media + quizzes + assignments + final. Progress bar shows completion.</li>
+        <li><b>Gradebook</b> — Scores, credits, print <i>Certificate</i> / <i>Transcript</i>.</li>
+        <li><b>Dashboard</b> — Announcements & Calendar (staff can add/edit/delete).</li>
+        <li><b>Admin</b> — New/Edit/Delete courses; see table overview.</li>
+        <li><b>Profile</b> — Photo, bio, links, DOB (birthday surprise included).</li>
+        <li><b>Settings</b> — Themes & Font sizes (global apply).</li>
+        <li><b>Live Chat</b> — #general / #course / DM / TA.</li>
       </ol>
-      <p class="muted">Tip: On mobile, use the ☰ burger to open/close the sidebar. Labels remain readable.</p>
     </div>
   </section>
 
@@ -258,12 +270,7 @@
     <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Privacy</h2></div>
     <div class="card page-hero privacy">
       <h3>Your privacy matters</h3>
-      <p>We store only what's needed to run the app. For demo mode, data is kept in your browser (localStorage).</p>
-      <ul>
-        <li>Profile: display name, photo URL, portfolio links</li>
-        <li>Learning: enrollments, progress, quiz/assignment scores</li>
-        <li>Announcements & chat: stored locally in this demo</li>
-      </ul>
+      <p>Demo mode uses localStorage for convenience. Production should use secure backend.</p>
     </div>
   </section>
 
@@ -271,21 +278,21 @@
     <div class="row backrow"><button class="btn" data-go="catalog">← Back</button><h2>Policy</h2></div>
     <div class="card page-hero policy">
       <h3>Terms & policies</h3>
-      <p>Please use content responsibly. Do not share paid materials outside your account. Be kind in chats & forums.</p>
-      <p>Courses may be updated; we’ll announce changes on the Dashboard.</p>
+      <p>Use materials responsibly and be kind in chats/forums.</p>
     </div>
   </section>
 
   <footer id="footer">
     <div class="row">
       <div class="grow">
-        © OpenLearn · 
+        <span id="copyYear">© OpenLearn</span> · 
         <a href="#" data-link="contact">Contact</a> · 
         <a href="#" data-link="guide">Guide</a> · 
         <a href="#" data-link="privacy">Privacy</a> · 
         <a href="#" data-link="policy">Policy</a>
       </div>
       <div class="row" style="gap:10px">
+        <!-- social icons -->
         <a href="#" title="YouTube" aria-label="YouTube"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.7 3.5 12 3.5 12 3.5s-7.7 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.7.6 9.4.6 9.4.6s7.7 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.5 15.5v-7l6 3.5-6 3.5Z"/></svg></a>
         <a href="#" title="TikTok" aria-label="TikTok"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21 8.3a7 7 0 0 1-4.9-2V16a6 6 0 1 1-6-6c.3 0 .7 0 1 .1V13a3 3 0 1 0 3 3V2h2a5 5 0 0 0 4 3.9V8.3Z"/></svg></a>
         <a href="#" title="Facebook" aria-label="Facebook"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M13 22v-9h3l1-4h-4V6a2 2 0 0 1 2-2h2V1h-3a5 5 0 0 0-5 5v3H6v4h3v9h4Z"/></svg></a>
@@ -318,6 +325,40 @@
   </form>
 </dialog>
 
+<!-- Course Details Modal -->
+<dialog id="detailsModal" class="ol-modal card">
+  <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+    <b>Course Details</b>
+    <button class="btn small" id="closeDetails" type="button">Close</button>
+  </div>
+  <div id="detailsBody"></div>
+</dialog>
+
+<!-- Payment Modal -->
+<dialog id="payModal" class="ol-modal card">
+  <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+    <b id="payTitle">Checkout</b>
+    <button class="btn small" id="closePay" type="button">Close</button>
+  </div>
+  <div id="payBody" class="pay-body">
+    <div class="card">
+      <h3>Pay with PayPal (USD)</h3>
+      <div id="paypal-container"></div>
+      <div class="muted" id="paypalNote"></div>
+    </div>
+    <div class="card">
+      <h3>Pay with MMK (CB Pay / KBZPay / WavePay)</h3>
+      <p class="muted">Demo: scan a mock QR and press “I Paid”. Production needs gateway integration.</p>
+      <div class="row" style="gap:10px;flex-wrap:wrap">
+        <img alt="CBPay QR" class="qr" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CBPAY-DEMO">
+        <img alt="KBZPay QR" class="qr" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=KBZPAY-DEMO">
+        <img alt="WavePay QR" class="qr" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=WAVEPAY-DEMO">
+      </div>
+      <button class="btn primary" id="mmkPaid">I Paid (MMK)</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- New Course Modal -->
 <dialog id="courseModal" class="ol-modal card">
   <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -336,6 +377,9 @@
     <label>Credits <input name="credits" type="number" step="1" value="3"></label>
     <label>Image URL <input name="img" placeholder="auto if empty"></label>
     <label style="grid-column:1/-1">Description <textarea name="description" rows="3"></textarea></label>
+    <label style="grid-column:1/-1">Benefits (bullet list, one per line)
+      <textarea name="benefits" rows="4" placeholder="Hands-on projects&#10;Downloadable resources&#10;Certificate of completion"></textarea>
+    </label>
     <input type="hidden" name="id">
     <div class="auth-actions">
       <button class="btn" type="button" id="courseCancel">Cancel</button>
@@ -343,6 +387,9 @@
     </div>
   </form>
 </dialog>
+
+<!-- Fireworks canvas -->
+<canvas id="fx" class="fx"></canvas>
 
 <script type="module" src="/config.js"></script>
 <script type="module" src="/firebase.js"></script>

@@ -9,6 +9,7 @@ function showPage(id){
   $$('.page').forEach(p=>p.classList.remove('active'));
   const sec = $('#page-'+id);
   if(sec){ sec.classList.add('active'); lastPage=id; if(id!=='auth') lastNonAuthPage=id; window.scrollTo(0,0); }
+  if(id==='catalog') renderCatalog();
   if(id==='mylearning') renderMyLearning();
   if(id==='gradebook') renderGradebook();
   if(id==='admin')     renderAdmin();
@@ -24,7 +25,10 @@ import {
   doc, getDoc, setDoc
 } from '/firebase.js';
 
-const BOOTSTRAP_ADMINS = ['admin@openlearn.local'];
+const BOOTSTRAP_ADMINS = ['admin@openlearn.com'];
+
+/* Dynamic © year */
+$('#copyYear').textContent = `© OpenLearn ${new Date().getFullYear()}`;
 
 /* Burger (mobile) */
 $('#btn-burger')?.addEventListener('click', ()=> $('#sidebar').classList.toggle('open'));
@@ -71,7 +75,7 @@ $('#authForgot').addEventListener('submit', async (e)=>{
   catch(err){ alert(err?.message||'Failed'); }
 });
 
-/* Fullscreen Auth page handlers */
+/* Fullscreen Page Auth */
 function swapAuthPage(which){ swapPane('page', which); }
 $('#pageLinkSignup').addEventListener('click',(e)=>{e.preventDefault(); swapAuthPage('signup');});
 $('#pageLinkForgot').addEventListener('click',(e)=>{e.preventDefault(); swapAuthPage('forgot');});
@@ -82,6 +86,12 @@ $('#authLoginPage').addEventListener('submit', async (e)=>{
   try{ await signInWithEmailAndPassword(auth,$('#loginEmailPage').value.trim(),$('#loginPassPage').value); }
   catch(err){ alert(err?.message||'Login failed'); }
 });
+$('#authSignupPage').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email=$('#signupEmailPage').value.trim(), pass=$('#signupPassPage').value;
+  try{ const r=await createUserWithEmailAndEmailAndPassword(auth,email,pass); /* typo guard below */ }catch{}
+});
+/* correct signup */
 $('#authSignupPage').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const email=$('#signupEmailPage').value.trim(), pass=$('#signupPassPage').value;
@@ -128,13 +138,20 @@ const read=(k,d=[])=>{try{return JSON.parse(localStorage.getItem(k)||JSON.string
 
 /* samples */
 const baseSamples=[
-  {id:'web101',title:'HTML & CSS Basics',category:'Web',level:'Beginner',rating:4.6,price:0,hours:6,credits:3,description:'Learn the building blocks of the web.'},
-  {id:'js201', title:'Modern JavaScript', category:'Web',level:'Intermediate',rating:4.5,price:29,hours:12,credits:4,description:'ES6, modules, async, and more.'},
-  {id:'py101', title:'Python for Everyone', category:'Data',level:'Beginner',rating:4.7,price:0,hours:10,credits:3,description:'Python fundamentals with practice.'},
-  {id:'sql200',title:'SQL Essentials',   category:'Data',level:'Intermediate',rating:4.4,price:19,hours:8,credits:2,description:'Queries, joins, and optimization.'},
-  {id:'ml300', title:'Intro to Machine Learning', category:'AI',level:'Intermediate',rating:4.5,price:39,hours:14,credits:4,description:'ML concepts and scikit-learn.'},
-  {id:'ux101', title:'UX Design Fundamentals', category:'Design',level:'Beginner',rating:4.3,price:0,hours:7,credits:2,description:'Research to wireframes.'},
-  {id:'pm101', title:'Project Management', category:'Business',level:'Beginner',rating:4.2,price:9,hours:6,credits:2,description:'Plan, execute, deliver.'}
+  {id:'web101',title:'HTML & CSS Basics',category:'Web',level:'Beginner',rating:4.6,price:0,hours:6,credits:3,description:'Learn the building blocks of the web.',
+   benefits:['Build your first page','Modern CSS cheats','Certificate included']},
+  {id:'js201', title:'Modern JavaScript', category:'Web',level:'Intermediate',rating:4.5,price:29,hours:12,credits:4,description:'ES6, modules, async, and more.',
+   benefits:['Async mastery','Real projects','Interview prep']},
+  {id:'py101', title:'Python for Everyone', category:'Data',level:'Beginner',rating:4.7,price:0,hours:10,credits:3,description:'Python fundamentals with practice.',
+   benefits:['Hands-on labs','Cheat sheets','Community help']},
+  {id:'sql200',title:'SQL Essentials',   category:'Data',level:'Intermediate',rating:4.4,price:19,hours:8,credits:2,description:'Queries, joins, and optimization.',
+   benefits:['DB thinking','Query clinic','Perf insights']},
+  {id:'ml300', title:'Intro to Machine Learning', category:'AI',level:'Intermediate',rating:4.5,price:39,hours:14,credits:4,description:'ML concepts and scikit-learn.',
+   benefits:['Math-lite','Code notebooks','Career tips']},
+  {id:'ux101', title:'UX Design Fundamentals', category:'Design',level:'Beginner',rating:4.3,price:0,hours:7,credits:2,description:'Research to wireframes.',
+   benefits:['Real briefs','Portfolio ready','Mentor notes']},
+  {id:'pm101', title:'Project Management', category:'Business',level:'Beginner',rating:4.2,price:9,hours:6,credits:2,description:'Plan, execute, deliver.',
+   benefits:['Templates','Soft skills','Risk playbook']}
 ];
 function appendSamples(){
   const list = read('ol:courses',[]);
@@ -147,6 +164,7 @@ function appendSamples(){
 }
 
 /* catalog */
+function cDetailsRow(lbl,val){ return `<div class="row"><div class="muted" style="width:120px">${esc(lbl)}</div><div>${val}</div></div>`; }
 function renderCatalog(){
   const courses=read('ol:courses',[]);
   $('#catalog-grid').innerHTML = courses.map(c=>`
@@ -155,16 +173,93 @@ function renderCatalog(){
       <div class="row"><div class="h4">${esc(c.title)}</div><div class="grow"></div><div>★ ${esc(c.rating)}</div></div>
       <div class="row"><span class="badge">${esc(c.category)}</span><span class="badge">${esc(c.level)}</span><div class="grow"></div><div>${c.price?'$'+c.price:'Free'} · ${esc(c.hours)}h</div></div>
       <p>${esc(c.description||'')}</p>
-      <div class="row"><button class="btn" data-enroll="${esc(c.id)}">Enroll</button></div>
+      <div class="row">
+        <button class="btn" data-details="${esc(c.id)}">Details</button>
+        <div class="grow"></div>
+        <button class="btn primary" data-enroll="${esc(c.id)}">Enroll</button>
+      </div>
     </article>
   `).join('') || `<div class="card">No courses yet. Click “Add sample data”.</div>`;
 }
 
-/* enroll & myLearning */
+/* details modal */
+const detailsModal=$('#detailsModal'), detailsBody=$('#detailsBody');
+$('#closeDetails').addEventListener('click', ()=>detailsModal.close());
+function openDetails(cid){
+  const c = read('ol:courses',[]).find(x=>x.id===cid); if(!c) return;
+  const bens = (c.benefits||[]).map(b=>`<li>${esc(b)}</li>`).join('') || '<li>—</li>';
+  detailsBody.innerHTML = `
+    <div class="row" style="gap:16px">
+      <img src="${esc(c.img||seedImg(c.id))}" class="course-thumb" style="width:40%;min-width:260px;height:200px">
+      <div class="grow">
+        <h3 style="margin:0">${esc(c.title)}</h3>
+        ${cDetailsRow('Category', esc(c.category))}
+        ${cDetailsRow('Level', esc(c.level))}
+        ${cDetailsRow('Rating', `★ ${esc(c.rating)}`)}
+        ${cDetailsRow('Hours', esc(c.hours)+'h')}
+        ${cDetailsRow('Credits', esc(c.credits||3))}
+        ${cDetailsRow('Price', c.price?'$'+c.price:'Free')}
+      </div>
+    </div>
+    <div class="card" style="margin-top:10px">
+      <b>Description</b>
+      <p>${esc(c.description||'')}</p>
+      <b>Benefits</b>
+      <ul style="margin-top:6px">${bens}</ul>
+    </div>
+  `;
+  detailsModal.showModal();
+}
+
+/* enroll & payments */
+const payModal=$('#payModal'), payBody=$('#payBody'); $('#closePay').addEventListener('click', ()=>payModal.close());
+let payContext=null;
+function requirePayment(cid){
+  const c = read('ol:courses',[]).find(x=>x.id===cid); if(!c) return;
+  payContext={cid, title:c.title, amount: c.price||0};
+  $('#payTitle').textContent = `Checkout — ${c.title} · ${c.price?'$'+c.price:'Free'}`;
+  // PayPal render
+  const container=$('#paypal-container'); container.innerHTML='';
+  const note=$('#paypalNote');
+  if((window.PAYPAL_CLIENT_ID||'').trim() && window.paypal && paypal.Buttons){
+    paypal.Buttons({
+      createOrder: (data,actions)=>actions.order.create({
+        purchase_units:[{amount:{value:String(c.price||1)}}]
+      }),
+      onApprove: async (data,actions)=>{
+        try{ await actions.order.capture(); enrollPaid(cid,'paypal',data.orderID); payModal.close(); }
+        catch{ alert('PayPal capture failed'); }
+      }
+    }).render(container);
+    note.textContent='';
+  } else {
+    note.textContent='PayPal client ID not set in config.js — showing demo only.';
+    container.innerHTML='<div class="muted">PayPal not configured.</div>';
+  }
+  payModal.showModal();
+}
+$('#mmkPaid').addEventListener('click', ()=>{
+  if(!payContext) return;
+  enrollPaid(payContext.cid,'mmk-qr','demo');
+  payModal.close();
+});
+function enrollPaid(cid,method,ref){
+  // mark payment record (local)
+  const rec=read('ol:payments',[]); rec.push({cid,method,ref,at:Date.now(),uid:currentUser?.uid||'local'});
+  save('ol:payments',rec);
+  // enroll
+  enroll(cid);
+}
+
+/* enroll (free or after pay) */
 function enroll(cid){
   const list=read('ol:enrollments',[]);
   const courses=read('ol:courses',[]);
   const c=courses.find(x=>x.id===cid); if(!c) return;
+  if((c.price||0)>0){
+    // require payment
+    requirePayment(cid); return;
+  }
   if(!list.find(e=>e.courseId===cid)){
     list.push({courseId:cid,courseTitle:c.title,progress:0,score:0,credits:c.credits||3,price:c.price||0});
     save('ol:enrollments',list);
@@ -172,6 +267,8 @@ function enroll(cid){
   renderMyLearning();
   showPage('mylearning');
 }
+
+/* My Learning */
 function renderMyLearning(){
   const enr=read('ol:enrollments',[]), courses=read('ol:courses',[]);
   const grid = $('#mylearn-grid');
@@ -188,7 +285,23 @@ function renderMyLearning(){
   }).join('') || `<div class="card">No enrollments yet.</div>`;
 }
 
-/* reader with quizzes/assignments/final */
+/* reader with quizzes/assignments/final + fireworks + email report */
+const fxCanvas = $('#fx');
+function fireworks(duration=2000){
+  const ctx=fxCanvas.getContext('2d'), W=fxCanvas.width=innerWidth, H=fxCanvas.height=innerHeight;
+  fxCanvas.style.display='block';
+  const parts=Array.from({length:120},()=>({x:W/2,y:H/2,vx:(Math.random()-0.5)*6,vy:(Math.random()-0.5)*6,life:Math.random()*60+30,color:`hsl(${Math.random()*360},90%,60%)`}));
+  let t=0;
+  (function loop(){
+    t++; ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fillRect(0,0,W,H);
+    parts.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.05; p.life--;
+      ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,2,2);
+    });
+    if(t<duration/16){ requestAnimationFrame(loop); } else { fxCanvas.style.display='none'; }
+  })();
+}
+
 function openReader(cid){
   showPage('mylearning');
   const grid=$('#mylearn-grid'), r=$('#reader');
@@ -230,7 +343,7 @@ function openReader(cid){
         <div class="card" style="margin-top:10px">
           <b>Quick Quiz</b>
           <div><label><input type="radio" name="q1" value="A"> Option A</label></div>
-          <div><label><input type="radio" name="q1" value="B"> Option B</label></div>
+          <div><label><input type="radio" name="q1" value="B"> Option B (correct)</label></div>
           <div><label><input type="radio" name="q1" value="C"> Option C</label></div>
           <b style="display:block;margin-top:10px">Short Answer</b>
           <textarea id="shortAns" rows="3" placeholder="Write a short reflection..."></textarea>
@@ -271,15 +384,39 @@ function openReader(cid){
     $('#finishBtn')?.addEventListener('click', ()=>{
       const fin = ($$('input[name="final"]')).find(x=>x.checked)?.value === 'Y';
       if(!fin) { $('#finalStatus').textContent='Pick the correct answer to finish.'; return; }
-      // set progress 100 and score
       const enr=read('ol:enrollments',[]);
       const row = enr.find(e=>e.courseId===cid); if(row){ row.progress=100; row.score = Math.max(row.score||0, score||90); save('ol:enrollments',enr); }
       renderGradebook(); renderMyLearning();
       openCertificate(row?.courseTitle||cid, row?.score||90, currentUser?.email||'Student');
-      alert('Congratulations! Certificate generated preview opened.');
+      sendProgressReport(row?.courseTitle||cid, row?.score||90);
+      fireworks(2200);
+      alert('🎉 Congratulations! You’ve completed the course.');
     });
   };
   renderBody();
+}
+
+/* EmailJS report (optional) */
+function sendProgressReport(courseTitle, score){
+  const admins = ['owner@openlearn.local','admin@openlearn.local'];
+  const payload = {
+    course: courseTitle,
+    score: String(Math.round(score||0))+'%',
+    student: currentUser?.email||'anonymous',
+    when: new Date().toLocaleString()
+  };
+  // If EmailJS config present, attempt to send
+  try{
+    const eid = window.EMAILJS?.SERVICE_ID, tid=window.EMAILJS?.TEMPLATE_ID, kid=window.EMAILJS?.PUBLIC_KEY;
+    if(eid && tid && kid && window.emailjs){
+      emailjs.init(kid);
+      emailjs.send(eid, tid, {...payload, to_email: admins.join(',')});
+    } else {
+      const log=read('ol:reports',[]); log.push(payload); save('ol:reports',log);
+    }
+  }catch{
+    const log=read('ol:reports',[]); log.push(payload); save('ol:reports',log);
+  }
 }
 
 /* gradebook + cert/transcript */
@@ -302,8 +439,6 @@ function renderGradebook(){
       }</tbody>
     </table>`;
 }
-
-/* certificate / transcript windows (print to PDF via browser) */
 function openCertificate(courseTitle, score, name){
   const w=window.open('','_blank','width=900,height=700');
   w.document.write(`
@@ -352,13 +487,16 @@ function openTranscript(){
 
 /* profile */
 function renderProfile(u, role){
-  const p = read('ol:profileSelf', {displayName:'',photoURL:'',bio:'',site:'',github:'',linkedin:'',portfolio:''});
+  const p = read('ol:profileSelf', {displayName:'',photoURL:'',bio:'',site:'',github:'',linkedin:'',portfolio:'',dob:''});
+  const isBirthday = (()=>{ if(!p.dob) return false; const d=new Date(p.dob); const n=new Date(); return d.getMonth()===n.getMonth() && d.getDate()===n.getDate(); })();
   $('#profilePanel').innerHTML = u
     ? `<div class="profile-card">
         <img src="${esc(p.photoURL||'https://picsum.photos/seed/profile/200/200')}" alt="">
         <div>
           <div><b>${esc(p.displayName||u.email||'Student')}</b></div>
           <div class="muted">UID: ${esc(u.uid||'-')} · Role: ${esc(role||'student')}</div>
+          ${p.dob?`<div class="muted">DOB: ${esc(p.dob)}</div>`:''}
+          ${isBirthday?`<div>🎂 <b>Happy Birthday!</b> Wishing you joyful learning! ✨</div>`:''}
           <p>${esc(p.bio||'')}</p>
           <div class="row">
             ${p.site? `<a class="badge" href="${esc(p.site)}" target="_blank">Website</a>`:''}
@@ -369,10 +507,14 @@ function renderProfile(u, role){
         </div>
       </div>`
     : `<div class="muted">Not signed in.</div>`;
+  if(isBirthday) fireworks(1800);
 }
 function renderAdminVisibility(role){
   const isStaff=['owner','admin','instructor','ta'].includes(role);
   $('#announceToolbar')?.classList.toggle('ol-hidden', !isStaff);
+  // hide Admin menu for non-staff
+  const adminBtn = $$('.navbtn').find(b=>b.dataset.page==='admin');
+  if(adminBtn) adminBtn.style.display = isStaff? 'flex':'none';
 }
 function toggleStaffUI(){ renderAdminVisibility(currentRole); }
 
@@ -380,10 +522,45 @@ function toggleStaffUI(){ renderAdminVisibility(currentRole); }
 const profModal=$('#profileModal'), profForm=$('#profileForm');
 $('#btn-edit-profile')?.addEventListener('click', ()=>{
   const p = read('ol:profileSelf', {});
-  for (const k of ['displayName','photoURL','bio','site','github','linkedin','portfolio']) {
-    profForm[k].value = p[k]||'';
+  for (const k of ['displayName','photoURL','bio','site','github','linkedin','portfolio','dob']) {
+    if(profForm[k]) profForm[k].value = p[k]||'';
   }
   profModal.showModal();
+});
+$('#btn-view-card')?.addEventListener('click', ()=>{
+  const p = read('ol:profileSelf', {});
+  const u=currentUser||{};
+  const w=window.open('','_blank','width=800,height=600');
+  w.document.write(`
+    <html><head><title>Profile Card</title>
+      <style>
+        body{font-family:Inter,system-ui,sans-serif;background:#0b0f17;color:#eaf1ff;padding:30px}
+        .wrap{background:#111827;border:1px solid #1f2a3b;border-radius:16px;padding:20px}
+        img{width:120px;height:120px;border-radius:12px;object-fit:cover}
+        .muted{color:#9fb0c3}
+        .badge{display:inline-block;margin-right:8px;border:1px solid #1f2a3b;border-radius:999px;padding:4px 10px}
+      </style>
+    </head><body>
+      <div class="wrap">
+        <div style="display:flex;gap:14px;align-items:center">
+          <img src="${esc(p.photoURL||'https://picsum.photos/seed/profile/200/200')}">
+          <div>
+            <h2 style="margin:0">${esc(p.displayName||u.email||'Student')}</h2>
+            <div class="muted">UID: ${esc(u.uid||'-')}</div>
+            ${p.dob?`<div class="muted">DOB: ${esc(p.dob)}</div>`:''}
+          </div>
+        </div>
+        <p>${esc(p.bio||'')}</p>
+        <div>
+          ${p.site? `<a class="badge" href="${esc(p.site)}" target="_blank">Website</a>`:''}
+          ${p.github? `<a class="badge" href="${esc(p.github)}" target="_blank">GitHub</a>`:''}
+          ${p.linkedin? `<a class="badge" href="${esc(p.linkedin)}" target="_blank">LinkedIn</a>`:''}
+          ${p.portfolio? `<a class="badge" href="${esc(p.portfolio)}" target="_blank">Portfolio</a>`:''}
+        </div>
+      </div>
+    </body></html>
+  `);
+  w.document.close();
 });
 $('#closeProfileModal').addEventListener('click', ()=> profModal.close());
 $('#cancelProfile').addEventListener('click', ()=> profModal.close());
@@ -397,7 +574,7 @@ profForm.addEventListener('submit', (e)=>{
   alert('Profile updated.');
 });
 
-/* dashboard announcements */
+/* announcements */
 function initStudentDashboard(){
   const posts=read('ol:posts',[]);
   $('#stuDashPanel').innerHTML = posts.length
@@ -422,7 +599,6 @@ function upsertPost({id,t,b}){
   }
   save('ol:posts',arr); initStudentDashboard();
 }
-/* post modal */
 const postModal=$('#postModal');
 $('#btn-new-post')?.addEventListener('click', ()=>{
   if(!['owner','admin','instructor','ta'].includes(currentRole)) return alert('Staff only');
@@ -451,7 +627,7 @@ document.addEventListener('click',(e)=>{
   }
 });
 
-/* calendar + list + edit/delete */
+/* calendar */
 function renderCalendar(){
   const grid = $('#calGrid'); if(!grid) return;
   const list = read('ol:cal',[]);
@@ -490,9 +666,8 @@ $('#addCal')?.addEventListener('click', ()=>{
   if(!t||!d) return alert('Title & date required');
   const arr=read('ol:cal',[]); 
   arr.push({id:'e_'+Date.now(), title:t,date:d});
-  save('ol:cal', JSON.stringify(arr)); // extra stringify not needed but safe
-  $('#calTitle').value=''; $('#calDate').value='';
   save('ol:cal',arr);
+  $('#calTitle').value=''; $('#calDate').value='';
   renderCalendar(); renderCalendarList();
   alert('Event added.');
 });
@@ -544,6 +719,7 @@ function openCourseModal(mode='new', course=null){
     courseForm.credits.value = course.credits||3;
     courseForm.img.value = course.img||'';
     courseForm.description.value = course.description||'';
+    courseForm.benefits.value = (course.benefits||[]).join('\n');
   } else {
     courseForm.id.value = 'c_'+Date.now();
   }
@@ -558,6 +734,7 @@ courseForm.addEventListener('submit', (e)=>{
   obj.hours = Number(obj.hours||6);
   obj.credits = Number(obj.credits||3);
   obj.img = obj.img?.trim() || seedImg(obj.id);
+  obj.benefits = (obj.benefits||'').split('\n').map(x=>x.trim()).filter(Boolean);
   const list = read('ol:courses',[]);
   const idx = list.findIndex(x=>x.id===obj.id);
   if(idx>=0) list[idx]=obj; else list.push(obj);
@@ -601,6 +778,8 @@ document.addEventListener('click', (ev)=>{
   const delBtn = ev.target.closest('[data-del]'); if(delBtn){ const id=delBtn.dataset.del; if(confirm('Delete course?')){ let list=read('ol:courses',[]); list=list.filter(x=>x.id!==id); save('ol:courses',list); renderCatalog(); renderAdmin(); } return; }
   const enrollBtn = ev.target.closest('[data-enroll]'); if(enrollBtn){ enroll(enrollBtn.dataset.enroll); return; }
   const contBtn = ev.target.closest('[data-continue]'); if(contBtn){ openReader(contBtn.dataset.continue); return; }
+  const detailsBtn = ev.target.closest('[data-details]'); if(detailsBtn){ openDetails(detailsBtn.dataset.details); return; }
+
   const footerLink = ev.target.closest('[data-link]'); if(footerLink){ showPage(footerLink.dataset.link); return; }
 
   const certBtn = ev.target.closest('[data-cert]'); if(certBtn){
@@ -621,7 +800,11 @@ $('#topSearch').addEventListener('input', ()=>{
       <div class="row"><div class="h4">${esc(c.title)}</div><div class="grow"></div><div>★ ${esc(c.rating)}</div></div>
       <div class="row"><span class="badge">${esc(c.category)}</span><span class="badge">${esc(c.level)}</span><div class="grow"></div><div>${c.price?'$'+c.price:'Free'} · ${esc(c.hours)}h</div></div>
       <p>${esc(c.description||'')}</p>
-      <div class="row"><button class="btn" data-enroll="${esc(c.id)}">Enroll</button></div>
+      <div class="row">
+        <button class="btn" data-details="${esc(c.id)}">Details</button>
+        <div class="grow"></div>
+        <button class="btn primary" data-enroll="${esc(c.id)}">Enroll</button>
+      </div>
     </article>`).join('');
 });
 
@@ -649,3 +832,9 @@ function boot(){
   showPage(saved);
 }
 document.addEventListener('DOMContentLoaded', boot);
+
+/* ===== Role-based menus (info for owner/admin/ta/student) =====
+owner/admin/ta/instructor: can see Dashboard (add/edit/delete announcements), Calendar edit/delete, Admin menu (course CRUD)
+student: sees Courses, My Learning, Gradebook, Dashboard (read-only), Profile, Settings, Live Chat
+(Implementation: renderAdminVisibility() toggles Admin; announcement toolbar hidden for non-staff)
+===== */
