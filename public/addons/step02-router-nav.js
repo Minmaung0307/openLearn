@@ -13,16 +13,16 @@
 
   // sidebar ids → hashes
   const map = {
+    'nav-dashboard':'#/dashboard',
     'nav-courses':'#/courses',
     'nav-mylearning':'#/mylearning',
     'nav-gradebook':'#/gradebook',
-    'nav-dashboard':'#/dashboard',
     'nav-profile':'#/profile',
-    'nav-settings':'#/settings',
+    'nav-admin':'#/admin',
     'nav-chat':'#/livechat',
-    'nav-calendar':'#/calendar',
+    'nav-settings':'#/settings',
     'nav-analytics':'#/analytics',
-    'nav-admin':'#/admin'
+    'nav-calendar':'#/calendar',
   };
   Object.entries(map).forEach(([id,hash])=>{
     const el=document.getElementById(id); if (!el) return;

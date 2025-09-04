@@ -38,13 +38,25 @@
     addBtn.style.display = window.isStaff() ? '' : 'none';
   }
 
+  function updateSidebarByRole(){
+  const show = (sel, on)=>{ const el=document.querySelector(sel); if(el) el.style.display = on? '': 'none'; };
+  const staff = window.isStaff?.() === true;
+  // Admin-only menus (ตัวอย่าง)
+  show('#nav-admin', staff);
+  show('#nav-analytics', staff);  // Analytics ကို staff-only လုပ်ချင်တဲ့အခါ
+}
+// boot
+window.addEventListener('ol:login', updateSidebarByRole);
+window.addEventListener('ol:route',  updateSidebarByRole);
+document.addEventListener('DOMContentLoaded', updateSidebarByRole);
+
   // route ပြောင်းတိုင်း guard
-  window.addEventListener('ol:route', e=>{
-    if (e.detail?.name === 'dashboard') guardDashboardButtons();
-  });
+  // window.addEventListener('ol:route', e=>{
+  //   if (e.detail?.name === 'dashboard') guardDashboardButtons();
+  // });
   // login ပြီး guard
-  window.addEventListener('ol:login', guardDashboardButtons);
+  // window.addEventListener('ol:login', guardDashboardButtons);
   // initial
-  if (document.readyState==='complete') guardDashboardButtons();
-  else window.addEventListener('DOMContentLoaded', guardDashboardButtons);
+  // if (document.readyState==='complete') guardDashboardButtons();
+  // else window.addEventListener('DOMContentLoaded', guardDashboardButtons);
 })();
