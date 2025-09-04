@@ -10,6 +10,20 @@
     <!-- Addon styles (safe) -->
     <link rel="stylesheet" href="/addons/calendar-announcements.css" />
 
+    <style>
+    /* Details modal sizing & scroll */
+    #detailsModal .modal-card{
+      max-width:1100px !important;
+      width:80% !important;
+      max-height:80vh !important;
+      display:flex;
+      flex-direction:column;
+    }
+    #detailsModal .modal-body{
+      overflow:auto !important;
+    }
+  </style>
+
     <!-- recommended after your core app.js -->
     <script defer src="/addons/step01-login-modal.js"></script>
     <script defer src="/addons/step02-router-nav.js"></script>
@@ -29,6 +43,7 @@
     <script defer src="/addons/step16-a11y-small-fixes.js"></script>
     <script defer src="/addons/step17-mobile-burger.js"></script>
     <script defer src="/addons/step18-analytics.js"></script>
+    <script defer src="/addons/step19-role-helpers.js"></script>
     <!-- Addon logic (safe, non-breaking) -->
     <script defer src="/addons/calendar-announcements.js"></script>
     <!-- PayPal SDK (optional; provide client-id in config.js via window.PAYPAL_CLIENT_ID) -->
