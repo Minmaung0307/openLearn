@@ -4,6 +4,174 @@ import {
   collection, addDoc, getDocs, query, orderBy, limit
 } from "./firebase.js";
 
+/* ===== HOTFIX: recover interactivity when previous CSS/JS blocked clicks ===== */
+(() => {
+  // 0) guard: if another fatal error stops execution, log it and continue
+  window.addEventListener('error', (e) => {
+    console.error('JS runtime error:', e?.error || e?.message || e);
+  });
+
+  // 1) Ensure sidebar exists and has required nav buttons (Dashboard/Courses/MyLearning/Gradebook/Profile/Admin/LiveChat/Settings)
+  function ensureSidebar() {
+    let side = document.getElementById('sidebar');
+    if (!side) {
+      side = document.createElement('aside');
+      side.id = 'sidebar';
+      const nav = document.createElement('nav');
+      side.appendChild(nav);
+      document.body.prepend(side);
+    }
+    let nav = side.querySelector('nav');
+    if (!nav) { nav = document.createElement('nav'); side.appendChild(nav); }
+
+    const want = [
+      { id:'nav-dashboard', label:'Dashboard', icon:'🏠', page:'stu-dashboard' },
+      { id:'nav-catalog',   label:'Courses',   icon:'📚', page:'catalog' },
+      { id:'nav-mylearn',   label:'My Learning', icon:'🎒', page:'mylearning' },
+      { id:'nav-grade',     label:'Gradebook', icon:'🗂️', page:'gradebook' },
+      { id:'nav-profile',   label:'Profile',   icon:'👤', page:'profile' },
+      { id:'nav-admin',     label:'Admin',     icon:'🛠️', page:'admin' },
+      { id:'nav-chat',      label:'Live Chat', icon:'💬', page:'livechat' },
+      { id:'nav-settings',  label:'Settings',  icon:'⚙️', page:'settings' },
+    ];
+    for (const w of want) {
+      let b = document.getElementById(w.id);
+      if (!b) {
+        b = document.createElement('button');
+        b.id = w.id;
+        b.className = 'navbtn';
+        b.dataset.page = w.page;
+        b.innerHTML = `<i>${w.icon}</i><span>${w.label}</span>`;
+        nav.appendChild(b);
+      } else {
+        // normalize structure & restore dataset
+        b.classList.add('navbtn');
+        b.dataset.page = w.page;
+        if (!b.querySelector('i')) {
+          b.innerHTML = `<i>${w.icon}</i><span>${w.label}</span>`;
+        }
+      }
+    }
+  }
+
+  // 2) Delegated navigation (works even if buttons are re-rendered later)
+  function wireNavDelegation() {
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#sidebar .navbtn');
+      if (!btn) return;
+      const page = btn.dataset.page;
+      if (!page) return;
+      e.preventDefault();
+      try { if (typeof showPage === 'function') showPage(page); }
+      catch (err) { console.error('showPage failed:', err); }
+    });
+  }
+
+  // 3) Make sure login button opens modal; logout works
+  function wireAuthButtons() {
+    function openLogin() {
+      const dlg = document.getElementById('authModal');
+      if (dlg && dlg.showModal) dlg.showModal();
+    }
+    // header login
+    document.addEventListener('click', (e) => {
+      if (e.target?.id === 'btn-login') { e.preventDefault(); openLogin(); }
+    });
+    // logout (delegated)
+    document.addEventListener('click', async (e) => {
+      if (e.target?.id === 'btn-logout') {
+        e.preventDefault();
+        try { if (window.auth && window.signOut) await window.signOut(window.auth); } catch {}
+        // show auth screen if available
+        try { if (typeof showAuthScreen === 'function') showAuthScreen(); } catch {}
+      }
+    });
+  }
+
+  // 4) Details / Enroll / Continue buttons — if your main code didn’t bind yet, bind here
+  function wireCourseActions() {
+    document.addEventListener('click', (e) => {
+      const d = e.target.closest('[data-details]');
+      if (d && typeof window.dispatchEvent === 'function') {
+        // If your main handler exists it will also process; otherwise call local fallback
+        if (typeof window.handleDetails === 'function') return;
+        const id = d.getAttribute('data-details');
+        const ev = new CustomEvent('ol:details', { detail:{ id } });
+        window.dispatchEvent(ev);
+      }
+      const en = e.target.closest('[data-enroll]');
+      if (en) {
+        const id = en.getAttribute('data-enroll');
+        if (typeof handleEnroll === 'function') { e.preventDefault(); handleEnroll(id); }
+      }
+      const cont = e.target.closest('[data-continue],[data-read]');
+      if (cont) {
+        const id = cont.getAttribute('data-continue') || cont.getAttribute('data-read');
+        if (typeof openReader === 'function') { e.preventDefault(); openReader(id); }
+      }
+    });
+  }
+
+  // 5) Settings/New course/Samples – make sure clicks are picked up
+  function wireTopActions() {
+    document.addEventListener('click', (e) => {
+      if (e.target?.id === 'btn-add-samples') {
+        e.preventDefault();
+        try { addSamples && addSamples(); } catch (err) { console.error(err); }
+      }
+      if (e.target?.id === 'btn-new-course') {
+        e.preventDefault();
+        const dlg = document.getElementById('courseModal');
+        if (dlg?.showModal) dlg.showModal();
+      }
+    });
+    // theme & font change
+    document.getElementById('themeSel')?.addEventListener('change', (ev) => {
+      try { const v = ev.target.value; localStorage.setItem('ol_theme', v); applyPalette && applyPalette(v); } catch {}
+    });
+    document.getElementById('fontSel')?.addEventListener('change', (ev) => {
+      try { const v = ev.target.value; const px = parseInt(v, 10) || 16; localStorage.setItem('ol_font', String(px)); applyFont && applyFont(px); } catch {}
+    });
+  }
+
+  // 6) Unblock clicks if some overlay stayed open
+  function clearStuckOverlays() {
+    // any modal without [open] -> hide
+    document.querySelectorAll('dialog.ol-modal:not([open])').forEach(d => d.style.display = 'none');
+    // no full-screen invisible blocker:
+    Array.from(document.body.children).forEach(el => {
+      const s = getComputedStyle(el);
+      if (s.position === 'fixed' && s.zIndex > '10000' && s.opacity === '0' && s.pointerEvents === 'auto') {
+        el.style.pointerEvents = 'none';
+      }
+    });
+  }
+
+  function boot() {
+    try {
+      ensureSidebar();
+      wireNavDelegation();
+      wireAuthButtons();
+      wireCourseActions();
+      wireTopActions();
+      clearStuckOverlays();
+      // restore theme/font at very start in case earlier failed
+      const t = localStorage.getItem('ol_theme') || 'dark';
+      const f = Number(localStorage.getItem('ol_font') || '16');
+      if (typeof applyPalette === 'function') applyPalette(t);
+      if (typeof applyFont === 'function') applyFont(f);
+    } catch (err) {
+      console.error('HOTFIX boot failed:', err);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+
 /* =============== helpers ================= */
 const $  = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
