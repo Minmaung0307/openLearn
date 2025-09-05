@@ -9,36 +9,46 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
-  updateProfile,
+  updateProfile
 } from `${CDN}/firebase-auth.js`;
 import {
   getFirestore,
   collection, addDoc, serverTimestamp,
-  doc, getDoc, getDocs,
-  query, orderBy, where, limit
+  doc, getDoc, getDocs, query, orderBy, where, limit
 } from `${CDN}/firebase-firestore.js`;
 
+// ---- Config (no-throw)
 const cfg = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.firebase) || null;
-if (!cfg) {
-  // ဒီတန်းမှာ throw လုပ်နေတဲ့အတွက် error ပေါ်နေတာ — နူးညံ့အောင် ပြောင်းပေးထားတယ်
-  console.error("config.js missing or invalid → window.OPENLEARN_CFG.firebase not found");
-  // သို့သော် app boot မစောင်းအောင် early return အစား throw (ရွေးချယ်နိုင်)
-  // throw new Error("config.js missing: window.OPENLEARN_CFG.firebase");
+export const HAS_CONFIG = !!cfg;
+
+if (!HAS_CONFIG) {
+  console.warn("[OpenLearn] config.js missing → demo init (auth will fail until you add real config)");
 }
 
-// init (guard against double init)
-const app = getApps().length ? getApps()[0] : initializeApp(cfg || {
-  apiKey:"demo", projectId:"demo", appId:"demo"
-});
+// ---- Initialize
+const app = getApps().length
+  ? getApps()[0]
+  : initializeApp(
+      cfg || {
+        apiKey: "demo",
+        authDomain: "demo.firebaseapp.com",
+        projectId: "demo",
+        appId: "1:demo:web:demo"
+      }
+    );
 
 const auth = getAuth(app);
 const db   = getFirestore(app);
 
-// ---- Re-exports for app.js / login.js
+// Exports
 export {
   app, auth, db,
-  onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signOut, sendPasswordResetEmail, updateProfile,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updateProfile,
   collection, addDoc, serverTimestamp,
   doc, getDoc, getDocs, query, orderBy, where, limit
 };

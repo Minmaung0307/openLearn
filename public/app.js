@@ -1,1064 +1,473 @@
+// public/app.js
 import {
   app, auth, db,
-  onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
-  updateProfile, sendPasswordResetEmail, updateProfile,
-  collection, addDoc, serverTimestamp, doc, getDoc, getDocs, query, orderBy, where, limit
+  onAuthStateChanged,
+  collection, addDoc, doc, getDoc, getDocs, query, orderBy, limit
 } from "./firebase.js";
 
-/* ===== helpers ===== */
-const $ = (s,root=document)=>root.querySelector(s);
-const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
-// FIX: make esc safe for numbers/objects
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 const esc = (s)=> String(s ?? "").replace(/[&<>\"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-const toast=(m,ms=2200)=>{let t=$("#toast"); if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t);} t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),ms);};
+const toast=(m,ms=2000)=>{ let t=$("#toast"); if(!t){t=document.createElement("div");t.id="toast";t.style.cssText="position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#111827;color:#eaf1ff;border:1px solid #1f2a3b;border-radius:10px;padding:8px 12px;z-index:9999"; document.body.appendChild(t);} t.textContent=m; t.style.opacity="1"; setTimeout(()=>t.style.opacity="0", ms); };
+
+const CFG = window.OPENLEARN_CFG || {};
+const ADMINS = new Set((CFG.admins||[]).map(x=>x.toLowerCase()));
+
+function isAdminEmail(email){ return !!email && ADMINS.has(email.toLowerCase()); }
+
+/* ===================== PayPal inject ===================== */
+(function injectPayPal() {
+  const id = (CFG.paypalClientId || "").trim();
+  if (!id) { console.info("PayPal clientId not set → MMK demo only"); return; }
+  const s = document.createElement("script");
+  s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(id)}&currency=USD`;
+  s.async = true;
+  s.onload = ()=> (window.paypalSDK = window.paypal);
+  document.head.appendChild(s);
+})();
+
+/* ===================== Local storage ===================== */
 const readJSON=(k,d)=>{ try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d));}catch{ return d; } };
 const writeJSON=(k,v)=> localStorage.setItem(k, JSON.stringify(v));
+const LS_COURSES = "ol_local_courses";
+const LS_ENR     = "ol_enrolls";
+const LS_ANNS    = "ol_anns";
+const getLocalCourses = ()=> readJSON(LS_COURSES, []);
+const setLocalCourses = (a)=> writeJSON(LS_COURSES, a||[]);
+const getEnrolls = ()=> new Set(readJSON(LS_ENR, []));
+const setEnrolls = (s)=> writeJSON(LS_ENR, Array.from(s));
+const getAnns    = ()=> readJSON(LS_ANNS, []);
+const setAnns    = (a)=> writeJSON(LS_ANNS, a||[]);
 
-
-/* ===== theme / font ===== */
-const PALETTES = {
-  dark: {
-    bg: "#0b0f17",
-    fg: "#e7ecf3",
-    card: "#121826",
-    muted: "#9aa6b2",
-    border: "#223",
-    accent: "#66d9ef",
-    btnBg: "#1f2937",
-    btnFg: "#e7ecf3",
-    btnPrimaryBg: "#2563eb",
-    btnPrimaryFg: "#fff",
-    inputBg: "#0b1220",
-    inputFg: "#e7ecf3",
-    hoverBg: "#0e1625",
-  },
-  light: {
-    bg: "#f7fafc",
-    fg: "#0b1220",
-    card: "#ffffff",
-    muted: "#4a5568",
-    border: "#dbe2ea",
-    accent: "#2563eb",
-    btnBg: "#e2e8f0",
-    btnFg: "#0b1220",
-    btnPrimaryBg: "#0f172a",
-    btnPrimaryFg: "#fff",
-    inputBg: "#ffffff",
-    inputFg: "#0b1220",
-    hoverBg: "#eef2f7",
-  },
-  ocean: {
-    bg: "#07131d",
-    fg: "#dff3ff",
-    card: "#0c2030",
-    muted: "#8fb3c6",
-    border: "#113347",
-    accent: "#4cc9f0",
-    btnBg: "#123247",
-    btnFg: "#dff3ff",
-    btnPrimaryBg: "#4cc9f0",
-    btnPrimaryFg: "#08222f",
-    inputBg: "#0b2231",
-    inputFg: "#dff3ff",
-    hoverBg: "#0f2b40",
-  },
-  forest: {
-    bg: "#0b140f",
-    fg: "#eaf7eb",
-    card: "#102017",
-    muted: "#9fbcaa",
-    border: "#163223",
-    accent: "#34d399",
-    btnBg: "#173425",
-    btnFg: "#eaf7eb",
-    btnPrimaryBg: "#34d399",
-    btnPrimaryFg: "#082015",
-    inputBg: "#0d2317",
-    inputFg: "#eaf7eb",
-    hoverBg: "#123222",
-  },
-  grape: {
-    bg: "#0f0a14",
-    fg: "#efe7ff",
-    card: "#1a1224",
-    muted: "#bda7d9",
-    border: "#2a1a3a",
-    accent: "#a78bfa",
-    btnBg: "#241634",
-    btnFg: "#efe7ff",
-    btnPrimaryBg: "#a78bfa",
-    btnPrimaryFg: "#140b1f",
-    inputBg: "#1a1224",
-    inputFg: "#efe7ff",
-    hoverBg: "#221732",
-  },
-  solarized: {
-    bg: "#002b36",
-    fg: "#eee8d5",
-    card: "#073642",
-    muted: "#93a1a1",
-    border: "#0b3944",
-    accent: "#b58900",
-    btnBg: "#0e3c4b",
-    btnFg: "#eee8d5",
-    btnPrimaryBg: "#b58900",
-    btnPrimaryFg: "#002b36",
-    inputBg: "#073642",
-    inputFg: "#eee8d5",
-    hoverBg: "#0c3440",
-  },
-  rose: {
-    bg: "#1a0d12",
-    fg: "#ffe7ee",
-    card: "#241318",
-    muted: "#d9a7b5",
-    border: "#3a1b27",
-    accent: "#fb7185",
-    btnBg: "#2a1720",
-    btnFg: "#ffe7ee",
-    btnPrimaryBg: "#fb7185",
-    btnPrimaryFg: "#240b12",
-    inputBg: "#221018",
-    inputFg: "#ffe7ee",
-    hoverBg: "#2c1620",
-  },
-  bumblebee: {
-    bg: "#0f130b",
-    fg: "#fefce8",
-    card: "#151b0e",
-    muted: "#e7e3b5",
-    border: "#263112",
-    accent: "#facc15",
-    btnBg: "#1a250f",
-    btnFg: "#fefce8",
-    btnPrimaryBg: "#facc15",
-    btnPrimaryFg: "#231b02",
-    inputBg: "#151b0e",
-    inputFg: "#fefce8",
-    hoverBg: "#1b2510",
-  },
-};
-function applyPalette(name) {
-  const p = PALETTES[name] || PALETTES.dark,
-    r = document.documentElement;
-  const map = {
-    bg: "--bg",
-    fg: "--fg",
-    card: "--card",
-    muted: "--muted",
-    border: "--border",
-    accent: "--accent",
-    btnBg: "--btnBg",
-    btnFg: "--btnFg",
-    btnPrimaryBg: "--btnPrimaryBg",
-    btnPrimaryFg: "--btnPrimaryFg",
-    inputBg: "--inputBg",
-    inputFg: "--inputFg",
-    hoverBg: "--hoverBg",
-  };
-  for (const [k, v] of Object.entries(map)) r.style.setProperty(v, p[k]);
-}
-function applyFont(px) {
-  document.documentElement.style.setProperty("--fontSize", px + "px");
-  $("#fontPreview") && ($("#fontPreview").textContent = px + " px");
-}
-
-/* ===== sidebar (hover + mobile drawer) ===== */
-function initSidebar(){
-  const sb=$("#sidebar");
-  const expand=()=>{ sb.classList.add("expanded"); document.body.classList.add("sidebar-expanded"); };
-  const collapse=()=>{ sb.classList.remove("expanded"); document.body.classList.remove("sidebar-expanded"); };
-
-  // Desktop hover expand
-  if (window.matchMedia("(min-width:1025px)").matches){
-    sb.addEventListener("mouseenter", expand);
-    sb.addEventListener("mouseleave", collapse);
-  }
-
-  // Mobile drawer
-  const isMobile=()=> window.matchMedia("(max-width:1024px)").matches;
-  $("#hamburger")?.addEventListener("click", ()=>{
-    if(isMobile()) sb.classList.toggle("show");
-    else sb.classList.toggle("expanded");
-  });
-  // Tap outside to close on mobile
-  document.addEventListener("click",(e)=>{
-    if(!isMobile()) return;
-    if (sb.classList.contains("show")) {
-      const inside = e.target.closest("#sidebar") || e.target.closest("#hamburger");
-      if(!inside) sb.classList.remove("show");
-    }
-  });
-}
-
-/* ===== router ===== */
+/* ===================== Router ===================== */
 function showPage(id) {
-  $$(".page").forEach((p) => p.classList.remove("visible"));
-  $(`#page-${id}`)?.classList.add("visible");
-  $$(".side-item").forEach((x) =>
-    x.classList.toggle("active", x.dataset.page === id)
-  );
-  if (id === "mylearning") renderMyLearning();
-  if (id === "gradebook") renderGradebook();
-  if (id === "admin") renderAdminTable();
-  if (id === "analytics") renderAnalytics();
-  if (id === "dashboard") renderAnnouncements();
+  $$(".page").forEach(p=>p.classList.remove("active"));
+  $(`#page-${id}`)?.classList.add("active");
+  if (id==="catalog")   renderCatalog();
+  if (id==="mylearning")renderMyLearning();
+  if (id==="gradebook") renderGradebook();
+  if (id==="stu-dashboard") renderAnnouncements();
+  if (id==="admin")     renderAdminTable();
 }
 function bindSidebarNav() {
-  $$(".side-item").forEach((btn) =>
-    btn.addEventListener("click", () => showPage(btn.dataset.page))
-  );
+  $$("#sidebar .navbtn").forEach(btn=>{
+    btn.onclick = ()=> showPage(btn.dataset.page);
+  });
 }
 
-/* ===== Search ===== */
-function bindSearch(){
-  const doSearch = (q) => {
-    const raw = (q ?? ($("#topSearch")?.value ?? ""));
-    const term = String(raw).toLowerCase().trim();
-    showPage("courses");
-    document.querySelectorAll("#courseGrid .card.course").forEach(card=>{
-      const text=(card.dataset.search||"").toLowerCase();
-      card.style.display = !term || text.includes(term) ? "" : "none";
-    });
-  };
-  $("#topSearchBtn")?.addEventListener("click", ()=>doSearch());
-  $("#topSearch")?.addEventListener("keydown", e=>{ if(e.key==="Enter") doSearch(); });
-  $("#mobileSearchBtn")?.addEventListener("click", ()=> $("#mobileSearchPanel").classList.remove("hidden"));
-  $("#mSearchClose")?.addEventListener("click", ()=> $("#mobileSearchPanel").classList.add("hidden"));
-  $("#mSearchGo")?.addEventListener("click", ()=>{ doSearch($("#mSearchInput")?.value ?? ""); $("#mobileSearchPanel").classList.add("hidden"); });
-}
-
-/* ===== DB probe / local fallback ===== */
-let USE_DB=true;
-async function probeDbOnce(){
-  try{
-    const cfgOk=!/YOUR_PROJECT|YOUR_API_KEY|YOUR_APP_ID/.test(JSON.stringify(app.options));
-    if(!cfgOk) throw new Error("cfg-missing");
-    await getDocs(query(collection(db,"__ping"), limit(1)));
-    USE_DB=true;
-  }catch(e){
-    console.info("Firestore disabled → local mode"); // was warn
-    USE_DB=false;
-  }
-}
-
-/* ===== local data ===== */
-const getLocalCourses = ()=> readJSON("ol_local_courses", []);
-const setLocalCourses = (a)=> writeJSON("ol_local_courses", a||[]);
-const getEnrolls = ()=> new Set(readJSON("ol_enrolls", []));
-const setEnrolls = (s)=> writeJSON("ol_enrolls", Array.from(s));
-const getNotes = ()=> readJSON("ol_notes", {});        // { [courseId]: [ {page, text, ts} ] }
-const setNotes = (x)=> writeJSON("ol_notes", x);
-const getBookmarks = ()=> readJSON("ol_bms", {});      // { [courseId]: page }
-const setBookmarks = (x)=> writeJSON("ol_bms", x);
-const getAnns = ()=> readJSON("ol_anns", []);          // [{id,title,ts}]
-const setAnns = (x)=> writeJSON("ol_anns", x);
-
-/* ===== data access ===== */
+/* ===================== Catalog ===================== */
+let ALL = [];
 async function fetchAll() {
-  if (!USE_DB) return getLocalCourses();
   try {
-    const snap = await getDocs(
-      query(collection(db, "courses"), orderBy("title", "asc"))
-    );
-    const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const snap = await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
+    const arr = snap.docs.map(d=>({id:d.id, ...d.data()}));
     if (arr.length) return arr;
-  } catch (e) {
-    console.warn("fetch fallback", e);
-    USE_DB = false;
-  }
+  } catch(e){ console.info("Firestore fetch failed, use local", e); }
   return getLocalCourses();
 }
-async function safeAddCourse(payload) {
-  if (!USE_DB) {
-    const id = "loc_" + Math.random().toString(36).slice(2, 9);
-    const arr = getLocalCourses();
-    arr.push({ id, ...payload });
-    setLocalCourses(arr);
-    return { id, ...payload };
-  }
-  try {
-    const ref = await addDoc(collection(db, "courses"), payload);
-    return { id: ref.id, ...payload };
-  } catch (e) {
-    console.warn("add fallback", e);
-    USE_DB = false;
-    const id = "loc_" + Math.random().toString(36).slice(2, 9);
-    const arr = getLocalCourses();
-    arr.push({ id, ...payload });
-    setLocalCourses(arr);
-    return { id, ...payload };
-  }
-}
 
-/* ===== samples ===== */
-async function addSamples() {
-  const base = [
-    {
-      title: "JavaScript Essentials",
-      category: "Web",
-      level: "Beginner",
-      price: 0,
-      credits: 3,
-      rating: 4.7,
-      hours: 10,
-      summary: "Start JavaScript from zero.",
-      image: "",
-    },
-    {
-      title: "React Fast-Track",
-      category: "Web",
-      level: "Intermediate",
-      price: 49,
-      credits: 2,
-      rating: 4.6,
-      hours: 8,
-      summary: "Build modern UIs.",
-      image: "",
-    },
-    {
-      title: "Advanced React Patterns",
-      category: "Web",
-      level: "Advanced",
-      price: 69,
-      credits: 2,
-      rating: 4.5,
-      hours: 9,
-      summary: "Hooks, contexts, performance.",
-      image: "",
-    },
-    {
-      title: "Data Analysis with Python",
-      category: "Data",
-      level: "Intermediate",
-      price: 79,
-      credits: 3,
-      rating: 4.8,
-      hours: 14,
-      summary: "Pandas & plots.",
-      image: "",
-    },
-    {
-      title: "Intro to Machine Learning",
-      category: "Data",
-      level: "Beginner",
-      price: 59,
-      credits: 3,
-      rating: 4.7,
-      hours: 12,
-      summary: "Supervised, unsupervised.",
-      image: "",
-    },
-    {
-      title: "Cloud Fundamentals",
-      category: "Cloud",
-      level: "Beginner",
-      price: 29,
-      credits: 2,
-      rating: 4.6,
-      hours: 7,
-      summary: "AWS/GCP basics.",
-      image: "",
-    },
-    {
-      title: "DevOps CI/CD",
-      category: "Cloud",
-      level: "Intermediate",
-      price: 69,
-      credits: 3,
-      rating: 4.6,
-      hours: 11,
-      summary: "Pipelines, Docker, K8s.",
-      image: "",
-    },
-  ];
-  for (const c of base) {
-    await safeAddCourse({ ...c, createdAt: Date.now(), progress: 0 });
-  }
-  toast("Sample courses added");
-  renderCatalog();
-  renderAdminTable();
-  renderAnalytics();
-}
-
-/* ===== catalog (Cards: no Open; Enroll only; free→auto, paid→PayPal) ===== */
-let ALL = [];
 async function renderCatalog() {
-  const grid = $("#courseGrid");
-  if (!grid) return;
+  const grid = $("#catalog-grid"); if(!grid) return;
   ALL = await fetchAll();
-  if (ALL.length === 0) {
-    grid.innerHTML = `<div class="muted">No courses yet.</div>`;
+  if (!ALL.length) {
+    grid.innerHTML = `<div class="muted">No courses yet — use “Add sample data”.</div>`;
     return;
   }
-  const cats = new Set();
-  grid.innerHTML = ALL.map((c) => {
-    cats.add(c.category || "");
-    const search = [c.title, c.summary, c.category, c.level].join(" ");
+  grid.innerHTML = ALL.map(c=>{
     const r = Number(c.rating || 4.6);
-    const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+    const price = (c.price||0) > 0 ? `$${c.price}` : "Free";
     const enrolled = getEnrolls().has(c.id);
-    return `<div class="card course" data-id="${c.id}" data-search="${esc(
-      search
-    )}">
-      <img class="course-cover" src="${esc(
-        c.image || `https://picsum.photos/seed/${c.id}/640/360`
-      )}" alt="">
+    return `<div class="card course" data-id="${c.id}">
+      <img class="course-cover" src="${esc(c.img || c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category || "")} • ${esc(
-      c.level || ""
-    )} • ★ ${r.toFixed(1)} • ${priceStr}</div>
-        <div class="muted">${esc(c.summary || "")}</div>
-        <div class="row" style="justify-content:space-between">
-          <span>${c.hours || 8} hrs</span>
-          <button class="btn primary" data-enroll="${c.id}">${
-      enrolled ? "Enrolled" : "Enroll"
-    }</button>
+        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)} • ${price}</div>
+        <div class="muted">${esc(c.description || c.summary || "")}</div>
+        <div class="row" style="justify-content:flex-end;gap:8px">
+          <button class="btn" data-details="${c.id}">Details</button>
+          <button class="btn primary" data-enroll="${c.id}">${enrolled?"Enrolled":"Enroll"}</button>
         </div>
       </div>
     </div>`;
   }).join("");
 
-  // filters (full width)
-  $("#filterCategory").innerHTML =
-    `<option value="">All Categories</option>` +
-    Array.from(cats)
-      .filter(Boolean)
-      .map((x) => `<option>${esc(x)}</option>`)
-      .join("");
-  const applyFilters = () => {
-    const cat = $("#filterCategory").value,
-      lv = $("#filterLevel").value,
-      sort = $("#sortBy").value;
-    const cards = [...grid.querySelectorAll(".card.course")];
-    cards.forEach((el) => {
-      const meta = el.querySelector(".small.muted").textContent;
-      el.style.display =
-        (!cat || meta.includes(cat)) && (!lv || meta.includes(lv))
-          ? ""
-          : "none";
-    });
-    const vis = [...grid.querySelectorAll(".card.course")].filter(
-      (el) => el.style.display !== "none"
-    );
-    vis
-      .sort((a, b) => {
-        const ta = a.querySelector("strong").textContent.toLowerCase();
-        const tb = b.querySelector("strong").textContent.toLowerCase();
-        const pa = a.querySelector(".small.muted").textContent;
-        const pb = b.querySelector(".small.muted").textContent;
-        const priceA = pa.includes("$") ? parseFloat(pa.split("$")[1]) : 0;
-        const priceB = pb.includes("$") ? parseFloat(pb.split("$")[1]) : 0;
-        if (sort === "title-asc") return ta.localeCompare(tb);
-        if (sort === "title-desc") return tb.localeCompare(ta);
-        if (sort === "price-asc") return priceA - priceB;
-        if (sort === "price-desc") return priceB - priceA;
-        return 0;
-      })
-      .forEach((el) => grid.appendChild(el));
-  };
-  $("#filterCategory").onchange = applyFilters;
-  $("#filterLevel").onchange = applyFilters;
-  $("#sortBy").onchange = applyFilters;
-
-  // actions
-  grid
-    .querySelectorAll("[data-enroll]")
-    .forEach((b) =>
-      b.addEventListener("click", () =>
-        handleEnroll(b.getAttribute("data-enroll"))
-      )
-    );
+  grid.querySelectorAll("[data-enroll]").forEach(b=>{
+    b.onclick = ()=> handleEnroll(b.getAttribute("data-enroll"));
+  });
+  grid.querySelectorAll("[data-details]").forEach(b=>{
+    b.onclick = ()=> openDetails(b.getAttribute("data-details"));
+  });
 }
-function markEnrolled(id) {
-  const s = getEnrolls();
-  s.add(id);
-  setEnrolls(s);
+
+/* Details modal (80% width + scroll) */
+function openDetails(id){
+  const c = ALL.find(x=>x.id===id) || getLocalCourses().find(x=>x.id===id);
+  if (!c) return;
+  const body = $("#detailsBody");
+  body.innerHTML = `
+    <div class="stack">
+      <img class="course-cover" src="${esc(c.img || c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+      <h3>${esc(c.title)}</h3>
+      <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${(Number(c.rating||4.5)).toFixed(1)} • ${(c.price||0)>0?`$${c.price}`:"Free"} • ${c.hours||8} hrs • ${c.credits||3} credits</div>
+      <p>${esc(c.description || c.summary || "—")}</p>
+      ${Array.isArray(c.benefits) && c.benefits.length ? `<ul>${c.benefits.map(b=>`<li>${esc(b)}</li>`).join("")}</ul>`:""}
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="btn" id="dEnroll">Enroll</button>
+      </div>
+    </div>
+  `;
+  $("#dEnroll").onclick = ()=> handleEnroll(id);
+  $("#detailsModal").showModal();
+}
+$("#closeDetails")?.addEventListener("click", ()=> $("#detailsModal").close());
+
+/* Enroll: Free→auto, Paid→PayPal/MMK */
+function markEnrolled(id){
+  const s=getEnrolls(); s.add(id); setEnrolls(s);
   toast("Enrolled");
-  renderCatalog();
-  renderMyLearning();
+  $("#detailsModal").close();
+  renderCatalog(); renderMyLearning();
   showPage("mylearning");
 }
-function handleEnroll(id) {
-  const c =
-    ALL.find((x) => x.id === id) || getLocalCourses().find((x) => x.id === id);
+function handleEnroll(id){
+  const c = ALL.find(x=>x.id===id) || getLocalCourses().find(x=>x.id===id);
   if (!c) return toast("Course not found");
-  if ((c.price || 0) <= 0) return markEnrolled(id); // free → auto-enroll
-  // paid → PayPal buttons
-  const paypal = window.paypalSDK;
-  const box = document.createElement("div");
-  box.style.margin = "10px 0";
-  bConfirm(`Pay ${c.title} (${(c.price || 0).toFixed(2)} USD)?`, (ok) => {
-    if (!ok) return;
-    if (paypal && paypal.Buttons) {
-      box.innerHTML = "";
-      document
-        .querySelector(`#courseGrid .card.course[data-id="${id}"] .course-body`)
-        .appendChild(box);
-      paypal
-        .Buttons({
-          createOrder: (d, a) =>
-            a.order.create({
-              purchase_units: [{ amount: { value: String(c.price || 0) } }],
-            }),
-          onApprove: async (d, a) => {
-            await a.order.capture();
-            markEnrolled(id);
-            box.remove();
-          },
-          onCancel: () => {
-            toast("Payment cancelled");
-            box.remove();
-          },
-          onError: (err) => {
-            console.error(err);
-            toast("Payment error");
-            box.remove();
-          },
-        })
-        .render(box);
-    } else {
-      // Dev simulate
-      toast("Simulated payment success");
-      markEnrolled(id);
-    }
-  });
-}
-function bConfirm(message, cb) {
-  const ok = confirm(message);
-  cb && cb(ok);
-}
+  if ((c.price||0) <= 0) return markEnrolled(id);
 
-/* ===== My Learning + Reader (pagination, media, assignments, quiz, notes, bookmark, progress, scores, credits) ===== */
-function renderMyLearning() {
-  const grid = $("#myCourses");
-  if (!grid) return;
+  // Open pay modal
+  const payBody = $("#payBody");
+  $("#payTitle").textContent = `Checkout — ${c.title}`;
+  // PayPal panel
+  const container = $("#paypal-container");
+  container.innerHTML = "";
+  const hasPP = !!(window.paypalSDK && window.paypalSDK.Buttons);
+  $("#paypalNote").textContent = hasPP ? "" : "PayPal not configured (demo).";
+  if (hasPP){
+    window.paypalSDK.Buttons({
+      createOrder: (d, a) => a.order.create({
+        purchase_units: [{ amount: { value: String(c.price||0) } }]
+      }),
+      onApprove: async (d, a) => { await a.order.capture(); markEnrolled(id); },
+      onCancel: ()=> toast("Payment cancelled"),
+      onError: (err)=>{ console.error(err); toast("Payment error"); }
+    }).render(container);
+  }
+  // MMK demo
+  $("#mmkPaid").onclick = ()=> { toast("MMK demo: paid"); markEnrolled(id); };
+  $("#payModal").showModal();
+}
+$("#closePay")?.addEventListener("click", ()=> $("#payModal").close());
+
+/* ===================== My Learning ===================== */
+function renderMyLearning(){
+  const grid = $("#mylearn-grid"); if(!grid) return;
   const set = getEnrolls();
-  const list = (ALL.length ? ALL : getLocalCourses()).filter((c) =>
-    set.has(c.id)
-  );
-  grid.innerHTML =
-    list
-      .map((c) => {
-        const r = Number(c.rating || 4.6);
-        return `<div class="card course" data-id="${c.id}">
-      <img class="course-cover" src="${esc(
-        c.image || `https://picsum.photos/seed/${c.id}/640/360`
-      )}" alt="">
+  const list = (ALL.length?ALL:getLocalCourses()).filter(c=> set.has(c.id));
+  grid.innerHTML = list.map(c=>`
+    <div class="card course" data-id="${c.id}">
+      <img class="course-cover" src="${esc(c.img || c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category || "")} • ${esc(
-          c.level || ""
-        )} • ★ ${r.toFixed(1)} • ${
-          (c.price || 0) > 0 ? "$" + c.price : "Free"
-        }</div>
-        <div class="muted">${esc(c.summary || "")}</div>
-        <div class="row" style="justify-content:flex-end"><button class="btn" data-read="${
-          c.id
-        }">Open</button></div>
+        <div class="row" style="justify-content:flex-end">
+          <button class="btn" data-open="${c.id}">Continue</button>
+        </div>
       </div>
-    </div>`;
-      })
-      .join("") ||
-    `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
-  grid
-    .querySelectorAll("[data-read]")
-    .forEach(
-      (b) => (b.onclick = () => openReader(b.getAttribute("data-read")))
-    );
+    </div>
+  `).join("") || `<div class="muted">No enrollments yet.</div>`;
+  grid.querySelectorAll("[data-open]").forEach(b=>{
+    b.onclick = ()=> openReader(b.getAttribute("data-open"));
+  });
 }
 
-/* ===== Reader: richer content + Notes dialog ===== */
+/* Reader (simple demo pages) */
 const SAMPLE_PAGES=(title)=>[
-  {type:"lesson", html:`<h3>${esc(title)} — Welcome</h3>
-    <p>Intro video:</p>
-    <video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v1/800/320"><source src="" type="video/mp4"></video>`},
-  {type:"reading", html:`<h3>Chapter 1</h3>
-    <p>Reading with image & audio:</p>
-    <img style="width:100%;border-radius:10px" src="https://picsum.photos/seed/p1/800/360" alt="">
-    <audio controls style="width:100%"></audio>`},
-  {type:"exercise", html:`<h3>Practice</h3><ol><li>Edit code & capture result</li><li>Upload</li></ol><input type="file">`},
-  {type:"quiz", html:`<h3>Quiz 1</h3>
-    <p>Q1) Short answer</p><input id="q1" placeholder="Your answer" style="width:100%">
-    <p>Q2) True/False</p>
-    <label><input name="q2" type="radio" value="T"> True</label>
-    <label><input name="q2" type="radio" value="F"> False</label>
-    <div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>`},
-  {type:"media", html:`<h3>Supplement</h3><audio controls style="width:100%"></audio>
-    <video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v2/800/320"></video>`},
-  {type:"final", html:`<h3>Final Project</h3><input type="file"><p class="small muted">Complete to earn certificate/transcript (demo).</p>`}
+  {type:"lesson", html:`<h3>${esc(title)} — Welcome</h3><p>Intro video:</p><video controls style="width:100%;border-radius:10px"><source src="" type="video/mp4"></video>`},
+  {type:"reading",html:`<h3>Chapter 1</h3><img style="width:100%;border-radius:10px" src="https://picsum.photos/seed/p1/800/360" alt=""><p>Reading sample…</p>`},
+  {type:"quiz",   html:`<h3>Quick Quiz</h3><p>2+2 = ?</p><input id="q1" class="field" placeholder="Your answer"><div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>`},
+  {type:"final",  html:`<h3>Final</h3><p>Upload your work:</p><input type="file" /><p class="small muted">When you finish last page → fireworks + certificate (demo).</p>`}
 ];
-
-let RD = { cid: null, pages: [], i: 0, credits: 0, score: 0 };
-async function openReader(cid){
+let RD = { cid:null, pages:[], i:0 };
+function openReader(cid){
   const c = ALL.find(x=>x.id===cid) || getLocalCourses().find(x=>x.id===cid);
   if(!c) return;
-  // try static bundle first
-  try{
-    const {meta,pages,quiz} = await loadCourseBundle(c.id);
-    RD={cid:c.id, pages, i: (getBookmarks()[c.id] ?? 0), credits: (c.credits||meta.credits||3), score: 0, quiz};
-  }catch{
-    // fallback to previous SAMPLE_PAGES
-    RD={cid:c.id, pages:SAMPLE_PAGES(c.title), i:(getBookmarks()[c.id]??0), credits:c.credits||3, score:0};
-  }
-  $("#reader").classList.remove("hidden");
-  $("#rdMeta").textContent=`Score: ${RD.score}% • Credits: ${RD.credits}`;
+  RD = { cid, pages: SAMPLE_PAGES(c.title), i:0 };
+  $("#reader").dataset.courseId = cid;
   renderPage();
-
-  $("#rdBack").onclick=()=>{ $("#reader").classList.add("hidden"); };
-  $("#rdPrev").onclick=()=>{ RD.i=Math.max(0,RD.i-1); renderPage(); };
-  $("#rdNext").onclick=()=>{ RD.i=Math.min(RD.pages.length-1,RD.i+1); renderPage(); };
-  $("#rdBookmark").onclick=()=>{ const b=getBookmarks(); b[cid]=RD.i; setBookmarks(b); toast("Bookmarked"); };
-  $("#rdNote").onclick=()=>{
-    const t=prompt("Write a note"); if(!t) return;
-    const ns=getNotes(); ns[cid]=(ns[cid]||[]); ns[cid].push({page:RD.i,text:t,ts:Date.now()}); setNotes(ns); toast("Note added");
-  };
-  $("#rdNotes") && ($("#rdNotes").onclick = ()=> openNotesDialog(cid));
+  $("#reader").scrollIntoView({behavior:"smooth"});
 }
-
 function renderPage(){
-  const p=RD.pages[RD.i];
-  $("#rdTitle").textContent = `${RD.i+1}. ${p.type.toUpperCase()}`;
-  $("#rdPage").innerHTML = p.html;
-  $("#rdPageInfo").textContent = `${RD.i+1} / ${RD.pages.length}`;
-  $("#rdProgress").style.width = Math.round((RD.i+1)/RD.pages.length*100) + "%";
+  const box=$("#reader"); if(!box) return;
+  const p = RD.pages[RD.i]; if(!p) return;
+  box.innerHTML = `
+    <div class="row backrow">
+      <button class="btn" id="rdBack">← Back</button>
+      <div class="grow"></div>
+      <button class="btn" id="rdPrev">Prev</button>
+      <div class="chip">${RD.i+1} / ${RD.pages.length}</div>
+      <button class="btn" id="rdNext">Next</button>
+    </div>
+    <div class="progress" style="height:6px;background:var(--border);border-radius:999px;overflow:hidden;margin:8px 0">
+      <div id="rdProgress" style="height:6px;background:var(--accent,#66d9ef);width:${Math.round((RD.i+1)/RD.pages.length*100)}%"></div>
+    </div>
+    <div id="rdPage" class="card" style="padding:12px">${p.html}</div>
+  `;
+  $("#rdBack").onclick = ()=> showPage("mylearning");
+  $("#rdPrev").onclick = ()=>{ RD.i=Math.max(0,RD.i-1); renderPage(); };
+  $("#rdNext").onclick = ()=>{
+    if (RD.i < RD.pages.length-1) { RD.i++; renderPage(); }
+    else { celebrate(); toast("Completed! (demo)"); }
+  };
 
-  // tiny quiz demo feedback
   const btn=$("#qSubmit"); const msg=$("#qMsg");
-  if(btn){ btn.onclick=()=>{ msg.textContent="Submitted ✔️ (demo grade +5)"; }; }
+  if(btn){ btn.onclick=()=>{ msg.textContent="Submitted ✔️ +5"; }; }
+}
+function celebrate(){
+  // tiny confetti
+  const d=document.createElement("div");
+  d.style.cssText="position:fixed;inset:0;pointer-events:none;animation:fade .8s ease forwards";
+  d.innerHTML = `<div style="position:absolute;inset:0;display:grid;place-items:center;font-size:28px">🎉 Congratulations!</div>`;
+  document.body.appendChild(d);
+  setTimeout(()=> d.remove(), 900);
 }
 
-/* Notes viewer dialog */
-function openNotesDialog(cid){
-  const ns=getNotes()[cid]||[];
-  const box=$("#notesList");
-  box.innerHTML = ns.length? ns.map(n=>`<div class="card"><div class="small muted">${new Date(n.ts).toLocaleString()} • Page ${n.page+1}</div><div>${esc(n.text)}</div></div>`).join("") : `<div class="muted">No notes yet.</div>`;
-  $("#dlgNotes").showModal();
-}
-
-/* ===== Gradebook FIX: esc will handle numbers now ===== */
+/* ===================== Gradebook (demo) ===================== */
 function renderGradebook(){
-  const tbody=$("#gbTable tbody"); if(!tbody) return;
-  const set=getEnrolls(); const list=(ALL.length?ALL:getLocalCourses()).filter(c=> set.has(c.id));
-  const rows=list.map(c=>({student:"you@example.com", course:c.title, score:(80+Math.floor(Math.random()*20))+"%", credits:c.credits||3, progress:(Math.floor(Math.random()*90)+10)+"%"}));
-  tbody.innerHTML = rows.map(r=>`<tr><td>${esc(r.student)}</td><td>${esc(r.course)}</td><td>${esc(r.score)}</td><td>${esc(r.credits)}</td><td>${esc(r.progress)}</td></tr>`).join("") || "<tr><td colspan='5' class='muted'>No data</td></tr>";
+  const box=$("#gradebook"); if(!box) return;
+  const set=getEnrolls();
+  const list=(ALL.length?ALL:getLocalCourses()).filter(c=> set.has(c.id));
+  const rows=list.map(c=>({ course:c.title, score:(80+Math.floor(Math.random()*20))+"%", credits:c.credits||3, progress:(Math.floor(Math.random()*90)+10)+"%" }));
+  box.innerHTML = rows.length
+    ? `<table class="ol-table"><thead><tr><th>Course</th><th>Score</th><th>Credits</th><th>Progress</th></tr></thead><tbody>${
+        rows.map(r=>`<tr><td>${esc(r.course)}</td><td>${esc(r.score)}</td><td>${esc(r.credits)}</td><td>${esc(r.progress)}</td></tr>`).join("")
+      }</tbody></table>`
+    : `<div class="muted">No data</div>`;
 }
 
-/* ===== Admin modal + table ===== */
-function bindAdmin() {
-  $("#btnNewCourse")?.addEventListener("click", () =>
-    $("#dlgCourse").showModal()
-  );
-  $$(".dlg-close").forEach((b) =>
-    b.addEventListener("click", () => b.closest("dialog").close())
-  );
-  $("#formCourse")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const payload = {
-      title: $("#cTitle").value.trim(),
-      category: $("#cCategory").value.trim(),
-      level: $("#cLevel").value,
-      rating: Number($("#cRating").value || 4.6),
-      hours: Number($("#cHours").value || 8),
-      image: $("#cImage").value.trim(),
-      price: Number($("#cPrice").value || 0),
-      credits: Number($("#cCredits").value || 3),
-      summary: $("#cSummary").value.trim(),
-      createdAt: Date.now(),
+/* ===================== Admin: table + “New Course” modal ===================== */
+function renderAdminTable(){
+  const tb = $("#adminCourseTable tbody"); if(!tb) return;
+  const list = ALL.length?ALL:getLocalCourses();
+  tb.innerHTML = list.map(c=>`
+    <tr data-id="${c.id}">
+      <td>${esc(c.id)}</td>
+      <td>${esc(c.title)}</td>
+      <td>${esc(c.category||"")}</td>
+      <td>${esc(c.level||"")}</td>
+      <td>${(c.price||0)>0?`$${c.price}`:"Free"}</td>
+      <td>${esc(String(c.rating||4.5))}</td>
+      <td>${esc(String(c.hours||8))}</td>
+      <td><button class="icon-btn" data-edit="${c.id}">✏️</button> <button class="icon-btn" data-del="${c.id}">🗑️</button></td>
+    </tr>
+  `).join("") || `<tr><td colspan="8" class="muted">No courses</td></tr>`;
+
+  tb.querySelectorAll("[data-del]").forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.getAttribute("data-del");
+      const arr = getLocalCourses().filter(x=> x.id!==id);
+      setLocalCourses(arr);
+      renderCatalog(); renderAdminTable();
     };
-    await safeAddCourse(payload);
-    $("#dlgCourse").close();
-    renderCatalog();
-    renderAdminTable();
-    renderAnalytics();
-    toast("Course created");
+  });
+  tb.querySelectorAll("[data-edit]").forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.getAttribute("data-edit");
+      const c = (ALL.length?ALL:getLocalCourses()).find(x=>x.id===id);
+      if(!c) return;
+      // reuse New Course modal as editor
+      $("#courseModalTitle").textContent = "Edit Course";
+      const f=$("#courseForm");
+      f.title.value     = c.title||"";
+      f.category.value  = c.category||"";
+      f.level.value     = c.level||"Beginner";
+      f.price.value     = c.price||0;
+      f.rating.value    = c.rating||4.5;
+      f.hours.value     = c.hours||8;
+      f.credits.value   = c.credits||3;
+      f.img.value       = c.img || c.image || "";
+      f.description.value = c.description || c.summary || "";
+      f.benefits.value  = Array.isArray(c.benefits)? c.benefits.join("\n") : "";
+      f.id.value        = c.id;
+      $("#courseModal").showModal();
+    };
   });
 }
-function renderAdminTable() {
-  const tb = $("#adminTable tbody");
-  if (!tb) return;
-  const list = ALL.length ? ALL : getLocalCourses();
-  tb.innerHTML =
-    list
-      .map(
-        (c) => `<tr data-id="${c.id}">
-    <td>${esc(c.title)}</td><td>${esc(c.category || "")}</td><td>${esc(
-          c.level || ""
-        )}</td>
-    <td>${esc(String(c.rating || 4.6))}</td><td>${esc(
-          String(c.hours || 8)
-        )}</td><td>${(c.price || 0) > 0 ? "$" + c.price : "Free"}</td>
-    <td><button class="btn small" data-edit="${
-      c.id
-    }">Edit</button> <button class="btn small" data-del="${
-          c.id
-        }">Delete</button></td>
-  </tr>`
-      )
-      .join("") || "<tr><td colspan='7' class='muted'>No courses</td></tr>";
-  tb.querySelectorAll("[data-del]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-del");
-        const arr = getLocalCourses().filter((x) => x.id !== id);
-        setLocalCourses(arr);
-        renderCatalog();
-        renderAdminTable();
-      })
-  );
-  tb.querySelectorAll("[data-edit]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-edit");
-        const c =
-          getLocalCourses().find((x) => x.id === id) ||
-          ALL.find((x) => x.id === id);
-        if (!c) return;
-        $("#cTitle").value = c.title || "";
-        $("#cCategory").value = c.category || "";
-        $("#cLevel").value = c.level || "Beginner";
-        $("#cRating").value = c.rating || 4.6;
-        $("#cHours").value = c.hours || 8;
-        $("#cImage").value = c.image || "";
-        $("#cPrice").value = c.price || 0;
-        $("#cCredits").value = c.credits || 3;
-        $("#cSummary").value = c.summary || "";
-        $("#dlgCourse").showModal();
-        $("#formCourse").onsubmit = (e) => {
-          e.preventDefault();
-          const arr = getLocalCourses();
-          const i = arr.findIndex((x) => x.id === id);
-          if (i > -1) {
-            arr[i] = {
-              ...arr[i],
-              title: $("#cTitle").value.trim(),
-              category: $("#cCategory").value.trim(),
-              level: $("#cLevel").value,
-              rating: Number($("#cRating").value || 4.6),
-              hours: Number($("#cHours").value || 8),
-              image: $("#cImage").value.trim(),
-              price: Number($("#cPrice").value || 0),
-              credits: Number($("#cCredits").value || 3),
-              summary: $("#cSummary").value.trim(),
-            };
-            setLocalCourses(arr);
-            $("#dlgCourse").close();
-            renderCatalog();
-            renderAdminTable();
-            $("#formCourse").onsubmit = null;
-          } else {
-            toast("Only local edit supported in lite build");
-          }
-        };
-      })
-  );
-}
+$("#btn-new-course")?.addEventListener("click", ()=>{
+  $("#courseModalTitle").textContent = "New Course";
+  $("#courseForm").reset();
+  $("#courseModal").showModal();
+});
+$("#courseClose")?.addEventListener("click", ()=> $("#courseModal").close());
+$("#courseForm")?.addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const f = e.target;
+  const payload = {
+    title: f.title.value.trim(),
+    category: f.category.value.trim(),
+    level: f.level.value,
+    price: Number(f.price.value||0),
+    rating: Number(f.rating.value||4.5),
+    hours: Number(f.hours.value||8),
+    credits: Number(f.credits.value||3),
+    img: f.img.value.trim(),
+    description: f.description.value.trim(),
+    benefits: f.benefits.value.trim() ? f.benefits.value.split("\n").map(s=>s.trim()).filter(Boolean) : []
+  };
+  const id = (f.id.value||"").trim();
+  if (id){
+    // local edit
+    const arr = getLocalCourses();
+    const i = arr.findIndex(x=>x.id===id);
+    if (i>-1) { arr[i] = {...arr[i], ...payload}; setLocalCourses(arr); }
+  } else {
+    // create (local for demo)
+    const arr = getLocalCourses();
+    const nid = "loc_"+Math.random().toString(36).slice(2,9);
+    arr.push({ id:nid, ...payload, createdAt: Date.now() });
+    setLocalCourses(arr);
+  }
+  $("#courseModal").close();
+  renderCatalog(); renderAdminTable();
+});
 
-/* ===== Analytics (demo KPIs) ===== */
-function renderAnalytics() {
-  const active = getEnrolls().size;
-  const enroll = getEnrolls().size;
-  const avgRating = (() => {
-    const list = ALL.length ? ALL : getLocalCourses();
-    if (!list.length) return "—";
-    const s = list.reduce((a, c) => a + Number(c.rating || 0), 0);
-    return (s / list.length).toFixed(1);
-  })();
-  const revenue = (() => {
-    const list = ALL.length ? ALL : getLocalCourses();
-    const s = [...getEnrolls()]
-      .map((id) => list.find((c) => c.id === id))
-      .filter(Boolean)
-      .reduce((a, c) => a + Number(c.price || 0), 0);
-    return "$" + s.toFixed(2);
-  })();
-  $("#anActive").textContent = active || "0";
-  $("#anEnroll").textContent = enroll || "0";
-  $("#anRating").textContent = avgRating;
-  $("#anRevenue").textContent = revenue;
+/* ===================== Announcements (Admin only) ===================== */
+function isAdminNow(){
+  const u = auth.currentUser;
+  return !!(u && isAdminEmail(u.email));
 }
-
-/* ===== Student Dashboard (CRUD announcements) ===== */
-function renderAnnouncements() {
-  const box = $("#annList");
-  if (!box) return;
+function renderAnnouncements(){
+  const wrap = $("#stuDashPanel"); if(!wrap) return;
   const list = getAnns().slice().reverse();
-  box.innerHTML =
-    list
-      .map(
-        (a) => `<div class="card" data-id="${a.id}">
-    <div class="row between"><strong>${esc(
-      a.title
-    )}</strong><span class="small muted">${new Date(
-          a.ts
-        ).toLocaleString()}</span></div>
-    <div class="row" style="justify-content:flex-end"><button class="btn small" data-edit="${
-      a.id
-    }">Edit</button> <button class="btn small" data-del="${
-          a.id
-        }">Delete</button></div>
-  </div>`
-      )
-      .join("") || `<div class="muted">No announcements yet.</div>`;
-  box.querySelectorAll("[data-del]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-del");
-        const arr = getAnns().filter((x) => x.id !== id);
-        setAnns(arr);
-        renderAnnouncements();
-      })
-  );
-  box.querySelectorAll("[data-edit]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-edit");
-        const arr = getAnns();
-        const i = arr.findIndex((x) => x.id === id);
-        if (i < 0) return;
-        const t = prompt("Edit", arr[i].title);
-        if (!t) return;
-        arr[i].title = t;
-        setAnns(arr);
-        renderAnnouncements();
-      })
-  );
+  wrap.innerHTML = list.length
+    ? list.map(a=>`
+        <div class="card" data-id="${a.id}" style="margin:6px 0;padding:10px">
+          <div class="row" style="justify-content:space-between">
+            <strong>${esc(a.title)}</strong>
+            <span class="small muted">${new Date(a.ts).toLocaleString()}</span>
+          </div>
+          ${isAdminNow() ? `<div class="row" style="justify-content:flex-end;gap:6px;margin-top:6px">
+             <button class="btn small" data-edit="${a.id}">Edit</button>
+             <button class="btn small" data-del="${a.id}">Delete</button>
+          </div>`:""}
+        </div>
+      `).join("")
+    : `<div class="muted">No announcements yet.</div>`;
+
+  if (isAdminNow()){
+    $("#announceToolbar")?.classList.remove("ol-hidden");
+    $("#btn-new-post")?.onclick = ()=>{
+      $("#postModalTitle").textContent = "New Announcement";
+      $("#pmTitle").value = "";
+      $("#pmBody").value  = "";
+      $("#pmId").value    = "";
+      $("#postModal").showModal();
+    };
+  } else {
+    $("#announceToolbar")?.classList.add("ol-hidden");
+  }
+
+  wrap.querySelectorAll("[data-del]")?.forEach(b=>{
+    b.onclick = ()=>{
+      const id=b.getAttribute("data-del");
+      const arr=getAnns().filter(x=>x.id!==id);
+      setAnns(arr); renderAnnouncements();
+    };
+  });
+  wrap.querySelectorAll("[data-edit]")?.forEach(b=>{
+    b.onclick = ()=>{
+      const id=b.getAttribute("data-edit");
+      const a=getAnns().find(x=>x.id===id); if(!a) return;
+      $("#postModalTitle").textContent = "Edit Announcement";
+      $("#pmTitle").value = a.title||"";
+      $("#pmBody").value  = a.body || "";
+      $("#pmId").value    = a.id;
+      $("#postModal").showModal();
+    };
+  });
 }
-$("#btnAnnPost")?.addEventListener("click", () => {
-  const t = $("#annTitle").value.trim();
+$("#closePostModal")?.addEventListener("click", ()=> $("#postModal").close());
+$("#cancelPost")?.addEventListener("click", ()=> $("#postModal").close());
+$("#postForm")?.addEventListener("submit",(e)=>{
+  e.preventDefault();
+  if (!isAdminNow()) return toast("Admin only");
+  const id = $("#pmId").value.trim();
+  const t  = $("#pmTitle").value.trim();
+  const b  = $("#pmBody").value.trim();
   if (!t) return;
   const arr = getAnns();
-  arr.push({
-    id: "a_" + Math.random().toString(36).slice(2, 9),
-    title: t,
-    ts: Date.now(),
-  });
+  if (id){
+    const i = arr.findIndex(x=>x.id===id); if (i>-1){ arr[i]={...arr[i], title:t, body:b}; }
+  } else {
+    arr.push({ id:"a_"+Math.random().toString(36).slice(2,9), title:t, body:b, ts:Date.now() });
+  }
   setAnns(arr);
-  $("#annTitle").value = "";
+  $("#postModal").close();
   renderAnnouncements();
 });
 
-/* ===== EmailJS: contact form handler (in static dialog) ===== */
+/* ===================== EmailJS (Contact page button id=cSend) ===================== */
 function bindEmailJS(){
-  document.addEventListener("click",(e)=>{
-    const k = e.target.closest("[data-open-static]")?.getAttribute("data-open-static");
-    if (k!=="contact") return;
-    // inject a form into #stBody if not already
-    const body=$("#stBody");
-    if (!body.querySelector("#contactForm")){
-      body.insertAdjacentHTML("beforeend", `
-        <hr/>
-        <form id="contactForm" class="stack" style="margin-top:8px">
-          <input name="from_name" placeholder="Your name" required>
-          <input name="reply_to" type="email" placeholder="Your email" required>
-          <textarea name="message" placeholder="Message" rows="5" required></textarea>
-          <button id="sendEmailBtn" class="btn primary" type="submit">Send</button>
-        </form>
-      `);
-    }
-    const form=$("#contactForm");
-    form.onsubmit= async (ev)=>{
-      ev.preventDefault();
-      try{
-        // Replace with your EmailJS service/template/public key
-        await emailjs.send("YOUR_SERVICE_ID","YOUR_TEMPLATE_ID",{
-          from_name: form.from_name.value,
-          reply_to: form.reply_to.value,
-          message: form.message.value
-        });
-        toast("Email sent ✔️");
-        form.reset();
-      }catch(err){ console.error(err); toast("Email failed"); }
-    };
+  const ek = (CFG.emailjs||{}).publicKey;
+  if (!ek) return; // optional
+  if (!window.emailjs) {
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js";
+    s.onload=()=> window.emailjs.init(ek);
+    document.head.appendChild(s);
+  } else {
+    window.emailjs.init(ek);
+  }
+  $("#cSend")?.addEventListener("click", async ()=>{
+    const name=$("#cName").value.trim();
+    const email=$("#cEmail").value.trim();
+    const msg=$("#cMsg").value.trim();
+    if (!name || !email || !msg) return toast("Fill all fields");
+    try{
+      await window.emailjs.send(
+        CFG.emailjs.serviceId,
+        CFG.emailjs.templateId,
+        { from_name:name, reply_to:email, message:msg }
+      );
+      $("#cStatus").textContent="Sent ✔️";
+      $("#cName").value=$("#cEmail").value=$("#cMsg").value="";
+    }catch(err){ console.error(err); toast("Send failed"); }
   });
 }
 
-/* ===== PWA: install prompt ===== */
-let deferredPrompt=null;
-window.addEventListener('beforeinstallprompt', (e)=>{
-  e.preventDefault();
-  deferredPrompt = e;
-  $("#btnInstallPwa")?.classList.remove("hidden");
-});
-$("#btnInstallPwa")?.addEventListener("click", async ()=>{
-  if(!deferredPrompt) return toast("Not available");
-  deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
-  deferredPrompt=null;
-  $("#btnInstallPwa")?.classList.add("hidden");
-});
-
-/* ===== Footer static content ===== */
-const STATIC = {
-  contact: `<p><strong>Contact us</strong></p><p>Email: support@openlearn.local</p><p>Phone: +1 (555) 010-0101</p>`,
-  guide: `<p><strong>User Guide</strong></p><ul><li>Enroll a free course directly.</li><li>Paid courses require PayPal.</li><li>Read lessons in My Learning with notes & bookmarks.</li></ul>`,
-  privacy: `<p><strong>Privacy</strong></p><p>We store minimal data in your browser (localStorage) for this demo. No tracking.</p>`,
-  policy: `<p><strong>Policy</strong></p><p>Demo site only; data may reset. Use at your own discretion.</p>`,
-};
-document.addEventListener("click", (e) => {
-  const a = e.target.closest("[data-open-static]");
-  if (!a) return;
-  e.preventDefault();
-  const k = a.getAttribute("data-open-static");
-  $("#stTitle").textContent = k.toUpperCase();
-  $("#stBody").innerHTML = STATIC[k] || "—";
-  $("#dlgStatic").showModal();
-});
-$$(".dlg-close").forEach((b) =>
-  b.addEventListener("click", () => b.closest("dialog").close())
-);
-
-/* ===== Auth state (topbar login/logout) ===== */
-let currentUser = null;
-function gateUI() {
-  const logged = !!currentUser;
-  $("#btnLogin")?.classList.toggle("hidden", logged);
-  $("#btnSignup")?.classList.toggle("hidden", logged);
-  $("#userMenu")?.classList.toggle("hidden", !logged);
-  $("#pfEmail") &&
-    ($("#pfEmail").textContent = logged ? currentUser.email || "—" : "—");
-}
-onAuthStateChanged(auth, u=>{ currentUser=u||null; gateUI(); });
-
-document.addEventListener("click", async (e)=>{
-  if(e.target && e.target.id==="btnLogoutTop"){
-    try{ await signOut(auth); location.href="./login.html"; }catch(err){ console.error(err); toast(err.code||"Logout failed"); }
-  }
-});
-
-// ---- Static loaders
-async function loadJSON(path){
-  const res = await fetch(path, {cache:"no-cache"});
-  if(!res.ok) throw new Error(`Failed ${path}: `+res.status);
-  return res.json();
-}
-async function loadHTML(path){
-  const res = await fetch(path, {cache:"no-cache"});
-  if(!res.ok) throw new Error(`Failed ${path}: `+res.status);
-  return res.text();
+/* ===================== Boot ===================== */
+function addSamplesNow(){
+  const base=[ // 7+ courses
+    {title:"JavaScript Essentials",category:"Web",level:"Beginner",price:0, credits:3, rating:4.7, hours:10, summary:"Start JS from zero."},
+    {title:"React Fast-Track",category:"Web",level:"Intermediate",price:49,credits:2, rating:4.6, hours:8,  summary:"Build modern UIs."},
+    {title:"Advanced React Patterns",category:"Web",level:"Advanced",price:69,credits:2, rating:4.5, hours:9,  summary:"Hooks & performance."},
+    {title:"Data Analysis with Python",category:"Data",level:"Intermediate",price:79,credits:3,rating:4.8,hours:14,summary:"Pandas & plots."},
+    {title:"Intro to Machine Learning",category:"Data",level:"Beginner",price:59,credits:3,rating:4.7,hours:12,summary:"Supervised/unsupervised."},
+    {title:"Cloud Fundamentals",category:"Cloud",level:"Beginner",price:29,credits:2,rating:4.6,hours:7, summary:"AWS/GCP basics."},
+    {title:"DevOps CI/CD",category:"Cloud",level:"Intermediate",price:69,credits:3,rating:4.6,hours:11,summary:"Pipelines · Docker · K8s"}
+  ];
+  const arr=getLocalCourses();
+  const nowAdd = base.filter(b=> !arr.some(x=>x.title===b.title)).map(b=>({ id:"loc_"+Math.random().toString(36).slice(2,9), ...b, createdAt:Date.now() }));
+  if (nowAdd.length) setLocalCourses([...arr, ...nowAdd]);
+  renderCatalog(); renderAdminTable();
 }
 
-// Static pages: policy/privacy/guide…
-async function loadPageJSON(key){
-  const map = { contact:"contact", guide:"guide", privacy:"privacy", policy:"policy" };
-  const file = map[key] || key;
-  const p = await loadJSON(`/data/pages/${file}.json`);
-  // open 80% dialog you already have:
-  $("#stTitle").textContent = p.title || key;
-  $("#stBody").innerHTML = p.html || "<p>No content</p>";
-  $("#dlgStatic").showModal();
-}
-
-// Catalog + course content
-async function loadCatalog(){
-  const cat = await loadJSON("/data/catalog.json");
-  // replace in-memory list (but keep local custom ones appended if any)
-  const local = getLocalCourses();
-  const merged = [...cat.items, ...local.filter(lc => !cat.items.some(ci => ci.id===lc.id))];
-  ALL = merged;
-  renderCatalog(ALL);
-}
-
-async function loadCourseBundle(slug){
-  const meta = await loadJSON(`/data/courses/${slug}/meta.json`);
-  const pages = [];
-  for (const l of meta.lessons){
-    const html = await loadHTML(`/data/courses/${slug}/${l.file}`);
-    pages.push({type:"reading", html});
-  }
-  // optional quiz
-  let quiz = null;
-  try { quiz = await loadJSON(`/data/courses/${slug}/quiz.json`); } catch{}
-  return {meta, pages, quiz};
-}
-
-// Enable chat only if RTDB available
-let RT=null;
-async function initChat(){
-  try{
-    const { getDatabase, ref, push, onChildAdded } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
-    RT = {db: getDatabase(), ref, push, onChildAdded};
-    bindChat("general");
-  }catch(e){
-    console.warn("RTDB unavailable, use local chat fallback");
-    bindLocalChat();
-  }
-}
-
-function bindChat(roomId){
-  const room = RT.ref(RT.db, `rooms/${roomId}`);
-  RT.onChildAdded(room, snap=>{
-    const m = snap.val(); appendChat(m.user, m.text, m.ts);
-  });
-  $("#chatSend").onclick = async ()=>{
-    const text = $("#chatInput").value.trim(); if(!text) return;
-    await RT.push(room, {user: (currentUser?.email || "guest"), text, ts: Date.now()});
-    $("#chatInput").value="";
-  };
-}
-
-function bindLocalChat(){
-  // very simple localStorage-based board (not real-time across devices)
-  const KEY="ol_chat_local";
-  const load=()=>JSON.parse(localStorage.getItem(KEY)||"[]");
-  const save=(a)=>localStorage.setItem(KEY, JSON.stringify(a));
-  let arr=load(); arr.forEach(m=>appendChat(m.user,m.text,m.ts));
-  $("#chatSend").onclick=()=>{
-    const text = $("#chatInput").value.trim(); if(!text) return;
-    const m={user:(currentUser?.email||"guest"), text, ts:Date.now()};
-    arr.push(m); save(arr); appendChat(m.user,m.text,m.ts); $("#chatInput").value="";
-  };
-}
-function appendChat(user,text,ts){
-  const box=$("#chatBox");
-  box.insertAdjacentHTML("beforeend",
-    `<div class="msg"><b>${esc(user)}</b> <span class="small muted">${new Date(ts).toLocaleTimeString()}</span><div>${esc(text)}</div></div>`
-  );
-  box.scrollTop = box.scrollHeight;
-}
-
-/* ===== Boot ===== */
-document.addEventListener("DOMContentLoaded", async ()=>{
-  const t=localStorage.getItem("ol_theme")||"dark", f=localStorage.getItem("ol_font")||"14";
-  applyPalette(t); applyFont(f);
-  $("#themeSelect")?.addEventListener("change",(e)=>{ const v=e.target.value; localStorage.setItem("ol_theme", v); applyPalette(v); });
-  $("#fontSelect")?.addEventListener("change",(e)=>{ const v=e.target.value; localStorage.setItem("ol_font", v); applyFont(v); });
-
-  initSidebar(); bindSidebarNav(); bindSearch(); bindEmailJS();
-  try{ await probeDbOnce(); }catch{}
-  await renderCatalog(); // fills ALL
-  renderAdminTable?.(); renderAnalytics?.(); showPage("courses");
-});
-
-// existing click handler ထဲ…
-document.addEventListener("click",(e)=>{
-  const openStatic = e.target.closest("[data-open-static]")?.getAttribute("data-open-static");
-  if(openStatic){ e.preventDefault(); loadPageJSON(openStatic).catch(console.error); }
-});
-
-// ---- robust button wiring (works even if DOM re-renders)
-function wireGlobalClicks(){
-  document.addEventListener("click", (e)=>{
-    const newBtn = e.target.closest("#btnNewCourse");
-    const sampleBtn = e.target.closest("#btnAddSample");
-    const closeDlg = e.target.closest(".dlg-close");
-    const dlg = document.querySelector("#dlgCourse");
-
-    if (newBtn) {
-      if (dlg && dlg.showModal) dlg.showModal();
-      else toast("New course dialog not found");
-    }
-    if (sampleBtn) {
-      addSamples().catch(err=>{ console.error(err); toast("Add sample failed"); });
-    }
-    if (closeDlg) {
-      const d = closeDlg.closest("dialog"); if (d) d.close();
-    }
-  });
-}
-
-// call it on boot
 document.addEventListener("DOMContentLoaded", ()=>{
-  try { wireGlobalClicks(); } catch(e){ console.error(e); }
+  bindSidebarNav();
+  bindEmailJS();
+
+  // Top buttons
+  $("#btn-add-samples")?.addEventListener("click", addSamplesNow);
+
+  // Start at Catalog after login
+  onAuthStateChanged(auth, (u)=>{
+    if (u) { $("#page-auth")?.classList.remove("active"); showPage("catalog"); }
+    else   { $("#page-auth")?.classList.add("active"); }
+    renderAnnouncements(); // toggles admin toolbar visibility
+  });
+
+  // initial renders
+  renderCatalog(); renderMyLearning(); renderAdminTable(); renderGradebook(); renderAnnouncements();
+
+  // Footer year
+  const y = new Date().getFullYear();
+  $("#copyYear") && ($("#copyYear").textContent = `© OpenLearn ${y}`);
 });
