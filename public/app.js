@@ -4,16 +4,16 @@ import {
   collection, addDoc, getDocs, query, orderBy, limit
 } from "./firebase.js";
 
-/* ================== helpers ================== */
+/* =============== helpers ================= */
 const $  = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
-const esc = (s)=> String(s ?? "").replace(/[&<>\"']/g, c=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const esc=(s)=>String(s??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 const toast=(m,ms=2000)=>{let t=$("#toast"); if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t);} t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),ms);};
 const readJSON=(k,d)=>{ try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d));}catch{ return d; } };
 const writeJSON=(k,v)=> localStorage.setItem(k, JSON.stringify(v));
 
-/* ================== theme / font ================== */
-const PALETTES = {
+/* =============== theme / font ================= */
+const PALETTES={
   dark:{bg:"#0b0f17",fg:"#e7ecf3",card:"#121826",muted:"#9aa6b2",border:"#223",accent:"#66d9ef",btnBg:"#1f2937",btnFg:"#e7ecf3",btnPrimaryBg:"#2563eb",btnPrimaryFg:"#fff",inputBg:"#0b1220",inputFg:"#e7ecf3",hoverBg:"#0e1625"},
   ocean:{bg:"#07131d",fg:"#dff3ff",card:"#0c2030",muted:"#8fb3c6",border:"#113347",accent:"#4cc9f0",btnBg:"#123247",btnFg:"#dff3ff",btnPrimaryBg:"#4cc9f0",btnPrimaryFg:"#08222f",inputBg:"#0b2231",inputFg:"#dff3ff",hoverBg:"#0f2b40"},
   rose:{bg:"#1a0d12",fg:"#ffe7ee",card:"#241318",muted:"#d9a7b5",border:"#3a1b27",accent:"#fb7185",btnBg:"#2a1720",btnFg:"#ffe7ee",btnPrimaryBg:"#fb7185",btnPrimaryFg:"#240b12",inputBg:"#221018",inputFg:"#ffe7ee",hoverBg:"#2c1620"},
@@ -26,11 +26,11 @@ function applyPalette(name){
     btnPrimaryBg:"--btnPrimaryBg", btnPrimaryFg:"--btnPrimaryFg",
     inputBg:"--inputBg", inputFg:"--inputFg", hoverBg:"--hoverBg"
   };
-  for (const [k,v] of Object.entries(map)) r.style.setProperty(v, p[k]);
+  for(const [k,v] of Object.entries(map)) r.style.setProperty(v,p[k]);
 }
 function applyFont(px){ document.documentElement.style.setProperty("--fontSize", px+"px"); }
 
-/* ================== sidebar (hover + mobile) ================== */
+/* =============== sidebar (icon fixed, label slide-in) =============== */
 function initSidebar(){
   const sb=$("#sidebar"); if(!sb) return;
   const expand=()=> sb.classList.add("expanded");
@@ -44,9 +44,8 @@ function initSidebar(){
     if(isMobile()) sb.classList.toggle("show"); else sb.classList.toggle("expanded");
   });
   document.addEventListener("click",(e)=>{
-    if(!isMobile()) return;
-    if (!sb.classList.contains("show")) return;
-    const inside = e.target.closest("#sidebar") || e.target.closest("#btn-burger");
+    if(!isMobile() || !sb.classList.contains("show")) return;
+    const inside=e.target.closest("#sidebar")||e.target.closest("#btn-burger");
     if(!inside) sb.classList.remove("show");
   });
 }
@@ -59,18 +58,22 @@ function bindSidebarNav(){
   });
 }
 
-/* ================== router ================== */
+/* =============== router =============== */
 function showPage(id){
   $$(".page").forEach(p=>p.classList.remove("active","visible"));
   $(`#page-${id}`)?.classList.add("active","visible");
   $$("#sidebar .navbtn").forEach(x=> x.classList.toggle("active", x.dataset.page===id));
-  if (id==="mylearning") renderMyLearning();
-  if (id==="gradebook") renderGradebook();
-  if (id==="admin") renderAdminTable();
-  if (id==="stu-dashboard") renderAnnouncements();
+  if(id==="mylearning") renderMyLearning();
+  if(id==="gradebook") renderGradebook();
+  if(id==="admin") renderAdminTable();
+  if(id==="stu-dashboard") renderAnnouncements();
+}
+function showAuthScreen(){
+  if ($("#page-auth")) { $$(".page").forEach(p=>p.classList.remove("active","visible")); $("#page-auth").classList.add("active","visible"); }
+  $("#authModal")?.showModal(); // also open modal for convenience
 }
 
-/* ================== search ================== */
+/* =============== search =============== */
 function bindSearch(){
   const doSearch=(q)=>{
     const term=String(q ?? $("#topSearch")?.value ?? "").toLowerCase().trim();
@@ -83,7 +86,7 @@ function bindSearch(){
   $("#topSearch")?.addEventListener("keydown",(e)=>{ if(e.key==="Enter") doSearch(); });
 }
 
-/* ================== Firestore probe (fallback to local) ================== */
+/* =============== Firestore probe / local fallback =============== */
 let USE_DB=true;
 async function probeDbOnce(){
   try{
@@ -91,13 +94,10 @@ async function probeDbOnce(){
     if(!cfgOk) throw new Error("cfg-missing");
     await getDocs(query(collection(db,"__ping"), limit(1)));
     USE_DB=true;
-  }catch(e){
-    console.info("Firestore disabled → local mode");
-    USE_DB=false;
-  }
+  }catch(e){ console.info("Firestore disabled → local mode"); USE_DB=false; }
 }
 
-/* ================== local data helpers ================== */
+/* =============== local data helpers =============== */
 const getLocalCourses = ()=> readJSON("ol_local_courses", []);
 const setLocalCourses = (a)=> writeJSON("ol_local_courses", a||[]);
 const getEnrolls = ()=> new Set(readJSON("ol_enrolls", []));
@@ -109,12 +109,12 @@ const setBookmarks = (x)=> writeJSON("ol_bms", x);
 const getAnns = ()=> readJSON("ol_anns", []);
 const setAnns = (x)=> writeJSON("ol_anns", x);
 
-/* ================== data access ================== */
+/* =============== data access =============== */
 async function fetchAll(){
   if(!USE_DB) return getLocalCourses();
   try{
-    const snap = await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
-    const arr = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    const snap=await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
+    const arr=snap.docs.map(d=>({id:d.id, ...d.data()}));
     if (arr.length) return arr;
   }catch(e){ console.warn("fetch fallback", e); USE_DB=false; }
   return getLocalCourses();
@@ -126,8 +126,8 @@ async function safeAddCourse(payload){
     return {id, ...payload};
   }
   try{
-    const ref = await addDoc(collection(db,"courses"), payload);
-    return {id: ref.id, ...payload};
+    const ref=await addDoc(collection(db,"courses"), payload);
+    return {id:ref.id, ...payload};
   }catch(e){
     console.warn("add fallback", e); USE_DB=false;
     const id="loc_"+Math.random().toString(36).slice(2,9);
@@ -136,9 +136,8 @@ async function safeAddCourse(payload){
   }
 }
 
-/* ================== samples ================== */
-function renderAnalytics(){ /* no-op to avoid ReferenceError if analytics hidden */ }
-
+/* =============== samples / analytics no-op =============== */
+function renderAnalytics(){ /* keep as no-op to avoid ReferenceError */ }
 async function addSamples(){
   const base=[
     {title:"JavaScript Essentials", category:"Web",  level:"Beginner",     price:0,  credits:3, rating:4.7, hours:10, summary:"Start JavaScript from zero.", image:""},
@@ -149,25 +148,22 @@ async function addSamples(){
     {title:"Cloud Fundamentals",   category:"Cloud",level:"Beginner",     price:29, credits:2, rating:4.6, hours:7,  summary:"AWS/GCP basics.",            image:""},
     {title:"DevOps CI/CD",         category:"Cloud",level:"Intermediate", price:69, credits:3, rating:4.6, hours:11, summary:"Pipelines, Docker, K8s.",    image:""},
   ];
-  for (const c of base) await safeAddCourse({ ...c, createdAt: Date.now(), progress:0 });
+  for(const c of base) await safeAddCourse({ ...c, createdAt:Date.now(), progress:0 });
   toast("Sample courses added");
   renderCatalog(); renderAdminTable(); renderAnalytics();
 }
 
-/* ================== catalog (Details + Enroll) ================== */
-let ALL = [];
+/* =============== catalog (details + enroll) =============== */
+let ALL=[];
 async function renderCatalog(){
   const grid=$("#catalog-grid"); if(!grid) return;
-  ALL = await fetchAll();
+  ALL=await fetchAll();
   if(!ALL.length){ grid.innerHTML=`<div class="muted">No courses yet.</div>`; return; }
-
-  const cats=new Set();
   grid.innerHTML = ALL.map(c=>{
-    cats.add(c.category||"");
     const search=[c.title,c.summary,c.category,c.level].join(" ");
     const r=Number(c.rating||4.6);
     const priceStr=(c.price||0)>0?("$"+c.price):"Free";
-    const enrolled = getEnrolls().has(c.id);
+    const enrolled=getEnrolls().has(c.id);
     return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
       <img class="course-cover" src="${esc(c.image||`https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
       <div class="course-body">
@@ -181,40 +177,33 @@ async function renderCatalog(){
       </div>
     </div>`;
   }).join("");
-
-  // enroll actions
-  grid.querySelectorAll("[data-enroll]").forEach(b=>{
-    b.addEventListener("click", ()=> handleEnroll(b.getAttribute("data-enroll")));
-  });
 }
 function markEnrolled(id){
   const s=getEnrolls(); s.add(id); setEnrolls(s);
   toast("Enrolled"); renderCatalog(); renderMyLearning(); showPage("mylearning");
 }
 function handleEnroll(id){
-  const c = ALL.find(x=>x.id===id) || getLocalCourses().find(x=>x.id===id);
+  const c=ALL.find(x=>x.id===id)||getLocalCourses().find(x=>x.id===id);
   if(!c) return toast("Course not found");
-  if((c.price||0)<=0) return markEnrolled(id); // free
+  if((c.price||0)<=0) return markEnrolled(id);
 
-  // paid: PayPal if SDK present; otherwise simulate
-  const host = document.querySelector(`.card.course[data-id="${id}"] .course-body`);
-  const box = document.createElement("div"); box.style.margin="10px 0"; host.appendChild(box);
-  if (window.paypal && window.paypal.Buttons){
+  const host=document.querySelector(`.card.course[data-id="${id}"] .course-body`);
+  const box=document.createElement("div"); box.style.margin="10px 0"; host.appendChild(box);
+  if(window.paypal && window.paypal.Buttons){
     window.paypal.Buttons({
-      createOrder: (d,a)=> a.order.create({ purchase_units:[{ amount:{ value:String(c.price||0) } }] }),
-      onApprove: async (d,a)=>{ await a.order.capture(); box.remove(); markEnrolled(id); },
-      onCancel: ()=>{ box.remove(); toast("Payment cancelled"); },
-      onError: (err)=>{ console.error(err); box.remove(); toast("Payment error"); }
+      createOrder:(d,a)=>a.order.create({purchase_units:[{amount:{value:String(c.price||0)}}]}),
+      onApprove:async(d,a)=>{ await a.order.capture(); box.remove(); markEnrolled(id); },
+      onCancel:()=>{ box.remove(); toast("Payment cancelled"); },
+      onError:(err)=>{ console.error(err); box.remove(); toast("Payment error"); }
     }).render(box);
-  }else{
-    toast("Simulated payment success"); markEnrolled(id); box.remove();
-  }
+  }else{ toast("Simulated payment success"); markEnrolled(id); box.remove(); }
 }
 
-/* ================== My Learning + Reader ================== */
+/* =============== My Learning + Reader (simple) =============== */
 function renderMyLearning(){
   const grid=$("#mylearn-grid"); if(!grid) return;
-  const set=getEnrolls(); const list=(ALL.length?ALL:getLocalCourses()).filter(c=> set.has(c.id));
+  const set=getEnrolls();
+  const list=(ALL.length?ALL:getLocalCourses()).filter(c=> set.has(c.id));
   grid.innerHTML = list.map(c=>{
     const r=Number(c.rating||4.6);
     return `<div class="card course" data-id="${c.id}">
@@ -223,21 +212,17 @@ function renderMyLearning(){
         <strong>${esc(c.title)}</strong>
         <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)} • ${(c.price||0)>0?("$"+c.price):"Free"}</div>
         <div class="muted">${esc(c.summary||"")}</div>
-        <div class="row" style="justify-content:flex-end">
-          <button class="btn" data-continue="${c.id}">Continue</button>
-        </div>
+        <div class="row" style="justify-content:flex-end"><button class="btn" data-continue="${c.id}">Continue</button></div>
       </div>
     </div>`;
   }).join("") || `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
 }
 
-/* Simple reader demo */
 const SAMPLE_PAGES=(title)=>[
   {type:"lesson", html:`<h3>${esc(title)} — Welcome</h3>
     <p>Intro video:</p>
     <video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v1/800/320"><source src="" type="video/mp4"></video>`},
   {type:"reading", html:`<h3>Chapter 1</h3>
-    <p>Reading with image & audio:</p>
     <img style="width:100%;border-radius:10px" src="https://picsum.photos/seed/p1/800/360" alt="">
     <audio controls style="width:100%"></audio>`},
   {type:"quiz", html:`<h3>Quick Quiz</h3>
@@ -278,22 +263,20 @@ function renderPage(){
         <div id="rdProgress" style="height:100%;width:${Math.round((RD.i+1)/RD.pages.length*100)}%;background:#2563eb"></div>
       </div>
     </div>`;
-  // wire
   $("#rdBack").onclick = ()=> { $("#reader").classList.add("hidden"); showPage("mylearning"); };
   $("#rdPrev").onclick = ()=> { RD.i=Math.max(0,RD.i-1); renderPage(); };
   $("#rdNext").onclick = ()=> { RD.i=Math.min(RD.pages.length-1,RD.i+1); renderPage(); };
   $("#rdBookmark").onclick = ()=> { const b=getBookmarks(); b[RD.cid]=RD.i; setBookmarks(b); toast("Bookmarked"); };
   $("#rdNote").onclick = ()=> { const t=prompt("Note"); if(!t) return; const ns=getNotes(); ns[RD.cid]=(ns[RD.cid]||[]); ns[RD.cid].push({page:RD.i,text:t,ts:Date.now()}); setNotes(ns); toast("Note added"); };
-
-  // quiz feedback (demo)
   const btn=$("#qSubmit"), msg=$("#qMsg");
-  if(btn){ btn.onclick=()=>{ msg.textContent="Submitted ✔️ (+5)"; RD.score = Math.min(100, RD.score+5); $("#rdMeta").textContent=`Score: ${RD.score}% • Credits: ${RD.credits}`; }; }
+  if(btn){ btn.onclick=()=>{ msg.textContent="Submitted ✔️ (+5)"; RD.score=Math.min(100,RD.score+5); $("#rdMeta").textContent=`Score: ${RD.score}% • Credits: ${RD.credits}`; }; }
 }
 
-/* ================== Gradebook (demo) ================== */
+/* =============== Gradebook =============== */
 function renderGradebook(){
   const box=$("#gradebook"); if(!box) return;
-  const set=getEnrolls(); const list=(ALL.length?ALL:getLocalCourses()).filter(c=> set.has(c.id));
+  const set=getEnrolls();
+  const list=(ALL.length?ALL:getLocalCourses()).filter(c=> set.has(c.id));
   const rows=list.map(c=>({course:c.title, score:(80+Math.floor(Math.random()*20))+"%", credits:c.credits||3, progress:(Math.floor(Math.random()*90)+10)+"%"}));
   box.innerHTML = `
     <table class="ol-table" id="gbTable">
@@ -304,7 +287,7 @@ function renderGradebook(){
     </table>`;
 }
 
-/* ================== Admin (table only; create via modal) ================== */
+/* =============== Admin table =============== */
 function renderAdminTable(){
   const tb=$("#adminCourseTable tbody"); if(!tb) return;
   const list=ALL.length?ALL:getLocalCourses();
@@ -318,7 +301,7 @@ function renderAdminTable(){
     </tr>`).join("") || `<tr><td colspan="8" class="muted">No courses</td></tr>`;
 }
 
-/* ================== Announcements (local demo) ================== */
+/* =============== Announcements (local) =============== */
 function renderAnnouncements(){
   const box=$("#stuDashPanel"); if(!box) return;
   const arr=getAnns().slice().reverse();
@@ -334,12 +317,9 @@ function renderAnnouncements(){
       </div>
     </div>`).join("") : `No announcements yet.`;
 }
-
-/* --- toolbar: + Add Announcement & CRUD --- */
 document.addEventListener("click",(e)=>{
   if(e.target.closest("#btn-new-post")){ $("#postModal")?.showModal(); }
   if(e.target?.id==="closePostModal") $("#postModal")?.close();
-
   if(e.target.closest("#savePost")){
     e.preventDefault();
     const t=$("#pmTitle")?.value.trim(); const body=$("#pmBody")?.value.trim();
@@ -347,27 +327,20 @@ document.addEventListener("click",(e)=>{
     const arr=getAnns(); arr.push({id:"a_"+Math.random().toString(36).slice(2,9), title:t, body, ts:Date.now()});
     setAnns(arr); $("#postForm")?.reset(); $("#postModal")?.close(); renderAnnouncements();
   }
-  const del = e.target.closest("[data-ann-del]");
-  if(del){
-    const id=del.getAttribute("data-ann-del");
-    const arr=getAnns().filter(x=>x.id!==id); setAnns(arr); renderAnnouncements();
-  }
-  const edt = e.target.closest("[data-ann-edit]");
-  if(edt){
-    const id=edt.getAttribute("data-ann-edit");
-    const arr=getAnns(); const i=arr.findIndex(x=>x.id===id);
+  const del=e.target.closest("[data-ann-del]");
+  if(del){ const id=del.getAttribute("data-ann-del"); const arr=getAnns().filter(x=>x.id!==id); setAnns(arr); renderAnnouncements(); }
+  const edt=e.target.closest("[data-ann-edit]");
+  if(edt){ const id=edt.getAttribute("data-ann-edit"); const arr=getAnns(); const i=arr.findIndex(x=>x.id===id);
     if(i>-1){ const t=prompt("Edit title", arr[i].title); if(t){ arr[i].title=t; setAnns(arr); renderAnnouncements(); } }
   }
 });
 
-/* ================== Static link pages (JSON) ================== */
-async function loadJSON(path){
-  const res=await fetch(path,{cache:"no-cache"}); if(!res.ok) throw new Error(`Failed ${path}: ${res.status}`); return res.json();
-}
+/* =============== Static pages loader (JSON) =============== */
+async function loadJSON(path){ const res=await fetch(path,{cache:"no-cache"}); if(!res.ok) throw new Error(`Failed ${path}: ${res.status}`); return res.json(); }
 document.addEventListener("click",(e)=>{
   const a=e.target.closest("[data-link]"); if(!a) return;
   e.preventDefault();
-  const k=a.getAttribute("data-link"); // contact/guide/privacy/policy
+  const k=a.getAttribute("data-link");
   loadJSON(`/data/pages/${k}.json`).then(p=>{
     $("#stTitle").textContent=p.title||k;
     $("#stBody").innerHTML=p.html||"<p>No content</p>";
@@ -375,40 +348,32 @@ document.addEventListener("click",(e)=>{
   }).catch(()=> toast("Page missing"));
 });
 
-/* ================== Auth (login/logout toggle + modal handlers) ================== */
+/* =============== Auth (robust) =============== */
 let currentUser=null;
 function gateUI(){
   const logged=!!currentUser;
-  // explicit inline style to beat any inline display on HTML
   const loginBtn=$("#btn-login"), logoutBtn=$("#btn-logout");
-  if (loginBtn)  loginBtn.style.display  = logged ? "none" : "";
-  if (logoutBtn) logoutBtn.style.display = logged ? "" : "none";
+  if(loginBtn)  loginBtn.style.display  = logged ? "none" : "";
+  if(logoutBtn) logoutBtn.style.display = logged ? "" : "none";
 }
-onAuthStateChanged(auth, (u)=>{ currentUser=u||null; gateUI(); });
+onAuthStateChanged(auth, (u)=>{ currentUser=u||null; gateUI(); if(!u){ /* on sign-out show login page */ showAuthScreen(); } });
 
-document.addEventListener('click', async (e)=>{
-  if(e.target.closest('#btn-login')){
-    e.preventDefault();
-    $("#authModal")?.showModal();
-  }
-  if(e.target.closest('#btn-logout')){
+function openLogin(e){ e?.preventDefault?.(); $("#authModal")?.showModal(); }
+$("#btn-login")?.addEventListener("click", openLogin);
+/* delegation fallback (in case button is re-rendered later) */
+document.addEventListener("click",(e)=>{ if(e.target?.id==="btn-login") openLogin(e); });
+
+document.addEventListener("click", async (e)=>{
+  if(e.target?.id==="btn-logout"){
     e.preventDefault();
     try{ await signOut(auth); }catch(err){ console.error(err); toast("Logout failed"); }
   }
 });
 
 (function bindLoginModal(){
-  const dlg = $("#authModal");
-  const fLogin  = $("#authLogin");
-  const fSignup = $("#authSignup");
-  const fForgot = $("#authForgot");
-
-  const show = (pane)=>{
-    fLogin?.classList.add("ol-hidden");
-    fSignup?.classList.add("ol-hidden");
-    fForgot?.classList.add("ol-hidden");
-    pane?.classList.remove("ol-hidden");
-  };
+  const dlg=$("#authModal");
+  const fLogin=$("#authLogin"), fSignup=$("#authSignup"), fForgot=$("#authForgot");
+  const show=(pane)=>{ fLogin?.classList.add("ol-hidden"); fSignup?.classList.add("ol-hidden"); fForgot?.classList.add("ol-hidden"); pane?.classList.remove("ol-hidden"); };
   $("#linkSignup")?.addEventListener("click", e=>{ e.preventDefault(); show(fSignup); });
   $("#linkForgot")?.addEventListener("click", e=>{ e.preventDefault(); show(fForgot); });
   $("#backToLogin1")?.addEventListener("click", e=>{ e.preventDefault(); show(fLogin); });
@@ -416,16 +381,14 @@ document.addEventListener('click', async (e)=>{
 
   fLogin?.addEventListener("submit", async (e)=>{
     e.preventDefault();
-    const email=$("#loginEmail")?.value.trim();
-    const pass =$("#loginPass")?.value;
-    try{ await signInWithEmailAndPassword(auth,email,pass); dlg?.close(); }
+    const email=$("#loginEmail")?.value.trim(); const pass=$("#loginPass")?.value;
+    try{ await signInWithEmailAndPassword(auth,email,pass); dlg?.close(); showPage("catalog"); }
     catch(err){ alert(err.message||"Login failed"); }
   });
   fSignup?.addEventListener("submit", async (e)=>{
     e.preventDefault();
-    const email=$("#signupEmail")?.value.trim();
-    const pass =$("#signupPass")?.value;
-    try{ await createUserWithEmailAndPassword(auth,email,pass); dlg?.close(); }
+    const email=$("#signupEmail")?.value.trim(); const pass=$("#signupPass")?.value;
+    try{ await createUserWithEmailAndPassword(auth,email,pass); dlg?.close(); showPage("catalog"); }
     catch(err){ alert(err.message||"Sign up failed"); }
   });
   fForgot?.addEventListener("submit", async (e)=>{
@@ -436,9 +399,9 @@ document.addEventListener('click', async (e)=>{
   });
 })();
 
-/* ================== global delegates ================== */
+/* =============== Global delegates: Details & Continue & controls =============== */
 document.addEventListener("click",(e)=>{
-  // Details modal
+  // Details
   const dbtn=e.target.closest("[data-details]");
   if(dbtn){
     const id=dbtn.getAttribute("data-details");
@@ -465,7 +428,7 @@ document.addEventListener("click",(e)=>{
     $("#detailsModal")?.showModal();
   }
 
-  // Continue (reader)
+  // Continue
   const cbtn=e.target.closest("[data-continue],[data-read]");
   if(cbtn){
     const id=cbtn.getAttribute("data-continue")||cbtn.getAttribute("data-read");
@@ -476,14 +439,10 @@ document.addEventListener("click",(e)=>{
   }
 });
 
-/* ================== Settings, Samples & New Course wiring ================== */
+/* =============== Settings / New Course / Samples =============== */
 function bindSettings(){
-  $("#themeSel")?.addEventListener("change",(e)=>{
-    const v=e.target.value; localStorage.setItem("ol_theme", v); applyPalette(v);
-  });
-  $("#fontSel")?.addEventListener("change",(e)=>{
-    const v=e.target.value; localStorage.setItem("ol_font", String(parseInt(v,10)||16)); applyFont(parseInt(v,10)||16);
-  });
+  $("#themeSel")?.addEventListener("change",(e)=>{ const v=e.target.value; localStorage.setItem("ol_theme", v); applyPalette(v); });
+  $("#fontSel")?.addEventListener("change",(e)=>{ const v=e.target.value; const px=parseInt(v,10)||16; localStorage.setItem("ol_font", String(px)); applyFont(px); });
 }
 function bindNewCourse(){
   $("#btn-new-course")?.addEventListener("click", ()=> $("#courseModal")?.showModal());
@@ -491,29 +450,21 @@ function bindNewCourse(){
     e.preventDefault();
     const f=e.currentTarget;
     const payload={
-      title: f.title.value.trim(),
-      category: f.category.value.trim(),
-      level: f.level.value,
-      price: Number(f.price.value||0),
-      rating: Number(f.rating.value||4.6),
-      hours: Number(f.hours.value||8),
-      credits: Number(f.credits.value||3),
-      image: f.img.value.trim(),
-      summary: f.description.value.trim(),
-      benefits: (f.benefits.value||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
-      createdAt: Date.now()
+      title:f.title.value.trim(), category:f.category.value.trim(), level:f.level.value,
+      price:Number(f.price.value||0), rating:Number(f.rating.value||4.6),
+      hours:Number(f.hours.value||8), credits:Number(f.credits.value||3),
+      image:f.img.value.trim(), summary:f.description.value.trim(),
+      benefits:(f.benefits.value||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
+      createdAt:Date.now()
     };
     await safeAddCourse(payload);
     $("#courseModal")?.close();
-    renderCatalog(); renderAdminTable();
-    toast("Course created");
+    renderCatalog(); renderAdminTable(); toast("Course created");
   });
 }
-function bindSamples(){
-  $("#btn-add-samples")?.addEventListener("click", ()=> addSamples());
-}
+function bindSamples(){ $("#btn-add-samples")?.addEventListener("click", ()=> addSamples()); }
 
-/* ================== Boot ================== */
+/* =============== Boot =============== */
 document.addEventListener("DOMContentLoaded", async ()=>{
   const t=localStorage.getItem("ol_theme")||"dark";
   const f=Number(localStorage.getItem("ol_font")||"16");
@@ -525,6 +476,5 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   try{ await probeDbOnce(); }catch{}
   await renderCatalog();
   renderAdminTable(); renderAnnouncements();
-  // default landing
   if (!location.hash) showPage("catalog");
 });
