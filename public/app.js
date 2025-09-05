@@ -85,6 +85,55 @@ function applyFont(px="18px"){ document.documentElement.style.setProperty("--fon
 $("#themeSel")?.addEventListener("change",(e)=>{ LS.set("ol_theme", e.target.value); applyTheme(e.target.value); });
 $("#fontSel")?.addEventListener("change",(e)=>{ LS.set("ol_font", e.target.value); applyFont(e.target.value); });
 
+// --- Header buttons wiring (place once, after DOM ready)
+function initTopbar() {
+  // Search
+  const doSearch = () => {
+    const q = (document.getElementById("topSearch")?.value || "").trim();
+    // your app search handler here:
+    const ev = new CustomEvent("ol:search", { detail: { q }});
+    window.dispatchEvent(ev);
+  };
+  document.getElementById("topSearchBtn")?.addEventListener("click", doSearch);
+  document.getElementById("topSearch")?.addEventListener("keydown", (e)=>{ if(e.key==="Enter") doSearch(); });
+
+  // Announcements & Final
+  document.getElementById("btn-top-ann")?.addEventListener("click", ()=> {
+    location.hash = "#/dashboard";        // or call your showPage("stu-dashboard")
+    // showPage && showPage("stu-dashboard");
+  });
+  document.getElementById("btn-top-final")?.addEventListener("click", ()=> {
+    location.hash = "#/mylearning";       // or showPage("mylearning");
+  });
+
+  // Login/Logout toggle — relies on your auth state
+  const showAuthButtons = (loggedIn) => {
+    const li = document.getElementById("btn-login");
+    const lo = document.getElementById("btn-logout");
+    if (!li || !lo) return;
+    li.style.display = loggedIn ? "none" : "";
+    lo.style.display = loggedIn ? "" : "none";
+  };
+  // Hook to Firebase auth
+  import("/firebase.js").then(({ auth, onAuthStateChanged, signOut })=>{
+    onAuthStateChanged(auth, (u)=>{
+      showAuthButtons(!!u);
+    });
+    document.getElementById("btn-login")?.addEventListener("click", ()=>{
+      // open your login modal (id may differ in your app)
+      document.getElementById("authModal")?.showModal?.();
+    });
+    document.getElementById("btn-logout")?.addEventListener("click", async ()=>{
+      try { await signOut(auth); } catch(e){ console.error(e); }
+    });
+  }).catch(console.error);
+}
+
+// Run after DOM content loaded
+document.readyState === "loading"
+  ? document.addEventListener("DOMContentLoaded", initTopbar)
+  : initTopbar();
+
 /* ===== Sample data (FireStore→fallback Local) ===== */
 function localCourses(){ return LS.get("ol_courses")||[]; }
 function setLocalCourses(a){ LS.set("ol_courses", a); }

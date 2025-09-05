@@ -24,15 +24,25 @@
 </head>
 <body>
 
-<header id="topbar" class="bar">
-  <button id="btn-burger" class="btn icon" aria-label="Menu">☰</button>
-  <div id="logo">🎓 OpenLearn</div>
-  <input id="topSearch" placeholder="Search courses…"/>
-  <div class="grow"></div>
-  <button id="btn-login" class="btn">Login</button>
-  <button id="btn-logout" class="btn" style="display:none">Logout</button>
-  <button id="btn-ann" class="btn icon" title="Announcements" aria-label="Announcements">📣</button>
-  <button id="btn-final" class="btn icon" title="Final Exam" aria-label="Final">🎯</button>
+<header id="topbar" class="ol-topbar">
+  <div class="tb-row">
+    <div id="logo" class="tb-logo">🎓 OpenLearn</div>
+
+    <div class="tb-search">
+      <input id="topSearch" class="tb-input" placeholder="Search courses…" />
+      <button id="topSearchBtn" class="btn">Search</button>
+    </div>
+
+    <div class="tb-spacer"></div>
+
+    <div class="tb-actions">
+      <button id="btn-top-ann" class="btn ghost" title="Announcements">📢 Announcements</button>
+      <button id="btn-top-final" class="btn ghost" title="Final Exam">🎯 Final</button>
+
+      <button id="btn-login" class="btn primary">Login</button>
+      <button id="btn-logout" class="btn" style="display:none">Logout</button>
+    </div>
+  </div>
 </header>
 
 <aside id="sidebar" class="compact">

@@ -48,3 +48,20 @@ a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
 
 footer{margin-top:20px;border-top:1px solid var(--border);padding:12px 0}
 .page-hero{padding:12px}
+
+/* Topbar single-row layout */
+.ol-topbar { position: sticky; top:0; z-index:50; background: var(--card, #111827); border-bottom:1px solid var(--border, #1f2a3b); }
+.tb-row { display:flex; align-items:center; gap:12px; padding:10px 14px; }
+.tb-logo { font-weight:700; letter-spacing:.2px; }
+.tb-search { display:flex; align-items:center; gap:6px; width:min(560px, 42vw); }
+.tb-input { flex:1; padding:.55rem .7rem; border:1px solid var(--border,#1f2a3b); border-radius:10px; background:var(--inputBg,#0b1220); color:var(--inputFg,#e7ecf3); }
+.tb-spacer { flex:1; }
+.tb-actions { display:flex; align-items:center; gap:8px; }
+.btn { padding:.5rem .75rem; border:1px solid var(--border,#1f2a3b); border-radius:10px; background:var(--btnBg,#0f172a); color:var(--btnFg,#eaf1ff); cursor:pointer; }
+.btn.primary { background: var(--btnPrimaryBg,#2563eb); color: var(--btnPrimaryFg,#fff); border-color: var(--btnPrimaryBg,#2563eb); }
+.btn.ghost { background: transparent; }
+.btn:hover { filter: brightness(1.06); }
+
+/* Center the login dialog */
+#authModal::backdrop { background: rgba(0,0,0,.45); }
+#authModal { max-width: 420px; width: 92vw; border: 1px solid var(--border,#1f2a3b); border-radius: 12px; margin: auto; }
