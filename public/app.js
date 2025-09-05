@@ -1,473 +1,352 @@
-// public/app.js
+// (core app: router, auth modal, catalog/enroll/pay, reader, gradebook, admin table, announcements, contact/EmailJS, settings, chat fallback)
 import {
-  app, auth, db,
-  onAuthStateChanged,
-  collection, addDoc, doc, getDoc, getDocs, query, orderBy, limit
+  auth, db,
+  onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  sendPasswordResetEmail, signOut,
+  collection, addDoc, getDocs, query, orderBy, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp
 } from "./firebase.js";
 
-const $  = (s, r=document) => r.querySelector(s);
-const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
-const esc = (s)=> String(s ?? "").replace(/[&<>\"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-const toast=(m,ms=2000)=>{ let t=$("#toast"); if(!t){t=document.createElement("div");t.id="toast";t.style.cssText="position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#111827;color:#eaf1ff;border:1px solid #1f2a3b;border-radius:10px;padding:8px 12px;z-index:9999"; document.body.appendChild(t);} t.textContent=m; t.style.opacity="1"; setTimeout(()=>t.style.opacity="0", ms); };
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const esc=(s)=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const toast=(m)=>{ let t=$("#toast"); if(!t){t=document.createElement("div");t.id="toast";t.style.cssText="position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#0c2030;color:#dff3ff;border:1px solid #113347;border-radius:10px;padding:8px 12px;z-index:9999";document.body.appendChild(t);} t.textContent=m; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000); };
 
-const CFG = window.OPENLEARN_CFG || {};
-const ADMINS = new Set((CFG.admins||[]).map(x=>x.toLowerCase()));
+const LS={get:k=>JSON.parse(localStorage.getItem(k)||"null"), set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
+const NOW_YEAR=new Date().getFullYear(); $("#copyYear").textContent=`© OpenLearn ${NOW_YEAR}`;
 
-function isAdminEmail(email){ return !!email && ADMINS.has(email.toLowerCase()); }
+let CURRENT=null, ALL=[]; // user & courses
 
-/* ===================== PayPal inject ===================== */
-(function injectPayPal() {
-  const id = (CFG.paypalClientId || "").trim();
-  if (!id) { console.info("PayPal clientId not set → MMK demo only"); return; }
-  const s = document.createElement("script");
-  s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(id)}&currency=USD`;
-  s.async = true;
-  s.onload = ()=> (window.paypalSDK = window.paypal);
-  document.head.appendChild(s);
-})();
-
-/* ===================== Local storage ===================== */
-const readJSON=(k,d)=>{ try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d));}catch{ return d; } };
-const writeJSON=(k,v)=> localStorage.setItem(k, JSON.stringify(v));
-const LS_COURSES = "ol_local_courses";
-const LS_ENR     = "ol_enrolls";
-const LS_ANNS    = "ol_anns";
-const getLocalCourses = ()=> readJSON(LS_COURSES, []);
-const setLocalCourses = (a)=> writeJSON(LS_COURSES, a||[]);
-const getEnrolls = ()=> new Set(readJSON(LS_ENR, []));
-const setEnrolls = (s)=> writeJSON(LS_ENR, Array.from(s));
-const getAnns    = ()=> readJSON(LS_ANNS, []);
-const setAnns    = (a)=> writeJSON(LS_ANNS, a||[]);
-
-/* ===================== Router ===================== */
-function showPage(id) {
-  $$(".page").forEach(p=>p.classList.remove("active"));
-  $(`#page-${id}`)?.classList.add("active");
-  if (id==="catalog")   renderCatalog();
-  if (id==="mylearning")renderMyLearning();
-  if (id==="gradebook") renderGradebook();
-  if (id==="stu-dashboard") renderAnnouncements();
-  if (id==="admin")     renderAdminTable();
+/* ===== Router ===== */
+function showPage(id){
+  $$(".page").forEach(p=>p.classList.remove("active","visible"));
+  $(`#page-${id}`)?.classList.add("active","visible");
+  $$("#sidebar .navbtn").forEach(b=>b.classList.toggle("active", b.dataset.page===id));
+  if(id==="catalog") renderCatalog();
+  if(id==="mylearning") renderMyLearning();
+  if(id==="gradebook") renderGradebook();
+  if(id==="admin") renderAdminTable();
+  if(id==="dashboard") { renderAnnouncements(); renderCalendar(); }
 }
-function bindSidebarNav() {
-  $$("#sidebar .navbtn").forEach(btn=>{
-    btn.onclick = ()=> showPage(btn.dataset.page);
-  });
+$$("#sidebar .navbtn").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+
+/* ===== Auth Modal (center) ===== */
+const dlg=$("#authModal");
+function openLogin(){ dlg.showModal(); sel("login"); }
+function sel(mode){
+  $("#authLogin").classList.toggle("ol-hidden", mode!=="login");
+  $("#authSignup").classList.toggle("ol-hidden", mode!=="signup");
+  $("#authForgot").classList.toggle("ol-hidden", mode!=="forgot");
+}
+$("#btn-login").onclick=openLogin;
+$("#btn-logout").onclick=async()=>{ try{ await signOut(auth); toast("Logged out"); showPage("catalog"); toggleAuth(false);}catch(e){ console.error(e); } };
+$("#linkSignup").onclick=(e)=>{e.preventDefault();sel("signup");};
+$("#linkForgot").onclick=(e)=>{e.preventDefault();sel("forgot");};
+$("#backToLogin1").onclick=(e)=>{e.preventDefault();sel("login");};
+$("#backToLogin2").onclick=(e)=>{e.preventDefault();sel("login");};
+
+$("#authLogin").onsubmit=async(e)=>{
+  e.preventDefault();
+  const em=$("#loginEmail").value.trim(), pw=$("#loginPass").value.trim();
+  try{ await signInWithEmailAndPassword(auth, em, pw); dlg.close(); toast("Welcome back"); showPage("catalog"); }
+  catch(err){ console.error(err); toast(err.code||"Login failed"); }
+};
+$("#authSignup").onsubmit=async(e)=>{
+  e.preventDefault();
+  const em=$("#signupEmail").value.trim(), pw=$("#signupPass").value.trim();
+  try{ await createUserWithEmailAndPassword(auth, em, pw); dlg.close(); toast("Account created"); showPage("catalog"); }
+  catch(err){ console.error(err); toast(err.code||"Signup failed"); }
+};
+$("#authForgot").onsubmit=async(e)=>{
+  e.preventDefault();
+  const em=$("#forgotEmail").value.trim();
+  try{ await sendPasswordResetEmail(auth, em); toast("Reset link sent"); sel("login"); }
+  catch(err){ console.error(err); toast(err.code||"Failed"); }
+};
+
+function toggleAuth(logged){
+  $("#btn-login").style.display = logged?"none":"";
+  $("#btn-logout").style.display = logged?"":"none";
 }
 
-/* ===================== Catalog ===================== */
-let ALL = [];
-async function fetchAll() {
-  try {
-    const snap = await getDocs(query(collection(db,"courses"), orderBy("title","asc")));
-    const arr = snap.docs.map(d=>({id:d.id, ...d.data()}));
-    if (arr.length) return arr;
-  } catch(e){ console.info("Firestore fetch failed, use local", e); }
-  return getLocalCourses();
+/* ===== Theme / Font ===== */
+const PALETTES={
+  dark:{bg:"#0b0f17",fg:"#e7ecf3",card:"#121826",muted:"#9aa6b2",border:"#223",accent:"#66d9ef",btnBg:"#1f2937",btnPri:"#2563eb",btnPriFg:"#fff"},
+  ocean:{bg:"#07131d",fg:"#dff3ff",card:"#0c2030",muted:"#8fb3c6",border:"#113347",accent:"#4cc9f0",btnBg:"#123247",btnPri:"#4cc9f0",btnPriFg:"#08222f"},
+  rose:{bg:"#1a0d12",fg:"#ffe7ee",card:"#241318",muted:"#d9a7b5",border:"#3a1b27",accent:"#fb7185",btnBg:"#2a1720",btnPri:"#fb7185",btnPriFg:"#240b12"},
+  emerald:{bg:"#06130e",fg:"#eafff3",card:"#0c2419",muted:"#9ad0b9",border:"#113426",accent:"#10b981",btnBg:"#153a2a",btnPri:"#10b981",btnPriFg:"#062116"},
+  indigo:{bg:"#0e1024",fg:"#eaeaff",card:"#171a3a",muted:"#b4b7e5",border:"#232658",accent:"#6366f1",btnBg:"#1f235f",btnPri:"#6366f1",btnPriFg:"#0e1024"}
+};
+function applyTheme(key="ocean"){ const p=PALETTES[key]||PALETTES.ocean; const r=document.documentElement.style;
+  r.setProperty("--bg",p.bg); r.setProperty("--fg",p.fg); r.setProperty("--card",p.card); r.setProperty("--muted",p.muted);
+  r.setProperty("--border",p.border); r.setProperty("--accent",p.accent); r.setProperty("--btnBg",p.btnBg);
+  r.setProperty("--btnPri",p.btnPri); r.setProperty("--btnPriFg",p.btnPriFg);
+}
+function applyFont(px="18px"){ document.documentElement.style.setProperty("--font", px); }
+$("#themeSel")?.addEventListener("change",(e)=>{ LS.set("ol_theme", e.target.value); applyTheme(e.target.value); });
+$("#fontSel")?.addEventListener("change",(e)=>{ LS.set("ol_font", e.target.value); applyFont(e.target.value); });
+
+/* ===== Sample data (FireStore→fallback Local) ===== */
+function localCourses(){ return LS.get("ol_courses")||[]; }
+function setLocalCourses(a){ LS.set("ol_courses", a); }
+function enrolls(){ return new Set(LS.get("ol_enrolls")||[]); }
+function setEnrolls(s){ LS.set("ol_enrolls", Array.from(s)); }
+function anns(){ return LS.get("ol_anns")||[]; }
+function setAnns(a){ LS.set("ol_anns", a); }
+function bookmarks(){ return LS.get("ol_bm")||{}; } function setBookmarks(m){ LS.set("ol_bm", m); }
+function notes(){ return LS.get("ol_notes")||{}; }  function setNotes(n){ LS.set("ol_notes", n); }
+
+async function fetchCourses(){
+  try{
+    const qs = await getDocs(query(collection(db,"courses"), orderBy("title",'asc')));
+    const arr = qs.docs.map(d=>({id:d.id, ...d.data()}));
+    if(arr.length) return arr;
+  }catch(e){ /* local fallback */ }
+  return localCourses();
 }
 
-async function renderCatalog() {
-  const grid = $("#catalog-grid"); if(!grid) return;
-  ALL = await fetchAll();
-  if (!ALL.length) {
-    grid.innerHTML = `<div class="muted">No courses yet — use “Add sample data”.</div>`;
-    return;
+async function addSamples(){
+  const base=[
+    {title:"JavaScript Essentials",category:"Web",level:"Beginner",price:0,credits:3,rating:4.7,hours:10,summary:"Start JavaScript from zero."},
+    {title:"React Fast-Track",category:"Web",level:"Intermediate",price:49,credits:2,rating:4.6,hours:8,summary:"Build modern UIs."},
+    {title:"Advanced React Patterns",category:"Web",level:"Advanced",price:69,credits:2,rating:4.5,hours:9,summary:"Hooks, contexts, performance."},
+    {title:"Data Analysis with Python",category:"Data",level:"Intermediate",price:79,credits:3,rating:4.8,hours:14,summary:"Pandas & plots."},
+    {title:"Intro to Machine Learning",category:"Data",level:"Beginner",price:59,credits:3,rating:4.7,hours:12,summary:"Supervised, unsupervised."},
+    {title:"Cloud Fundamentals",category:"Cloud",level:"Beginner",price:29,credits:2,rating:4.6,hours:7,summary:"AWS/GCP basics."},
+    {title:"DevOps CI/CD",category:"Cloud",level:"Intermediate",price:69,credits:3,rating:4.6,hours:11,summary:"Pipelines, Docker, K8s."},
+  ];
+  // try Firestore
+  try{
+    for(const c of base){ await addDoc(collection(db,"courses"), { ...c, createdAt: serverTimestamp() }); }
+  }catch(_){
+    const arr=localCourses(); for(const c of base){ arr.push({ id:"loc_"+Math.random().toString(36).slice(2,9), ...c }); } setLocalCourses(arr);
   }
+  toast("Sample courses added"); await renderCatalog(); renderAdminTable();
+}
+
+/* ===== Catalog ===== */
+async function renderCatalog(){
+  ALL = await fetchCourses();
+  const grid=$("#catalog-grid"); if(!grid) return;
+  if(!ALL.length){ grid.innerHTML=`<div class="muted">No courses.</div>`; return; }
+
+  const cats=new Set();
   grid.innerHTML = ALL.map(c=>{
-    const r = Number(c.rating || 4.6);
-    const price = (c.price||0) > 0 ? `$${c.price}` : "Free";
-    const enrolled = getEnrolls().has(c.id);
-    return `<div class="card course" data-id="${c.id}">
-      <img class="course-cover" src="${esc(c.img || c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+    cats.add(c.category||"");
+    const r=Number(c.rating||4.6).toFixed(1);
+    const price=(c.price||0)>0? "$"+c.price : "Free";
+    const enrolled=enrolls().has(c.id);
+    const img = c.image || `https://picsum.photos/seed/${c.id}/640/360`;
+    return `<div class="card course" data-id="${esc(c.id)}">
+      <img class="course-cover" src="${esc(img)}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)} • ${price}</div>
-        <div class="muted">${esc(c.description || c.summary || "")}</div>
-        <div class="row" style="justify-content:flex-end;gap:8px">
-          <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${enrolled?"Enrolled":"Enroll"}</button>
+        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r} • ${price}</div>
+        <div class="muted">${esc(c.summary||"")}</div>
+        <div class="row between">
+          <button class="btn" data-details="${esc(c.id)}">Details</button>
+          <button class="btn primary" data-enroll="${esc(c.id)}">${enrolled?"Enrolled":"Enroll"}</button>
         </div>
       </div>
     </div>`;
   }).join("");
 
-  grid.querySelectorAll("[data-enroll]").forEach(b=>{
-    b.onclick = ()=> handleEnroll(b.getAttribute("data-enroll"));
-  });
-  grid.querySelectorAll("[data-details]").forEach(b=>{
-    b.onclick = ()=> openDetails(b.getAttribute("data-details"));
-  });
+  $("#filterCategory").innerHTML = `<option value="">All Categories</option>` + Array.from(cats).filter(Boolean).map(x=>`<option>${esc(x)}</option>`).join("");
+  const applyFilters=()=>{
+    const cat=$("#filterCategory").value, lv=$("#filterLevel").value, sort=$("#sortBy").value;
+    const cards=[...grid.querySelectorAll(".course")];
+    cards.forEach(el=>{
+      const meta=el.querySelector(".small.muted").textContent;
+      el.style.display = (!cat||meta.includes(cat)) && (!lv||meta.includes(lv)) ? "" : "none";
+    });
+    const vis=cards.filter(el=>el.style.display!=="none");
+    vis.sort((a,b)=>{
+      const ta=a.querySelector("strong").textContent.toLowerCase();
+      const tb=b.querySelector("strong").textContent.toLowerCase();
+      const pa=a.querySelector(".small.muted").textContent;
+      const pb=b.querySelector(".small.muted").textContent;
+      const priceA=pa.includes("$")?parseFloat(pa.split("$")[1]):0;
+      const priceB=pb.includes("$")?parseFloat(pb.split("$")[1]):0;
+      if(sort==="title-asc") return ta.localeCompare(tb);
+      if(sort==="title-desc") return tb.localeCompare(ta);
+      if(sort==="price-asc") return priceA-priceB;
+      if(sort==="price-desc") return priceB-priceA;
+      return 0;
+    }).forEach(el=>grid.appendChild(el));
+  };
+  $("#filterCategory").onchange=applyFilters; $("#filterLevel").onchange=applyFilters; $("#sortBy").onchange=applyFilters;
+
+  grid.querySelectorAll("[data-details]").forEach(b=>b.onclick=()=>showDetails(b.dataset.details));
+  grid.querySelectorAll("[data-enroll]").forEach(b=>b.onclick=()=>handleEnroll(b.dataset.enroll));
 }
 
-/* Details modal (80% width + scroll) */
-function openDetails(id){
-  const c = ALL.find(x=>x.id===id) || getLocalCourses().find(x=>x.id===id);
-  if (!c) return;
-  const body = $("#detailsBody");
-  body.innerHTML = `
-    <div class="stack">
-      <img class="course-cover" src="${esc(c.img || c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
-      <h3>${esc(c.title)}</h3>
-      <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${(Number(c.rating||4.5)).toFixed(1)} • ${(c.price||0)>0?`$${c.price}`:"Free"} • ${c.hours||8} hrs • ${c.credits||3} credits</div>
-      <p>${esc(c.description || c.summary || "—")}</p>
-      ${Array.isArray(c.benefits) && c.benefits.length ? `<ul>${c.benefits.map(b=>`<li>${esc(b)}</li>`).join("")}</ul>`:""}
-      <div class="row" style="justify-content:flex-end;gap:8px">
-        <button class="btn" id="dEnroll">Enroll</button>
-      </div>
-    </div>
-  `;
-  $("#dEnroll").onclick = ()=> handleEnroll(id);
-  $("#detailsModal").showModal();
-}
-$("#closeDetails")?.addEventListener("click", ()=> $("#detailsModal").close());
-
-/* Enroll: Free→auto, Paid→PayPal/MMK */
-function markEnrolled(id){
-  const s=getEnrolls(); s.add(id); setEnrolls(s);
-  toast("Enrolled");
-  $("#detailsModal").close();
-  renderCatalog(); renderMyLearning();
-  showPage("mylearning");
-}
-function handleEnroll(id){
-  const c = ALL.find(x=>x.id===id) || getLocalCourses().find(x=>x.id===id);
-  if (!c) return toast("Course not found");
-  if ((c.price||0) <= 0) return markEnrolled(id);
-
-  // Open pay modal
-  const payBody = $("#payBody");
-  $("#payTitle").textContent = `Checkout — ${c.title}`;
-  // PayPal panel
-  const container = $("#paypal-container");
-  container.innerHTML = "";
-  const hasPP = !!(window.paypalSDK && window.paypalSDK.Buttons);
-  $("#paypalNote").textContent = hasPP ? "" : "PayPal not configured (demo).";
-  if (hasPP){
-    window.paypalSDK.Buttons({
-      createOrder: (d, a) => a.order.create({
-        purchase_units: [{ amount: { value: String(c.price||0) } }]
-      }),
-      onApprove: async (d, a) => { await a.order.capture(); markEnrolled(id); },
-      onCancel: ()=> toast("Payment cancelled"),
-      onError: (err)=>{ console.error(err); toast("Payment error"); }
-    }).render(container);
-  }
-  // MMK demo
-  $("#mmkPaid").onclick = ()=> { toast("MMK demo: paid"); markEnrolled(id); };
-  $("#payModal").showModal();
-}
-$("#closePay")?.addEventListener("click", ()=> $("#payModal").close());
-
-/* ===================== My Learning ===================== */
-function renderMyLearning(){
-  const grid = $("#mylearn-grid"); if(!grid) return;
-  const set = getEnrolls();
-  const list = (ALL.length?ALL:getLocalCourses()).filter(c=> set.has(c.id));
-  grid.innerHTML = list.map(c=>`
-    <div class="card course" data-id="${c.id}">
-      <img class="course-cover" src="${esc(c.img || c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
-      <div class="course-body">
-        <strong>${esc(c.title)}</strong>
-        <div class="row" style="justify-content:flex-end">
-          <button class="btn" data-open="${c.id}">Continue</button>
-        </div>
-      </div>
-    </div>
-  `).join("") || `<div class="muted">No enrollments yet.</div>`;
-  grid.querySelectorAll("[data-open]").forEach(b=>{
-    b.onclick = ()=> openReader(b.getAttribute("data-open"));
-  });
-}
-
-/* Reader (simple demo pages) */
-const SAMPLE_PAGES=(title)=>[
-  {type:"lesson", html:`<h3>${esc(title)} — Welcome</h3><p>Intro video:</p><video controls style="width:100%;border-radius:10px"><source src="" type="video/mp4"></video>`},
-  {type:"reading",html:`<h3>Chapter 1</h3><img style="width:100%;border-radius:10px" src="https://picsum.photos/seed/p1/800/360" alt=""><p>Reading sample…</p>`},
-  {type:"quiz",   html:`<h3>Quick Quiz</h3><p>2+2 = ?</p><input id="q1" class="field" placeholder="Your answer"><div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>`},
-  {type:"final",  html:`<h3>Final</h3><p>Upload your work:</p><input type="file" /><p class="small muted">When you finish last page → fireworks + certificate (demo).</p>`}
-];
-let RD = { cid:null, pages:[], i:0 };
-function openReader(cid){
-  const c = ALL.find(x=>x.id===cid) || getLocalCourses().find(x=>x.id===cid);
+/* Details modal (80% view) */
+function showDetails(id){
+  const c=ALL.find(x=>x.id===id) || localCourses().find(x=>x.id===id);
   if(!c) return;
-  RD = { cid, pages: SAMPLE_PAGES(c.title), i:0 };
-  $("#reader").dataset.courseId = cid;
+  const body=document.createElement("dialog"); body.className="card ol-modal"; body.style.width="80%"; body.style.maxWidth="1100px"; body.style.maxHeight="80vh";
+  body.innerHTML=`<div class="row between"><b>${esc(c.title)}</b><button class="btn small" id="dClose">Close</button></div>
+  <div class="stack" style="overflow:auto;max-height:70vh">
+    <img class="course-cover" src="${esc(c.image||`https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+    <div class="muted">${esc(c.summary||"")}</div>
+    <ul class="stack">
+      ${(c.benefits||["Hands-on projects","Downloadable resources","Certificate of completion"]).map(b=>`<li>✅ ${esc(b)}</li>`).join("")}
+    </ul>
+  </div>
+  <div class="row right"><button class="btn primary" id="dEnroll">Enroll</button></div>`;
+  document.body.appendChild(body); body.showModal();
+  body.querySelector("#dClose").onclick=()=>{ body.close(); body.remove(); };
+  body.querySelector("#dEnroll").onclick=()=>{ handleEnroll(c.id); body.close(); body.remove(); };
+}
+
+/* Enroll: Free → auto, Paid → PayPal/MMK */
+function markEnrolled(id){ const s=enrolls(); s.add(id); setEnrolls(s); toast("Enrolled"); showPage("mylearning"); renderMyLearning(); renderCatalog(); }
+function handleEnroll(id){
+  const c=ALL.find(x=>x.id===id) || localCourses().find(x=>x.id===id); if(!c) return;
+  if((c.price||0)<=0) return markEnrolled(id);
+  // PayPal (if SDK injected); else demo MMK
+  const box=document.createElement("dialog"); box.className="card ol-modal"; box.innerHTML=`
+    <div class="row between"><b>Checkout</b><button class="btn small" id="pClose">Close</button></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr; gap:12px">
+      <div class="card"><h3>PayPal (USD)</h3><div id="pp"></div><div class="muted" id="ppNote"></div></div>
+      <div class="card"><h3>MMK Wallet</h3><p class="muted">Scan mock QR and click “I Paid”.</p>
+        <img class="course-cover" src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MMK-DEMO" alt="">
+        <button class="btn primary" id="mmkPaid">I Paid (MMK)</button>
+      </div>
+    </div>`;
+  document.body.appendChild(box); box.showModal();
+  box.querySelector("#pClose").onclick=()=>{ box.close(); box.remove(); };
+  box.querySelector("#mmkPaid").onclick=()=>{ markEnrolled(id); box.close(); box.remove(); };
+
+  const sdk=window.paypal;
+  if(!sdk){ box.querySelector("#ppNote").textContent="PayPal not configured. Using demo."; return; }
+  sdk.Buttons({
+    createOrder: (d,a)=>a.order.create({ purchase_units:[{ amount:{ value:String(c.price||0) } }] }),
+    onApprove: async(d,a)=>{ await a.order.capture(); markEnrolled(id); box.close(); box.remove(); },
+    onCancel: ()=>toast("Payment cancelled"),
+    onError: (e)=>{ console.error(e); toast("Payment error"); }
+  }).render(box.querySelector("#pp"));
+}
+
+/* My Learning (reader) */
+const SAMPLE_PAGES=(title)=>[
+  {type:"lesson", html:`<h3>${esc(title)} — Welcome</h3><video controls style="width:100%;border-radius:10px"><source src="" type="video/mp4"></video>`},
+  {type:"reading", html:`<h3>Chapter 1</h3><p>Reading + image</p><img class="course-cover" src="https://picsum.photos/seed/p1/800/360">`},
+  {type:"exercise", html:`<h3>Practice</h3><input type="file">`},
+  {type:"quiz", html:`<h3>Quiz</h3><p>Q1) Short</p><input id="q1" class="stack"> <button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="muted"></span>`},
+  {type:"final", html:`<h3>Final</h3><p>Upload final to earn certificate.</p><input type="file">`}
+];
+let RD={cid:null, pages:[], i:0};
+function renderMyLearning(){
+  const grid=$("#mylearn-grid"); const set=enrolls(); const list=(ALL.length?ALL:localCourses()).filter(c=>set.has(c.id));
+  grid.innerHTML = list.map(c=>`<div class="card course"><img class="course-cover" src="${esc(c.image||`https://picsum.photos/seed/${c.id}/640/360`)}"><div class="row between"><b>${esc(c.title)}</b><button class="btn" data-open="${esc(c.id)}">Continue</button></div></div>`).join("") || `<div class="muted">No enrollments yet.</div>`;
+  grid.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openReader(b.dataset.open));
+}
+function openReader(id){
+  const c=ALL.find(x=>x.id===id) || localCourses().find(x=>x.id===id); if(!c) return;
+  RD={cid:id, pages:SAMPLE_PAGES(c.title), i:(bookmarks()[id]??0)};
+  $("#reader").classList.remove("hidden");
   renderPage();
-  $("#reader").scrollIntoView({behavior:"smooth"});
+  $("#rdBack").onclick=()=>{ $("#reader").classList.add("hidden"); showPage("mylearning"); };
+  $("#rdPrev").onclick=()=>{ RD.i=Math.max(0,RD.i-1); renderPage(); };
+  $("#rdNext").onclick=()=>{ RD.i=Math.min(RD.pages.length-1,RD.i+1); renderPage(); if(RD.i===RD.pages.length-1) celebrate(); };
+  $("#rdBookmark").onclick=()=>{ const m=bookmarks(); m[id]=RD.i; setBookmarks(m); toast("Bookmarked"); };
+  $("#rdNote").onclick=()=>{ const t=prompt("Write a note"); if(!t) return; const n=notes(); n[id]=(n[id]||[]); n[id].push({i:RD.i, text:t, ts:Date.now()}); setNotes(n); toast("Note added"); };
 }
 function renderPage(){
-  const box=$("#reader"); if(!box) return;
-  const p = RD.pages[RD.i]; if(!p) return;
-  box.innerHTML = `
-    <div class="row backrow">
-      <button class="btn" id="rdBack">← Back</button>
-      <div class="grow"></div>
-      <button class="btn" id="rdPrev">Prev</button>
-      <div class="chip">${RD.i+1} / ${RD.pages.length}</div>
-      <button class="btn" id="rdNext">Next</button>
-    </div>
-    <div class="progress" style="height:6px;background:var(--border);border-radius:999px;overflow:hidden;margin:8px 0">
-      <div id="rdProgress" style="height:6px;background:var(--accent,#66d9ef);width:${Math.round((RD.i+1)/RD.pages.length*100)}%"></div>
-    </div>
-    <div id="rdPage" class="card" style="padding:12px">${p.html}</div>
-  `;
-  $("#rdBack").onclick = ()=> showPage("mylearning");
-  $("#rdPrev").onclick = ()=>{ RD.i=Math.max(0,RD.i-1); renderPage(); };
-  $("#rdNext").onclick = ()=>{
-    if (RD.i < RD.pages.length-1) { RD.i++; renderPage(); }
-    else { celebrate(); toast("Completed! (demo)"); }
-  };
-
-  const btn=$("#qSubmit"); const msg=$("#qMsg");
-  if(btn){ btn.onclick=()=>{ msg.textContent="Submitted ✔️ +5"; }; }
+  const p=RD.pages[RD.i]; $("#rdTitle").textContent=`${RD.i+1}. ${p.type.toUpperCase()}`;
+  $("#rdPage").innerHTML=p.html; $("#rdPageInfo").textContent=`${RD.i+1}/${RD.pages.length}`;
+  $("#rdProgress").style.width=Math.round((RD.i+1)/RD.pages.length*100)+"%";
+  const q=$("#qSubmit"); if(q){ q.onclick=()=>{ $("#qMsg").textContent="Submitted ✔ (+5)"; }; }
 }
-function celebrate(){
-  // tiny confetti
-  const d=document.createElement("div");
-  d.style.cssText="position:fixed;inset:0;pointer-events:none;animation:fade .8s ease forwards";
-  d.innerHTML = `<div style="position:absolute;inset:0;display:grid;place-items:center;font-size:28px">🎉 Congratulations!</div>`;
-  document.body.appendChild(d);
-  setTimeout(()=> d.remove(), 900);
-}
+function celebrate(){ toast("Congratulations! 🎉"); }
 
-/* ===================== Gradebook (demo) ===================== */
+/* Gradebook + PDFs (very simple demo) */
 function renderGradebook(){
-  const box=$("#gradebook"); if(!box) return;
-  const set=getEnrolls();
-  const list=(ALL.length?ALL:getLocalCourses()).filter(c=> set.has(c.id));
-  const rows=list.map(c=>({ course:c.title, score:(80+Math.floor(Math.random()*20))+"%", credits:c.credits||3, progress:(Math.floor(Math.random()*90)+10)+"%" }));
-  box.innerHTML = rows.length
-    ? `<table class="ol-table"><thead><tr><th>Course</th><th>Score</th><th>Credits</th><th>Progress</th></tr></thead><tbody>${
-        rows.map(r=>`<tr><td>${esc(r.course)}</td><td>${esc(r.score)}</td><td>${esc(r.credits)}</td><td>${esc(r.progress)}</td></tr>`).join("")
-      }</tbody></table>`
-    : `<div class="muted">No data</div>`;
+  const tb=$("#gbTable tbody"); const set=enrolls(); const list=(ALL.length?ALL:localCourses()).filter(c=>set.has(c.id));
+  const rows=list.map(c=>({student:CURRENT?.email||"you@example.com",course:c.title,score:(80+Math.floor(Math.random()*20))+"%",credits:c.credits||3,progress:(Math.floor(Math.random()*90)+10)+"%"}));
+  tb.innerHTML = rows.map(r=>`<tr><td>${esc(r.student)}</td><td>${esc(r.course)}</td><td>${esc(r.score)}</td><td>${esc(r.credits)}</td><td>${esc(r.progress)}</td></tr>`).join("") || "<tr><td colspan='5' class='muted'>No data</td></tr>";
+}
+$("#btn-cert").onclick=()=>downloadTextPdf("Certificate","Congratulations on successful completion!");
+$("#btn-trans").onclick=()=>downloadTextPdf("Transcript","Credits and scores summary.");
+function downloadTextPdf(title, body){
+  // lightweight: create a printable HTML and open print dialog (mobile-friendly)
+  const w=window.open("","_blank"); w.document.write(`<html><head><title>${esc(title)}</title></head><body><h2>${esc(title)}</h2><p>${esc(body)}</p><p>${new Date().toLocaleString()}</p></body></html>`); w.document.close(); w.focus(); w.print();
 }
 
-/* ===================== Admin: table + “New Course” modal ===================== */
-function renderAdminTable(){
-  const tb = $("#adminCourseTable tbody"); if(!tb) return;
-  const list = ALL.length?ALL:getLocalCourses();
-  tb.innerHTML = list.map(c=>`
-    <tr data-id="${c.id}">
-      <td>${esc(c.id)}</td>
-      <td>${esc(c.title)}</td>
-      <td>${esc(c.category||"")}</td>
-      <td>${esc(c.level||"")}</td>
-      <td>${(c.price||0)>0?`$${c.price}`:"Free"}</td>
-      <td>${esc(String(c.rating||4.5))}</td>
-      <td>${esc(String(c.hours||8))}</td>
-      <td><button class="icon-btn" data-edit="${c.id}">✏️</button> <button class="icon-btn" data-del="${c.id}">🗑️</button></td>
-    </tr>
-  `).join("") || `<tr><td colspan="8" class="muted">No courses</td></tr>`;
-
-  tb.querySelectorAll("[data-del]").forEach(b=>{
-    b.onclick = ()=>{
-      const id = b.getAttribute("data-del");
-      const arr = getLocalCourses().filter(x=> x.id!==id);
-      setLocalCourses(arr);
-      renderCatalog(); renderAdminTable();
-    };
-  });
-  tb.querySelectorAll("[data-edit]").forEach(b=>{
-    b.onclick = ()=>{
-      const id = b.getAttribute("data-edit");
-      const c = (ALL.length?ALL:getLocalCourses()).find(x=>x.id===id);
-      if(!c) return;
-      // reuse New Course modal as editor
-      $("#courseModalTitle").textContent = "Edit Course";
-      const f=$("#courseForm");
-      f.title.value     = c.title||"";
-      f.category.value  = c.category||"";
-      f.level.value     = c.level||"Beginner";
-      f.price.value     = c.price||0;
-      f.rating.value    = c.rating||4.5;
-      f.hours.value     = c.hours||8;
-      f.credits.value   = c.credits||3;
-      f.img.value       = c.img || c.image || "";
-      f.description.value = c.description || c.summary || "";
-      f.benefits.value  = Array.isArray(c.benefits)? c.benefits.join("\n") : "";
-      f.id.value        = c.id;
-      $("#courseModal").showModal();
-    };
-  });
+/* Admin: course CRUD (local for demo) */
+async function renderAdminTable(){
+  const tb=$("#adminCourseTable tbody"); const list=(ALL.length?ALL:localCourses());
+  tb.innerHTML = list.map(c=>`<tr data-id="${esc(c.id)}"><td>${esc(c.id)}</td><td>${esc(c.title)}</td><td>${esc(c.category||"")}</td><td>${esc(c.level||"")}</td><td>${(c.price||0)>0?"$"+c.price:"Free"}</td><td>${esc(String(c.rating||4.6))}</td><td>${esc(String(c.hours||8))}</td><td><button class="btn small" data-edit="${esc(c.id)}">Edit</button> <button class="btn small" data-del="${esc(c.id)}">Delete</button></td></tr>`).join("") || "<tr><td colspan='8' class='muted'>No courses</td></tr>";
+  tb.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ const id=b.dataset.del; const arr=localCourses().filter(x=>x.id!==id); setLocalCourses(arr); renderCatalog(); renderAdminTable(); });
+  tb.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{ const id=b.dataset.edit; const c=(localCourses().find(x=>x.id===id)||ALL.find(x=>x.id===id)); const t=prompt("New title", c?.title||""); if(!t) return; const arr=localCourses(); const i=arr.findIndex(x=>x.id===id); if(i>-1){ arr[i].title=t; setLocalCourses(arr); renderCatalog(); renderAdminTable(); } else toast("Edit supported in local only"); });
 }
-$("#btn-new-course")?.addEventListener("click", ()=>{
-  $("#courseModalTitle").textContent = "New Course";
-  $("#courseForm").reset();
-  $("#courseModal").showModal();
-});
-$("#courseClose")?.addEventListener("click", ()=> $("#courseModal").close());
-$("#courseForm")?.addEventListener("submit", async (e)=>{
-  e.preventDefault();
-  const f = e.target;
-  const payload = {
-    title: f.title.value.trim(),
-    category: f.category.value.trim(),
-    level: f.level.value,
-    price: Number(f.price.value||0),
-    rating: Number(f.rating.value||4.5),
-    hours: Number(f.hours.value||8),
-    credits: Number(f.credits.value||3),
-    img: f.img.value.trim(),
-    description: f.description.value.trim(),
-    benefits: f.benefits.value.trim() ? f.benefits.value.split("\n").map(s=>s.trim()).filter(Boolean) : []
-  };
-  const id = (f.id.value||"").trim();
-  if (id){
-    // local edit
-    const arr = getLocalCourses();
-    const i = arr.findIndex(x=>x.id===id);
-    if (i>-1) { arr[i] = {...arr[i], ...payload}; setLocalCourses(arr); }
-  } else {
-    // create (local for demo)
-    const arr = getLocalCourses();
-    const nid = "loc_"+Math.random().toString(36).slice(2,9);
-    arr.push({ id:nid, ...payload, createdAt: Date.now() });
-    setLocalCourses(arr);
-  }
-  $("#courseModal").close();
-  renderCatalog(); renderAdminTable();
-});
 
-/* ===================== Announcements (Admin only) ===================== */
-function isAdminNow(){
-  const u = auth.currentUser;
-  return !!(u && isAdminEmail(u.email));
+/* Announcements + Calendar (admin-only create) */
+function isAdmin(){ // simple rule: email in BOOTSTRAP_ADMINS (LS) or role flag later
+  const ADM = LS.get("BOOTSTRAP_ADMINS") || []; const me = (CURRENT?.email||"").toLowerCase();
+  return ADM.map(x=>String(x).toLowerCase()).includes(me);
 }
+$("#btn-new-ann").onclick=()=>{
+  if(!isAdmin()) return toast("Admin only");
+  const t=prompt("Announcement title"); if(!t) return;
+  const arr=anns(); arr.push({id:"a_"+Math.random().toString(36).slice(2,9), title:t, ts:Date.now()}); setAnns(arr); renderAnnouncements();
+};
 function renderAnnouncements(){
-  const wrap = $("#stuDashPanel"); if(!wrap) return;
-  const list = getAnns().slice().reverse();
-  wrap.innerHTML = list.length
-    ? list.map(a=>`
-        <div class="card" data-id="${a.id}" style="margin:6px 0;padding:10px">
-          <div class="row" style="justify-content:space-between">
-            <strong>${esc(a.title)}</strong>
-            <span class="small muted">${new Date(a.ts).toLocaleString()}</span>
-          </div>
-          ${isAdminNow() ? `<div class="row" style="justify-content:flex-end;gap:6px;margin-top:6px">
-             <button class="btn small" data-edit="${a.id}">Edit</button>
-             <button class="btn small" data-del="${a.id}">Delete</button>
-          </div>`:""}
-        </div>
-      `).join("")
-    : `<div class="muted">No announcements yet.</div>`;
-
-  if (isAdminNow()){
-    $("#announceToolbar")?.classList.remove("ol-hidden");
-    $("#btn-new-post")?.onclick = ()=>{
-      $("#postModalTitle").textContent = "New Announcement";
-      $("#pmTitle").value = "";
-      $("#pmBody").value  = "";
-      $("#pmId").value    = "";
-      $("#postModal").showModal();
-    };
-  } else {
-    $("#announceToolbar")?.classList.add("ol-hidden");
-  }
-
-  wrap.querySelectorAll("[data-del]")?.forEach(b=>{
-    b.onclick = ()=>{
-      const id=b.getAttribute("data-del");
-      const arr=getAnns().filter(x=>x.id!==id);
-      setAnns(arr); renderAnnouncements();
-    };
-  });
-  wrap.querySelectorAll("[data-edit]")?.forEach(b=>{
-    b.onclick = ()=>{
-      const id=b.getAttribute("data-edit");
-      const a=getAnns().find(x=>x.id===id); if(!a) return;
-      $("#postModalTitle").textContent = "Edit Announcement";
-      $("#pmTitle").value = a.title||"";
-      $("#pmBody").value  = a.body || "";
-      $("#pmId").value    = a.id;
-      $("#postModal").showModal();
-    };
-  });
+  const box=$("#annList"); const list=anns().slice().reverse();
+  box.innerHTML = list.map(a=>`<div class="card row between"><div><b>${esc(a.title)}</b><div class="small muted">${new Date(a.ts).toLocaleString()}</div></div><div class="row">${isAdmin()?`<button class="btn small" data-edit="${a.id}">Edit</button><button class="btn small" data-del="${a.id}">Delete</button>`:""}</div></div>`).join("") || `<div class="muted">No announcements yet.</div>`;
+  box.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ const id=b.dataset.del; setAnns(anns().filter(x=>x.id!==id)); renderAnnouncements(); });
+  box.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{ const id=b.dataset.edit; const arr=anns(); const i=arr.findIndex(x=>x.id===id); if(i<0) return; const t=prompt("Edit title", arr[i].title); if(!t) return; arr[i].title=t; setAnns(arr); renderAnnouncements(); });
 }
-$("#closePostModal")?.addEventListener("click", ()=> $("#postModal").close());
-$("#cancelPost")?.addEventListener("click", ()=> $("#postModal").close());
-$("#postForm")?.addEventListener("submit",(e)=>{
-  e.preventDefault();
-  if (!isAdminNow()) return toast("Admin only");
-  const id = $("#pmId").value.trim();
-  const t  = $("#pmTitle").value.trim();
-  const b  = $("#pmBody").value.trim();
-  if (!t) return;
-  const arr = getAnns();
-  if (id){
-    const i = arr.findIndex(x=>x.id===id); if (i>-1){ arr[i]={...arr[i], title:t, body:b}; }
-  } else {
-    arr.push({ id:"a_"+Math.random().toString(36).slice(2,9), title:t, body:b, ts:Date.now() });
-  }
-  setAnns(arr);
-  $("#postModal").close();
-  renderAnnouncements();
+/* Calendar (simple local) */
+$("#addCal").onclick=()=>{
+  if(!isAdmin()) return toast("Admin only");
+  const t=$("#calTitle").value.trim(), d=$("#calDate").value; if(!t||!d) return;
+  const arr=LS.get("ol_events")||[]; arr.push({id:"e_"+Math.random().toString(36).slice(2,9), title:t, date:d}); LS.set("ol_events", arr); renderCalendar(); $("#calTitle").value=""; $("#calDate").value="";
+};
+function renderCalendar(){
+  const list=(LS.get("ol_events")||[]).sort((a,b)=>a.date.localeCompare(b.date));
+  const ul=$("#calList"); ul.innerHTML = list.map(e=>`<div class="row between card"><div>${esc(e.title)} — <span class="muted">${esc(e.date)}</span></div>${isAdmin()?`<div class="row"><button class="btn small" data-edit="${e.id}">Edit</button><button class="btn small" data-del="${e.id}">Delete</button></div>`:""}</div>`).join("") || `<div class="muted">No events</div>`;
+  ul.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ const id=b.dataset.del; const arr=(LS.get("ol_events")||[]).filter(x=>x.id!==id); LS.set("ol_events", arr); renderCalendar(); });
+  ul.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{ const id=b.dataset.edit; const arr=(LS.get("ol_events")||[]); const i=arr.findIndex(x=>x.id===id); if(i<0) return; const t=prompt("Title", arr[i].title)||arr[i].title; const d=prompt("YYYY-MM-DD", arr[i].date)||arr[i].date; arr[i].title=t; arr[i].date=d; LS.set("ol_events", arr); renderCalendar(); });
+}
+
+/* Contact (EmailJS) */
+$("#cSend").onclick=async()=>{
+  const n=$("#cName").value.trim(), e=$("#cEmail").value.trim(), m=$("#cMsg").value.trim();
+  if(!n||!e||!m) return toast("Fill all");
+  try{
+    // EmailJS SDK (global) — lightweight inline loader
+    if(!window.emailjs) {
+      await new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+    }
+    emailjs.init(window.OPENLEARN_CFG.emailjs.publicKey);
+    await emailjs.send(window.OPENLEARN_CFG.emailjs.serviceId, window.OPENLEARN_CFG.emailjs.templateId, {
+      from_name:n, reply_to:e, message:m
+    });
+    $("#cStatus").textContent="Sent ✔"; $("#cName").value=""; $("#cEmail").value=""; $("#cMsg").value="";
+  }catch(err){ console.error(err); $("#cStatus").textContent="Failed to send"; }
+};
+
+/* Search */
+$("#topSearch").addEventListener("keydown", e=>{ if(e.key==="Enter"){ const term=e.target.value.toLowerCase().trim(); showPage("catalog"); document.querySelectorAll("#catalog-grid .course").forEach(card=>{ const text=card.textContent.toLowerCase(); card.style.display = !term || text.includes(term) ? "" : "none"; }); }});
+
+/* Header quick links */
+$("#btn-ann").onclick=()=>showPage("dashboard");
+$("#btn-final").onclick=()=>showPage("mylearning");
+
+/* Boot */
+onAuthStateChanged(auth, u=>{
+  CURRENT=u||null; toggleAuth(!!u);
+  const theme=LS.get("ol_theme")||"ocean"; const font=LS.get("ol_font")||"18px";
+  applyTheme(theme); applyFont(font);
+  renderCatalog(); showPage(u?"catalog":"catalog");
 });
 
-/* ===================== EmailJS (Contact page button id=cSend) ===================== */
-function bindEmailJS(){
-  const ek = (CFG.emailjs||{}).publicKey;
-  if (!ek) return; // optional
-  if (!window.emailjs) {
-    const s=document.createElement("script");
-    s.src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js";
-    s.onload=()=> window.emailjs.init(ek);
-    document.head.appendChild(s);
-  } else {
-    window.emailjs.init(ek);
-  }
-  $("#cSend")?.addEventListener("click", async ()=>{
-    const name=$("#cName").value.trim();
-    const email=$("#cEmail").value.trim();
-    const msg=$("#cMsg").value.trim();
-    if (!name || !email || !msg) return toast("Fill all fields");
-    try{
-      await window.emailjs.send(
-        CFG.emailjs.serviceId,
-        CFG.emailjs.templateId,
-        { from_name:name, reply_to:email, message:msg }
-      );
-      $("#cStatus").textContent="Sent ✔️";
-      $("#cName").value=$("#cEmail").value=$("#cMsg").value="";
-    }catch(err){ console.error(err); toast("Send failed"); }
-  });
-}
-
-/* ===================== Boot ===================== */
-function addSamplesNow(){
-  const base=[ // 7+ courses
-    {title:"JavaScript Essentials",category:"Web",level:"Beginner",price:0, credits:3, rating:4.7, hours:10, summary:"Start JS from zero."},
-    {title:"React Fast-Track",category:"Web",level:"Intermediate",price:49,credits:2, rating:4.6, hours:8,  summary:"Build modern UIs."},
-    {title:"Advanced React Patterns",category:"Web",level:"Advanced",price:69,credits:2, rating:4.5, hours:9,  summary:"Hooks & performance."},
-    {title:"Data Analysis with Python",category:"Data",level:"Intermediate",price:79,credits:3,rating:4.8,hours:14,summary:"Pandas & plots."},
-    {title:"Intro to Machine Learning",category:"Data",level:"Beginner",price:59,credits:3,rating:4.7,hours:12,summary:"Supervised/unsupervised."},
-    {title:"Cloud Fundamentals",category:"Cloud",level:"Beginner",price:29,credits:2,rating:4.6,hours:7, summary:"AWS/GCP basics."},
-    {title:"DevOps CI/CD",category:"Cloud",level:"Intermediate",price:69,credits:3,rating:4.6,hours:11,summary:"Pipelines · Docker · K8s"}
-  ];
-  const arr=getLocalCourses();
-  const nowAdd = base.filter(b=> !arr.some(x=>x.title===b.title)).map(b=>({ id:"loc_"+Math.random().toString(36).slice(2,9), ...b, createdAt:Date.now() }));
-  if (nowAdd.length) setLocalCourses([...arr, ...nowAdd]);
-  renderCatalog(); renderAdminTable();
-}
-
-document.addEventListener("DOMContentLoaded", ()=>{
-  bindSidebarNav();
-  bindEmailJS();
-
-  // Top buttons
-  $("#btn-add-samples")?.addEventListener("click", addSamplesNow);
-
-  // Start at Catalog after login
-  onAuthStateChanged(auth, (u)=>{
-    if (u) { $("#page-auth")?.classList.remove("active"); showPage("catalog"); }
-    else   { $("#page-auth")?.classList.add("active"); }
-    renderAnnouncements(); // toggles admin toolbar visibility
-  });
-
-  // initial renders
-  renderCatalog(); renderMyLearning(); renderAdminTable(); renderGradebook(); renderAnnouncements();
-
-  // Footer year
-  const y = new Date().getFullYear();
-  $("#copyYear") && ($("#copyYear").textContent = `© OpenLearn ${y}`);
-});
+/* Buttons */
+$("#btn-add-samples").onclick=()=>addSamples();
+$("#btn-new-course").onclick=()=>{
+  if(!isAdmin()) return toast("Admin only");
+  const t=prompt("Title"); if(!t) return;
+  const arr=localCourses(); arr.push({id:"loc_"+Math.random().toString(36).slice(2,9), title:t, category:"General", level:"Beginner", price:0, credits:1, rating:4.7, hours:4, summary:"New course."});
+  setLocalCourses(arr); renderCatalog(); renderAdminTable();
+};

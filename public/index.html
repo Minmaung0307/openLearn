@@ -1,510 +1,235 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OpenLearn — Coursera Lite Pro v2.5</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <!-- …meta/title/css… -->
-    <link rel="manifest" href="./manifest.json" />
-    <link rel="icon" href="./icons/icon-192.png" />
-    <!-- PayPal SDK (prod သုံးမယ်ဆိုရင် client-id ထည့်) -->
-    <script
-      src="https://www.paypal.com/sdk/js?client-id=AVpfmQ8DyyatFaAGQ3Jg58XtUt_2cJDr1leqcc_JI8LvKIR2N5WB_yljqCOTTCtvK1hFJ7Q9X0ojXsEC&currency=USD"
-      data-namespace="paypalSDK"
-    ></script>
-    <!-- EmailJS (for contact form) -->
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <script>
-      try {
-        emailjs.init("WT0GOYrL9HnDKvLUf");
-      } catch (e) {
-        console.warn("EmailJS not init");
-      }
-    </script>
-    <!-- public/config.js -->
-    <script>
-      window.OPENLEARN_CFG = {
-        firebase: {
-          apiKey: "AIzaSyBEkph2jnubq_FvZUcHOR2paKoOKhRaULg",
-          authDomain: "openlearn-mm.firebaseapp.com",
-          databaseURL: "https://openlearn-mm-default-rtdb.firebaseio.com",
-          projectId: "openlearn-mm",
-          storageBucket: "openlearn-mm.firebasestorage.app",
-          messagingSenderId: "977262127138",
-          appId: "1:977262127138:web:0ee1d4ac3c45f1334f427b",
-          measurementId: "G-E65G177ZNJ",
-        },
-        paypalClientId: window.PAYPAL_CLIENT_ID || "", // အရင်ထည့်ထားတာရှိရင် အလိုလိုယူမယ်
-        emailjs: window.EMAILJS || {
-          publicKey: "",
-          serviceId: "",
-          templateId: "",
-        },
-      };
-    </script>
-    <!-- index.html (inside <head>) -->
-    <script src="/config.js"></script>
-    <script type="module" src="/firebase.js"></script>
-    <script type="module" src="/login.js"></script>
-    <script type="module" src="/app.js"></script>
-  </head>
-  <body>
-    <!-- Topbar -->
-    <header class="topbar">
-      <div class="row left">
-        <button id="hamburger" class="btn ghost" aria-label="Toggle menu">
-          ☰
-        </button>
-        <a href="./" class="brand">📘 OpenLearn</a>
-      </div>
-      <div class="top-search desktop-only" id="desktopSearch">
-        <input id="topSearch" type="search" placeholder="Search courses…" />
-        <button id="topSearchBtn" class="btn ghost" aria-label="Search">
-          🔍
-        </button>
-      </div>
-      <div class="row right">
-        <button
-          id="mobileSearchBtn"
-          class="btn ghost mobile-only"
-          aria-label="Search"
-        >
-          🔍
-        </button>
-        <button id="btnInstallPwa" class="btn ghost hidden" title="Install app">
-          ⬇️ Install
-        </button>
-        <a id="btnLogin" class="btn" href="./login.html">Login</a>
-        <a id="btnSignup" class="btn" href="./login.html#signup">Sign up</a>
-        <div id="userMenu" class="user-menu hidden">
-          <span id="userName"></span>
-          <button id="btnLogoutTop" class="btn ghost">Logout</button>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>OpenLearn Lite</title>
+
+<!-- config FIRST -->
+<script src="/config.js"></script>
+
+<link rel="manifest" href="/manifest.json"/>
+<link rel="icon" href="/icons/icon-192.png"/>
+<link rel="stylesheet" href="/styles.css"/>
+
+<!-- PayPal SDK (auto inject if client id present) -->
+<script>
+(function(){
+  const id=(window.OPENLEARN_CFG?.paypalClientId||"").trim();
+  if(!id) return; const s=document.createElement("script");
+  s.src=`https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(id)}&currency=USD`;
+  s.async=true; document.head.appendChild(s);
+})();
+</script>
+</head>
+<body>
+
+<header id="topbar" class="bar">
+  <button id="btn-burger" class="btn icon" aria-label="Menu">☰</button>
+  <div id="logo">🎓 OpenLearn</div>
+  <input id="topSearch" placeholder="Search courses…"/>
+  <div class="grow"></div>
+  <button id="btn-login" class="btn">Login</button>
+  <button id="btn-logout" class="btn" style="display:none">Logout</button>
+  <button id="btn-ann" class="btn icon" title="Announcements" aria-label="Announcements">📣</button>
+  <button id="btn-final" class="btn icon" title="Final Exam" aria-label="Final">🎯</button>
+</header>
+
+<aside id="sidebar" class="compact">
+  <nav>
+    <button class="navbtn" data-page="dashboard" title="Dashboard"><i>🏠</i><span>Dashboard</span></button>
+    <button class="navbtn" data-page="catalog" title="Courses"><i>📚</i><span>Courses</span></button>
+    <button class="navbtn" data-page="mylearning" title="My Learning"><i>🎒</i><span>My Learning</span></button>
+    <button class="navbtn" data-page="gradebook" title="Gradebook"><i>🗂️</i><span>Gradebook</span></button>
+    <button class="navbtn" data-page="profile" title="Profile"><i>👤</i><span>Profile</span></button>
+    <button class="navbtn" data-page="admin" title="Admin"><i>🛠️</i><span>Admin</span></button>
+    <button class="navbtn" data-page="livechat" title="Live Chat"><i>💬</i><span>Live Chat</span></button>
+    <button class="navbtn" data-page="settings" title="Settings"><i>⚙️</i><span>Settings</span></button>
+  </nav>
+</aside>
+
+<main id="main">
+  <!-- Auth full-screen (signed-out view) -->
+  <section id="page-auth" class="page">
+    <dialog id="authModal" class="card ol-modal open">
+      <div class="logo-lg">🎓 OpenLearn</div>
+      <form id="authLogin" class="stack" method="dialog">
+        <label>Email <input id="loginEmail" type="email" required></label>
+        <label>Password <input id="loginPass" type="password" required></label>
+        <button id="doLogin" class="btn primary" type="submit">Login</button>
+        <div class="row between">
+          <a href="#" id="linkSignup">Sign up</a>
+          <a href="#" id="linkForgot">Forgot?</a>
         </div>
-      </div>
-    </header>
-
-    <!-- Mobile search overlay -->
-    <div id="mobileSearchPanel" class="mobile-search hidden">
-      <input id="mSearchInput" type="search" placeholder="Search courses…" />
-      <button id="mSearchGo" class="btn">Go</button>
-      <button id="mSearchClose" class="btn ghost">Close</button>
-    </div>
-
-    <!-- Sidebar (icons only; hover→expand→labels) -->
-    <aside id="sidebar" class="sidebar" aria-label="Sidebar">
-      <nav class="side-nav">
-        <button
-          class="side-item active"
-          data-page="courses"
-          data-label="Courses"
-        >
-          <span class="ico">📚</span><span class="side-label">Courses</span>
-        </button>
-        <button
-          class="side-item"
-          data-page="mylearning"
-          data-label="My Learning"
-        >
-          <span class="ico">🎒</span><span class="side-label">My Learning</span>
-        </button>
-        <button class="side-item" data-page="gradebook" data-label="Gradebook">
-          <span class="ico">🧮</span><span class="side-label">Gradebook</span>
-        </button>
-
-        <!-- Student Dashboard -->
-        <button class="side-item" data-page="dashboard" data-label="Dashboard">
-          <span class="ico">📰</span><span class="side-label">Dashboard</span>
-        </button>
-
-        <!-- Admin section (Admin icon မလိုတော့) -->
-        <!-- <div class="side-section-title" data-label="Admin">
-          <span class="ico">🛡️</span><span class="side-label">Admin</span>
-        </div> -->
-        <div class="side-group" data-group="admin">
-          <button
-            class="side-item"
-            data-page="admin"
-            data-label="Admin Dashboard"
-          >
-            <span class="ico">🛠️</span><span class="side-label">Admin</span>
-          </button>
-          <button
-            class="side-item"
-            data-page="analytics"
-            data-label="Analytics"
-          >
-            <span class="ico">📊</span><span class="side-label">Analytics</span>
-          </button>
-        </div>
-
-        <!-- Personal (Profile icon တစ်ခုပဲ ထား; မလိုရင် ဖျက်နိုင်) -->
-        <!-- <div class="side-section-title" data-label="Personal">
-          <span class="ico">👤</span><span class="side-label">Personal</span>
-        </div> -->
-        <div class="side-group" data-group="personal">
-          <button class="side-item" data-page="profile" data-label="Profile">
-            <span class="ico">📇</span><span class="side-label">Profile</span>
-          </button>
-          <button class="side-item" data-page="settings" data-label="Settings">
-            <span class="ico">⚙️</span><span class="side-label">Settings</span>
-          </button>
-        </div>
-      </nav>
-    </aside>
-
-    <!-- Main -->
-    <main class="content">
-      <!-- Courses -->
-      <section id="page-courses" class="page visible">
-        <div class="page-head">
-          <h2>Courses</h2>
-          <div class="row">
-            <button id="btnAddSample" class="btn primary">
-              ＋ Add sample data
-            </button>
-          </div>
-        </div>
-        <div class="filters">
-          <select id="filterCategory">
-            <option value="">All Categories</option>
-          </select>
-          <select id="filterLevel">
-            <option value="">All Levels</option>
-            <option>Beginner</option>
-            <option>Intermediate</option>
-            <option>Advanced</option>
-          </select>
-          <select id="sortBy">
-            <option value="title-asc">Title ↑</option>
-            <option value="title-desc">Title ↓</option>
-            <option value="price-asc">Price ↑</option>
-            <option value="price-desc">Price ↓</option>
-          </select>
-        </div>
-        <div id="courseGrid" class="cards"></div>
-      </section>
-
-      <!-- My Learning -->
-      <section id="page-mylearning" class="page">
-        <div class="page-head"><h2>My Learning</h2></div>
-        <div id="myCourses" class="cards"></div>
-
-        <!-- Inside #page-mylearning -->
-        <article id="reader" class="reader card hidden">
-          <div class="reader-top row between">
-            <div class="row">
-              <button id="rdBack" class="btn">← Back</button>
-              <button id="rdBookmark" class="btn ghost">🔖 Bookmark</button>
-              <button id="rdNote" class="btn ghost">📝 Add Note</button>
-              <button id="rdNotes" class="btn ghost">📒 View Notes</button>
-            </div>
-            <div class="small" id="rdMeta">Score: — • Credits: —</div>
-          </div>
-          <div class="progress"><i id="rdProgress" style="width: 0%"></i></div>
-          <div id="rdTitle" class="h3" style="margin: 8px 0 4px 0"></div>
-          <div id="rdPage" class="rd-body"></div>
-          <div class="row between rd-pager">
-            <button id="rdPrev" class="btn">Prev</button>
-            <div class="small muted" id="rdPageInfo">1 / 1</div>
-            <button id="rdNext" class="btn">Next</button>
-          </div>
-        </article>
-
-        <!-- Notes dialog -->
-        <dialog id="dlgNotes">
-          <article class="stack">
-            <h3>Your Notes</h3>
-            <div id="notesList" class="stack"></div>
-            <menu><button class="btn dlg-close">Close</button></menu>
-          </article>
-        </dialog>
-      </section>
-
-      <!-- Gradebook -->
-      <section id="page-gradebook" class="page">
-        <div class="page-head"><h2>Gradebook</h2></div>
-        <table class="table" id="gbTable">
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Course</th>
-              <th>Score</th>
-              <th>Credits</th>
-              <th>Progress</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </section>
-
-      <!-- Student Dashboard -->
-      <section id="page-dashboard" class="page">
-        <div class="page-head">
-          <h2>Student Dashboard</h2>
-          <div class="row">
-            <input id="annTitle" placeholder="Announcement…" />
-            <button id="btnAnnPost" class="btn">Post</button>
-          </div>
-        </div>
-        <div id="annList" class="stack"></div>
-      </section>
-
-      <!-- Admin -->
-      <section id="page-admin" class="page">
-        <div class="page-head">
-          <h2>Admin Dashboard</h2>
-          <button id="btnNewCourse" class="btn">＋ New course</button>
-        </div>
-        <div class="card">
-          <h4>Courses (manage)</h4>
-          <table class="table" id="adminTable">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Level</th>
-                <th>Rating</th>
-                <th>Hours</th>
-                <th>Price</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Analytics -->
-      <section id="page-analytics" class="page">
-        <h2>Analytics</h2>
-        <div class="grid2">
-          <div class="card">
-            <h4>Active Learners</h4>
-            <div id="anActive" class="stat">—</div>
-          </div>
-          <div class="card">
-            <h4>Enrollments</h4>
-            <div id="anEnroll" class="stat">—</div>
-          </div>
-          <div class="card">
-            <h4>Avg Rating</h4>
-            <div id="anRating" class="stat">—</div>
-          </div>
-          <div class="card">
-            <h4>Revenue (demo)</h4>
-            <div id="anRevenue" class="stat">—</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Profile -->
-      <section id="page-profile" class="page">
-        <h2>Profile</h2>
-        <div class="grid2">
-          <div class="card">
-            <h4>Student</h4>
-            <div id="pfEmail" class="muted">—</div>
-          </div>
-          <div class="card">
-            <h4>Certificates</h4>
-            <div class="muted">Download from course pages.</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Settings -->
-      <section id="page-settings" class="page">
-        <h2>Settings</h2>
-        <div class="grid2">
-          <div class="card">
-            <h4>Theme palette</h4>
-            <select id="themeSelect">
-              <option value="dark">Dark (Default)</option>
-              <option value="light">Light</option>
-              <option value="ocean">Ocean</option>
-              <option value="forest">Forest</option>
-              <option value="grape">Grape</option>
-              <option value="solarized">Solarized</option>
-              <option value="rose">Rose</option>
-              <option value="bumblebee">Bumblebee</option>
-            </select>
-          </div>
-          <div class="card">
-            <h4>Font size</h4>
-            <select id="fontSelect">
-              <option>13</option>
-              <option selected>14</option>
-              <option>15</option>
-              <option>16</option>
-              <option>17</option>
-              <option>18</option>
-              <option>19</option>
-              <option>20</option>
-            </select>
-            <div class="muted" id="fontPreview">14 px</div>
-          </div>
-        </div>
-      </section>
-      <section id="page-dashboard" class="page hidden">
-        <div class="card">
-          <h3>Student Dashboard</h3>
-          <div class="row">
-            <div class="grow">
-              <div id="chatBox" class="chat-box"></div>
-              <div class="row">
-                <input
-                  id="chatInput"
-                  class="grow"
-                  placeholder="Type a message…"
-                />
-                <button id="chatSend" class="btn">Send</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-      <script>
-        document.addEventListener("DOMContentLoaded", () => {
-          initChat().catch(() => {});
-        });
-      </script>
-    </main>
-
-    <!-- Footer (icons + info pages) -->
-    <footer class="footer">
-      <div class="row wrap">
-        <a href="#" data-open-static="contact">Contact</a>
-        <a href="#" data-open-static="guide">Guide</a>
-        <a href="#" data-open-static="privacy">Privacy</a>
-        <a href="#" data-open-static="policy">Policy</a>
-        <span class="grow"></span>
-
-        <!-- Real brand SVG icons (inline) -->
-        <a
-          class="soc"
-          aria-label="YouTube"
-          href="https://youtube.com"
-          target="_blank"
-          rel="noopener"
-        >
-          <!-- YouTube (Simple Icons path) -->
-          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <path
-              d="M23.498 6.186a3.002 3.002 0 0 0-2.113-2.125C19.6 3.5 12 3.5 12 3.5s-7.6 0-9.385.561A3.002 3.002 0 0 0 .502 6.186C0 7.98 0 12 0 12s0 4.02.502 5.814a3.002 3.002 0 0 0 2.113 2.125C4.4 20.5 12 20.5 12 20.5s7.6 0 9.385-.561a3.002 3.002 0 0 0 2.113-2.125C24 16.02 24 12 24 12s0-4.02-.502-5.814zM9.75 15.568V8.432L15.818 12 9.75 15.568z"
-            />
-          </svg>
-        </a>
-        <a
-          class="soc"
-          aria-label="TikTok"
-          href="https://tiktok.com"
-          target="_blank"
-          rel="noopener"
-        >
-          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <path
-              d="M12.5 2h3.09a6.9 6.9 0 0 0 6.41 6.41v3.12a9.97 9.97 0 0 1-6.41-2.21v6.88A7.7 7.7 0 1 1 8 8.7v3.33a3.96 3.96 0 1 0 5.5 3.72V2z"
-            />
-          </svg>
-        </a>
-        <a
-          class="soc"
-          aria-label="Facebook"
-          href="https://facebook.com"
-          target="_blank"
-          rel="noopener"
-        >
-          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <path
-              d="M22.676 0H1.326C.594 0 0 .593 0 1.326v21.348C0 23.406.594 24 1.326 24H12.82v-9.294H9.692V11.08h3.127V8.41c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24h-1.918c-1.504 0-1.796.715-1.796 1.765v2.311h3.592l-.468 3.625h-3.124V24h6.128C23.406 24 24 23.406 24 22.674V1.326C24 .593 23.406 0 22.676 0"
-            />
-          </svg>
-        </a>
-        <a
-          class="soc"
-          aria-label="Instagram"
-          href="https://instagram.com"
-          target="_blank"
-          rel="noopener"
-        >
-          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <path
-              d="M12 2.163c3.204 0 3.584.012 4.85.07 1.366.062 2.633.35 3.608 1.325.975.975 1.263 2.242 1.325 3.608.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.062 1.366-.35 2.633-1.325 3.608-.975.975-2.242 1.263-3.608 1.325-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-1.366-.062-2.633-.35-3.608-1.325-.975-.975-1.263-2.242-1.325-3.608C2.175 15.584 2.163 15.204 2.163 12s.012-3.584.07-4.85c.062-1.366.35-2.633 1.325-3.608C4.533 2.583 5.8 2.295 7.166 2.233 8.432 2.175 8.812 2.163 12 2.163zm0 1.622c-3.153 0-3.522.012-4.764.069-1.031.047-1.593.22-1.964.392-.495.23-.85.506-1.223.879-.373.373-.649.728-.879 1.223-.173.371-.345.933-.392 1.964-.057 1.242-.069 1.611-.069 4.764s.012 3.522.069 4.764c.047 1.031.22 1.593.392 1.964.23.495.506.85.879 1.223.373.373.728.649 1.223.879.371.173.933.345 1.964.392 1.242.057 1.611.069 4.764.069s3.522-.012 4.764-.069c1.031-.047 1.593-.22 1.964-.392.495-.23.85-.506 1.223-.879.373-.373.649-.728.879-1.223.173-.371.345-.933.392-1.964.057-1.242.069-1.611.069-4.764s-.012-3.522-.069-4.764c-.047-1.031-.22-1.593-.392-1.964-.23-.495-.506-.85-.879-1.223-.373-.373-.728-.649-1.223-.879-.371-.173-.933-.345-1.964-.392-1.242-.057-1.611-.069-4.764-.069zm0 3.351A4.864 4.864 0 1 1 7.136 12 4.864 4.864 0 0 1 12 7.136zm0 8.028A3.164 3.164 0 1 0 8.836 12 3.164 3.164 0 0 0 12 15.164zm5.2-8.8a1.136 1.136 0 1 1-1.136-1.136A1.136 1.136 0 0 1 17.2 6.364z"
-            />
-          </svg>
-        </a>
-        <a
-          class="soc"
-          aria-label="Twitter/X"
-          href="https://twitter.com"
-          target="_blank"
-          rel="noopener"
-        >
-          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <path
-              d="M18.244 2H21.5l-7.62 8.705L22.5 22h-7.3l-5.71-6.622L3.5 22H.244l8.18-9.353L-.5 2h7.42l5.153 5.975L18.244 2zm-1.28 18h2.004L7.14 4H5.022l11.942 16z"
-            />
-          </svg>
-        </a>
-      </div>
-    </footer>
-
-    <!-- New Course Dialog -->
-    <dialog id="dlgCourse">
-      <form id="formCourse" method="dialog" class="stack big-form">
-        <h3>New Course</h3>
-        <input id="cTitle" placeholder="Title" required />
-        <input id="cCategory" placeholder="Category" />
-        <select id="cLevel">
-          <option>Beginner</option>
-          <option>Intermediate</option>
-          <option>Advanced</option>
-        </select>
-        <input
-          id="cRating"
-          type="number"
-          min="0"
-          max="5"
-          step="0.1"
-          value="4.6"
-          placeholder="Rating (0-5)"
-        />
-        <input
-          id="cHours"
-          type="number"
-          min="1"
-          step="1"
-          value="8"
-          placeholder="Hours"
-        />
-        <input id="cImage" type="url" placeholder="Cover image URL" />
-        <input id="cPrice" type="number" placeholder="Price (USD)" />
-        <input id="cCredits" type="number" placeholder="Credits (e.g., 3)" />
-        <textarea id="cSummary" placeholder="Description" rows="6"></textarea>
-        <menu class="row between">
-          <button class="btn primary">Create</button>
-          <button type="button" class="btn ghost dlg-close">Close</button>
-        </menu>
+      </form>
+      <form id="authSignup" class="stack ol-hidden" method="dialog">
+        <label>Email <input id="signupEmail" type="email" required></label>
+        <label>Password <input id="signupPass" type="password" required></label>
+        <button id="doSignup" class="btn primary" type="submit">Create account</button>
+        <div class="row"><a href="#" id="backToLogin1">Back to login</a></div>
+      </form>
+      <form id="authForgot" class="stack ol-hidden" method="dialog">
+        <label>Email <input id="forgotEmail" type="email" required></label>
+        <button id="doForgot" class="btn">Send reset link</button>
+        <div class="row"><a href="#" id="backToLogin2">Back to login</a></div>
       </form>
     </dialog>
+  </section>
 
-    <!-- Static page modal -->
-    <dialog id="dlgStatic">
-      <article class="stack">
-        <h3 id="stTitle">Info</h3>
-        <div id="stBody" class="muted"></div>
-        <menu><button class="btn dlg-close">Close</button></menu>
-      </article>
-    </dialog>
+  <!-- Catalog -->
+  <section id="page-catalog" class="page active">
+    <div class="row">
+      <div class="row" style="gap:8px">
+        <select id="filterCategory"><option value="">All Categories</option></select>
+        <select id="filterLevel">
+          <option value="">All Levels</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+        </select>
+        <select id="sortBy">
+          <option value="">Sort</option>
+          <option value="title-asc">Title ↑</option>
+          <option value="title-desc">Title ↓</option>
+          <option value="price-asc">Price ↑</option>
+          <option value="price-desc">Price ↓</option>
+        </select>
+      </div>
+      <div class="grow"></div>
+      <button class="btn" id="btn-add-samples">Add sample data</button>
+      <button class="btn" id="btn-new-course">New Course</button>
+    </div>
+    <div id="catalog-grid" class="grid"></div>
+  </section>
 
-    <div id="toast"></div>
-    <script type="module" src="./firebase.js"></script>
-    <script type="module" src="./app.js"></script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("/sw.js").catch(() => {});
-      }
-    </script>
-  </body>
+  <!-- My Learning (reader viewport built in-place) -->
+  <section id="page-mylearning" class="page">
+    <div id="mylearn-grid" class="grid"></div>
+    <div id="reader" class="rd card hidden">
+      <div class="row between">
+        <div class="row" style="gap:6px">
+          <button class="btn" id="rdBack">← Back</button>
+          <div id="rdTitle" class="h4"></div>
+        </div>
+        <div class="row" style="gap:6px">
+          <button class="btn" id="rdBookmark">🔖 Bookmark</button>
+          <button class="btn" id="rdNote">📝 Note</button>
+        </div>
+      </div>
+      <div class="prog"><div id="rdProgress"></div></div>
+      <div id="rdPage" class="rd-body"></div>
+      <div class="row between">
+        <span id="rdPageInfo" class="muted"></span>
+        <div class="row" style="gap:6px">
+          <button class="btn" id="rdPrev">Prev</button>
+          <button class="btn primary" id="rdNext">Next</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gradebook -->
+  <section id="page-gradebook" class="page">
+    <h2>Gradebook</h2>
+    <table class="ol-table" id="gbTable">
+      <thead><tr><th>Student</th><th>Course</th><th>Score</th><th>Credits</th><th>Progress</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="row" style="margin-top:8px">
+      <button id="btn-cert" class="btn">Generate Certificate (PDF)</button>
+      <button id="btn-trans" class="btn">Transcript (PDF)</button>
+    </div>
+  </section>
+
+  <!-- Dashboard (Announcements + Calendar quick) -->
+  <section id="page-dashboard" class="page">
+    <div class="row between">
+      <h2>Dashboard</h2>
+      <button id="btn-new-ann" class="btn primary">+ Add Announcement</button>
+    </div>
+    <div id="annList" class="stack"></div>
+    <div class="card">
+      <div class="row between">
+        <h3 class="h4">Student Calendar</h3>
+        <div class="row"><input id="calTitle" placeholder="Event title"/><input id="calDate" type="date"/><button class="btn" id="addCal">Add</button></div>
+      </div>
+      <div id="calList" class="stack" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <!-- Admin -->
+  <section id="page-admin" class="page">
+    <div class="row between">
+      <h2>Admin · Courses</h2>
+    </div>
+    <div class="card">
+      <table class="ol-table" id="adminCourseTable">
+        <thead><tr><th>ID</th><th>Title</th><th>Category</th><th>Level</th><th>Price</th><th>Rating</th><th>Hours</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Profile -->
+  <section id="page-profile" class="page">
+    <div class="row between"><h2>Profile</h2>
+      <div class="row"><button class="btn" id="btn-edit-profile">Edit</button><button class="btn" id="btn-view-card">View Card</button></div>
+    </div>
+    <div id="profilePanel" class="card"></div>
+  </section>
+
+  <!-- Settings -->
+  <section id="page-settings" class="page">
+    <h2>Settings</h2>
+    <div id="settingsPanel" class="card narrow">
+      <div class="row">
+        <label>Theme&nbsp;
+          <select id="themeSel">
+            <option value="dark">Dark</option><option value="rose">Rose</option><option value="amber">Amber</option>
+            <option value="slate">Slate</option><option value="emerald">Emerald</option><option value="purple">Purple</option>
+            <option value="orange">Orange</option><option value="teal">Teal</option><option value="indigo">Indigo</option><option value="ocean" selected>Ocean</option>
+          </select>
+        </label>
+        <div class="grow"></div>
+        <label>Font&nbsp;
+          <select id="fontSel">
+            <option value="14px">Small</option><option value="16px">Base</option><option value="18px" selected>Comfortable</option><option value="20px">Large</option><option value="22px">XL</option>
+          </select>
+        </label>
+      </div>
+      <p class="muted">Changes apply instantly site-wide.</p>
+    </div>
+  </section>
+
+  <!-- Link Pages -->
+  <section id="page-contact" class="page"><h2>Contact</h2><div class="card page-hero contact">
+    <div class="row"><input id="cName" placeholder="Your name"/><input id="cEmail" type="email" placeholder="you@example.com"/></div>
+    <textarea id="cMsg" rows="5" placeholder="How can we help?"></textarea>
+    <div class="row" style="justify-content:flex-end"><button id="cSend" class="btn primary">Send</button></div>
+    <div id="cStatus" class="muted" style="margin-top:6px"></div>
+  </div></section>
+
+  <section id="page-guide" class="page"><h2>Guide</h2><div class="card page-hero guide"></div></section>
+  <section id="page-privacy" class="page"><h2>Privacy</h2><div class="card page-hero privacy"></div></section>
+  <section id="page-policy" class="page"><h2>Policy</h2><div class="card page-hero policy"></div></section>
+
+  <footer id="footer">
+    <div class="row">
+      <div class="grow"><span id="copyYear">© OpenLearn</span> ·
+        <a href="#" data-link="contact">Contact</a> · <a href="#" data-link="guide">Guide</a> ·
+        <a href="#" data-link="privacy">Privacy</a> · <a href="#" data-link="policy">Policy</a>
+      </div>
+      <div class="row" style="gap:10px">
+        <!-- social svg icons -->
+        <a href="#" title="YouTube" aria-label="YouTube"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.7 3.5 12 3.5 12 3.5s-7.7 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.7.6 9.4.6 9.4.6s7.7 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.5 15.5v-7l6 3.5-6 3.5Z"/></svg></a>
+        <a href="#" title="TikTok" aria-label="TikTok"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21 8.3a7 7 0 0 1-4.9-2V16a6 6 0 1 1-6-6c.3 0 .7 0 1 .1V13a3 3 0 1 0 3 3V2h2a5 5 0 0 0 4 3.9V8.3Z"/></svg></a>
+        <a href="#" title="Facebook" aria-label="Facebook"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M13 22v-9h3l1-4h-4V6a2 2 0 0 1 2-2h2V1h-3a5 5 0 0 0-5 5v3H6v4h3v9h4Z"/></svg></a>
+        <a href="#" title="Instagram" aria-label="Instagram"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm8-1a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V6Zm-4 5a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm2-5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg></a>
+        <a href="#" title="Twitter/X" aria-label="Twitter"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h3l-7 8 8 12h-6l-5-7-5 7H0l8-10L1 2h6l4 6 7-6Z"/></svg></a>
+      </div>
+    </div>
+  </footer>
+</main>
+
+<!-- app modules -->
+<script type="module" src="/firebase.js"></script>
+<script type="module" src="/app.js"></script>
+</body>
 </html>
