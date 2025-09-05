@@ -58,12 +58,13 @@
 /* Ensure main not hidden behind sidebar (collapsed ~60px) */
 #main { padding-left: 60px; }
 
-/* Small helpers */
+/* Generic helpers */
+.hidden{ display:none !important; }
 .chip{ display:inline-block; padding:.2rem .5rem; border-radius:999px; background:#1114; }
 .muted{ color:#8aa; }
 .small{ font-size:.875rem; }
 .row{ display:flex; gap:.5rem; align-items:center; }
 .stack{ display:flex; flex-direction:column; gap:.5rem; }
 .card{ border:1px solid #1f2a3b; background:#111827; border-radius:12px; }
-.btn{ padding:.5rem .75rem; border:1px solid #1f2a3b; border-radius:10px; cursor:pointer; background:#0f172a; color:#eaf1ff; }
+.btn{ padding:.5rem .75rem; border:1px solid #1f2a3b; border-radius:10px; cursor:pointer; background:#0f172a; color:#e7ecf3; }
 .btn.primary{ background:#2563eb; border-color:#2563eb; color:#fff; }

@@ -7,7 +7,7 @@ import {
 /* ================== helpers ================== */
 const $  = (s,root=document)=>root.querySelector(s);
 const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
-const esc = (s)=> String(s ?? "").replace(/[&<>\"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const esc = (s)=> String(s ?? "").replace(/[&<>\"']/g, c=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 const toast=(m,ms=2000)=>{let t=$("#toast"); if(!t){t=document.createElement("div");t.id="toast";document.body.appendChild(t);} t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),ms);};
 const readJSON=(k,d)=>{ try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d));}catch{ return d; } };
 const writeJSON=(k,v)=> localStorage.setItem(k, JSON.stringify(v));
@@ -137,6 +137,8 @@ async function safeAddCourse(payload){
 }
 
 /* ================== samples ================== */
+function renderAnalytics(){ /* no-op to avoid ReferenceError if analytics hidden */ }
+
 async function addSamples(){
   const base=[
     {title:"JavaScript Essentials", category:"Web",  level:"Beginner",     price:0,  credits:3, rating:4.7, hours:10, summary:"Start JavaScript from zero.", image:""},
@@ -149,7 +151,7 @@ async function addSamples(){
   ];
   for (const c of base) await safeAddCourse({ ...c, createdAt: Date.now(), progress:0 });
   toast("Sample courses added");
-  renderCatalog(); renderAdminTable(); renderAnalytics?.();
+  renderCatalog(); renderAdminTable(); renderAnalytics();
 }
 
 /* ================== catalog (Details + Enroll) ================== */
@@ -302,7 +304,7 @@ function renderGradebook(){
     </table>`;
 }
 
-/* ================== Admin (table + modal create basic) ================== */
+/* ================== Admin (table only; create via modal) ================== */
 function renderAdminTable(){
   const tb=$("#adminCourseTable tbody"); if(!tb) return;
   const list=ALL.length?ALL:getLocalCourses();
@@ -333,23 +335,18 @@ function renderAnnouncements(){
     </div>`).join("") : `No announcements yet.`;
 }
 
-/* toolbar: + Add Announcement */
+/* --- toolbar: + Add Announcement & CRUD --- */
 document.addEventListener("click",(e)=>{
-  const add = e.target.closest("#btn-new-post");
-  if(add){
-    $("#postModal")?.showModal();
-  }
+  if(e.target.closest("#btn-new-post")){ $("#postModal")?.showModal(); }
   if(e.target?.id==="closePostModal") $("#postModal")?.close();
 
-  const save = e.target.closest("#savePost");
-  if(save){
+  if(e.target.closest("#savePost")){
     e.preventDefault();
     const t=$("#pmTitle")?.value.trim(); const body=$("#pmBody")?.value.trim();
     if(!t) return alert("Title required");
     const arr=getAnns(); arr.push({id:"a_"+Math.random().toString(36).slice(2,9), title:t, body, ts:Date.now()});
     setAnns(arr); $("#postForm")?.reset(); $("#postModal")?.close(); renderAnnouncements();
   }
-
   const del = e.target.closest("[data-ann-del]");
   if(del){
     const id=del.getAttribute("data-ann-del");
@@ -363,7 +360,7 @@ document.addEventListener("click",(e)=>{
   }
 });
 
-/* ================== Static link pages loader (JSON) ================== */
+/* ================== Static link pages (JSON) ================== */
 async function loadJSON(path){
   const res=await fetch(path,{cache:"no-cache"}); if(!res.ok) throw new Error(`Failed ${path}: ${res.status}`); return res.json();
 }
@@ -382,8 +379,10 @@ document.addEventListener("click",(e)=>{
 let currentUser=null;
 function gateUI(){
   const logged=!!currentUser;
-  $("#btn-login")?.classList.toggle("hidden", logged);
-  $("#btn-logout")?.classList.toggle("hidden", !logged);
+  // explicit inline style to beat any inline display on HTML
+  const loginBtn=$("#btn-login"), logoutBtn=$("#btn-logout");
+  if (loginBtn)  loginBtn.style.display  = logged ? "none" : "";
+  if (logoutBtn) logoutBtn.style.display = logged ? "" : "none";
 }
 onAuthStateChanged(auth, (u)=>{ currentUser=u||null; gateUI(); });
 
@@ -437,8 +436,9 @@ document.addEventListener('click', async (e)=>{
   });
 })();
 
-/* ================== global delegates (Details + Continue) ================== */
+/* ================== global delegates ================== */
 document.addEventListener("click",(e)=>{
+  // Details modal
   const dbtn=e.target.closest("[data-details]");
   if(dbtn){
     const id=dbtn.getAttribute("data-details");
@@ -465,6 +465,7 @@ document.addEventListener("click",(e)=>{
     $("#detailsModal")?.showModal();
   }
 
+  // Continue (reader)
   const cbtn=e.target.closest("[data-continue],[data-read]");
   if(cbtn){
     const id=cbtn.getAttribute("data-continue")||cbtn.getAttribute("data-read");
@@ -475,16 +476,55 @@ document.addEventListener("click",(e)=>{
   }
 });
 
+/* ================== Settings, Samples & New Course wiring ================== */
+function bindSettings(){
+  $("#themeSel")?.addEventListener("change",(e)=>{
+    const v=e.target.value; localStorage.setItem("ol_theme", v); applyPalette(v);
+  });
+  $("#fontSel")?.addEventListener("change",(e)=>{
+    const v=e.target.value; localStorage.setItem("ol_font", String(parseInt(v,10)||16)); applyFont(parseInt(v,10)||16);
+  });
+}
+function bindNewCourse(){
+  $("#btn-new-course")?.addEventListener("click", ()=> $("#courseModal")?.showModal());
+  $("#courseForm")?.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const f=e.currentTarget;
+    const payload={
+      title: f.title.value.trim(),
+      category: f.category.value.trim(),
+      level: f.level.value,
+      price: Number(f.price.value||0),
+      rating: Number(f.rating.value||4.6),
+      hours: Number(f.hours.value||8),
+      credits: Number(f.credits.value||3),
+      image: f.img.value.trim(),
+      summary: f.description.value.trim(),
+      benefits: (f.benefits.value||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
+      createdAt: Date.now()
+    };
+    await safeAddCourse(payload);
+    $("#courseModal")?.close();
+    renderCatalog(); renderAdminTable();
+    toast("Course created");
+  });
+}
+function bindSamples(){
+  $("#btn-add-samples")?.addEventListener("click", ()=> addSamples());
+}
+
 /* ================== Boot ================== */
 document.addEventListener("DOMContentLoaded", async ()=>{
   const t=localStorage.getItem("ol_theme")||"dark";
   const f=Number(localStorage.getItem("ol_font")||"16");
   applyPalette(t); applyFont(f);
+
   initSidebar(); bindSidebarNav(); bindSearch();
+  bindSettings(); bindNewCourse(); bindSamples();
+
   try{ await probeDbOnce(); }catch{}
   await renderCatalog();
   renderAdminTable(); renderAnnouncements();
-  // “Add sample data” / “New course” buttons if present
-  $("#btn-add-samples")?.addEventListener("click", ()=> addSamples());
-  $("#btn-new-course")?.addEventListener("click", ()=> $("#courseModal")?.showModal());
+  // default landing
+  if (!location.hash) showPage("catalog");
 });
