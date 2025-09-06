@@ -1,43 +1,133 @@
-// /firebase.js  (type="module")
+/* firebase.js — ESM build (v10)
+   Make sure config.js is loaded BEFORE this file:
+   <script src="/config.js"></script>
+   <script type="module" src="/firebase.js"></script>
+*/
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth,
+  setPersistence,
+  browserLocalPersistence,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut,
   sendPasswordResetEmail,
   updateProfile,
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
 import {
   getFirestore,
-  collection, addDoc, serverTimestamp,
-  doc, getDoc, getDocs,
-  query, orderBy, where, limit,
-  setDoc, updateDoc, deleteDoc   // ← add these if your app uses them
+  collection,
+  addDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  orderBy,
+  where,
+  limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const CFG_ROOT = (window && window.OPENLEARN_CFG) ? window.OPENLEARN_CFG : null;
-if (!CFG_ROOT || !CFG_ROOT.firebase) {
+/* (Optional) RTDB — used by Live Chat if available */
+import {
+  getDatabase,
+  ref,
+  push,
+  onChildAdded
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+/* ===== Config guard ===== */
+const cfg = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.firebase) || null;
+if (!cfg) {
   throw new Error("config.js missing: window.OPENLEARN_CFG.firebase");
 }
-const firebaseConfig = CFG_ROOT.firebase;
 
-export const app  = initializeApp(firebaseConfig);
+/* ===== Initialize Firebase ===== */
+export const app = initializeApp(cfg);
+
+/* Auth */
 export const auth = getAuth(app);
-export const db   = getFirestore(app);
+setPersistence(auth, browserLocalPersistence).catch(() => {});
+// (Optional) nicer emails for some locales
+try { auth.useDeviceLanguage(); } catch {}
 
-// re-exports (app.js/importsမှာတိတိကျကျ ကိုက်အောင်)
+/* Firestore */
+export const db = getFirestore(app);
+
+/* RTDB (exported for optional chat) */
+export { getDatabase, ref, push, onChildAdded };
+
+/* Re-export frequently used Firebase helpers for convenience */
 export {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut,
   sendPasswordResetEmail,
   updateProfile,
-
-  collection, addDoc, serverTimestamp,
-  doc, getDoc, getDocs,
-  query, orderBy, where, limit,
-  setDoc, updateDoc, deleteDoc
+  signOut,
+  collection,
+  addDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  orderBy,
+  where,
+  limit
 };
+
+/* ===== PayPal SDK injector (optional) =====
+   Use like:
+   import { ensurePayPal } from "./firebase.js";
+   await ensurePayPal(); // window.paypal becomes available
+*/
+export async function ensurePayPal() {
+  const cid = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.paypalClientId) || "";
+  if (!cid) {
+    console.warn("PayPal client ID not set in config.js; demo flow will be used.");
+    return null;
+  }
+  if (window.paypal) return window.paypal;
+  await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(cid)}&currency=USD`;
+    s.async = true;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  return window.paypal || null;
+}
+
+/* ===== EmailJS init helper (optional) =====
+   Use like:
+   import { initEmailJS } from "./firebase.js";
+   initEmailJS();
+*/
+export function initEmailJS() {
+  const e = window.OPENLEARN_CFG && window.OPENLEARN_CFG.emailjs;
+  if (!e || !e.publicKey) {
+    console.warn("EmailJS publicKey not set; contact form will be local-only.");
+    return;
+  }
+  // Load SDK if not present
+  if (!window.emailjs) {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js";
+    s.async = true;
+    s.onload = () => window.emailjs.init(e.publicKey);
+    document.head.appendChild(s);
+  } else {
+    try { window.emailjs.init(e.publicKey); } catch {}
+  }
+}

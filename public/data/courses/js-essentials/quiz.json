@@ -1,0 +1,6 @@
+[
+  { "t": "tf", "q": "Variables declared with const cannot be reassigned.", "a": "t" },
+  { "t": "short", "q": "DOM stands for ____ Object Model.", "a": "document" },
+  { "t": "tf", "q": "querySelectorAll returns a live HTMLCollection.", "a": "f" },
+  { "t": "short", "q": "Method to add an item to the end of an array?", "a": "push" }
+]

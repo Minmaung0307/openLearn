@@ -1,14 +1,29 @@
 {
   "rules": {
-    "rooms": {
-      "$room": {
-        ".read": "auth != null",
-        ".write": "auth != null",
-        "messages": {
-          "$id": {
-            ".validate": "newData.hasChildren(['user','text','ts']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 2000 && newData.child('ts').isNumber()"
+    "status": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users/'+auth.uid+'/role').val() in ['owner','admin','instructor','ta'])",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "chats": {
+      "rooms": {
+        "$roomId": {
+          ".read": "auth != null",
+          "messages": {
+            "$msgId": {
+              ".write": "auth != null && newData.child('uid').val() === auth.uid",
+              ".validate": "newData.hasChildren(['uid','text','ts']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 2000 && newData.child('ts').isNumber()"
+            }
           }
         }
+      }
+    },
+    "announcements": {
+      ".read": true,
+      "$id": {
+        ".write": "auth != null && root.child('users/'+auth.uid+'/role').val() in ['owner','admin']",
+        ".validate": "newData.hasChildren(['title','body','ts'])"
       }
     }
   }

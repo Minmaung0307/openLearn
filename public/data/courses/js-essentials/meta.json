@@ -1,0 +1,7 @@
+{
+  "credits": 3,
+  "lessons": [
+    { "file": "l1.html" },
+    { "file": "l2.html" }
+  ]
+}

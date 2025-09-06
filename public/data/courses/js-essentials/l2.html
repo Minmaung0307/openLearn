@@ -1,0 +1,19 @@
+<h2>DOM Basics</h2>
+<p>The DOM lets you create interactive pages.</p>
+
+<ol>
+  <li>Select elements with <code>document.querySelector</code></li>
+  <li>Change text: <code>el.textContent = "Hello"</code></li>
+  <li>Listen to events: <code>el.addEventListener("click", ...)</code></li>
+</ol>
+
+<div style="padding:12px;border:1px solid #1f2a3b;border-radius:12px;background:#0e1526">
+  <b>Mini exercise:</b>
+  <p>Copy this HTML to a local test page, and wire the button:</p>
+  <pre><code>&lt;button id="btn"&gt;Click me&lt;/button&gt;
+&lt;script&gt;
+document.getElementById("btn").addEventListener("click", () =&gt; {
+  alert("clicked!");
+});
+&lt;/script&gt;</code></pre>
+</div>

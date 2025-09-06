@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "id": "js-essentials",
+      "title": "JavaScript Essentials",
+      "category": "Web",
+      "level": "Beginner",
+      "price": 0,
+      "credits": 3,
+      "rating": 4.7,
+      "hours": 10,
+      "summary": "Start JavaScript from zero.",
+      "image": ""
+    },
+    {
+      "id": "react-fast",
+      "title": "React Fast-Track",
+      "category": "Web",
+      "level": "Intermediate",
+      "price": 49,
+      "credits": 2,
+      "rating": 4.6,
+      "hours": 8,
+      "summary": "Build modern UIs.",
+      "image": ""
+    },
+    {
+      "id": "py-data",
+      "title": "Data Analysis with Python",
+      "category": "Data",
+      "level": "Intermediate",
+      "price": 79,
+      "credits": 3,
+      "rating": 4.8,
+      "hours": 14,
+      "summary": "Pandas & plots.",
+      "image": ""
+    }
+  ]
+}

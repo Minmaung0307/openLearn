@@ -1,26 +1,54 @@
 rules_version = '2';
-function isSignedIn(){ return request.auth != null; }
-function myRole(){
+
+function isSignedIn() { return request.auth != null; }
+function myRole() {
   return isSignedIn()
     ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
     : null;
 }
-function isAdmin(){ return myRole() in ['owner','admin']; }
+function isAdmin() { return myRole() in ['owner','admin']; }
+function isStaff() { return myRole() in ['owner','admin','instructor','ta']; }
+function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Users
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isStaff();
+      // create self only; cannot set privileged role on create
+      allow create: if isSelf(uid)
+        && (!('role' in request.resource.data) || request.resource.data.role == 'student');
+
+      // update: self can't escalate role; staff can update & set any valid role
+      allow update: if isSelf(uid)
+        ? !(('role' in request.resource.data) && request.resource.data.role != resource.data.role)
+        : isStaff();
+    }
+
+    // Courses
     match /courses/{id} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+    }
+
+    // Announcements (Admin only CRUD)
+    match /announcements/{id} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
-    match /users/{uid} {
-      allow read: if isAdmin() || (isSignedIn() && request.auth.uid==uid);
-      allow create: if isSignedIn() && request.auth.uid==uid;
-      allow update: if isAdmin() || (isSignedIn() && request.auth.uid==uid);
+
+    // Enrollments (user-owned)
+    match /enrollments/{id} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && request.auth.uid == resource.data.userId || isStaff();
     }
-    match /announcements/{id} {
-      allow read: if true;
-      allow write: if isAdmin();
+
+    // Quiz attempts (student create/read own; staff manage)
+    match /attempts/{id} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId || isStaff();
+      allow update, delete: if isStaff();
     }
   }
 }

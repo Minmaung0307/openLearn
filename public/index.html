@@ -1,246 +1,599 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>OpenLearn Lite</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>OpenLearn · Modern Lite</title>
 
-<!-- config FIRST -->
-<script src="/config.js"></script>
+    <!-- Icons/Manifest (optional) -->
+    <link rel="icon" href="./icons/icon-192.png" />
+    <link rel="manifest" href="./manifest.json" />
 
-<link rel="manifest" href="/manifest.json"/>
-<link rel="icon" href="/icons/icon-192.png"/>
-<link rel="stylesheet" href="/styles.css"/>
-<link rel="stylesheet" href="/app.extra.css"/>
+    <!-- Theme / UI -->
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./firebase.js"></script>
 
-<!-- PayPal SDK (auto inject if client id present) -->
-<script>
-(function(){
-  const id=(window.OPENLEARN_CFG?.paypalClientId||"").trim();
-  if(!id) return; const s=document.createElement("script");
-  s.src=`https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(id)}&currency=USD`;
-  s.async=true; document.head.appendChild(s);
-})();
-</script>
-</head>
-<body>
+    <!-- if you include config.js -->
+    <script src="./config.js"></script>
 
-<header id="topbar" class="ol-topbar">
-  <div class="tb-row">
-    <div id="logo" class="tb-logo">🎓 OpenLearn</div>
+    <!-- service worker (keeps scope inside /public) -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("./sw.js", { scope: "./" })
+          .catch(console.warn);
+      }
+    </script>
 
-    <div class="tb-search">
-      <input id="topSearch" class="tb-input" placeholder="Search courses…" />
-      <button id="topSearchBtn" class="btn">Search</button>
-    </div>
+    <!-- Config (optional for PayPal / future Firebase) -->
+    <script>
+      window.OPENLEARN_CFG = window.OPENLEARN_CFG || {};
+    </script>
+    <script>
+      /* Optional: set later in your own config.js
+    window.OPENLEARN_CFG = {
+      paypalClientId: "YOUR_PAYPAL_CLIENT_ID" // leave blank to use simulator
+    };
+    */
+      (function injectPayPal() {
+        const id = (window.OPENLEARN_CFG?.paypalClientId || "").trim();
+        if (!id) return;
+        const s = document.createElement("script");
+        s.src =
+          "https://www.paypal.com/sdk/js?client-id=" +
+          encodeURIComponent(id) +
+          "&currency=USD";
+        s.async = true;
+        document.head.appendChild(s);
+      })();
+    </script>
+  </head>
+  <body>
+    <!-- ========== TOPBAR (inline, one row) ========== -->
+    <header class="topbar" id="topbar">
+      <div class="topbar-row">
+        <div class="logo">🎓 OpenLearn</div>
 
-    <div class="tb-spacer"></div>
+        <div class="search-wrap">
+          <input id="topSearch" class="input" placeholder="Search courses…" />
+        </div>
 
-    <div class="tb-actions">
-      <button id="btn-top-ann" class="btn ghost" title="Announcements">📢 Announcements</button>
-      <button id="btn-top-final" class="btn ghost" title="Final Exam">🎯 Final</button>
+        <div class="top-icons">
+          <button
+            id="btn-top-ann"
+            class="icon-pill pill-ann"
+            title="Announcements"
+          >
+            <span class="ico">📣</span><span class="txt">Announce</span>
+          </button>
+          <button
+            id="btn-top-final"
+            class="icon-pill pill-final"
+            title="Final Exam"
+          >
+            <span class="ico">🎯</span><span class="txt">Final</span>
+          </button>
+        </div>
 
-      <button id="btn-login" class="btn primary">Login</button>
-      <button id="btn-logout" class="btn" style="display:none">Logout</button>
-    </div>
-  </div>
-</header>
+        <div class="auth-slot row">
+          <button class="btn" id="btn-login">Login</button>
+          <button class="btn" id="btn-logout" style="display: none">
+            Logout
+          </button>
+          <button id="btn-burger" class="btn" aria-label="Menu">☰</button>
+        </div>
+      </div>
+    </header>
 
-<aside id="sidebar" class="compact">
-  <nav>
-    <button class="navbtn" data-page="dashboard" title="Dashboard"><i>🏠</i><span>Dashboard</span></button>
-    <button class="navbtn" data-page="catalog" title="Courses"><i>📚</i><span>Courses</span></button>
-    <button class="navbtn" data-page="mylearning" title="My Learning"><i>🎒</i><span>My Learning</span></button>
-    <button class="navbtn" data-page="gradebook" title="Gradebook"><i>🗂️</i><span>Gradebook</span></button>
-    <button class="navbtn" data-page="profile" title="Profile"><i>👤</i><span>Profile</span></button>
-    <button class="navbtn" data-page="admin" title="Admin"><i>🛠️</i><span>Admin</span></button>
-    <button class="navbtn" data-page="livechat" title="Live Chat"><i>💬</i><span>Live Chat</span></button>
-    <button class="navbtn" data-page="settings" title="Settings"><i>⚙️</i><span>Settings</span></button>
-  </nav>
-</aside>
+    <!-- ========== SIDEBAR (icon-only; labels on hover/drawer) ========== -->
+    <aside id="sidebar">
+      <nav>
+        <button class="navbtn" data-page="catalog" title="Courses">
+          <i>📚</i><span>Courses</span>
+        </button>
+        <button class="navbtn" data-page="mylearning" title="My Learning">
+          <i>🎒</i><span>My Learning</span>
+        </button>
+        <button class="navbtn" data-page="dashboard" title="Dashboard">
+          <i>🏠</i><span>Dashboard</span>
+        </button>
+        <button class="navbtn" data-page="gradebook" title="Gradebook">
+          <i>🗂️</i><span>Gradebook</span>
+        </button>
+        <button class="navbtn" data-page="finals" title="Final Exam">
+          <i>🎯</i><span>Final Exam</span>
+        </button>
+        <button class="navbtn" data-page="admin" title="Admin">
+          <i>🛠️</i><span>Admin</span>
+        </button>
+        <button class="navbtn" data-page="profile" title="Profile">
+          <i>👤</i><span>Profile</span>
+        </button>
+        <button class="navbtn" data-page="settings" title="Settings">
+          <i>⚙️</i><span>Settings</span>
+        </button>
+        <button class="navbtn" data-page="livechat" title="Live Chat">
+          <i>💬</i><span>Live Chat</span>
+        </button>
+      </nav>
+    </aside>
 
-<main id="main">
-  <!-- Auth full-screen (signed-out view) -->
-  <section id="page-auth" class="page">
-    <dialog id="authModal" class="card ol-modal open">
-      <div class="logo-lg">🎓 OpenLearn</div>
-      <form id="authLogin" class="stack" method="dialog">
-        <label>Email <input id="loginEmail" type="email" required></label>
-        <label>Password <input id="loginPass" type="password" required></label>
-        <button id="doLogin" class="btn primary" type="submit">Login</button>
-        <div class="row between">
+    <!-- ========== MAIN ========== -->
+    <main id="main">
+      <!-- Courses -->
+      <section id="page-catalog" class="page visible">
+        <div class="row" style="margin-bottom: 10px; gap: 8px">
+          <select
+            id="filterCategory"
+            class="input"
+            style="max-width: 220px"
+          ></select>
+          <select id="filterLevel" class="input" style="max-width: 180px">
+            <option value="">All Levels</option>
+            <option>Beginner</option>
+            <option>Intermediate</option>
+            <option>Advanced</option>
+          </select>
+          <select id="sortBy" class="input" style="max-width: 180px">
+            <option value="">Sort</option>
+            <option value="title-asc">Title A–Z</option>
+            <option value="title-desc">Title Z–A</option>
+            <option value="price-asc">Price Low</option>
+            <option value="price-desc">Price High</option>
+          </select>
+          <div class="grow"></div>
+          <button class="btn" id="btn-add-samples">Add sample data</button>
+          <button class="btn primary" id="btn-new-course">+ New Course</button>
+        </div>
+        <div id="courseGrid" class="grid"></div>
+      </section>
+
+      <!-- My Learning -->
+      <section id="page-mylearning" class="page">
+        <div id="myCourses" class="grid"></div>
+
+        <!-- Reader (fullscreen inside the page) -->
+        <div id="reader" class="card hidden" style="margin-top: 12px">
+          <div id="rdBar" class="row">
+            <button class="btn" id="rdBack">← Back</button>
+            <div class="grow"></div>
+            <button class="btn small" id="rdPrev">Prev</button>
+            <span class="small muted" id="rdPageInfo"></span>
+            <button class="btn small" id="rdNext">Next</button>
+            <button class="btn small" id="rdBookmark">🔖</button>
+            <button class="btn small" id="rdNote">📝</button>
+          </div>
+          <div class="progress" id="rdProgressWrap">
+            <div id="rdProgress" class="bar"></div>
+          </div>
+          <h3 id="rdTitle" class="h4" style="margin-top: 10px"></h3>
+          <div
+            id="rdMeta"
+            class="small muted"
+            style="margin: 0.3rem 0 0.6rem"
+          ></div>
+          <div id="rdPage"></div>
+        </div>
+      </section>
+
+      <!-- Dashboard · Announcements -->
+      <section id="page-dashboard" class="page">
+        <div class="row" style="margin-bottom: 10px">
+          <h2 class="h4">Announcements</h2>
+          <div class="grow"></div>
+          <button class="btn primary" id="btn-new-post">
+            + Add Announcement
+          </button>
+        </div>
+        <div id="annList" class="stack"></div>
+      </section>
+
+      <!-- Gradebook -->
+      <section id="page-gradebook" class="page">
+        <div class="card">
+          <h3 class="h4">Gradebook</h3>
+          <table class="ol-table" id="gbTable">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Course</th>
+                <th>Score</th>
+                <th>Credits</th>
+                <th>Progress</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Final Exam (entry page) -->
+      <section id="page-finals" class="page">
+        <div class="card">
+          <div
+            class="row"
+            style="justify-content: space-between; align-items: center"
+          >
+            <h3 class="h4">Final Exam</h3>
+            <button class="btn" id="btn-start-final">
+              Start Final (Random 12)
+            </button>
+          </div>
+          <p class="muted">
+            We’ll pull 12 random questions from your enrolled courses. Score ≥
+            70% to download your Certificate & Transcript.
+          </p>
+          <div id="finalBox"></div>
+        </div>
+      </section>
+
+      <!-- Admin -->
+      <section id="page-admin" class="page">
+        <div class="card">
+          <h3 class="h4">Courses</h3>
+          <table class="ol-table" id="adminTable">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Level</th>
+                <th>Rating</th>
+                <th>Hours</th>
+                <th>Price</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Profile -->
+      <section id="page-profile" class="page">
+        <div class="row" style="margin-bottom: 10px">
+          <h2 class="h4">Profile</h2>
+          <div class="grow"></div>
+          <button class="btn" id="btn-edit-profile">+ Add Profile Data</button>
+        </div>
+        <div id="profilePanel" class="card"></div>
+      </section>
+
+      <!-- Settings -->
+      <section id="page-settings" class="page">
+        <div class="card narrow">
+          <div class="row">
+            <label
+              >Theme&nbsp;
+              <select id="themeSel" class="input" style="max-width: 200px">
+                <option value="dark">Dark</option>
+                <option value="rose">Rose</option>
+                <option value="ocean">Ocean</option>
+                <option value="amber">Amber</option>
+                <option value="slate" selected>Slate</option>
+              </select>
+            </label>
+            <div class="grow"></div>
+            <label
+              >Font size&nbsp;
+              <select id="fontSel" class="input" style="max-width: 160px">
+                <option value="14">Small</option>
+                <option value="16" selected>Base</option>
+                <option value="18">Comfortable</option>
+                <option value="20">Large</option>
+                <option value="22">XL</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Live Chat (local demo) -->
+      <section id="page-livechat" class="page">
+        <div class="card narrow">
+          <div class="row"><h3 class="h4">Live Chat</h3></div>
+          <div id="chatBox" style="max-height: 260px; overflow: auto"></div>
+          <div class="row" style="margin-top: 8px">
+            <input
+              id="chatInput"
+              class="input grow"
+              placeholder="Type a message…"
+            />
+            <button class="btn" id="chatSend">Send</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ========== MODALS ========== -->
+
+    <!-- Login (login-only default; signup/forgot via links) -->
+    <dialog id="authModal" class="ol-modal card auth-modern">
+      <div class="auth-brand">🎓 OpenLearn</div>
+
+      <!-- Login -->
+      <form id="authLogin" class="authpane" method="dialog">
+        <label
+          >Email <input id="loginEmail" class="input" type="email" required
+        /></label>
+        <label
+          >Password
+          <input id="loginPass" class="input" type="password" required
+        /></label>
+        <button class="btn primary wide" id="doLogin" type="submit">
+          Login
+        </button>
+        <div class="auth-links">
           <a href="#" id="linkSignup">Sign up</a>
-          <a href="#" id="linkForgot">Forgot?</a>
+          <a href="#" id="linkForgot">Forgot password?</a>
         </div>
       </form>
-      <form id="authSignup" class="stack ol-hidden" method="dialog">
-        <label>Email <input id="signupEmail" type="email" required></label>
-        <label>Password <input id="signupPass" type="password" required></label>
-        <button id="doSignup" class="btn primary" type="submit">Create account</button>
-        <div class="row"><a href="#" id="backToLogin1">Back to login</a></div>
+
+      <!-- Signup (hidden) -->
+      <form id="authSignup" class="authpane ol-hidden" method="dialog">
+        <label
+          >Email <input id="signupEmail" class="input" type="email" required
+        /></label>
+        <label
+          >Password
+          <input id="signupPass" class="input" type="password" required
+        /></label>
+        <button class="btn primary wide" id="doSignup" type="submit">
+          Create Account
+        </button>
+        <div class="auth-links">
+          <a href="#" id="backToLogin1">Back to login</a>
+        </div>
       </form>
-      <form id="authForgot" class="stack ol-hidden" method="dialog">
-        <label>Email <input id="forgotEmail" type="email" required></label>
-        <button id="doForgot" class="btn">Send reset link</button>
-        <div class="row"><a href="#" id="backToLogin2">Back to login</a></div>
+
+      <!-- Forgot (hidden) -->
+      <form id="authForgot" class="authpane ol-hidden" method="dialog">
+        <label
+          >Email <input id="forgotEmail" class="input" type="email" required
+        /></label>
+        <button class="btn wide" id="doForgot" type="submit">
+          Send Reset Link
+        </button>
+        <div class="auth-links">
+          <a href="#" id="backToLogin2">Back to login</a>
+        </div>
       </form>
     </dialog>
-  </section>
 
-  <!-- Catalog -->
-  <section id="page-catalog" class="page active">
-    <div class="row">
-      <div class="row" style="gap:8px">
-        <select id="filterCategory"><option value="">All Categories</option></select>
-        <select id="filterLevel">
-          <option value="">All Levels</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option>
-        </select>
-        <select id="sortBy">
-          <option value="">Sort</option>
-          <option value="title-asc">Title ↑</option>
-          <option value="title-desc">Title ↓</option>
-          <option value="price-asc">Price ↑</option>
-          <option value="price-desc">Price ↓</option>
-        </select>
+    <!-- Course Details -->
+    <dialog id="detailsModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title">Course Details</b>
+        <button class="btn small" id="closeDetails" type="button">Close</button>
       </div>
-      <div class="grow"></div>
-      <button class="btn" id="btn-add-samples">Add sample data</button>
-      <button class="btn" id="btn-new-course">New Course</button>
-    </div>
-    <div id="catalog-grid" class="grid"></div>
-  </section>
+      <div id="detailsBody"></div>
+    </dialog>
 
-  <!-- My Learning (reader viewport built in-place) -->
-  <section id="page-mylearning" class="page">
-    <div id="mylearn-grid" class="grid"></div>
-    <div id="reader" class="rd card hidden">
-      <div class="row between">
-        <div class="row" style="gap:6px">
-          <button class="btn" id="rdBack">← Back</button>
-          <div id="rdTitle" class="h4"></div>
+    <!-- Payment -->
+    <dialog id="payModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title" id="payTitle">Checkout</b>
+        <button class="btn small" id="closePay" type="button">Close</button>
+      </div>
+      <div id="payBody" class="row" style="flex-wrap: wrap; gap: 12px">
+        <div class="card" style="flex: 1; min-width: 260px">
+          <h3 class="h4">Pay with PayPal (USD)</h3>
+          <div id="paypal-container"></div>
+          <div class="muted" id="paypalNote"></div>
         </div>
-        <div class="row" style="gap:6px">
-          <button class="btn" id="rdBookmark">🔖 Bookmark</button>
-          <button class="btn" id="rdNote">📝 Note</button>
+        <div class="card" style="flex: 1; min-width: 260px">
+          <h3 class="h4">Pay with MMK</h3>
+          <p class="muted">Demo QR → press “I Paid”.</p>
+          <div class="row" style="gap: 10px; flex-wrap: wrap">
+            <img
+              class="qr"
+              alt="CBPay"
+              src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CBPAY-DEMO"
+            />
+            <img
+              class="qr"
+              alt="KBZPay"
+              src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=KBZPAY-DEMO"
+            />
+            <img
+              class="qr"
+              alt="WavePay"
+              src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=WAVEPAY-DEMO"
+            />
+          </div>
+          <button class="btn primary" id="mmkPaid">I Paid (MMK)</button>
         </div>
       </div>
-      <div class="prog"><div id="rdProgress"></div></div>
-      <div id="rdPage" class="rd-body"></div>
-      <div class="row between">
-        <span id="rdPageInfo" class="muted"></span>
-        <div class="row" style="gap:6px">
-          <button class="btn" id="rdPrev">Prev</button>
-          <button class="btn primary" id="rdNext">Next</button>
-        </div>
+    </dialog>
+
+    <!-- New Course -->
+    <dialog id="courseModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title">New Course</b>
+        <button class="btn small" id="courseClose" type="button">Close</button>
       </div>
-    </div>
-  </section>
-
-  <!-- Gradebook -->
-  <section id="page-gradebook" class="page">
-    <h2>Gradebook</h2>
-    <table class="ol-table" id="gbTable">
-      <thead><tr><th>Student</th><th>Course</th><th>Score</th><th>Credits</th><th>Progress</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div class="row" style="margin-top:8px">
-      <button id="btn-cert" class="btn">Generate Certificate (PDF)</button>
-      <button id="btn-trans" class="btn">Transcript (PDF)</button>
-    </div>
-  </section>
-
-  <!-- Dashboard (Announcements + Calendar quick) -->
-  <section id="page-dashboard" class="page">
-    <div class="row between">
-      <h2>Dashboard</h2>
-      <button id="btn-new-ann" class="btn primary">+ Add Announcement</button>
-    </div>
-    <div id="annList" class="stack"></div>
-    <div class="card">
-      <div class="row between">
-        <h3 class="h4">Student Calendar</h3>
-        <div class="row"><input id="calTitle" placeholder="Event title"/><input id="calDate" type="date"/><button class="btn" id="addCal">Add</button></div>
-      </div>
-      <div id="calList" class="stack" style="margin-top:8px"></div>
-    </div>
-  </section>
-
-  <!-- Admin -->
-  <section id="page-admin" class="page">
-    <div class="row between">
-      <h2>Admin · Courses</h2>
-    </div>
-    <div class="card">
-      <table class="ol-table" id="adminCourseTable">
-        <thead><tr><th>ID</th><th>Title</th><th>Category</th><th>Level</th><th>Price</th><th>Rating</th><th>Hours</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- Profile -->
-  <section id="page-profile" class="page">
-    <div class="row between"><h2>Profile</h2>
-      <div class="row"><button class="btn" id="btn-edit-profile">Edit</button><button class="btn" id="btn-view-card">View Card</button></div>
-    </div>
-    <div id="profilePanel" class="card"></div>
-  </section>
-
-  <!-- Settings -->
-  <section id="page-settings" class="page">
-    <h2>Settings</h2>
-    <div id="settingsPanel" class="card narrow">
-      <div class="row">
-        <label>Theme&nbsp;
-          <select id="themeSel">
-            <option value="dark">Dark</option><option value="rose">Rose</option><option value="amber">Amber</option>
-            <option value="slate">Slate</option><option value="emerald">Emerald</option><option value="purple">Purple</option>
-            <option value="orange">Orange</option><option value="teal">Teal</option><option value="indigo">Indigo</option><option value="ocean" selected>Ocean</option>
+      <form id="courseForm" class="authpane">
+        <label>Title <input name="title" class="input" required /></label>
+        <label
+          >Category
+          <input name="category" class="input" value="General" required
+        /></label>
+        <label
+          >Level
+          <select name="level" class="input">
+            <option>Beginner</option>
+            <option>Intermediate</option>
+            <option>Advanced</option>
           </select>
         </label>
-        <div class="grow"></div>
-        <label>Font&nbsp;
-          <select id="fontSel">
-            <option value="14px">Small</option><option value="16px">Base</option><option value="18px" selected>Comfortable</option><option value="20px">Large</option><option value="22px">XL</option>
-          </select>
+        <label
+          >Price (USD)
+          <input name="price" class="input" type="number" step="0.01" value="0"
+        /></label>
+        <label
+          >Rating (0–5)
+          <input
+            name="rating"
+            class="input"
+            type="number"
+            step="0.1"
+            value="4.6"
+        /></label>
+        <label
+          >Hours
+          <input name="hours" class="input" type="number" step="1" value="6"
+        /></label>
+        <label
+          >Credits
+          <input name="credits" class="input" type="number" step="1" value="3"
+        /></label>
+        <label style="grid-column: 1/-1"
+          >Image URL
+          <input name="img" class="input" placeholder="auto if empty"
+        /></label>
+        <label style="grid-column: 1/-1"
+          >Description
+          <textarea name="description" class="input" rows="3"></textarea>
         </label>
+        <label style="grid-column: 1/-1"
+          >Benefits (one per line)
+          <textarea
+            name="benefits"
+            class="input"
+            rows="3"
+            placeholder="Hands-on projects&#10;Downloadable resources&#10;Certificate"
+          ></textarea>
+        </label>
+        <div
+          class="row"
+          style="grid-column: 1/-1; justify-content: flex-end; gap: 8px"
+        >
+          <button class="btn" id="courseCancel" type="button">Cancel</button>
+          <button class="btn primary" id="courseSave" type="submit">
+            Save
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Announcement -->
+    <dialog id="postModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title">New Announcement</b>
+        <button class="btn small" id="closePostModal" type="button">
+          Close
+        </button>
       </div>
-      <p class="muted">Changes apply instantly site-wide.</p>
-    </div>
-  </section>
+      <form id="postForm" class="authpane">
+        <label>Title <input id="pmTitle" class="input" required /></label>
+        <label style="grid-column: 1/-1"
+          >Body
+          <textarea id="pmBody" class="input" rows="6" required></textarea>
+        </label>
+        <div class="row" style="justify-content: flex-end; gap: 8px">
+          <button class="btn" id="cancelPost" type="button">Cancel</button>
+          <button class="btn primary" id="savePost" type="submit">Post</button>
+        </div>
+      </form>
+    </dialog>
 
-  <!-- Link Pages -->
-  <section id="page-contact" class="page"><h2>Contact</h2><div class="card page-hero contact">
-    <div class="row"><input id="cName" placeholder="Your name"/><input id="cEmail" type="email" placeholder="you@example.com"/></div>
-    <textarea id="cMsg" rows="5" placeholder="How can we help?"></textarea>
-    <div class="row" style="justify-content:flex-end"><button id="cSend" class="btn primary">Send</button></div>
-    <div id="cStatus" class="muted" style="margin-top:6px"></div>
-  </div></section>
-
-  <section id="page-guide" class="page"><h2>Guide</h2><div class="card page-hero guide"></div></section>
-  <section id="page-privacy" class="page"><h2>Privacy</h2><div class="card page-hero privacy"></div></section>
-  <section id="page-policy" class="page"><h2>Policy</h2><div class="card page-hero policy"></div></section>
-
-  <footer id="footer">
-    <div class="row">
-      <div class="grow"><span id="copyYear">© OpenLearn</span> ·
-        <a href="#" data-link="contact">Contact</a> · <a href="#" data-link="guide">Guide</a> ·
-        <a href="#" data-link="privacy">Privacy</a> · <a href="#" data-link="policy">Policy</a>
+    <!-- Profile Edit -->
+    <dialog id="profileEditModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title">Add Profile Data</b>
+        <button class="btn small" id="closeProfileModal" type="button">
+          Close
+        </button>
       </div>
-      <div class="row" style="gap:10px">
-        <!-- social svg icons -->
-        <a href="#" title="YouTube" aria-label="YouTube"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.7 3.5 12 3.5 12 3.5s-7.7 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.7.6 9.4.6 9.4.6s7.7 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.5 15.5v-7l6 3.5-6 3.5Z"/></svg></a>
-        <a href="#" title="TikTok" aria-label="TikTok"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21 8.3a7 7 0 0 1-4.9-2V16a6 6 0 1 1-6-6c.3 0 .7 0 1 .1V13a3 3 0 1 0 3 3V2h2a5 5 0 0 0 4 3.9V8.3Z"/></svg></a>
-        <a href="#" title="Facebook" aria-label="Facebook"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M13 22v-9h3l1-4h-4V6a2 2 0 0 1 2-2h2V1h-3a5 5 0 0 0-5 5v3H6v4h3v9h4Z"/></svg></a>
-        <a href="#" title="Instagram" aria-label="Instagram"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm8-1a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V6Zm-4 5a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm2-5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg></a>
-        <a href="#" title="Twitter/X" aria-label="Twitter"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h3l-7 8 8 12h-6l-5-7-5 7H0l8-10L1 2h6l4 6 7-6Z"/></svg></a>
-      </div>
-    </div>
-  </footer>
-</main>
+      <form id="profileForm" class="authpane">
+        <label>Name <input name="displayName" class="input" /></label>
+        <label
+          >Avatar URL
+          <input name="photoURL" class="input" placeholder="https://..."
+        /></label>
+        <label style="grid-column: 1/-1"
+          >Short Bio <textarea name="bio" class="input" rows="3"></textarea>
+        </label>
+        <label style="grid-column: 1/-1"
+          >Skills (comma-separated)
+          <input name="skills" class="input" placeholder="JS, React, UI/UX"
+        /></label>
+        <label style="grid-column: 1/-1"
+          >Portfolio Links (github, linkedin, …)
+          <input name="links" class="input" placeholder="https://..."
+        /></label>
+        <label style="grid-column: 1/-1"
+          >Social Links (YouTube, FB, IG, TikTok, X)
+          <input name="social" class="input" placeholder="https://..."
+        /></label>
+        <div
+          class="row"
+          style="grid-column: 1/-1; justify-content: flex-end; gap: 8px"
+        >
+          <button class="btn" id="cancelProfile" type="button">Cancel</button>
+          <button class="btn primary" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
 
-<!-- app modules -->
-<script type="module" src="/firebase.js"></script>
-<script type="module" src="/app.js"></script>
-</body>
+    <!-- Final Exam modal -->
+    <dialog id="finalModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title">Final Exam</b>
+        <button class="btn small" id="closeFinal" type="button">Close</button>
+      </div>
+      <form id="finalForm" class="stack"></form>
+    </dialog>
+
+    <!-- Toast -->
+    <div id="toast"></div>
+
+    <!-- App -->
+    <script>
+      // point to your real dataset (optional)
+      window.OPENLEARN_DATA_BASE = "/public/data";
+    </script>
+    <script type="module" src="./app.js"></script>
+  </body>
 </html>
