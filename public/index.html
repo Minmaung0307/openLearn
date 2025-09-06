@@ -29,6 +29,7 @@
     <script>
       window.OPENLEARN_CFG = window.OPENLEARN_CFG || {};
     </script>
+    <script src="https://www.paypal.com/sdk/js?client-id=AVpfmQ8DyyatFaAGQ3Jg58XtUt_2cJDr1leqcc_JI8LvKIR2N5WB_yljqCOTTCtvK1hFJ7Q9X0ojXsEC&currency=USD&components=buttons" async></script>
     <script>
       /* Optional: set later in your own config.js
     window.OPENLEARN_CFG = {
@@ -52,37 +53,24 @@
     <!-- ========== TOPBAR (inline, one row) ========== -->
     <header class="topbar" id="topbar">
       <div class="topbar-row">
-        <div class="logo">🎓 OpenLearn</div>
+  <!-- Left: logo + burger -->
+  <button id="btn-burger" aria-label="Menu">☰</button>
+  <div id="logo" class="logo">OpenLearn</div>
 
-        <div class="search-wrap">
-          <input id="topSearch" class="input" placeholder="Search courses…" />
-        </div>
+  <!-- Middle: search (desktop full / mobile icon toggle) -->
+  <div id="topSearchWrap" class="search-wrap">
+    <button id="topSearchToggle" aria-label="Search" class="search-ico">🔍</button>
+    <input id="topSearch" class="input" type="search" placeholder="Search courses…" />
+  </div>
 
-        <div class="top-icons">
-          <button
-            id="btn-top-ann"
-            class="icon-pill pill-ann"
-            title="Announcements"
-          >
-            <span class="ico">📣</span><span class="txt">Announce</span>
-          </button>
-          <button
-            id="btn-top-final"
-            class="icon-pill pill-final"
-            title="Final Exam"
-          >
-            <span class="ico">🎯</span><span class="txt">Final</span>
-          </button>
-        </div>
-
-        <div class="auth-slot row">
-          <button class="btn" id="btn-login">Login</button>
-          <button class="btn" id="btn-logout" style="display: none">
-            Logout
-          </button>
-          <button id="btn-burger" class="btn" aria-label="Menu">☰</button>
-        </div>
-      </div>
+  <!-- Right: announce + final + auth -->
+  <div class="top-right">
+    <button id="btn-top-ann" class="icon-pill pill-ann">🔔 <span class="txt">Announcements</span></button>
+    <button id="btn-top-final" class="icon-pill pill-final">🎓 <span class="txt">Finals</span></button>
+    <button id="btn-login" class="btn">Login</button>
+    <button id="btn-logout" class="btn" style="display:none">Logout</button>
+  </div>
+</div>
     </header>
 
     <!-- ========== SIDEBAR (icon-only; labels on hover/drawer) ========== -->
@@ -431,6 +419,11 @@
       >
         <b class="modal-title">New Course</b>
         <button class="btn small" id="courseClose" type="button">Close</button>
+        <div class="row" style="gap:6px">
+    <button id="btn-export" class="btn small">Export My Courses</button>
+    <input id="importFile" type="file" accept="application/json" hidden>
+    <button id="btn-import" class="btn small">Import</button>
+  </div>
       </div>
       <form id="courseForm" class="authpane">
         <label>Title <input name="title" class="input" required /></label>

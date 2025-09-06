@@ -83,3 +83,41 @@ public/
   }
 };
 window.CONFIG = CONFIG;
+
+
+<div class="topbar-row">
+        <div class="logo">🎓</div>
+
+        <div class="search-wrap">
+          <input id="topSearch" class="input" placeholder="Search courses…" />
+        </div>
+
+        <div class="top-icons">
+          <button
+            id="btn-top-ann"
+            class="icon-pill pill-ann"
+            title="Announcements"
+          >
+            <span class="ico">📣</span><span class="txt"></span>
+          </button>
+          <button
+            id="btn-top-final"
+            class="icon-pill pill-final"
+            title="Final Exam"
+          >
+            <span class="ico">🎯</span><span class="txt"></span>
+          </button>
+        </div>
+
+        <div class="auth-slot row">
+          <!-- <button class="btn" id="btn-login">Login</button>
+          <button class="btn" id="btn-logout" style="display: none">
+            Logout
+          </button> -->
+          <button id="btn-login" class="btn">Login</button>
+          <button id="btn-logout" class="btn" style="display: none">
+            Logout
+          </button>
+          <button id="btn-burger" class="btn" aria-label="Menu">☰</button>
+        </div>
+      </div>
