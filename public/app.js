@@ -1,6 +1,5 @@
 // app.js — OpenLearn (Firebase Auth + RTDB chat, local-first courses)
-// import { remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-// import { getDatabase, ref, push, onChildAdded, remove } from "./firebase.js";
+
 /* ================= Helpers & State ================= */
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -31,6 +30,26 @@ const read = (k, d) => {
   }
 };
 const write = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+// ----- Admin / role helpers (put once, near top-level helpers) -----
+const ADMIN_EMAILS = (window.OPENLEARN_CFG?.admins || []).map(e => (e||"").toLowerCase());
+
+function isLogged(){ try{ return !!(getUser?.() || window.currentUser); }catch{ return false; } }
+
+function getRole(){
+  const u = (getUser?.() || {}) || {};
+  return u.role || "student";
+}
+
+function isAdminLike(){
+  const u = (getUser?.() || {}) || {};
+  const email = (u.email || "").toLowerCase();
+  const role = u.role || "";
+  return role === "owner" || role === "admin" || ADMIN_EMAILS.includes(email);
+}
+
+// (optional) quick toggle for testing
+window.DEBUG_FORCE_DELETE = false; // set to true in console to always show delete
 
 /* === Auth/Role helpers (safe guards) — PLACE NEAR TOP, before chat/RTDB uses === */
 window.getUser = window.getUser || (() => {
@@ -1768,6 +1787,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   applyFont(localStorage.getItem("ol_font") || "16");
 
   // 1) Auth UI + restore user
+  initAuth();                     // wires Firebase Auth + onAuthStateChanged
   initAuthModal?.();                   // wires login/logout + modal panes
   
   const u = (typeof getUser === "function" ? getUser() : null);

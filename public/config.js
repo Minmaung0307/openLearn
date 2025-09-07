@@ -22,5 +22,7 @@ window.OPENLEARN_CFG = {
     templateId: "template_q5q471f"
   },
 
-  chat: { allowAnon: true }
+  chat: { allowAnon: true },
+
+  admins: ["minmaung0307@gmail.com", "panna07@gmail.com"]  // lowercase emails
 };
