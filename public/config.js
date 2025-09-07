@@ -20,5 +20,7 @@ window.OPENLEARN_CFG = {
     publicKey: "WT0GOYrL9HnDKvLUf",
     serviceId: "service_z9tkmvr",
     templateId: "template_q5q471f"
-  }
+  },
+
+  chat: { allowAnon: true }
 };

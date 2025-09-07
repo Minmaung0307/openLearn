@@ -353,6 +353,7 @@ import {
   push,
   onChildAdded,
   remove,
+  signInAnonymously
   // optional PayPal loader (safe if not used)
   // ensurePayPal,
 } from "./firebase.js";
@@ -1442,6 +1443,38 @@ const hasBadWord = (text) => {
   const t = " " + clean(text) + " ";
   return BAD_WORDS.some(w => t.includes(" " + w + " "));
 };
+
+// ---- Chat auth helper ----
+// Ensures we have a Firebase Auth user before writing to RTDB.
+// If OPENLEARN_CFG.chat.allowAnon === true, it will try anonymous sign-in.
+// If anonymous is disabled in your Firebase Auth settings, we’ll show a toast.
+async function ensureAuthForChat() {
+  try {
+    // already authed with Firebase?
+    if (auth?.currentUser) return auth.currentUser;
+
+    // gate: if you want to force real login only, just throw here:
+    // throw new Error("login-required");
+
+    // optional anonymous flow (enable in config + Firebase console)
+    if (window.OPENLEARN_CFG?.chat?.allowAnon === true) {
+      await signInAnonymously(auth);
+      return auth.currentUser;
+    }
+
+    // otherwise require a real login
+    throw new Error("login-required");
+  } catch (e) {
+    // If console shows auth/admin-restricted-operation, enable Anonymous in Firebase Auth → Sign-in method
+    console.warn("ensureAuthForChat:", e);
+    if (String(e?.message || e).includes("login-required")) {
+      toast("Please log in to chat.");
+    } else {
+      toast("Chat auth failed");
+    }
+    throw e;
+  }
+}
 
 // ====== Global chat (dashboard) ======
 function initChatRealtime(){
