@@ -73,10 +73,10 @@ window.getRole = window.getRole || (() => {
   return (window.getUser()?.role) || "student";
 });
 
-window.isAdminLike = window.isAdminLike || (() => {
-  const r = window.getRole();
-  return r === "owner" || r === "admin" || r === "instructor" || r === "ta";
-});
+// window.isAdminLike = window.isAdminLike || (() => {
+//   const r = window.getRole();
+//   return r === "owner" || r === "admin" || r === "instructor" || r === "ta";
+// });
 
 /* ================= THEME ================= */
 const PALETTES = {
@@ -381,9 +381,9 @@ import {
   push,
   onChildAdded,
   remove,
-  signInAnonymously
+  signInAnonymously,
   // optional PayPal loader (safe if not used)
-  // ensurePayPal,
+  ensurePayPal,
 } from "./firebase.js";
 
 // ------- local user state helpers (must be defined early) -------
