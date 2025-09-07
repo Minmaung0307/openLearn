@@ -40,7 +40,8 @@ import {
   getDatabase,
   ref,
   push,
-  onChildAdded
+  onChildAdded,
+  set
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 /* ===== Config guard ===== */
@@ -62,7 +63,7 @@ try { auth.useDeviceLanguage(); } catch {}
 export const db = getFirestore(app);
 
 /* RTDB (exported for optional chat) */
-export { getDatabase, ref, push, onChildAdded };
+export { getDatabase, ref, push, onChildAdded, set };
 
 /* Re-export frequently used Firebase helpers for convenience */
 export {
