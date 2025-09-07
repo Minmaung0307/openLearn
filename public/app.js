@@ -1,19 +1,19 @@
-/* =========================================================
-   OpenLearn · Modern Lite (Local-first + optional Firebase)
-   ========================================================= */
+// =========================================================
+// OpenLearn · Modern Lite (Local-first + optional Firebase)
+// =========================================================
 
-/* ---------- Firebase (everything from firebase.js) ---------- */
+// ---------- Firebase (everything from firebase.js) ----------
 import {
   // Firestore / helpers (you may not use all everywhere; safe to import)
   db,
   collection,
   addDoc,
-  setDoc, 
-  updateDoc, 
+  setDoc,
+  updateDoc,
   deleteDoc,
   serverTimestamp,
-  doc, 
-  getDoc, 
+  doc,
+  getDoc,
   getDocs,
   query,
   orderBy,
@@ -29,34 +29,32 @@ import {
   ref,
   push,
   onChildAdded,
-  set,
+  // NOTE: intentionally NOT importing `set` here to avoid module error
 } from "./firebase.js";
 
-/* ===== Auth/Role helpers (gating) ===== */
+// ===== Auth/Role helpers (gating) =====
 const DEFAULT_ROLE = "student";
 const isLogged = () => !!getUser();
 const getRole = () => getUser()?.role || DEFAULT_ROLE;
 
 function gateUI() {
-  // Body class toggles: locked = not clickable
   document.body.classList.toggle("locked", !isLogged());
 
-  // Top login/logout UI
+  // top login/logout
   const btnLogin = document.getElementById("btn-login");
   const btnLogout = document.getElementById("btn-logout");
   if (btnLogin) btnLogin.style.display = isLogged() ? "none" : "";
   if (btnLogout) btnLogout.style.display = isLogged() ? "" : "none";
 
-  // Role-based visibility: mark body with role class
+  // role marker
   document.body.dataset.role = getRole();
 
-  // Elements that require auth
+  // requires-auth elements
   document.querySelectorAll("[data-requires-auth]").forEach((el) => {
-    if (isLogged()) el.classList.remove("gated");
-    else el.classList.add("gated");
+    el.classList.toggle("gated", !isLogged());
   });
 
-  // Role-limited elements (data-role="admin" / "instructor" / "student")
+  // role-limited (data-role="admin instructor student")
   const role = getRole();
   document.querySelectorAll("[data-role]").forEach((el) => {
     const need = (el.getAttribute("data-role") || "").split(/\s+/);
@@ -64,18 +62,16 @@ function gateUI() {
   });
 }
 
-// Global click guard → login မဝင်ရသေးရင် auth modal ဖွင့်ပြီး event ကိုပိတ်
+// Global click guard — block everything until login (except the auth UI)
 document.addEventListener("click", (e) => {
-  if (isLogged()) return; // already logged in
-  // Allow only: login button + auth modal inside
+  if (isLogged()) return;
   if (e.target.closest("#btn-login") || e.target.closest("#authModal")) return;
   e.preventDefault();
   e.stopPropagation();
-  // open login pane
   if (typeof window._showLoginPane === "function") window._showLoginPane();
 });
 
-/* ---------- helpers ---------- */
+// ---------- helpers ----------
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
 const esc = (s) =>
@@ -106,7 +102,7 @@ const read = (k, d) => {
 };
 const write = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
-/* ---------- theme / font ---------- */
+// ---------- theme / font ----------
 const PALETTES = {
   dark: {
     bg: "#0b0f17",
@@ -163,7 +159,8 @@ const PALETTES = {
     btnPrimaryBg: "#2563eb",
     btnPrimaryFg: "#fff",
   },
-  // === New popular palettes ===
+
+  // Popular extras
   light: {
     bg: "#f8fafc",
     fg: "#1e293b",
@@ -240,7 +237,7 @@ function applyFont(px) {
   document.documentElement.style.setProperty("--fontSize", (px || 16) + "px");
 }
 
-/* ---------- local state ---------- */
+// ---------- local state ----------
 const getCourses = () => read("ol_courses", []);
 const setCourses = (a) => write("ol_courses", a || []);
 const getEnrolls = () => new Set(read("ol_enrolls", []));
@@ -261,7 +258,7 @@ const getUser = () => read("ol_user", null);
 const setUser = (u) => write("ol_user", u);
 let ALL = [];
 
-/* ---------- router ---------- */
+// ---------- router ----------
 function showPage(id) {
   $$(".page").forEach((p) => p.classList.remove("visible"));
   $("#page-" + id)?.classList.add("visible");
@@ -271,9 +268,8 @@ function showPage(id) {
   if (id === "dashboard") renderAnnouncements();
 }
 
-/* ---------- auth (local demo UI) ---------- */
+// ---------- auth (local demo UI) ----------
 let currentUser = null;
-
 function ensureAuthModalMarkup() {
   if (document.getElementById("authModal")) return;
   const html = `
@@ -310,7 +306,6 @@ function ensureAuthModalMarkup() {
     </form>
   </dialog>`;
   document.body.insertAdjacentHTML("beforeend", html);
-  // expose login-pane opener for the global guard
   window._showLoginPane = () => {
     const m = document.getElementById("authModal");
     if (!m) return;
@@ -323,11 +318,6 @@ function ensureAuthModalMarkup() {
 }
 function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
-  // const btnLogin = document.getElementById("btn-login");
-  // const btnLogout = document.getElementById("btn-logout");
-  // if (btnLogin) btnLogin.style.display = on ? "none" : "";
-  // if (btnLogout) btnLogout.style.display = on ? "" : "none";
-  // buttons visibility မဟုတ်ရင် gateUI ထဲမှာ စုစည်းလုပ်နေပြီ
   gateUI();
   showPage("catalog");
   renderProfilePanel?.();
@@ -379,34 +369,22 @@ function initAuthModal() {
 
   $("#doLogin")?.addEventListener("click", (e) => {
     e.preventDefault();
-    const em = document.getElementById("loginEmail")?.value.trim();
-    const pw = document.getElementById("loginPass")?.value;
+    const em = $("#loginEmail")?.value.trim(),
+      pw = $("#loginPass")?.value;
     if (!em || !pw) return toast("Fill email/password");
-    setUser({ email: em, role: DEFAULT_ROLE }); // ← role default
+    setUser({ email: em, role: DEFAULT_ROLE });
     setLogged(true, em);
-    document.getElementById("authModal")?.close();
-    // const em = $("#loginEmail")?.value.trim(),
-    //   pw = $("#loginPass")?.value;
-    // if (!em || !pw) return toast("Fill email/password");
-    // setUser({ email: em });
-    // setLogged(true, em);
-    // modal.close();
+    modal.close();
     toast("Welcome back");
   });
   $("#doSignup")?.addEventListener("click", (e) => {
     e.preventDefault();
-    const em = document.getElementById("signupEmail")?.value.trim();
-    const pw = document.getElementById("signupPass")?.value;
+    const em = $("#signupEmail")?.value.trim(),
+      pw = $("#signupPass")?.value;
     if (!em || !pw) return toast("Fill email/password");
-    setUser({ email: em, role: DEFAULT_ROLE }); // ← role default
+    setUser({ email: em, role: DEFAULT_ROLE });
     setLogged(true, em);
-    document.getElementById("authModal")?.close();
-    // const em = $("#signupEmail")?.value.trim(),
-    //   pw = $("#signupPass")?.value;
-    // if (!em || !pw) return toast("Fill email/password");
-    // setUser({ email: em });
-    // setLogged(true, em);
-    // modal.close();
+    modal.close();
     toast("Account created");
   });
   $("#doForgot")?.addEventListener("click", (e) => {
@@ -418,7 +396,7 @@ function initAuthModal() {
   });
 }
 
-/* ---------- sidebar (hover drawer / burger mobile) ---------- */
+// ---------- sidebar ----------
 function initSidebar() {
   const sb = $("#sidebar"),
     burger = $("#btn-burger");
@@ -447,7 +425,7 @@ function initSidebar() {
   });
 }
 
-/* ---------- search ---------- */
+// ---------- search ----------
 function initSearch() {
   const input = $("#topSearch");
   const apply = () => {
@@ -465,14 +443,11 @@ function initSearch() {
   });
 }
 
-/* ---------- data loaders (supports optional /data) ---------- */
-const DATA_BASE_CANDIDATES = ["data", "./data", "./public/data", "/data"];
+// ---------- data loaders (optional /data) ----------
 let DATA_BASE = null;
-
 async function resolveDataBase() {
   const cfgBase = (window.OPENLEARN_DATA_BASE || "").trim();
-  if (cfgBase) DATA_BASE = cfgBase;
-  else DATA_BASE = null;
+  DATA_BASE = cfgBase || null;
 }
 async function loadJSON(path) {
   const r = await fetch(path, { cache: "no-cache" });
@@ -549,7 +524,7 @@ async function loadCatalog() {
   renderCatalog?.();
 }
 
-/* ---------- samples ---------- */
+// ---------- samples ----------
 async function addSamples() {
   const base = [
     {
@@ -601,7 +576,7 @@ async function addSamples() {
 }
 $("#btn-add-samples")?.addEventListener("click", addSamples);
 
-/* ---------- catalog / details / enroll ---------- */
+// ---------- catalog / details / enroll ----------
 function renderCatalog() {
   const grid = $("#courseGrid");
   if (!grid) return;
@@ -640,16 +615,16 @@ function renderCatalog() {
   }).join("");
 
   // filters
-  const catSel = $("#filterCategory"),
-    lvSel = $("#filterLevel"),
-    sortSel = $("#sortBy");
-  if (catSel)
-    catSel.innerHTML =
+  $("#filterCategory") &&
+    ($("#filterCategory").innerHTML =
       `<option value="">All Categories</option>` +
       [...cats]
         .filter(Boolean)
         .map((x) => `<option>${esc(x)}</option>`)
-        .join("");
+        .join(""));
+  const catSel = $("#filterCategory"),
+    lvSel = $("#filterLevel"),
+    sortSel = $("#sortBy");
   const applyFilters = () => {
     const cat = catSel?.value || "",
       lv = lvSel?.value || "",
@@ -697,25 +672,11 @@ function renderCatalog() {
       (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
     );
 }
-async function markEnrolled(id) {
+function markEnrolled(id) {
   const s = getEnrolls();
   s.add(id);
   setEnrolls(s);
-  // optional RTDB mirror (safe-guard if Firebase is present)
-  try {
-    const u = getUser();
-    if (u?.email) {
-      const dbR = getDatabase?.(db.app); // db.app comes from initialized firebase app
-      if (dbR) {
-        await set(
-          ref(dbR, `enrollments/${encodeURIComponent(u.email)}/${id}`),
-          true
-        );
-      }
-    }
-  } catch (e) {
-    /* ignore */
-  }
+  // (Optional RTDB mirror removed to avoid importing `set`; purely local is fine)
   toast("Enrolled");
   renderCatalog();
   renderMyLearning();
@@ -733,7 +694,6 @@ async function handleEnroll(id) {
   if (container) container.innerHTML = "";
   const note = $("#paypalNote");
 
-  // Try to load PayPal SDK via helper
   try {
     await ensurePayPal();
   } catch {}
@@ -825,7 +785,7 @@ $("#closeDetails")?.addEventListener("click", () =>
   $("#detailsModal")?.close()
 );
 
-/* ---------- My Learning / Reader ---------- */
+// ---------- My Learning / Reader ----------
 function renderMyLearning() {
   const grid = $("#myCourses");
   if (!grid) return;
@@ -966,7 +926,7 @@ function renderPage() {
   }
 }
 
-/* ---------- Gradebook ---------- */
+// ---------- Gradebook ----------
 function renderGradebook() {
   const tb = $("#gbTable tbody");
   if (!tb) return;
@@ -990,7 +950,7 @@ function renderGradebook() {
       .join("") || "<tr><td colspan='5' class='muted'>No data</td></tr>";
 }
 
-/* ---------- Admin ---------- */
+// ---------- Admin ----------
 $("#btn-new-course")?.addEventListener("click", () =>
   $("#courseModal")?.showModal()
 );
@@ -1061,7 +1021,7 @@ function renderAdminTable() {
   );
 }
 
-/* ---------- Announcements ---------- */
+// ---------- Announcements ----------
 $("#btn-new-post")?.addEventListener("click", () =>
   $("#postModal")?.showModal()
 );
@@ -1144,7 +1104,7 @@ function renderAnnouncements() {
   );
 }
 
-/* ---------- Profile ---------- */
+// ---------- Profile ----------
 function renderProfilePanel() {
   const p = getProfile();
   const panel = $("#profilePanel");
@@ -1205,7 +1165,7 @@ $("#profileForm")?.addEventListener("submit", (e) => {
   toast("Profile updated");
 });
 
-/* ---------- Final Exam ---------- */
+// ---------- Final Exam ----------
 $("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
 $("#btn-start-final")?.addEventListener("click", startFinal);
 $("#closeFinal")?.addEventListener("click", () => $("#finalModal")?.close());
@@ -1379,7 +1339,7 @@ Status: ${pct >= 70 ? "Pass" : "Fail"}
   a.click();
 }
 
-/* ---------- Settings ---------- */
+// ---------- Settings ----------
 $("#themeSel")?.addEventListener("change", (e) => {
   localStorage.setItem("ol_theme", e.target.value);
   applyPalette(e.target.value);
@@ -1389,244 +1349,157 @@ $("#fontSel")?.addEventListener("change", (e) => {
   applyFont(e.target.value);
 });
 
-/* ---------- Topbar pills ---------- */
+// ---------- Topbar pills ----------
 $("#btn-top-ann")?.addEventListener("click", () => showPage("dashboard"));
 $("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
 
-/* ---------- Chat (fallback local OR RTDB realtime) ---------- */
+// ---------- Chat (realtime RTDB → fallback local) ----------
 function initChatRealtime() {
-  const box = $("#chatBox"), input = $("#chatInput"), send = $("#chatSend");
+  const box = $("#chatBox"),
+    input = $("#chatInput"),
+    send = $("#chatSend");
   if (!box || !send) return;
-  const user = (getUser()?.email || "guest");
+  const user = getUser()?.email || "guest";
 
-  // Try RTDB first
   try {
-    const rtdb = getDatabase?.(db.app);
-    const authFb = (window.firebaseAuth || null) || undefined; // if you expose one
-    if (rtdb && auth?.currentUser) { // must be Firebase-authenticated
-      const roomId = window.CURRENT_COURSE_ID || "global";
+    const rtdb = typeof getDatabase === "function" ? getDatabase(db.app) : null;
+    // If you require Firebase-auth to post, you can gate here. For now we only require local login.
+    if (rtdb) {
+      const roomId = "global";
       const roomRef = ref(rtdb, `chats/${roomId}`);
       onChildAdded(roomRef, (snap) => {
-        const m = snap.val(); if (!m) return;
-        box.insertAdjacentHTML("beforeend",
-          `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
+        const m = snap.val();
+        if (!m) return;
+        box.insertAdjacentHTML(
+          "beforeend",
+          `<div class="msg"><b>${esc(
+            m.user
+          )}</b> <span class="small muted">${new Date(
+            m.ts
+          ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+        );
         box.scrollTop = box.scrollHeight;
       });
       send.addEventListener("click", async () => {
-        const text = input?.value.trim(); if (!text) return;
+        const text = input?.value.trim();
+        if (!text) return;
         try {
-          await push(roomRef, { uid: auth.currentUser.uid, user, text, ts: Date.now() });
+          await push(roomRef, { uid: user, user, text, ts: Date.now() });
           if (input) input.value = "";
-        } catch (e) {
-          console.error(e); toast("Chat failed");
+        } catch {
+          toast("Chat failed");
         }
       });
       return;
     }
-  } catch (e) {
-    console.warn("RTDB not available, falling back:", e);
+  } catch {
+    /* fallback below */
   }
 
-  // Fallback: local-only
+  // Fallback: localStorage
   const KEY = "ol_chat_local";
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
   const draw = (m) => {
-    box.insertAdjacentHTML("beforeend",
-      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
+    box.insertAdjacentHTML(
+      "beforeend",
+      `<div class="msg"><b>${esc(
+        m.user
+      )}</b> <span class="small muted">${new Date(
+        m.ts
+      ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+    );
     box.scrollTop = box.scrollHeight;
   };
-  let arr = load(); arr.forEach(draw);
+  let arr = load();
+  arr.forEach(draw);
   send.addEventListener("click", () => {
-    const text = input?.value.trim(); if (!text) return;
+    const text = input?.value.trim();
+    if (!text) return;
     const m = { user, text, ts: Date.now() };
-    arr.push(m); save(arr); draw(m);
+    arr.push(m);
+    save(arr);
+    draw(m);
     if (input) input.value = "";
   });
 }
-// function initChatRealtime() {
-//   const box = $("#chatBox"),
-//     input = $("#chatInput"),
-//     send = $("#chatSend");
-//   if (!box || !send) return;
-//   const user = getUser()?.email || "guest";
 
-//   // If RTDB available → use per-course "global" room
-//   try {
-//     const rtdb = getDatabase?.(db.app);
-//     if (rtdb) {
-//       const roomId = "global"; // you can switch to a per-course id when you’re on a reader page
-//       const roomRef = ref(rtdb, `chats/${roomId}`);
-//       onChildAdded(roomRef, (snap) => {
-//         const m = snap.val();
-//         if (!m) return;
-//         box.insertAdjacentHTML(
-//           "beforeend",
-//           `<div class="msg"><b>${esc(
-//             m.user
-//           )}</b> <span class="small muted">${new Date(
-//             m.ts
-//           ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-//         );
-//         box.scrollTop = box.scrollHeight;
-//       });
-//       send.addEventListener("click", async () => {
-//         const text = input?.value.trim();
-//         if (!text) return;
-//         try {
-//           await push(roomRef, { uid: user, user, text, ts: Date.now() });
-//           if (input) input.value = "";
-//         } catch {
-//           toast("Chat failed");
-//         }
-//       });
-//       return;
-//     }
-//   } catch {}
-
-//   // Fallback: localStorage chat (per-device)
-//   const KEY = "ol_chat_local";
-//   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
-//   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
-//   const draw = (m) => {
-//     box.insertAdjacentHTML(
-//       "beforeend",
-//       `<div class="msg"><b>${esc(
-//         m.user
-//       )}</b> <span class="small muted">${new Date(
-//         m.ts
-//       ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-//     );
-//     box.scrollTop = box.scrollHeight;
-//   };
-//   let arr = load();
-//   arr.forEach(draw);
-//   send.addEventListener("click", () => {
-//     const text = input?.value.trim();
-//     if (!text) return;
-//     const m = { user, text, ts: Date.now() };
-//     arr.push(m);
-//     save(arr);
-//     draw(m);
-//     if (input) input.value = "";
-//   });
-// }
-
-// Live Chat (global) — RTDB if available, fallback to localStorage
-function initLiveChatRealtime(){
-  const box  = document.getElementById("lcBox");
-  const input= document.getElementById("lcInput");
-  const send = document.getElementById("lcSend");
-  if (!box || !send) return;
-
-  const userEmail = (getUser()?.email) || "guest";
-
-  // Try Firebase RTDB
-  try{
-    // getDatabase, ref, push, onChildAdded are re-exported from firebase.js
-    const rtdb = (typeof getDatabase === "function") ? getDatabase(db.app) : null;
-    if (rtdb){
-      const roomId = "global"; // live chat page = global room
-      const roomRef = ref(rtdb, `chats/${roomId}`);
-      onChildAdded(roomRef, (snap)=>{
-        const m = snap.val(); if(!m) return;
-        box.insertAdjacentHTML("beforeend",
-          `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
-        box.scrollTop = box.scrollHeight;
-      });
-      send.addEventListener("click", async ()=>{
-        const text = (input?.value || "").trim(); if(!text) return;
-        try{
-          await push(roomRef, { uid:userEmail, user:userEmail, text, ts:Date.now() });
-          if(input) input.value = "";
-        }catch{ toast("Chat failed"); }
-      });
-      return; // done (RTDB path)
-    }
-  }catch{/* fall back below */ }
-
-  // Fallback: localStorage
-  const KEY="ol_chat_local";
-  const load=()=>JSON.parse(localStorage.getItem(KEY)||"[]");
-  const save=a=>localStorage.setItem(KEY, JSON.stringify(a));
-  const draw=m=>{
-    box.insertAdjacentHTML("beforeend",
-      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
-    box.scrollTop=box.scrollHeight;
-  };
-  let arr=load(); arr.forEach(draw);
-  send.addEventListener("click", ()=>{
-    const text=(input?.value||"").trim(); if(!text) return;
-    const m={user:userEmail, text, ts:Date.now()};
-    arr.push(m); save(arr); draw(m);
-    if(input) input.value="";
-  });
-}
-
-// Course Chat (per-course) — RTDB if available, fallback to localStorage
-function wireCourseChatRealtime(courseId){
-  const list  = document.getElementById("ccList");
-  const input = document.getElementById("ccInput");
-  const send  = document.getElementById("ccSend");
-  const label = document.getElementById("chatRoomLabel");
+// Per-course chat you can call manually when opening a course
+function wireCourseChatRealtime(courseId) {
+  const list = $("#ccList"),
+    input = $("#ccInput"),
+    send = $("#ccSend"),
+    label = $("#chatRoomLabel");
   if (!list || !send) return;
-
   label && (label.textContent = "room: " + courseId);
-  const userEmail = (getUser()?.email) || "you";
+  const user = getUser()?.email || "you";
 
-  // Try Firebase RTDB
-  try{
-    const rtdb = (typeof getDatabase === "function") ? getDatabase(db.app) : null;
-    if (rtdb){
+  try {
+    const rtdb = typeof getDatabase === "function" ? getDatabase(db.app) : null;
+    if (rtdb) {
       const roomRef = ref(rtdb, `chats/${courseId}`);
-      onChildAdded(roomRef, (snap)=>{
-        const m=snap.val(); if(!m) return;
-        list.insertAdjacentHTML("beforeend",
-          `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
-        list.scrollTop=list.scrollHeight;
+      onChildAdded(roomRef, (snap) => {
+        const m = snap.val();
+        if (!m) return;
+        list.insertAdjacentHTML(
+          "beforeend",
+          `<div class="msg"><b>${esc(
+            m.user
+          )}</b> <span class="small muted">${new Date(
+            m.ts
+          ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+        );
+        list.scrollTop = list.scrollHeight;
       });
-      send.addEventListener("click", async ()=>{
-        const text=(input?.value||"").trim(); if(!text) return;
-        try{
-          await push(roomRef, { uid:userEmail, user:userEmail, text, ts:Date.now() });
-          if(input) input.value="";
-        }catch{ toast("Chat failed"); }
+      send.addEventListener("click", async () => {
+        const text = (input?.value || "").trim();
+        if (!text) return;
+        try {
+          await push(roomRef, { uid: user, user, text, ts: Date.now() });
+          if (input) input.value = "";
+        } catch {
+          toast("Chat failed");
+        }
       });
-      return; // done (RTDB path)
+      return;
     }
-  }catch{/* fall back below */ }
+  } catch {
+    /* fallback below */
+  }
 
-  // Fallback: localStorage (per-course)
-  const KEY="ol_chat_room_"+courseId;
-  const load=()=>JSON.parse(localStorage.getItem(KEY)||"[]");
-  const save=a=>localStorage.setItem(KEY, JSON.stringify(a));
-  const draw=m=>{
-    list.insertAdjacentHTML("beforeend",
-      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
-    list.scrollTop=list.scrollHeight;
+  const KEY = "ol_chat_room_" + courseId;
+  const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
+  const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
+  const draw = (m) => {
+    list.insertAdjacentHTML(
+      "beforeend",
+      `<div class="msg"><b>${esc(
+        m.user
+      )}</b> <span class="small muted">${new Date(
+        m.ts
+      ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+    );
+    list.scrollTop = list.scrollHeight;
   };
-  let arr=load(); list.innerHTML=""; arr.forEach(draw);
-  send.addEventListener("click", ()=>{
-    const text=(input?.value||"").trim(); if(!text) return;
-    const m={user:userEmail, text, ts:Date.now()};
-    arr.push(m); save(arr); draw(m);
-    if(input) input.value="";
+  let arr = load();
+  list.innerHTML = "";
+  arr.forEach(draw);
+  send.addEventListener("click", () => {
+    const text = (input?.value || "").trim();
+    if (!text) return;
+    const m = { user, text, ts: Date.now() };
+    arr.push(m);
+    save(arr);
+    draw(m);
+    if (input) input.value = "";
   });
 }
 
-/* ---------- Topbar layout/reveal (safe stubs) ---------- */
-function initTopbarLayout() {
-  /* keep for compatibility; styles handle layout */
-}
-function initTopbarReveal() {
-  /* optional sticky/reveal logic; noop here */
-}
-
-/* ---------- Admin import / export (one-time wiring) ---------- */
+// ---------- Admin import / export (one-time wiring) ----------
 function wireAdminImportExportOnce() {
-  $("#btn-export")?.addEventListener("click", () => {
-    const userOnly = getCourses().filter((c) => c.source === "user");
-    const blob = new Blob([JSON.stringify(userOnly, null, 2)], {
+  document.getElementById("btn-export")?.addEventListener("click", () => {
+    const user = getCourses().filter((c) => c.source === "user");
+    const blob = new Blob([JSON.stringify(user, null, 2)], {
       type: "application/json",
     });
     const a = document.createElement("a");
@@ -1634,33 +1507,40 @@ function wireAdminImportExportOnce() {
     a.download = "openlearn-my-courses.json";
     a.click();
   });
-  $("#btn-import")?.addEventListener("click", () => $("#importFile")?.click());
-  $("#importFile")?.addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    let incoming = [];
-    try {
-      incoming = JSON.parse(text) || [];
-    } catch {
-      return toast("Invalid JSON");
-    }
-    const arr = getCourses();
-    incoming.forEach((c) => {
-      c.source = "user";
-      const i = arr.findIndex((x) => x.id === c.id);
-      if (i >= 0) arr[i] = c;
-      else arr.push(c);
+
+  document
+    .getElementById("btn-import")
+    ?.addEventListener("click", () =>
+      document.getElementById("importFile")?.click()
+    );
+  document
+    .getElementById("importFile")
+    ?.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      let incoming = [];
+      try {
+        incoming = JSON.parse(text) || [];
+      } catch {
+        return toast("Invalid JSON");
+      }
+      const arr = getCourses();
+      incoming.forEach((c) => {
+        c.source = "user";
+        const i = arr.findIndex((x) => x.id === c.id);
+        if (i >= 0) arr[i] = c;
+        else arr.push(c);
+      });
+      setCourses(arr);
+      ALL = arr;
+      renderCatalog();
+      renderAdminTable();
+      toast("Imported");
     });
-    setCourses(arr);
-    ALL = arr;
-    renderCatalog();
-    renderAdminTable();
-    toast("Imported");
-  });
 }
 
-/* ---------- boot ---------- */
+// ---------- boot ----------
 document.addEventListener("DOMContentLoaded", async () => {
   applyPalette(localStorage.getItem("ol_theme") || "slate");
   applyFont(localStorage.getItem("ol_font") || "16");
@@ -1668,19 +1548,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAuthModal();
   initSidebar();
   initSearch();
-  initTopbarLayout();
-  initTopbarReveal();
-
-  // chat init (realtime if RTDB available, else local)
   initChatRealtime();
-  initLiveChatRealtime();
-  wireCourseChatRealtime(cid);
 
-  // restore user
+  // restore user & gate
   const u = getUser();
   setLogged(!!u, u?.email);
-
-  // Make sure initial gate state is correct (especially on first load)
   gateUI();
 
   // data
@@ -1700,4 +1572,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // admin import/export
   wireAdminImportExportOnce();
+
+  // If you want per-course chat, call wireCourseChatRealtime('course-slug') at the time you open the reader.
 });
