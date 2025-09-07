@@ -1510,7 +1510,7 @@ function initChatRealtime(){
 
       // Render helper
       const renderMsg = (key, m) => {
-        const canDelete = isAdminLike(); // your existing role helper
+        const canDelete = (isAdminLike() || window.DEBUG_FORCE_DELETE === true); // your existing role helper
         const html = `
           <div class="msg" id="msg-${key}">
             <div class="row" style="justify-content:space-between;align-items:center">
@@ -1599,7 +1599,7 @@ function wireCourseChatRealtime(courseId){
       const roomRef = ref(rtdb, `chats/${courseId}`);
 
       const renderMsg = (key, m) => {
-        const canDelete = isAdminLike();
+        const canDelete = (isAdminLike() || window.DEBUG_FORCE_DELETE === true);
         const html = `
           <div class="msg" id="msg-${key}">
             <div class="row" style="justify-content:space-between;align-items:center">
@@ -1634,6 +1634,12 @@ function wireCourseChatRealtime(courseId){
       onChildRemoved(roomRef, (snap) => {
         document.getElementById(`msg-${snap.key}`)?.remove();
       });
+
+      boxOrList.querySelector(`[data-del="${key}"]`)?.addEventListener("click", async () => {
+  document.getElementById(`msg-${key}`)?.remove(); // optimistic
+  try { await remove(ref(rtdb, `chats/${roomPath}/${key}`)); }
+  catch { toast("Delete failed"); }
+});
 
       send.addEventListener("click", async () => {
         const text = (input?.value || "").trim(); if (!text) return;
