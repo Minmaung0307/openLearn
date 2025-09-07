@@ -228,13 +228,14 @@
           ></div>
           <div id="rdPage"></div>
           <!-- Course Chat Panel -->
+          <!-- Course Chat Panel -->
           <section id="courseChat" class="card" style="margin-top: 12px">
             <div class="row" style="justify-content: space-between">
               <strong>Course Chat</strong>
               <label class="small muted" id="chatRoomLabel">room: —</label>
             </div>
             <div
-              id="chatList"
+              id="ccList"
               style="
                 max-height: 260px;
                 overflow: auto;
@@ -244,12 +245,12 @@
             ></div>
             <div class="row">
               <input
-                id="chatInput"
+                id="ccInput"
                 class="input"
                 placeholder="Write a message…"
                 style="flex: 1"
               />
-              <button id="chatSend" class="btn primary">Send</button>
+              <button id="ccSend" class="btn primary">Send</button>
             </div>
             <div
               class="small muted"
@@ -330,6 +331,17 @@
             <tbody></tbody>
           </table>
         </div>
+        <!-- Controls row -->
+        <div class="row" style="gap: 8px; justify-content: flex-end">
+          <button class="btn" id="btn-export">Export My Courses</button>
+          <button class="btn" id="btn-import">Import</button>
+          <input
+            id="importFile"
+            type="file"
+            accept="application/json"
+            class="hidden"
+          />
+        </div>
       </section>
 
       <!-- Profile -->
@@ -380,14 +392,14 @@
       <section id="page-livechat" class="page">
         <div class="card narrow">
           <div class="row"><h3 class="h4">Live Chat</h3></div>
-          <div id="chatBox" style="max-height: 260px; overflow: auto"></div>
+          <div id="lcBox" style="max-height: 260px; overflow: auto"></div>
           <div class="row" style="margin-top: 8px">
             <input
-              id="chatInput"
+              id="lcInput"
               class="input grow"
               placeholder="Type a message…"
             />
-            <button class="btn" id="chatSend">Send</button>
+            <button class="btn" id="lcSend">Send</button>
           </div>
         </div>
       </section>

@@ -8,9 +8,16 @@ import {
   db,
   collection,
   addDoc,
+  setDoc, 
+  updateDoc, 
+  deleteDoc,
   serverTimestamp,
+  doc, 
+  getDoc, 
+  getDocs,
   query,
   orderBy,
+  where,
   limit,
   onSnapshot,
 
@@ -1455,6 +1462,108 @@ function initChatRealtime() {
   });
 }
 
+// Live Chat (global) — RTDB if available, fallback to localStorage
+function initLiveChatRealtime(){
+  const box  = document.getElementById("lcBox");
+  const input= document.getElementById("lcInput");
+  const send = document.getElementById("lcSend");
+  if (!box || !send) return;
+
+  const userEmail = (getUser()?.email) || "guest";
+
+  // Try Firebase RTDB
+  try{
+    // getDatabase, ref, push, onChildAdded are re-exported from firebase.js
+    const rtdb = (typeof getDatabase === "function") ? getDatabase(db.app) : null;
+    if (rtdb){
+      const roomId = "global"; // live chat page = global room
+      const roomRef = ref(rtdb, `chats/${roomId}`);
+      onChildAdded(roomRef, (snap)=>{
+        const m = snap.val(); if(!m) return;
+        box.insertAdjacentHTML("beforeend",
+          `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
+        box.scrollTop = box.scrollHeight;
+      });
+      send.addEventListener("click", async ()=>{
+        const text = (input?.value || "").trim(); if(!text) return;
+        try{
+          await push(roomRef, { uid:userEmail, user:userEmail, text, ts:Date.now() });
+          if(input) input.value = "";
+        }catch{ toast("Chat failed"); }
+      });
+      return; // done (RTDB path)
+    }
+  }catch{/* fall back below */ }
+
+  // Fallback: localStorage
+  const KEY="ol_chat_local";
+  const load=()=>JSON.parse(localStorage.getItem(KEY)||"[]");
+  const save=a=>localStorage.setItem(KEY, JSON.stringify(a));
+  const draw=m=>{
+    box.insertAdjacentHTML("beforeend",
+      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
+    box.scrollTop=box.scrollHeight;
+  };
+  let arr=load(); arr.forEach(draw);
+  send.addEventListener("click", ()=>{
+    const text=(input?.value||"").trim(); if(!text) return;
+    const m={user:userEmail, text, ts:Date.now()};
+    arr.push(m); save(arr); draw(m);
+    if(input) input.value="";
+  });
+}
+
+// Course Chat (per-course) — RTDB if available, fallback to localStorage
+function wireCourseChatRealtime(courseId){
+  const list  = document.getElementById("ccList");
+  const input = document.getElementById("ccInput");
+  const send  = document.getElementById("ccSend");
+  const label = document.getElementById("chatRoomLabel");
+  if (!list || !send) return;
+
+  label && (label.textContent = "room: " + courseId);
+  const userEmail = (getUser()?.email) || "you";
+
+  // Try Firebase RTDB
+  try{
+    const rtdb = (typeof getDatabase === "function") ? getDatabase(db.app) : null;
+    if (rtdb){
+      const roomRef = ref(rtdb, `chats/${courseId}`);
+      onChildAdded(roomRef, (snap)=>{
+        const m=snap.val(); if(!m) return;
+        list.insertAdjacentHTML("beforeend",
+          `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
+        list.scrollTop=list.scrollHeight;
+      });
+      send.addEventListener("click", async ()=>{
+        const text=(input?.value||"").trim(); if(!text) return;
+        try{
+          await push(roomRef, { uid:userEmail, user:userEmail, text, ts:Date.now() });
+          if(input) input.value="";
+        }catch{ toast("Chat failed"); }
+      });
+      return; // done (RTDB path)
+    }
+  }catch{/* fall back below */ }
+
+  // Fallback: localStorage (per-course)
+  const KEY="ol_chat_room_"+courseId;
+  const load=()=>JSON.parse(localStorage.getItem(KEY)||"[]");
+  const save=a=>localStorage.setItem(KEY, JSON.stringify(a));
+  const draw=m=>{
+    list.insertAdjacentHTML("beforeend",
+      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
+    list.scrollTop=list.scrollHeight;
+  };
+  let arr=load(); list.innerHTML=""; arr.forEach(draw);
+  send.addEventListener("click", ()=>{
+    const text=(input?.value||"").trim(); if(!text) return;
+    const m={user:userEmail, text, ts:Date.now()};
+    arr.push(m); save(arr); draw(m);
+    if(input) input.value="";
+  });
+}
+
 /* ---------- Topbar layout/reveal (safe stubs) ---------- */
 function initTopbarLayout() {
   /* keep for compatibility; styles handle layout */
@@ -1514,6 +1623,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // chat init (realtime if RTDB available, else local)
   initChatRealtime();
+  initLiveChatRealtime();
+  wireCourseChatRealtime(cid);
 
   // restore user
   const u = getUser();

@@ -658,3 +658,28 @@ body:not(.locked) #btn-login { pointer-events:auto; opacity:1; filter:none }
 
 /* Role-based hide/show (JS က class သတ်မှတ်ပေးမယ်) */
 .hide { display:none !important; }
+
+#chatBox {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+#chatBox .msg {
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+}
+
+#chatInput {
+  flex: 1;
+}
+
+#chatSend {
+  margin-left: 6px;
+}
