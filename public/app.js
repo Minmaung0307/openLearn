@@ -1280,105 +1280,262 @@ Status: ${pct >= 70 ? "Pass" : "Fail"}
 }
 
 /* ================= Chat (RTDB realtime with fallback local) ================= */
-function initChatRealtime() {
-  const box = $("#chatBox"),
-    input = $("#chatInput"),
-    send = $("#chatSend");
+// ====== Chat settings ======
+const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
+const BAD_WORDS = ["fuck","shit","asshole","bitch","cunt","dick","pussy","rape","nigger","faggot"]; // sample only
+const isAdminLike = () => ["owner","admin","instructor","ta"].includes(getRole() || "student");
+const clean = (s)=>s.normalize("NFKC").toLowerCase();
+const hasBadWord = (text) => {
+  const t = " " + clean(text) + " ";
+  return BAD_WORDS.some(w => t.includes(" " + w + " "));
+};
+
+// ====== Global chat (dashboard) ======
+function initChatRealtime(){
+  const box = $("#chatBox"), input = $("#chatInput"), send = $("#chatSend");
   if (!box || !send) return;
+  const displayName = getUser()?.email || "guest";
 
-  // Decide room: global or per-course
-  const roomAttr = box.dataset.room || "global";
-  let roomId = "global";
-  if (roomAttr.startsWith("course:")) roomId = roomAttr.slice(7);
+  try{
+    const rtdb = typeof getDatabase === "function" ? getDatabase(db.app) : null;
+    if (rtdb){
+      const roomId = "global";
+      const roomRef = ref(rtdb, `chats/${roomId}`);
+      // only last 10 days
+      const qRef = window.firebaseRtdbQuery
+        ? window.firebaseRtdbQuery(roomRef, window.orderByChild("ts"), window.startAt(Date.now() - TEN_DAYS))
+        : // fallback when you didn't attach helpers to window
+          roomRef;
 
-  // If reader switched, update automatically
-  const setRoom = (rid) => {
-    roomId = rid || "global";
+      // stream messages
+      onChildAdded(qRef, (snap)=>{
+        const m = snap.val(); if(!m) return;
+        const canDel = isAdminLike() || (auth.currentUser?.uid && m.uid === auth.currentUser.uid);
+        const delBtn = canDel ? `<button class="btn small" data-del="${snap.key}">Delete</button>` : "";
+        box.insertAdjacentHTML("beforeend", `
+          <div class="msg" data-id="${snap.key}">
+            <div class="row" style="gap:6px;justify-content:space-between">
+              <div><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleString()}</span></div>
+              <div class="row" style="gap:6px">${delBtn}</div>
+            </div>
+            <div>${esc(m.text)}</div>
+          </div>`);
+        box.scrollTop = box.scrollHeight;
+      });
+
+      // delete (admin/mod/self)
+      box.addEventListener("click", async (e)=>{
+        const b = e.target.closest("[data-del]"); if(!b) return;
+        const id = b.getAttribute("data-del");
+        if(!confirm("Delete this message?")) return;
+        try{
+          await remove(ref(rtdb, `chats/${roomId}/${id}`));
+        }catch(err){ console.warn(err); toast("Delete failed"); }
+      });
+
+      // send
+      send.addEventListener("click", async ()=>{
+        const text = input?.value.trim(); if(!text) return;
+        if (hasBadWord(text)) { toast("Message rejected (language)"); return; }
+        try{
+          await ensureAuthForChat(); // make sure authed (email/pass or anon-permitted)
+          const uid = auth.currentUser?.uid || "nouid";
+          await push(roomRef, { uid, user: displayName, text, ts: Date.now() });
+          input.value = "";
+        }catch(e){ console.warn(e); toast("Chat failed"); }
+      });
+
+      return;
+    }
+  }catch{}
+
+  // ---- Fallback: local only ----
+  const KEY="ol_chat_local";
+  const load=()=>JSON.parse(localStorage.getItem(KEY)||"[]");
+  const save=(a)=>localStorage.setItem(KEY, JSON.stringify(a));
+  const draw=(m)=>{
+    box.insertAdjacentHTML("beforeend",
+      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
+    box.scrollTop=box.scrollHeight;
   };
-
-  // Attach RTDB listener if possible
-  let useRTDB = false;
-  try {
-    const rtdb = getDatabase(app);
-    const path = roomId === "global" ? "chats/global" : `chats/${roomId}`;
-    const roomRef = ref(rtdb, path);
-    onChildAdded(roomRef, (snap) => {
-      const m = snap.val();
-      if (!m) return;
-      box.insertAdjacentHTML(
-        "beforeend",
-        `<div class="msg"><b>${esc(
-          m.user
-        )}</b> <span class="small muted">${new Date(
-          m.ts
-        ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-      );
-      box.scrollTop = box.scrollHeight;
-    });
-    send.addEventListener("click", async () => {
-      if (!auth.currentUser) {
-        toast("Please log in to chat");
-        return;
-      }
-      const text = input?.value.trim();
-      if (!text) return;
-      try {
-        await push(
-          ref(rtdb, roomId === "global" ? "chats/global" : `chats/${roomId}`),
-          {
-            uid: auth.currentUser.uid,
-            user: auth.currentUser.email || "user",
-            text,
-            ts: Date.now(),
-          }
-        );
-        if (input) input.value = "";
-      } catch (e) {
-        console.error(e);
-        toast("Chat failed");
-      }
-    });
-    useRTDB = true;
-  } catch {
-    useRTDB = false;
-  }
-
-  // Fallback: local-only chat
-  if (!useRTDB) {
-    const KEY = "ol_chat_local_" + roomId;
-    const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
-    const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
-    const draw = (m) => {
-      box.insertAdjacentHTML(
-        "beforeend",
-        `<div class="msg"><b>${esc(
-          m.user
-        )}</b> <span class="small muted">${new Date(
-          m.ts
-        ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-      );
-      box.scrollTop = box.scrollHeight;
-    };
-    let arr = load();
-    arr.forEach(draw);
-    send.addEventListener("click", () => {
-      const text = input?.value.trim();
-      if (!text) return;
-      const m = {
-        user: auth.currentUser?.email || "guest",
-        text,
-        ts: Date.now(),
-      };
-      arr.push(m);
-      save(arr);
-      draw(m);
-      if (input) input.value = "";
-    });
-  }
-
-  // Expose room setter if reader changes
-  window.__ol_setChatRoom = (rid) => setRoom(rid);
+  let arr=load().filter(m=>m.ts >= Date.now() - TEN_DAYS);
+  box.innerHTML = ""; arr.forEach(draw);
+  send.addEventListener("click", ()=>{
+    const text=input?.value.trim(); if(!text) return;
+    if (hasBadWord(text)) { toast("Message rejected (language)"); return; }
+    const m={user:displayName, text, ts:Date.now()};
+    arr.push(m); save(arr); draw(m); input.value="";
+  });
 }
+
+// ====== Per-course chat (reader page) ======
+function wireCourseChatRealtime(courseId){
+  const list=$("#ccList"), input=$("#ccInput"), send=$("#ccSend"), label=$("#chatRoomLabel");
+  if(!list || !send) return;
+  if(label) label.textContent = "room: " + courseId;
+  const displayName = getUser()?.email || "you";
+
+  try{
+    const rtdb = typeof getDatabase === "function" ? getDatabase(db.app) : null;
+    if (rtdb){
+      const roomRef = ref(rtdb, `chats/${courseId}`);
+      const qRef = window.firebaseRtdbQuery
+        ? window.firebaseRtdbQuery(roomRef, window.orderByChild("ts"), window.startAt(Date.now() - TEN_DAYS))
+        : roomRef;
+
+      onChildAdded(qRef, (snap)=>{
+        const m = snap.val(); if(!m) return;
+        const canDel = isAdminLike() || (auth.currentUser?.uid && m.uid === auth.currentUser.uid);
+        const delBtn = canDel ? `<button class="btn small" data-del="${snap.key}">Delete</button>` : "";
+        list.insertAdjacentHTML("beforeend", `
+          <div class="msg" data-id="${snap.key}">
+            <div class="row" style="gap:6px;justify-content:space-between">
+              <div><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleString()}</span></div>
+              <div class="row" style="gap:6px">${delBtn}</div>
+            </div>
+            <div>${esc(m.text)}</div>
+          </div>`);
+        list.scrollTop = list.scrollHeight;
+      });
+
+      list.addEventListener("click", async (e)=>{
+        const b = e.target.closest("[data-del]"); if(!b) return;
+        const id = b.getAttribute("data-del");
+        if(!confirm("Delete this message?")) return;
+        try{ await remove(ref(rtdb, `chats/${courseId}/${id}`)); }
+        catch(err){ console.warn(err); toast("Delete failed"); }
+      });
+
+      send.addEventListener("click", async ()=>{
+        const text = (input?.value||"").trim(); if(!text) return;
+        if (hasBadWord(text)) { toast("Message rejected (language)"); return; }
+        try{
+          await ensureAuthForChat();
+          const uid = auth.currentUser?.uid || "nouid";
+          await push(roomRef, { uid, user: displayName, text, ts: Date.now() });
+          input.value="";
+        }catch(e){ console.warn(e); toast("Chat failed"); }
+      });
+      return;
+    }
+  }catch{}
+
+  // ---- Local fallback (per-device) ----
+  const KEY = "ol_chat_room_"+courseId;
+  const load=()=>JSON.parse(localStorage.getItem(KEY)||"[]").filter(m=>m.ts >= Date.now()-TEN_DAYS);
+  const save=(a)=>localStorage.setItem(KEY, JSON.stringify(a));
+  const draw=(m)=>{
+    list.insertAdjacentHTML("beforeend",
+      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleString()}</span><div>${esc(m.text)}</div></div>`);
+    list.scrollTop=list.scrollHeight;
+  };
+  let arr=load(); list.innerHTML=""; arr.forEach(draw);
+  send.addEventListener("click", ()=>{
+    const text=(input?.value||"").trim(); if(!text) return;
+    if (hasBadWord(text)) { toast("Message rejected (language)"); return; }
+    const m={user:displayName, text, ts:Date.now()};
+    arr.push(m); save(arr); draw(m); input.value="";
+  });
+}
+// function initChatRealtime() {
+//   const box = $("#chatBox"),
+//     input = $("#chatInput"),
+//     send = $("#chatSend");
+//   if (!box || !send) return;
+
+//   // Decide room: global or per-course
+//   const roomAttr = box.dataset.room || "global";
+//   let roomId = "global";
+//   if (roomAttr.startsWith("course:")) roomId = roomAttr.slice(7);
+
+//   // If reader switched, update automatically
+//   const setRoom = (rid) => {
+//     roomId = rid || "global";
+//   };
+
+//   // Attach RTDB listener if possible
+//   let useRTDB = false;
+//   try {
+//     const rtdb = getDatabase(app);
+//     const path = roomId === "global" ? "chats/global" : `chats/${roomId}`;
+//     const roomRef = ref(rtdb, path);
+//     onChildAdded(roomRef, (snap) => {
+//       const m = snap.val();
+//       if (!m) return;
+//       box.insertAdjacentHTML(
+//         "beforeend",
+//         `<div class="msg"><b>${esc(
+//           m.user
+//         )}</b> <span class="small muted">${new Date(
+//           m.ts
+//         ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+//       );
+//       box.scrollTop = box.scrollHeight;
+//     });
+//     send.addEventListener("click", async () => {
+//       if (!auth.currentUser) {
+//         toast("Please log in to chat");
+//         return;
+//       }
+//       const text = input?.value.trim();
+//       if (!text) return;
+//       try {
+//         await push(
+//           ref(rtdb, roomId === "global" ? "chats/global" : `chats/${roomId}`),
+//           {
+//             uid: auth.currentUser.uid,
+//             user: auth.currentUser.email || "user",
+//             text,
+//             ts: Date.now(),
+//           }
+//         );
+//         if (input) input.value = "";
+//       } catch (e) {
+//         console.error(e);
+//         toast("Chat failed");
+//       }
+//     });
+//     useRTDB = true;
+//   } catch {
+//     useRTDB = false;
+//   }
+
+//   // Fallback: local-only chat
+//   if (!useRTDB) {
+//     const KEY = "ol_chat_local_" + roomId;
+//     const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
+//     const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
+//     const draw = (m) => {
+//       box.insertAdjacentHTML(
+//         "beforeend",
+//         `<div class="msg"><b>${esc(
+//           m.user
+//         )}</b> <span class="small muted">${new Date(
+//           m.ts
+//         ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+//       );
+//       box.scrollTop = box.scrollHeight;
+//     };
+//     let arr = load();
+//     arr.forEach(draw);
+//     send.addEventListener("click", () => {
+//       const text = input?.value.trim();
+//       if (!text) return;
+//       const m = {
+//         user: auth.currentUser?.email || "guest",
+//         text,
+//         ts: Date.now(),
+//       };
+//       arr.push(m);
+//       save(arr);
+//       draw(m);
+//       if (input) input.value = "";
+//     });
+//   }
+
+//   // Expose room setter if reader changes
+//   window.__ol_setChatRoom = (rid) => setRoom(rid);
+// }
 
 /* ================= Settings ================= */
 $("#themeSel")?.addEventListener("change", (e) => {

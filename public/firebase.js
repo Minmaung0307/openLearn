@@ -30,6 +30,7 @@ import {
   getDocs,
   query,
   orderBy,
+  startAt,
   where,
   limit,
   onSnapshot
@@ -41,7 +42,13 @@ import {
   ref,
   push,
   onChildAdded,
-  set
+  set,
+  remove,
+  // Optional client-side filtering (if your app.js uses it):
+  query as rtdbQuery,
+  orderByChild,
+  startAt,
+  limitToLast
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 /* ===== Config guard ===== */
@@ -63,7 +70,12 @@ try { auth.useDeviceLanguage(); } catch {}
 export const db = getFirestore(app);
 
 /* RTDB (exported for optional chat) */
-export { getDatabase, ref, push, onChildAdded, set };
+export { getDatabase, ref, push, onChildAdded, set, remove,
+  // Optional client-side filtering:
+  rtdbQuery,
+  orderByChild,
+  startAt,
+  limitToLast };
 
 /* Re-export frequently used Firebase helpers for convenience */
 export {
