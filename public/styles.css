@@ -683,3 +683,135 @@ body:not(.locked) #btn-login { pointer-events:auto; opacity:1; filter:none }
 #chatSend {
   margin-left: 6px;
 }
+
+/* ================================
+   THEME SURFACE FIXES (Light-safe)
+   Put this at the END of styles.css
+   ================================ */
+
+/* Base text & surface */
+html, body {
+  background: var(--bg) !important;
+  color: var(--fg) !important;
+}
+
+/* Topbar */
+.topbar {
+  background: var(--card) !important;
+  color: var(--fg) !important;
+  border-bottom: 1px solid var(--border) !important;
+  backdrop-filter: saturate(120%) blur(6px);
+}
+.topbar .iconbtn,
+.topbar .pill,
+.topbar a {
+  color: var(--fg) !important;
+}
+.topbar input[type="search"],
+#topSearch {
+  background: var(--card) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border) !important;
+}
+#topSearch::placeholder { color: var(--muted) !important; }
+
+/* Sidebar */
+#sidebar {
+  background: var(--card) !important;
+  color: var(--fg) !important;
+  border-right: 1px solid var(--border) !important;
+}
+#sidebar .navbtn {
+  color: var(--fg) !important;
+}
+#sidebar .navbtn:hover,
+#sidebar .navbtn:focus {
+  /* light/dark နှစ်မျိုးလုံး သင့်တင့်အောင် neutral hover */
+  background: rgba(0,0,0,.06) !important;
+}
+@media (prefers-color-scheme: dark) {
+  #sidebar .navbtn:hover,
+  #sidebar .navbtn:focus {
+    background: rgba(255,255,255,.08) !important;
+  }
+}
+
+/* Cards / panels */
+.card {
+  background: var(--card) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 6px 24px rgba(0,0,0,.06);
+}
+.muted { color: var(--muted) !important; }
+
+/* Buttons */
+.btn {
+  background: var(--btnBg) !important;
+  color: var(--btnFg) !important;
+  border: 1px solid var(--border) !important;
+}
+.btn:hover { filter: brightness(0.97); }
+.btn.primary {
+  background: var(--btnPrimaryBg) !important;
+  color: var(--btnPrimaryFg) !important;
+  border-color: transparent !important;
+}
+.btn.primary:hover { filter: brightness(0.98); }
+
+/* Inputs / selects / textareas (forms & modals) */
+.input,
+textarea,
+select {
+  background: var(--card) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border) !important;
+}
+.input::placeholder,
+textarea::placeholder {
+  color: var(--muted) !important;
+}
+
+/* Dialog / Modal */
+dialog.ol-modal,
+.ol-modal {
+  background: var(--card) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border) !important;
+}
+dialog::backdrop { background: rgba(0,0,0,.45); }
+
+/* Reader view */
+#reader {
+  background: var(--bg) !important;
+  color: var(--fg) !important;
+  border-top: 1px solid var(--border);
+}
+#rdToolbar,
+#rdHeader {
+  background: var(--card) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+/* Tables (Admin, Gradebook) */
+.ol-table th,
+.ol-table td {
+  border-color: var(--border) !important;
+  color: var(--fg) !important;
+}
+.ol-table thead { background: var(--card) !important; }
+.ol-table tbody tr:hover { background: rgba(0,0,0,.04); }
+@media (prefers-color-scheme: dark) {
+  .ol-table tbody tr:hover { background: rgba(255,255,255,.06); }
+}
+
+/* Links – use primary color so it’s visible on light */
+a { color: var(--btnPrimaryBg); }
+a:hover { opacity: .9; }
+
+/* Pills / badges */
+.badge, .pill {
+  background: var(--btnBg) !important;
+  color: var(--btnFg) !important;
+  border: 1px solid var(--border) !important;
+}
