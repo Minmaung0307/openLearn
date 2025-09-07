@@ -1480,64 +1480,73 @@ async function ensureAuthForChat() {
 function initChatRealtime(){
   const box = $("#chatBox"), input = $("#chatInput"), send = $("#chatSend");
   if (!box || !send) return;
-  // const displayName = getUser()?.email || "guest";
-  const displayName =
-  (typeof getUser === "function" && getUser()?.email) ||
-  (typeof auth !== "undefined" && auth?.currentUser?.email) ||
-  "guest";
 
-  try{
-    const rtdb = typeof getDatabase === "function" ? getDatabase(db.app) : null;
-    if (rtdb){
+  const displayName = getUser()?.email || "guest";
+
+  try {
+    const rtdb = getDatabase?.(db.app);
+    if (rtdb) {
       const roomId = "global";
       const roomRef = ref(rtdb, `chats/${roomId}`);
-      // only last 10 days
-      const qRef = window.firebaseRtdbQuery
-        ? window.firebaseRtdbQuery(roomRef, window.orderByChild("ts"), window.startAt(Date.now() - TEN_DAYS))
-        : // fallback when you didn't attach helpers to window
-          roomRef;
 
-      // stream messages
-      onChildAdded(qRef, (snap)=>{
-        const m = snap.val(); if(!m) return;
-        const canDel = isAdminLike() || (auth.currentUser?.uid && m.uid === auth.currentUser.uid);
-        const delBtn = canDel ? `<button class="btn small" data-del="${snap.key}">Delete</button>` : "";
-        box.insertAdjacentHTML("beforeend", `
-          <div class="msg" data-id="${snap.key}">
-            <div class="row" style="gap:6px;justify-content:space-between">
-              <div><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleString()}</span></div>
-              <div class="row" style="gap:6px">${delBtn}</div>
+      // Render helper
+      const renderMsg = (key, m) => {
+        const canDelete = isAdminLike(); // your existing role helper
+        const html = `
+          <div class="msg" id="msg-${key}">
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <div>
+                <b>${esc(m.user)}</b>
+                <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+              </div>
+              ${canDelete ? `<button class="btn small" data-del="${key}">Delete</button>` : ""}
             </div>
             <div>${esc(m.text)}</div>
-          </div>`);
+          </div>`;
+        box.insertAdjacentHTML("beforeend", html);
         box.scrollTop = box.scrollHeight;
+
+        if (canDelete) {
+          box.querySelector(`[data-del="${key}"]`)?.addEventListener("click", async () => {
+            // Optimistic remove in UI
+            document.getElementById(`msg-${key}`)?.remove();
+            try {
+              await remove(ref(rtdb, `chats/${roomId}/${key}`));
+            } catch (e) {
+              toast("Delete failed");
+              // (Optional) re-insert if you want strict consistency
+            }
+          });
+        }
+      };
+
+      // live add
+      onChildAdded(roomRef, (snap) => {
+        const m = snap.val(); if (!m) return;
+        renderMsg(snap.key, m);
       });
 
-      // delete (admin/mod/self)
-      box.addEventListener("click", async (e)=>{
-        const b = e.target.closest("[data-del]"); if(!b) return;
-        const id = b.getAttribute("data-del");
-        if(!confirm("Delete this message?")) return;
-        try{
-          await remove(ref(rtdb, `chats/${roomId}/${id}`));
-        }catch(err){ console.warn(err); toast("Delete failed"); }
+      // live delete
+      onChildRemoved(roomRef, (snap) => {
+        document.getElementById(`msg-${snap.key}`)?.remove();
       });
 
       // send
-      send.addEventListener("click", async ()=>{
-        const text = input?.value.trim(); if(!text) return;
-        if (hasBadWord(text)) { toast("Message rejected (language)"); return; }
-        try{
-          await ensureAuthForChat(); // make sure authed (email/pass or anon-permitted)
+      send.addEventListener("click", async () => {
+        const text = input?.value.trim(); if (!text) return;
+        try {
+          await ensureAuthForChat(); // your helper
           const uid = auth.currentUser?.uid || "nouid";
           await push(roomRef, { uid, user: displayName, text, ts: Date.now() });
-          input.value = "";
-        }catch(e){ console.warn(e); toast("Chat failed"); }
+          if (input) input.value = "";
+        } catch {
+          toast("Chat failed");
+        }
       });
 
-      return;
+      return; // RTDB branch done
     }
-  }catch{}
+  } catch {}
 
   // ---- Fallback: local only ----
   const KEY="ol_chat_local";
@@ -1560,55 +1569,68 @@ function initChatRealtime(){
 
 // ====== Per-course chat (reader page) ======
 function wireCourseChatRealtime(courseId){
-  const list=$("#ccList"), input=$("#ccInput"), send=$("#ccSend"), label=$("#chatRoomLabel");
-  if(!list || !send) return;
-  if(label) label.textContent = "room: " + courseId;
+  const list = $("#ccList"), input = $("#ccInput"), send = $("#ccSend"), label = $("#chatRoomLabel");
+  if (!list || !send) return;
+  if (label) label.textContent = "room: " + courseId;
   const displayName = getUser()?.email || "you";
 
-  try{
-    const rtdb = typeof getDatabase === "function" ? getDatabase(db.app) : null;
-    if (rtdb){
+  try {
+    const rtdb = getDatabase?.(db.app);
+    if (rtdb) {
       const roomRef = ref(rtdb, `chats/${courseId}`);
-      const qRef = window.firebaseRtdbQuery
-        ? window.firebaseRtdbQuery(roomRef, window.orderByChild("ts"), window.startAt(Date.now() - TEN_DAYS))
-        : roomRef;
 
-      onChildAdded(qRef, (snap)=>{
-        const m = snap.val(); if(!m) return;
-        const canDel = isAdminLike() || (auth.currentUser?.uid && m.uid === auth.currentUser.uid);
-        const delBtn = canDel ? `<button class="btn small" data-del="${snap.key}">Delete</button>` : "";
-        list.insertAdjacentHTML("beforeend", `
-          <div class="msg" data-id="${snap.key}">
-            <div class="row" style="gap:6px;justify-content:space-between">
-              <div><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleString()}</span></div>
-              <div class="row" style="gap:6px">${delBtn}</div>
+      const renderMsg = (key, m) => {
+        const canDelete = isAdminLike();
+        const html = `
+          <div class="msg" id="msg-${key}">
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <div>
+                <b>${esc(m.user)}</b>
+                <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+              </div>
+              ${canDelete ? `<button class="btn small" data-del="${key}">Delete</button>` : ""}
             </div>
             <div>${esc(m.text)}</div>
-          </div>`);
+          </div>`;
+        list.insertAdjacentHTML("beforeend", html);
         list.scrollTop = list.scrollHeight;
+
+        if (canDelete) {
+          list.querySelector(`[data-del="${key}"]`)?.addEventListener("click", async () => {
+            document.getElementById(`msg-${key}`)?.remove(); // optimistic
+            try {
+              await remove(ref(rtdb, `chats/${courseId}/${key}`));
+            } catch {
+              toast("Delete failed");
+            }
+          });
+        }
+      };
+
+      onChildAdded(roomRef, (snap) => {
+        const m = snap.val(); if (!m) return;
+        renderMsg(snap.key, m);
       });
 
-      list.addEventListener("click", async (e)=>{
-        const b = e.target.closest("[data-del]"); if(!b) return;
-        const id = b.getAttribute("data-del");
-        if(!confirm("Delete this message?")) return;
-        try{ await remove(ref(rtdb, `chats/${courseId}/${id}`)); }
-        catch(err){ console.warn(err); toast("Delete failed"); }
+      onChildRemoved(roomRef, (snap) => {
+        document.getElementById(`msg-${snap.key}`)?.remove();
       });
 
-      send.addEventListener("click", async ()=>{
-        const text = (input?.value||"").trim(); if(!text) return;
-        if (hasBadWord(text)) { toast("Message rejected (language)"); return; }
-        try{
+      send.addEventListener("click", async () => {
+        const text = (input?.value || "").trim(); if (!text) return;
+        try {
           await ensureAuthForChat();
           const uid = auth.currentUser?.uid || "nouid";
           await push(roomRef, { uid, user: displayName, text, ts: Date.now() });
-          input.value="";
-        }catch(e){ console.warn(e); toast("Chat failed"); }
+          if (input) input.value = "";
+        } catch {
+          toast("Chat failed");
+        }
       });
+
       return;
     }
-  }catch{}
+  } catch {}
 
   // ---- Local fallback (per-device) ----
   const KEY = "ol_chat_room_"+courseId;
