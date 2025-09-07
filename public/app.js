@@ -36,6 +36,15 @@ const ADMIN_EMAILS = (window.OPENLEARN_CFG?.admins || []).map(e => (e||"").toLow
 
 function isLogged(){ try{ return !!(getUser?.() || window.currentUser); }catch{ return false; } }
 
+// Prevent any click unless logged in
+document.addEventListener("click", (e) => {
+  if (isLogged()) return;          // <--- here
+  if (e.target.closest("#btn-login") || e.target.closest("#authModal")) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof window._showLoginPane === "function") window._showLoginPane();
+});
+
 function getRole(){
   const u = (getUser?.() || {}) || {};
   return u.role || "student";
