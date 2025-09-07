@@ -34,11 +34,6 @@
       async
     ></script>
     <script>
-      /* Optional: set later in your own config.js
-    window.OPENLEARN_CFG = {
-      paypalClientId: "YOUR_PAYPAL_CLIENT_ID" // leave blank to use simulator
-    };
-    */
       (function injectPayPal() {
         const id = (window.OPENLEARN_CFG?.paypalClientId || "").trim();
         if (!id) return;
@@ -197,7 +192,6 @@
           <button class="btn primary" id="btn-new-course" data-requires-auth>
             + New Course
           </button>
-          <!-- <button class="btn primary" id="btn-new-course" data-requires-auth data-role="admin">+ New Course</button> -->
         </div>
         <div id="courseGrid" class="grid"></div>
       </section>
@@ -227,7 +221,7 @@
             style="margin: 0.3rem 0 0.6rem"
           ></div>
           <div id="rdPage"></div>
-          <!-- Course Chat Panel -->
+
           <!-- Course Chat Panel -->
           <section id="courseChat" class="card" style="margin-top: 12px">
             <div class="row" style="justify-content: space-between">
@@ -388,18 +382,21 @@
         </div>
       </section>
 
-      <!-- Live Chat (local demo) -->
+      <!-- Live Chat (IDs updated to match app.js) -->
       <section id="page-livechat" class="page">
         <div class="card narrow">
           <div class="row"><h3 class="h4">Live Chat</h3></div>
-          <div id="lcBox" style="max-height: 260px; overflow: auto"></div>
+          <!-- changed: id="lcBox" → id="chatBox" -->
+          <div id="chatBox" style="max-height: 260px; overflow: auto"></div>
           <div class="row" style="margin-top: 8px">
+            <!-- changed: id="lcInput" → id="chatInput" -->
             <input
-              id="lcInput"
+              id="chatInput"
               class="input grow"
               placeholder="Type a message…"
             />
-            <button class="btn" id="lcSend">Send</button>
+            <!-- changed: id="lcSend" → id="chatSend" -->
+            <button class="btn" id="chatSend">Send</button>
           </div>
         </div>
       </section>
