@@ -637,3 +637,24 @@ button {
 @media (max-width:520px){
   .icon-pill .txt{ display:none; }
 }
+
+/* ===== Auth gating ===== */
+body.locked #sidebar,
+body.locked #main,
+body.locked .top-icons,
+body.locked .icon-pill,
+body.locked .search-wrap,
+body.locked .auth-slot #btn-logout {
+  pointer-events: none;
+  filter: grayscale(40%);
+  opacity: .55;
+}
+
+body.locked #btn-login,
+body:not(.locked) #btn-login { pointer-events:auto; opacity:1; filter:none }
+
+/* သီးသန့် element gating */
+.gated { pointer-events: none; opacity: .55; filter: grayscale(40%); }
+
+/* Role-based hide/show (JS က class သတ်မှတ်ပေးမယ်) */
+.hide { display:none !important; }

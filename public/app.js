@@ -25,6 +25,47 @@ import {
   set,
 } from "./firebase.js";
 
+/* ===== Auth/Role helpers (gating) ===== */
+const DEFAULT_ROLE = "student";
+const isLogged = () => !!getUser();
+const getRole  = () => (getUser()?.role || DEFAULT_ROLE);
+
+function gateUI() {
+  // Body class toggles: locked = not clickable
+  document.body.classList.toggle("locked", !isLogged());
+
+  // Top login/logout UI
+  const btnLogin  = document.getElementById("btn-login");
+  const btnLogout = document.getElementById("btn-logout");
+  if (btnLogin)  btnLogin.style.display  = isLogged() ? "none" : "";
+  if (btnLogout) btnLogout.style.display = isLogged() ? "" : "none";
+
+  // Role-based visibility: mark body with role class
+  document.body.dataset.role = getRole();
+
+  // Elements that require auth
+  document.querySelectorAll("[data-requires-auth]").forEach(el=>{
+    if (isLogged()) el.classList.remove("gated"); else el.classList.add("gated");
+  });
+
+  // Role-limited elements (data-role="admin" / "instructor" / "student")
+  const role = getRole();
+  document.querySelectorAll("[data-role]").forEach(el=>{
+    const need = (el.getAttribute("data-role")||"").split(/\s+/);
+    el.classList.toggle("hide", !need.includes(role));
+  });
+}
+
+// Global click guard → login မဝင်ရသေးရင် auth modal ဖွင့်ပြီး event ကိုပိတ်
+document.addEventListener("click", (e)=>{
+  if (isLogged()) return; // already logged in
+  // Allow only: login button + auth modal inside
+  if (e.target.closest("#btn-login") || e.target.closest("#authModal")) return;
+  e.preventDefault(); e.stopPropagation();
+  // open login pane
+  if (typeof window._showLoginPane === "function") window._showLoginPane();
+});
+
 /* ---------- helpers ---------- */
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
@@ -204,13 +245,23 @@ function ensureAuthModalMarkup() {
     </form>
   </dialog>`;
   document.body.insertAdjacentHTML("beforeend", html);
+  // expose login-pane opener for the global guard
+  window._showLoginPane = () => {
+    const m = document.getElementById("authModal");
+    if (!m) return;
+    ["authLogin","authSignup","authForgot"].forEach(id=>document.getElementById(id)?.classList.add("ol-hidden"));
+    document.getElementById("authLogin")?.classList.remove("ol-hidden");
+    m.showModal();
+  };
 }
 function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
-  const btnLogin = document.getElementById("btn-login");
-  const btnLogout = document.getElementById("btn-logout");
-  if (btnLogin) btnLogin.style.display = on ? "none" : "";
-  if (btnLogout) btnLogout.style.display = on ? "" : "none";
+  // const btnLogin = document.getElementById("btn-login");
+  // const btnLogout = document.getElementById("btn-logout");
+  // if (btnLogin) btnLogin.style.display = on ? "none" : "";
+  // if (btnLogout) btnLogout.style.display = on ? "" : "none";
+  // buttons visibility မဟုတ်ရင် gateUI ထဲမှာ စုစည်းလုပ်နေပြီ
+  gateUI();
   showPage("catalog");
   renderProfilePanel?.();
 }
@@ -261,22 +312,34 @@ function initAuthModal() {
 
   $("#doLogin")?.addEventListener("click", (e) => {
     e.preventDefault();
-    const em = $("#loginEmail")?.value.trim(),
-      pw = $("#loginPass")?.value;
-    if (!em || !pw) return toast("Fill email/password");
-    setUser({ email: em });
-    setLogged(true, em);
-    modal.close();
+    const em = document.getElementById("loginEmail")?.value.trim();
+  const pw = document.getElementById("loginPass")?.value;
+  if (!em || !pw) return toast("Fill email/password");
+  setUser({ email: em, role: DEFAULT_ROLE });  // ← role default
+  setLogged(true, em);
+  document.getElementById("authModal")?.close();
+    // const em = $("#loginEmail")?.value.trim(),
+    //   pw = $("#loginPass")?.value;
+    // if (!em || !pw) return toast("Fill email/password");
+    // setUser({ email: em });
+    // setLogged(true, em);
+    // modal.close();
     toast("Welcome back");
   });
   $("#doSignup")?.addEventListener("click", (e) => {
     e.preventDefault();
-    const em = $("#signupEmail")?.value.trim(),
-      pw = $("#signupPass")?.value;
-    if (!em || !pw) return toast("Fill email/password");
-    setUser({ email: em });
-    setLogged(true, em);
-    modal.close();
+    const em = document.getElementById("signupEmail")?.value.trim();
+  const pw = document.getElementById("signupPass")?.value;
+  if (!em || !pw) return toast("Fill email/password");
+  setUser({ email: em, role: DEFAULT_ROLE });  // ← role default
+  setLogged(true, em);
+  document.getElementById("authModal")?.close();
+    // const em = $("#signupEmail")?.value.trim(),
+    //   pw = $("#signupPass")?.value;
+    // if (!em || !pw) return toast("Fill email/password");
+    // setUser({ email: em });
+    // setLogged(true, em);
+    // modal.close();
     toast("Account created");
   });
   $("#doForgot")?.addEventListener("click", (e) => {
@@ -1395,6 +1458,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // restore user
   const u = getUser();
   setLogged(!!u, u?.email);
+
+  // Make sure initial gate state is correct (especially on first load)
+  gateUI();
 
   // data
   try {
