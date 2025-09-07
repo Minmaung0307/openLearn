@@ -214,6 +214,16 @@ import {
   ensurePayPal,
 } from "./firebase.js";
 
+// ------- local user state helpers (must be defined early) -------
+const _read  = (k,d)=>{ try{ return JSON.parse(localStorage.getItem(k) ?? JSON.stringify(d)); } catch { return d; } };
+const _write = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
+
+/** Get/set the signed-in user snapshot we mirror in localStorage.
+ *  Shape we expect: { email, role?, uid? }
+ */
+const getUser  = ()=> _read("ol_user", null);
+const setUser  = (u)=> _write("ol_user", u);
+
 /* ================= Router & Gate ================= */
 function showPage(id) {
   $$(".page").forEach((p) => p.classList.remove("visible"));
@@ -1294,7 +1304,11 @@ const hasBadWord = (text) => {
 function initChatRealtime(){
   const box = $("#chatBox"), input = $("#chatInput"), send = $("#chatSend");
   if (!box || !send) return;
-  const displayName = getUser()?.email || "guest";
+  // const displayName = getUser()?.email || "guest";
+  const displayName =
+  (typeof getUser === "function" && getUser()?.email) ||
+  (typeof auth !== "undefined" && auth?.currentUser?.email) ||
+  "guest";
 
   try{
     const rtdb = typeof getDatabase === "function" ? getDatabase(db.app) : null;
@@ -1551,24 +1565,31 @@ $("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
 
 /* ================= Boot ================= */
 document.addEventListener("DOMContentLoaded", async () => {
+  // 0) theme / font
   applyPalette(localStorage.getItem("ol_theme") || "slate");
   applyFont(localStorage.getItem("ol_font") || "16");
 
-  initSidebar();
-  initSearch();
-  initAuth();
-  initChatRealtime();
+  // 1) Auth UI + restore user
+  initAuthModal?.();                   // wires login/logout + modal panes
+  const u = (typeof getUser === "function" ? getUser() : null);
+  setLogged?.(!!u, u?.email);          // reflect login state in UI
 
-  try {
-    await loadCatalog();
-  } catch (e) {
-    console.warn("Catalog load failed", e);
-  }
-  ALL = getCourses();
-  renderCatalog();
-  renderAdminTable();
-  renderProfilePanel();
+  // 2) Features that depend on user/DOM
+  initSidebar?.();
+  initSearch?.();
+  // initAuth?.(); // ← remove unless you have a separate function called initAuth
+  initChatRealtime?.();                // chat binds safely; no-op if DOM missing
 
-  $("#btn-top-ann") && ($("#btn-top-ann").title = "Open Announcements");
-  $("#btn-top-final") && ($("#btn-top-final").title = "Open Final Exam");
+  // 3) Data & initial render
+  try { await loadCatalog?.(); } catch (e) { console.warn("Catalog load failed", e); }
+  ALL = getCourses?.() || [];
+  renderCatalog?.();
+  renderAdminTable?.();
+  renderProfilePanel?.();
+
+  // 4) Small UX touches
+  const annBtn = document.getElementById("btn-top-ann");
+  const finBtn = document.getElementById("btn-top-final");
+  if (annBtn) annBtn.title = "Open Announcements";
+  if (finBtn) finBtn.title = "Open Final Exam";
 });
