@@ -1,136 +1,40 @@
 /* =========================================================
-   OpenLearn · Modern Lite (Local-first demo)
+   OpenLearn · Modern Lite (Local-first + optional Firebase)
    ========================================================= */
+
+/* ---------- Firebase (everything from firebase.js) ---------- */
 import {
-  db, // from firebase.js
-  // Firestore helpers you already use
-  collection, addDoc, serverTimestamp,
-  query, orderBy, limit, onSnapshot,
-  // Optional SDK loaders
+  // Firestore / helpers (you may not use all everywhere; safe to import)
+  db,
+  collection,
+  addDoc,
+  serverTimestamp,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+
+  // Optional PayPal loader (do NOT re-declare in this file)
   ensurePayPal,
-  // RTDB (for realtime chat). Make sure firebase.js exports these.
-  getDatabase, ref, push, onChildAdded, set
+
+  // Optional RTDB for realtime chat (exported by firebase.js)
+  getDatabase,
+  ref,
+  push,
+  onChildAdded,
+  set,
 } from "./firebase.js";
-
-/* ---------- Realtime Chat (per-course room) ---------- */
-// Requires firebase.js exports: getDatabase, ref, push, onChildAdded
-import { getDatabase, ref, push, onChildAdded } from "./firebase.js";
-
-const RTDB = () => {
-  try { return getDatabase(); } catch { return null; }
-};
-
-let chatDetach = null;       // to unbind listener
-let chatRoomCid = null;      // current courseId
-let IN_FINAL_MODE = false;   // disable chat while taking final
-
-// simple client-side slow-mode (2s)
-let lastSend = 0;
-
-function mountChatRoom(courseId, userEmail) {
-  if (!RTDB()) { $("#chatHint").textContent = "Chat offline (RTDB not available)"; return; }
-
-  chatRoomCid = courseId;
-  $("#chatRoomLabel").textContent = `room: ${courseId}`;
-  $("#chatList").innerHTML = "";
-  $("#chatHint").textContent = "Be respectful. Messages visible to all enrolled students in this course.";
-
-  const db = RTDB();
-  const roomRef = ref(db, `chats/${courseId}`);
-
-  // detach old
-  if (chatDetach) { chatDetach(); chatDetach = null; }
-
-  // live stream
-  chatDetach = onChildAdded(roomRef, (snap) => {
-    const m = snap.val();
-    const el = document.createElement("div");
-    el.className = "msg";
-    el.innerHTML = `<b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div>`;
-    $("#chatList").appendChild(el);
-    $("#chatList").scrollTop = $("#chatList").scrollHeight;
-  });
-
-  // send
-  $("#chatSend").onclick = async () => {
-    const now = Date.now();
-    if (IN_FINAL_MODE) return toast("Chat disabled during Final");
-    if (now - lastSend < 2000) return toast("Slow down…");
-    const input = $("#chatInput");
-    const text = (input.value || "").trim();
-    if (!text) return;
-    lastSend = now;
-
-    try {
-      await push(roomRef, {
-        uid: (getUser()?.uid || ""),
-        user: userEmail || (getUser()?.email || "student"),
-        text,
-        ts: now
-      });
-      input.value = "";
-    } catch (e) {
-      console.error(e);
-      toast("Failed to send");
-    }
-  };
-}
-
-function unmountChatRoom() {
-  if (chatDetach) { chatDetach(); chatDetach = null; }
-  $("#chatList") && ($("#chatList").innerHTML = "");
-  $("#chatRoomLabel") && ($("#chatRoomLabel").textContent = "room: —");
-}
-
-/* Hook into your existing reader */
-const _openReader = openReader; // keep reference if you already defined it
-openReader = async function (cid) {
-  // call original
-  await _openReader.call(this, cid);
-
-  // when reader opens → join course room
-  const email = getUser()?.email || currentUser?.email || "student";
-  mountChatRoom(cid, email);
-};
-
-/* When leaving reader (back button), call unmount */
-const _renderPageBack = document.getElementById("rdBack")?.onclick;
-document.getElementById("rdBack") && (document.getElementById("rdBack").onclick = () => {
-  unmountChatRoom();
-  _renderPageBack?.();
-});
-
-/* Disable chat during Final (your existing final start/finish hooks) */
-const _startFinal = startFinal;
-startFinal = function () {
-  IN_FINAL_MODE = true;     // lock
-  $("#courseChat")?.classList.add("hidden");
-  return _startFinal.call(this);
-};
-
-// After final closes (in your submit/cancel handlers), flip it back:
-function endFinalMode() {
-  IN_FINAL_MODE = false;
-  $("#courseChat")?.classList.remove("hidden");
-}
-// Example: call endFinalMode() right before/after you close #finalModal
-// in both submit success and cancel paths.
 
 /* ---------- helpers ---------- */
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
-// const esc = (s)=> String(s??"").replace(/[&<>\"']/g, c=>({"&":"&amp;","<":"&lt;","&gt;":">","\"":"&quot;","'":"&#39;"}[c]));
 const esc = (s) =>
   String(s ?? "").replace(
-    /[&<>"']/g,
+    /[&<>\"']/g,
     (c) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      }[c])
+      ({ "&": "&amp;", "<": "&lt;", "&gt;": ">", '"': "&quot;", "'": "&#39;" }[
+        c
+      ])
   );
 const toast = (m, ms = 2200) => {
   let t = $("#toast");
@@ -230,7 +134,7 @@ function applyFont(px) {
   document.documentElement.style.setProperty("--fontSize", (px || 16) + "px");
 }
 
-/* ---------- state ---------- */
+/* ---------- local state ---------- */
 const getCourses = () => read("ol_courses", []);
 const setCourses = (a) => write("ol_courses", a || []);
 const getEnrolls = () => new Set(read("ol_enrolls", []));
@@ -261,8 +165,9 @@ function showPage(id) {
   if (id === "dashboard") renderAnnouncements();
 }
 
-/* ---------- auth (local) ---------- */
+/* ---------- auth (local demo UI) ---------- */
 let currentUser = null;
+
 function ensureAuthModalMarkup() {
   if (document.getElementById("authModal")) return;
   const html = `
@@ -301,7 +206,7 @@ function ensureAuthModalMarkup() {
   document.body.insertAdjacentHTML("beforeend", html);
 }
 function setLogged(on, email) {
-  window.currentUser = on ? { email: email || "you@example.com" } : null;
+  currentUser = on ? { email: email || "you@example.com" } : null;
   const btnLogin = document.getElementById("btn-login");
   const btnLogout = document.getElementById("btn-logout");
   if (btnLogin) btnLogin.style.display = on ? "none" : "";
@@ -383,62 +288,6 @@ function initAuthModal() {
   });
 }
 
-/* ===== Topbar scroll reveal (hide on down, show on up) ===== */
-function initTopbarReveal() {
-  const tb = document.querySelector(".topbar");
-  if (!tb) return;
-  let lastY = window.scrollY,
-    ticking = false;
-  const onScroll = () => {
-    const y = window.scrollY;
-    if (y > lastY + 6) tb.classList.add("hide"); // scroll down
-    else if (y < lastY - 6) tb.classList.remove("hide"); // scroll up
-    lastY = y;
-    ticking = false;
-  };
-  window.addEventListener(
-    "scroll",
-    () => {
-      if (!ticking) {
-        window.requestAnimationFrame(onScroll);
-        ticking = true;
-      }
-    },
-    { passive: true }
-  );
-}
-
-/* ===== Keep burger left of logo (mobile), and ensure main clears topbar ===== */
-function initTopbarLayout() {
-  // move burger to be before logo (if not already)
-  const row = document.querySelector(".topbar-row");
-  const burger = document.getElementById("btn-burger");
-  const logo =
-    document.getElementById("logo") || document.querySelector(".logo");
-  if (row && burger && logo) {
-    if (burger.nextElementSibling !== logo) {
-      row.insertBefore(burger, logo); // burger | logo | search | pills | auth
-    }
-  }
-  // recalc content offset (in case topbar height differs by theme)
-  const main = document.getElementById("main");
-  const setPad = () => {
-    const h =
-      document.querySelector(".topbar")?.getBoundingClientRect().height || 64;
-    if (main) main.style.paddingTop = `calc(${Math.round(h)}px + 18px)`;
-  };
-  setPad();
-  addEventListener("resize", setPad);
-  const h =
-    document.querySelector(".topbar")?.getBoundingClientRect().height || 64;
-  if (main) main.style.paddingTop = `calc(${Math.round(h)}px + 16px)`;
-  window.addEventListener("resize", () => {
-    const h2 =
-      document.querySelector(".topbar")?.getBoundingClientRect().height || 64;
-    if (main) main.style.paddingTop = `calc(${Math.round(h2)}px + 16px)`;
-  });
-}
-
 /* ---------- sidebar (hover drawer / burger mobile) ---------- */
 function initSidebar() {
   const sb = $("#sidebar"),
@@ -470,70 +319,30 @@ function initSidebar() {
 
 /* ---------- search ---------- */
 function initSearch() {
-  const wrap = document.getElementById("topSearchWrap");
-  const toggle = document.getElementById("topSearchToggle");
-  const input = document.getElementById("topSearch");
-
+  const input = $("#topSearch");
   const apply = () => {
     const q = (input?.value || "").toLowerCase().trim();
     showPage("catalog");
-    document.querySelectorAll("#courseGrid .card.course").forEach((card) => {
-      const t = (card.dataset.search || "").toLowerCase();
-      card.style.display = !q || t.includes(q) ? "" : "none";
-    });
+    $("#courseGrid")
+      ?.querySelectorAll(".card.course")
+      .forEach((card) => {
+        const t = (card.dataset.search || "").toLowerCase();
+        card.style.display = !q || t.includes(q) ? "" : "none";
+      });
   };
-
-  // live filter
-  input?.addEventListener("input", apply);
   input?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") apply();
-    if (e.key === "Escape") document.body.classList.remove("search-open");
-  });
-
-  // mobile: open/close search
-  toggle?.addEventListener("click", (e) => {
-    e.preventDefault();
-    document.body.classList.toggle("search-open");
-    if (document.body.classList.contains("search-open"))
-      setTimeout(() => input?.focus(), 0);
-  });
-  // click outside closes
-  document.addEventListener("click", (e) => {
-    if (!document.body.classList.contains("search-open")) return;
-    if (e.target.closest("#topSearchWrap") || e.target.id === "topSearch")
-      return;
-    document.body.classList.remove("search-open");
   });
 }
-// function initSearch(){
-//   const input=$("#topSearch");
-//   const apply=()=>{
-//     const q=(input?.value||"").toLowerCase().trim();
-//     showPage("catalog");
-//     $("#courseGrid")?.querySelectorAll(".card.course").forEach(card=>{
-//       const t=(card.dataset.search||"").toLowerCase();
-//       card.style.display = !q || t.includes(q) ? "" : "none";
-//     });
-//   };
-//   input?.addEventListener("keydown", e=>{ if(e.key==="Enter") apply(); });
-// }
 
-/* ---------- data loaders (supports /data or /public/data) ---------- */
+/* ---------- data loaders (supports optional /data) ---------- */
 const DATA_BASE_CANDIDATES = ["data", "./data", "./public/data", "/data"];
 let DATA_BASE = null;
-// async function resolveDataBase() {
-//   for (const base of DATA_BASE_CANDIDATES) {
-//     try { const r=await fetch(`${base}/catalog.json`,{cache:'no-cache'}); if(r.ok){ DATA_BASE=base; return; } } catch{}
-//   }
-//   DATA_BASE='/data';
-// }
+
 async function resolveDataBase() {
   const cfgBase = (window.OPENLEARN_DATA_BASE || "").trim();
-  if (cfgBase) {
-    DATA_BASE = cfgBase; // you opted in → we’ll try to fetch from here
-  } else {
-    DATA_BASE = null; // no external data → use local seed only
-  }
+  if (cfgBase) DATA_BASE = cfgBase;
+  else DATA_BASE = null;
 }
 async function loadJSON(path) {
   const r = await fetch(path, { cache: "no-cache" });
@@ -551,16 +360,8 @@ async function loadText(path) {
   }
   return r.text();
 }
-// async function loadCatalog(){
-//   if (!DATA_BASE) await resolveDataBase();
-//   const cat = await loadJSON(`${DATA_BASE}/catalog.json`); // {items:[...]}
-//   const local = getCourses();
-//   const merged = [...(cat?.items||[]), ...local.filter(l => !(cat?.items||[]).some(ci=>ci.id===l.id))];
-//   setCourses(merged); ALL=merged; renderCatalog?.();
-// }
 async function loadCatalog() {
   await resolveDataBase();
-
   let items = [];
   if (DATA_BASE) {
     try {
@@ -569,13 +370,9 @@ async function loadCatalog() {
         const cat = await r.json();
         items = cat?.items || [];
       }
-    } catch {
-      // ignore fetch errors; we'll fall back to seed
-    }
+    } catch {}
   }
-
   if (!items.length) {
-    // Local seed: keeps the app fully usable with zero external files
     items = [
       {
         id: "js-essentials",
@@ -612,85 +409,14 @@ async function loadCatalog() {
       },
     ];
   }
-
-  // Merge with any locally created courses (dedupe by id)
   const local = getCourses();
-  const user = local.filter((c) => c.source === "user");
-  const seed = (items || []).filter((c) => !user.some((u) => u.id === c.id)); // don’t duplicate user IDs
-  const merged = [...seed, ...user]; // user wins
+  const merged = [
+    ...items,
+    ...local.filter((l) => !items.some((ci) => ci.id === l.id)),
+  ];
   setCourses(merged);
   ALL = merged;
   renderCatalog?.();
-  // const merged = [...items, ...local.filter(l => !items.some(ci => ci.id === l.id))];
-
-  setCourses(merged);
-  ALL = merged;
-  renderCatalog?.();
-}
-
-// app.js
-// async function ensurePayPal() {
-//   if (window.paypal) return;
-//   await new Promise((resolve, reject) => {
-//     const s = document.createElement("script");
-//     const id = (window.OPENLEARN_CFG?.paypalClientId || "").trim();
-//     s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(
-//       id
-//     )}&currency=USD&components=buttons`;
-//     s.async = true;
-//     s.onload = resolve;
-//     s.onerror = reject;
-//     document.head.appendChild(s);
-//   });
-// }
-
-// use right before rendering buttons
-async function startCheckout(course) {
-  const containerSel = "#paypal-container";
-  const container = document.querySelector(containerSel);
-  if (!container) return;
-
-  try {
-    await ensurePayPal();
-
-    if (window.paypal?.Buttons) {
-      document.getElementById("paypalNote")?.replaceChildren(); // clear note
-      window.paypal
-        .Buttons({
-          createOrder: (data, actions) =>
-            actions.order.create({
-              purchase_units: [
-                { amount: { value: String(course.price || 0) } },
-              ],
-            }),
-          onApprove: async (data, actions) => {
-            await actions.order.capture();
-            markEnrolled(course.id);
-            $("#payModal")?.close();
-          },
-          onCancel: () => toast("Payment cancelled"),
-          onError: (err) => {
-            console.error(err);
-            toast("Payment error");
-          },
-        })
-        .render(containerSel);
-    } else {
-      throw new Error("PayPal Buttons unavailable");
-    }
-  } catch (e) {
-    console.warn("PayPal SDK not available, using simulator", e);
-    const sim = document.createElement("button");
-    sim.className = "btn primary";
-    sim.textContent = "Simulate PayPal Success";
-    sim.onclick = () => {
-      markEnrolled(course.id);
-      $("#payModal")?.close();
-    };
-    container.replaceChildren(sim);
-    const note = document.getElementById("paypalNote");
-    if (note) note.textContent = "PayPal SDK not loaded — using simulator";
-  }
 }
 
 /* ---------- samples ---------- */
@@ -734,14 +460,6 @@ async function addSamples() {
     },
   ];
   const now = getCourses();
-
-  // ထပ်ထပ် copy ထည့်လို့ရအောင်
-  // setCourses([...now, ...base]);
-  // ALL = getCourses();
-  // toast("Sample course added");
-  // renderCatalog(); renderAdminTable();
-
-  // တစ်ခါပဲ ထည့်လို့ရအောင်
   const add = base.filter((b) => !now.some((n) => n.id === b.id));
   if (add.length) {
     setCourses([...now, ...add]);
@@ -792,16 +510,20 @@ function renderCatalog() {
   }).join("");
 
   // filters
-  $("#filterCategory")?.replaceChildren(
-    ...[
-      new Option("All Categories", ""),
-      ...[...cats].filter(Boolean).map((x) => new Option(x, x)),
-    ]
-  );
+  const catSel = $("#filterCategory"),
+    lvSel = $("#filterLevel"),
+    sortSel = $("#sortBy");
+  if (catSel)
+    catSel.innerHTML =
+      `<option value="">All Categories</option>` +
+      [...cats]
+        .filter(Boolean)
+        .map((x) => `<option>${esc(x)}</option>`)
+        .join("");
   const applyFilters = () => {
-    const cat = $("#filterCategory")?.value || "",
-      lv = $("#filterLevel")?.value || "",
-      sort = $("#sortBy")?.value || "";
+    const cat = catSel?.value || "",
+      lv = lvSel?.value || "",
+      sort = sortSel?.value || "";
     const cards = [...grid.querySelectorAll(".card.course")];
     cards.forEach((el) => {
       const meta = el.querySelector(".small.muted").textContent;
@@ -829,9 +551,9 @@ function renderCatalog() {
       })
       .forEach((el) => grid.appendChild(el));
   };
-  $("#filterCategory")?.addEventListener("change", applyFilters);
-  $("#filterLevel")?.addEventListener("change", applyFilters);
-  $("#sortBy")?.addEventListener("change", applyFilters);
+  catSel?.addEventListener("change", applyFilters);
+  lvSel?.addEventListener("change", applyFilters);
+  sortSel?.addEventListener("change", applyFilters);
 
   // actions
   grid
@@ -845,83 +567,84 @@ function renderCatalog() {
       (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
     );
 }
-function markEnrolled(id) {
+async function markEnrolled(id) {
   const s = getEnrolls();
   s.add(id);
   setEnrolls(s);
+  // optional RTDB mirror (safe-guard if Firebase is present)
+  try {
+    const u = getUser();
+    if (u?.email) {
+      const dbR = getDatabase?.(db.app); // db.app comes from initialized firebase app
+      if (dbR) {
+        await set(
+          ref(dbR, `enrollments/${encodeURIComponent(u.email)}/${id}`),
+          true
+        );
+      }
+    }
+  } catch (e) {
+    /* ignore */
+  }
   toast("Enrolled");
   renderCatalog();
   renderMyLearning();
   showPage("mylearning");
 }
-
-import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-// OR: export re-use from your firebase.js if you already exported `set`
-
-async function mirrorEnrollmentToRTDB(courseId) {
-  try {
-    const uid = getUser()?.uid || (getUser()?.email || "").replace(/[^a-z0-9]/gi, "_");
-    if (!uid) return;
-    const db = RTDB(); if (!db) return;
-    await set(ref(db, `enrollments/${uid}/${courseId}`), true);
-  } catch {}
-}
-
-// Inside your existing markEnrolled(id):
-async function markEnrolled(id) {
-  const s = getEnrolls(); s.add(id); setEnrolls(s);
-  await mirrorEnrollmentToRTDB(id);
-  toast("Enrolled"); renderCatalog(); renderMyLearning(); showPage("mylearning");
-}
-
-// function handleEnroll(id){
-//   const c=ALL.find(x=>x.id===id)||getCourses().find(x=>x.id===id); if(!c) return toast("Course not found");
-//   if((c.price||0)<=0) return markEnrolled(id); // free
-//   const dlg=$("#payModal"); $("#payTitle") && ($("#payTitle").textContent="Checkout · "+c.title);
-//   const container=$("#paypal-container"); if(container) container.innerHTML="";
-//   const note=$("#paypalNote"); const pp=window.paypal;
-//   if(note) note.textContent = pp? "":"PayPal SDK not loaded — using simulator";
-//   if(pp?.Buttons && container){
-//     pp.Buttons({
-//       createOrder:(d,a)=> a.order.create({purchase_units:[{amount:{value:String(c.price||0)}}]}),
-//       onApprove:async(d,a)=>{ await a.order.capture(); markEnrolled(id); dlg?.close(); },
-//       onCancel:()=> toast("Payment cancelled"),
-//       onError: (err)=>{ console.error(err); toast("Payment error"); }
-//     }).render(container);
-//   }else if(container){
-//     const sim=document.createElement("button");
-//     sim.className="btn primary"; sim.textContent="Simulate PayPal Success";
-//     sim.onclick=()=>{ markEnrolled(id); dlg?.close(); };
-//     container.appendChild(sim);
-//   }
-//   $("#mmkPaid")?.addEventListener("click", ()=>{ markEnrolled(id); dlg?.close(); });
-//   $("#closePay")?.addEventListener("click", ()=> dlg?.close());
-//   dlg?.showModal();}
-
-function handleEnroll(id) {
+async function handleEnroll(id) {
   const c =
     ALL.find((x) => x.id === id) || getCourses().find((x) => x.id === id);
   if (!c) return toast("Course not found");
-  if ((c.price || 0) <= 0) return markEnrolled(id); // free → auto-enroll
+  if ((c.price || 0) <= 0) return markEnrolled(id); // free
 
-  // Open your pay modal
   const dlg = $("#payModal");
   $("#payTitle") && ($("#payTitle").textContent = "Checkout · " + c.title);
   const container = $("#paypal-container");
   if (container) container.innerHTML = "";
-  $("#paypalNote") && ($("#paypalNote").textContent = "Loading…");
+  const note = $("#paypalNote");
+
+  // Try to load PayPal SDK via helper
+  try {
+    await ensurePayPal();
+  } catch {}
+  const pp = window.paypal;
+
+  if (note)
+    note.textContent = pp ? "" : "PayPal SDK not loaded — using simulator";
+  if (pp?.Buttons && container) {
+    pp.Buttons({
+      createOrder: (d, a) =>
+        a.order.create({
+          purchase_units: [{ amount: { value: String(c.price || 0) } }],
+        }),
+      onApprove: async (d, a) => {
+        await a.order.capture();
+        markEnrolled(id);
+        dlg?.close();
+      },
+      onCancel: () => toast("Payment cancelled"),
+      onError: (err) => {
+        console.error(err);
+        toast("Payment error");
+      },
+    }).render(container);
+  } else if (container) {
+    const sim = document.createElement("button");
+    sim.className = "btn primary";
+    sim.textContent = "Simulate PayPal Success";
+    sim.onclick = () => {
+      markEnrolled(id);
+      dlg?.close();
+    };
+    container.appendChild(sim);
+  }
   $("#mmkPaid")?.addEventListener("click", () => {
     markEnrolled(id);
     dlg?.close();
   });
   $("#closePay")?.addEventListener("click", () => dlg?.close());
   dlg?.showModal();
-
-  // Now use the lazy loader
-  startCheckout(c);
 }
-
 function openDetails(id) {
   const c =
     ALL.find((x) => x.id === id) || getCourses().find((x) => x.id === id);
@@ -1191,62 +914,10 @@ function renderAdminTable() {
       <td>${esc(String(c.rating || 4.6))}</td><td>${esc(
           String(c.hours || 8)
         )}</td><td>${(c.price || 0) > 0 ? "$" + c.price : "Free"}</td>
-      <td>
-      <button class="btn small" data-edit="${c.id}">Edit</button>
-  <button class="btn small" data-del="${c.id}">Delete</button>
-      </td>
+      <td><button class="btn small" data-del="${c.id}">Delete</button></td>
     </tr>`
       )
       .join("") || "<tr><td colspan='7' class='muted'>No courses</td></tr>";
-  tb.querySelectorAll("[data-edit]").forEach((b) => {
-    b.onclick = () => {
-      const id = b.getAttribute("data-edit");
-      const arr = getCourses();
-      const i = arr.findIndex((x) => x.id === id);
-      if (i < 0) return;
-      const c = arr[i];
-      const dlg = document.getElementById("courseModal");
-      const f = document.getElementById("courseForm");
-      // prefill
-      f.querySelector("[name=title]").value = c.title || "";
-      f.querySelector("[name=category]").value = c.category || "";
-      f.querySelector("[name=level]").value = c.level || "Beginner";
-      f.querySelector("[name=price]").value = c.price || 0;
-      f.querySelector("[name=rating]").value = c.rating || 4.6;
-      f.querySelector("[name=hours]").value = c.hours || 8;
-      f.querySelector("[name=credits]").value = c.credits || 3;
-      f.querySelector("[name=img]").value = c.image || "";
-      f.querySelector("[name=description]").value = c.summary || "";
-      f.querySelector("[name=benefits]").value = c.benefits || "";
-      dlg.showModal();
-
-      // one-off submit override
-      const orig = f.onsubmit;
-      f.onsubmit = (e) => {
-        e.preventDefault();
-        const fd = new FormData(f);
-        c.title = fd.get("title")?.toString() || c.title;
-        c.category = fd.get("category")?.toString() || c.category;
-        c.level = fd.get("level")?.toString() || c.level;
-        c.price = Number(fd.get("price") || c.price || 0);
-        c.rating = Number(fd.get("rating") || c.rating || 4.6);
-        c.hours = Number(fd.get("hours") || c.hours || 8);
-        c.credits = Number(fd.get("credits") || c.credits || 3);
-        c.image = fd.get("img")?.toString() || c.image || "";
-        c.summary = (fd.get("description") || "").toString();
-        c.benefits = (fd.get("benefits") || "").toString();
-        c.source = c.source || "user";
-        arr[i] = c;
-        setCourses(arr);
-        ALL = arr;
-        dlg.close();
-        renderCatalog();
-        renderAdminTable();
-        toast("Course updated");
-        f.onsubmit = orig;
-      };
-    };
-  });
   tb.querySelectorAll("[data-del]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -1592,140 +1263,154 @@ $("#fontSel")?.addEventListener("change", (e) => {
 $("#btn-top-ann")?.addEventListener("click", () => showPage("dashboard"));
 $("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
 
-/* ---------- realtime chat ---------- */
+/* ---------- Chat (fallback local OR RTDB realtime) ---------- */
 function initChatRealtime() {
-  const box  = document.getElementById("chatBox");
-  const input= document.getElementById("chatInput");
-  const send = document.getElementById("chatSend");
-  if (!box || !input || !send) return;
+  const box = $("#chatBox"),
+    input = $("#chatInput"),
+    send = $("#chatSend");
+  if (!box || !send) return;
+  const user = getUser()?.email || "guest";
 
-  // listen newest 100 msgs (timestamp asc)
-  const q = query(
-    collection(db, "rooms", "global", "messages"),
-    orderBy("ts", "asc"),
-    limit(100)
-  );
-  onSnapshot(q, (snap) => {
-    box.innerHTML = "";
-    snap.forEach(doc => {
-      const m = doc.data();
-      const who = m.user || "student";
-      const t   = m.ts?.toDate ? m.ts.toDate().toLocaleTimeString() : "";
-      box.insertAdjacentHTML("beforeend",
-        `<div class="msg"><b>${who}</b> <span class="small muted">${t}</span><div>${m.text||""}</div></div>`
-      );
-    });
+  // If RTDB available → use per-course "global" room
+  try {
+    const rtdb = getDatabase?.(db.app);
+    if (rtdb) {
+      const roomId = "global"; // you can switch to a per-course id when you’re on a reader page
+      const roomRef = ref(rtdb, `chats/${roomId}`);
+      onChildAdded(roomRef, (snap) => {
+        const m = snap.val();
+        if (!m) return;
+        box.insertAdjacentHTML(
+          "beforeend",
+          `<div class="msg"><b>${esc(
+            m.user
+          )}</b> <span class="small muted">${new Date(
+            m.ts
+          ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+        );
+        box.scrollTop = box.scrollHeight;
+      });
+      send.addEventListener("click", async () => {
+        const text = input?.value.trim();
+        if (!text) return;
+        try {
+          await push(roomRef, { uid: user, user, text, ts: Date.now() });
+          if (input) input.value = "";
+        } catch {
+          toast("Chat failed");
+        }
+      });
+      return;
+    }
+  } catch {}
+
+  // Fallback: localStorage chat (per-device)
+  const KEY = "ol_chat_local";
+  const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
+  const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
+  const draw = (m) => {
+    box.insertAdjacentHTML(
+      "beforeend",
+      `<div class="msg"><b>${esc(
+        m.user
+      )}</b> <span class="small muted">${new Date(
+        m.ts
+      ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+    );
     box.scrollTop = box.scrollHeight;
-  });
-
-  send.addEventListener("click", async () => {
-    const text = (input.value||"").trim(); if(!text) return;
-    const who  = (getUser()?.email) || "student";
-    await addDoc(collection(db, "rooms", "global", "messages"), {
-      user: who, text, ts: serverTimestamp()
-    });
-    input.value = "";
+  };
+  let arr = load();
+  arr.forEach(draw);
+  send.addEventListener("click", () => {
+    const text = input?.value.trim();
+    if (!text) return;
+    const m = { user, text, ts: Date.now() };
+    arr.push(m);
+    save(arr);
+    draw(m);
+    if (input) input.value = "";
   });
 }
 
-/* ---------- Chat (local demo) ---------- */
-// function initChat() {
-//   const KEY = "ol_chat_local";
-//   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
-//   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
-//   const box = $("#chatBox"),
-//     input = $("#chatInput"),
-//     send = $("#chatSend");
-//   const draw = (m) => {
-//     box?.insertAdjacentHTML(
-//       "beforeend",
-//       `<div class="msg"><b>${esc(
-//         m.user
-//       )}</b> <span class="small muted">${new Date(
-//         m.ts
-//       ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-//     );
-//     if (box) box.scrollTop = box.scrollHeight;
-//   };
-//   let arr = load();
-//   arr.forEach(draw);
-//   send?.addEventListener("click", () => {
-//     const text = input?.value.trim();
-//     if (!text) return;
-//     const m = { user: currentUser?.email || "guest", text, ts: Date.now() };
-//     arr.push(m);
-//     save(arr);
-//     draw(m);
-//     if (input) input.value = "";
-//   });
-// }
+/* ---------- Topbar layout/reveal (safe stubs) ---------- */
+function initTopbarLayout() {
+  /* keep for compatibility; styles handle layout */
+}
+function initTopbarReveal() {
+  /* optional sticky/reveal logic; noop here */
+}
 
-/* ---------- boot ---------- */
-document.addEventListener("DOMContentLoaded", async ()=>{
-  applyPalette(localStorage.getItem("ol_theme") || "slate");
-  applyFont(localStorage.getItem("ol_font") || "16");
-
-  initAuthModal();
-  initSidebar();
-  initSearch();
-  initChat();
-
-  // Call these only if they exist
-  window.initTopbarLayout?.();
-  window.initTopbarReveal?.();
-
-  const u = getUser();
-  setLogged(!!u, u?.email);
-
-  try { await loadCatalog(); } 
-  catch (e) { console.warn("Catalog load failed", e); }
-
-  ALL = getCourses();
-  renderCatalog();
-  renderAdminTable();
-  renderProfilePanel();
-
-  if (document.getElementById("btn-top-ann")) {
-    document.getElementById("btn-top-ann").title = "Open Announcements";
-  }
-  if (document.getElementById("btn-top-final")) {
-    document.getElementById("btn-top-final").title = "Open Final Exam";
-  }
-
-  // one-time admin import/export wiring (outside renderAdminTable)
-  document.getElementById("btn-export")?.addEventListener("click", ()=>{
-    const user = getCourses().filter(c => c.source === "user");
-    const blob = new Blob([JSON.stringify(user, null, 2)], { type: "application/json" });
+/* ---------- Admin import / export (one-time wiring) ---------- */
+function wireAdminImportExportOnce() {
+  $("#btn-export")?.addEventListener("click", () => {
+    const userOnly = getCourses().filter((c) => c.source === "user");
+    const blob = new Blob([JSON.stringify(userOnly, null, 2)], {
+      type: "application/json",
+    });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "openlearn-my-courses.json";
     a.click();
   });
-
-  document.getElementById("btn-import")?.addEventListener("click", ()=>{
-    document.getElementById("importFile")?.click();
-  });
-
-  document.getElementById("importFile")?.addEventListener("change", async (e)=>{
+  $("#btn-import")?.addEventListener("click", () => $("#importFile")?.click());
+  $("#importFile")?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const text = await file.text();
-
     let incoming = [];
-    try { incoming = JSON.parse(text) || []; }
-    catch { return toast("Invalid JSON"); }
-
+    try {
+      incoming = JSON.parse(text) || [];
+    } catch {
+      return toast("Invalid JSON");
+    }
     const arr = getCourses();
-    incoming.forEach(c=>{
+    incoming.forEach((c) => {
       c.source = "user";
-      const i = arr.findIndex(x => x.id === c.id);
-      if (i >= 0) arr[i] = c; else arr.push(c);
+      const i = arr.findIndex((x) => x.id === c.id);
+      if (i >= 0) arr[i] = c;
+      else arr.push(c);
     });
-
     setCourses(arr);
     ALL = arr;
     renderCatalog();
     renderAdminTable();
     toast("Imported");
   });
+}
+
+/* ---------- boot ---------- */
+document.addEventListener("DOMContentLoaded", async () => {
+  applyPalette(localStorage.getItem("ol_theme") || "slate");
+  applyFont(localStorage.getItem("ol_font") || "16");
+
+  initAuthModal();
+  initSidebar();
+  initSearch();
+  initTopbarLayout();
+  initTopbarReveal();
+
+  // chat init (realtime if RTDB available, else local)
+  initChatRealtime();
+
+  // restore user
+  const u = getUser();
+  setLogged(!!u, u?.email);
+
+  // data
+  try {
+    await loadCatalog();
+  } catch (e) {
+    console.warn("Catalog load failed", e);
+  }
+  ALL = getCourses();
+  renderCatalog();
+  renderAdminTable();
+  renderProfilePanel();
+
+  // titles
+  $("#btn-top-ann") && ($("#btn-top-ann").title = "Open Announcements");
+  $("#btn-top-final") && ($("#btn-top-final").title = "Open Final Exam");
+
+  // admin import/export
+  wireAdminImportExportOnce();
 });
