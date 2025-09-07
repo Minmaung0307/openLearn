@@ -192,6 +192,129 @@ function applyFont(px) {
   document.documentElement.style.setProperty("--fontSize", (px || 16) + "px");
 }
 
+/* ---------- auth (local modal) ---------- */
+let currentUser = null;
+
+// Inject the modal markup once (no need to put modal HTML in index.html)
+function ensureAuthModalMarkup() {
+  if (document.getElementById("authModal")) return;
+
+  const html = `
+  <dialog id="authModal" class="ol-modal auth-modern">
+    <div class="auth-brand">🎓 OpenLearn</div>
+
+    <form id="authLogin" class="authpane" method="dialog">
+      <label>Email</label>
+      <input id="loginEmail" class="input" type="email" placeholder="you@example.com" required/>
+      <label>Password</label>
+      <input id="loginPass" class="input" type="password" placeholder="••••••••" required/>
+      <button class="btn primary wide" id="doLogin" type="submit">Login</button>
+      <div class="auth-links">
+        <a href="#" id="linkSignup">Sign up</a>
+        <span>·</span>
+        <a href="#" id="linkForgot">Forgot password?</a>
+      </div>
+    </form>
+
+    <form id="authSignup" class="authpane ol-hidden" method="dialog">
+      <div class="h4" style="color:#eaf1ff;font-weight:700;margin-bottom:6px">Create Account</div>
+      <label>Email</label>
+      <input id="signupEmail" class="input" type="email" placeholder="you@example.com" required/>
+      <label>Password</label>
+      <input id="signupPass" class="input" type="password" placeholder="Choose a password" required/>
+      <button class="btn primary wide" id="doSignup" type="submit">Create account</button>
+      <div class="auth-links"><a href="#" id="backToLogin1">Back to login</a></div>
+    </form>
+
+    <form id="authForgot" class="authpane ol-hidden" method="dialog">
+      <div class="h4" style="color:#eaf1ff;font-weight:700;margin-bottom:6px">Reset Password</div>
+      <label>Email</label>
+      <input id="forgotEmail" class="input" type="email" placeholder="you@example.com" required/>
+      <button class="btn wide" id="doForgot" type="submit">Send reset link</button>
+      <div class="auth-links"><a href="#" id="backToLogin2">Back to login</a></div>
+    </form>
+  </dialog>`;
+  document.body.insertAdjacentHTML("beforeend", html);
+}
+
+// Update UI when logged in/out
+function setLogged(on, email) {
+  currentUser = on ? { email: email || "you@example.com" } : null;
+  const btnLogin  = document.getElementById("btn-login");
+  const btnLogout = document.getElementById("btn-logout");
+  if (btnLogin)  btnLogin.style.display  = on ? "none" : "";
+  if (btnLogout) btnLogout.style.display = on ? "" : "none";
+  // optional: show a default page after login
+  try { showPage("catalog"); } catch {}
+  try { renderProfilePanel?.(); } catch {}
+}
+
+// Wire up the modal and buttons
+function initAuthModal() {
+  ensureAuthModalMarkup();
+  const modal = document.getElementById("authModal");
+  if (!modal) return;
+
+  const showPane = (id) => {
+    ["authLogin","authSignup","authForgot"].forEach(x=>{
+      const pane = document.getElementById(x);
+      if (pane) pane.classList.add("ol-hidden");
+    });
+    document.getElementById(id)?.classList.remove("ol-hidden");
+    modal.showModal();
+  };
+
+  // Topbar buttons (delegation so it survives rerenders)
+  document.addEventListener("click", (e) => {
+    const loginBtn = e.target.closest("#btn-login");
+    const logoutBtn = e.target.closest("#btn-logout");
+    if (loginBtn) { e.preventDefault(); showPane("authLogin"); }
+    if (logoutBtn) {
+      e.preventDefault();
+      try { setUser(null); } catch {}
+      setLogged(false);
+      try { toast("Logged out"); } catch {}
+    }
+  });
+
+  // Pane links
+  document.getElementById("linkSignup")?.addEventListener("click", (e)=>{ e.preventDefault(); showPane("authSignup"); });
+  document.getElementById("linkForgot")?.addEventListener("click", (e)=>{ e.preventDefault(); showPane("authForgot"); });
+  document.getElementById("backToLogin1")?.addEventListener("click", (e)=>{ e.preventDefault(); showPane("authLogin"); });
+  document.getElementById("backToLogin2")?.addEventListener("click", (e)=>{ e.preventDefault(); showPane("authLogin"); });
+
+  // Actions (demo local auth — stores user in localStorage)
+  document.getElementById("doLogin")?.addEventListener("click", (e)=>{
+    e.preventDefault();
+    const em = document.getElementById("loginEmail")?.value.trim();
+    const pw = document.getElementById("loginPass")?.value;
+    if (!em || !pw) return toast("Fill email/password");
+    try { setUser({ email: em }); } catch {}
+    setLogged(true, em);
+    modal.close();
+    try { toast("Welcome back"); } catch {}
+  });
+
+  document.getElementById("doSignup")?.addEventListener("click", (e)=>{
+    e.preventDefault();
+    const em = document.getElementById("signupEmail")?.value.trim();
+    const pw = document.getElementById("signupPass")?.value;
+    if (!em || !pw) return toast("Fill email/password");
+    try { setUser({ email: em }); } catch {}
+    setLogged(true, em);
+    modal.close();
+    try { toast("Account created"); } catch {}
+  });
+
+  document.getElementById("doForgot")?.addEventListener("click", (e)=>{
+    e.preventDefault();
+    const em = document.getElementById("forgotEmail")?.value.trim();
+    if (!em) return toast("Enter email");
+    modal.close();
+    try { toast("Reset link sent (demo)"); } catch {}
+  });
+}
+
 /* ================= Local Storage Models ================= */
 const getCourses = () => read("ol_courses", []);
 const setCourses = (a) => write("ol_courses", a || []);
@@ -1588,9 +1711,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   applyFont(localStorage.getItem("ol_font") || "16");
 
   // 1) Auth UI + restore user
-  // initAuthModal?.();                   // wires login/logout + modal panes
+  initAuthModal?.();                   // wires login/logout + modal panes
+  
   const u = (typeof getUser === "function" ? getUser() : null);
-  // setLogged?.(!!u, u?.email);          // reflect login state in UI
+  setLogged?.(!!u, u?.email);          // reflect login state in UI
 
   // 2) Features that depend on user/DOM
   initSidebar?.();
