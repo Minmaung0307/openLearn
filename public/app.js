@@ -1,6 +1,6 @@
 // app.js — OpenLearn (Firebase Auth + RTDB chat, local-first courses)
 // import { remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { getDatabase, ref, push, onChildAdded, remove } from "./firebase.js";
+// import { getDatabase, ref, push, onChildAdded, remove } from "./firebase.js";
 /* ================= Helpers & State ================= */
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -352,6 +352,7 @@ import {
   ref,
   push,
   onChildAdded,
+  remove,
   // optional PayPal loader (safe if not used)
   ensurePayPal,
 } from "./firebase.js";
