@@ -1395,72 +1395,122 @@ $("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
 
 /* ---------- Chat (fallback local OR RTDB realtime) ---------- */
 function initChatRealtime() {
-  const box = $("#chatBox"),
-    input = $("#chatInput"),
-    send = $("#chatSend");
+  const box = $("#chatBox"), input = $("#chatInput"), send = $("#chatSend");
   if (!box || !send) return;
-  const user = getUser()?.email || "guest";
+  const user = (getUser()?.email || "guest");
 
-  // If RTDB available → use per-course "global" room
+  // Try RTDB first
   try {
     const rtdb = getDatabase?.(db.app);
-    if (rtdb) {
-      const roomId = "global"; // you can switch to a per-course id when you’re on a reader page
+    const authFb = (window.firebaseAuth || null) || undefined; // if you expose one
+    if (rtdb && auth?.currentUser) { // must be Firebase-authenticated
+      const roomId = window.CURRENT_COURSE_ID || "global";
       const roomRef = ref(rtdb, `chats/${roomId}`);
       onChildAdded(roomRef, (snap) => {
-        const m = snap.val();
-        if (!m) return;
-        box.insertAdjacentHTML(
-          "beforeend",
-          `<div class="msg"><b>${esc(
-            m.user
-          )}</b> <span class="small muted">${new Date(
-            m.ts
-          ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-        );
+        const m = snap.val(); if (!m) return;
+        box.insertAdjacentHTML("beforeend",
+          `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
         box.scrollTop = box.scrollHeight;
       });
       send.addEventListener("click", async () => {
-        const text = input?.value.trim();
-        if (!text) return;
+        const text = input?.value.trim(); if (!text) return;
         try {
-          await push(roomRef, { uid: user, user, text, ts: Date.now() });
+          await push(roomRef, { uid: auth.currentUser.uid, user, text, ts: Date.now() });
           if (input) input.value = "";
-        } catch {
-          toast("Chat failed");
+        } catch (e) {
+          console.error(e); toast("Chat failed");
         }
       });
       return;
     }
-  } catch {}
+  } catch (e) {
+    console.warn("RTDB not available, falling back:", e);
+  }
 
-  // Fallback: localStorage chat (per-device)
+  // Fallback: local-only
   const KEY = "ol_chat_local";
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
   const draw = (m) => {
-    box.insertAdjacentHTML(
-      "beforeend",
-      `<div class="msg"><b>${esc(
-        m.user
-      )}</b> <span class="small muted">${new Date(
-        m.ts
-      ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-    );
+    box.insertAdjacentHTML("beforeend",
+      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
     box.scrollTop = box.scrollHeight;
   };
-  let arr = load();
-  arr.forEach(draw);
+  let arr = load(); arr.forEach(draw);
   send.addEventListener("click", () => {
-    const text = input?.value.trim();
-    if (!text) return;
+    const text = input?.value.trim(); if (!text) return;
     const m = { user, text, ts: Date.now() };
-    arr.push(m);
-    save(arr);
-    draw(m);
+    arr.push(m); save(arr); draw(m);
     if (input) input.value = "";
   });
 }
+// function initChatRealtime() {
+//   const box = $("#chatBox"),
+//     input = $("#chatInput"),
+//     send = $("#chatSend");
+//   if (!box || !send) return;
+//   const user = getUser()?.email || "guest";
+
+//   // If RTDB available → use per-course "global" room
+//   try {
+//     const rtdb = getDatabase?.(db.app);
+//     if (rtdb) {
+//       const roomId = "global"; // you can switch to a per-course id when you’re on a reader page
+//       const roomRef = ref(rtdb, `chats/${roomId}`);
+//       onChildAdded(roomRef, (snap) => {
+//         const m = snap.val();
+//         if (!m) return;
+//         box.insertAdjacentHTML(
+//           "beforeend",
+//           `<div class="msg"><b>${esc(
+//             m.user
+//           )}</b> <span class="small muted">${new Date(
+//             m.ts
+//           ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+//         );
+//         box.scrollTop = box.scrollHeight;
+//       });
+//       send.addEventListener("click", async () => {
+//         const text = input?.value.trim();
+//         if (!text) return;
+//         try {
+//           await push(roomRef, { uid: user, user, text, ts: Date.now() });
+//           if (input) input.value = "";
+//         } catch {
+//           toast("Chat failed");
+//         }
+//       });
+//       return;
+//     }
+//   } catch {}
+
+//   // Fallback: localStorage chat (per-device)
+//   const KEY = "ol_chat_local";
+//   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
+//   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
+//   const draw = (m) => {
+//     box.insertAdjacentHTML(
+//       "beforeend",
+//       `<div class="msg"><b>${esc(
+//         m.user
+//       )}</b> <span class="small muted">${new Date(
+//         m.ts
+//       ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+//     );
+//     box.scrollTop = box.scrollHeight;
+//   };
+//   let arr = load();
+//   arr.forEach(draw);
+//   send.addEventListener("click", () => {
+//     const text = input?.value.trim();
+//     if (!text) return;
+//     const m = { user, text, ts: Date.now() };
+//     arr.push(m);
+//     save(arr);
+//     draw(m);
+//     if (input) input.value = "";
+//   });
+// }
 
 // Live Chat (global) — RTDB if available, fallback to localStorage
 function initLiveChatRealtime(){
