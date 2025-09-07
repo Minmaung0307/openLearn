@@ -3,9 +3,13 @@
    ========================================================= */
 import {
   db, // from firebase.js
+  // Firestore helpers you already use
   collection, addDoc, serverTimestamp,
   query, orderBy, limit, onSnapshot,
-  ensurePayPal
+  // Optional SDK loaders
+  ensurePayPal,
+  // RTDB (for realtime chat). Make sure firebase.js exports these.
+  getDatabase, ref, push, onChildAdded, set
 } from "./firebase.js";
 
 /* ---------- Realtime Chat (per-course room) ---------- */
