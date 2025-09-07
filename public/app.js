@@ -30,6 +30,7 @@ import {
   push,
   onChildAdded,
   // NOTE: intentionally NOT importing `set` here to avoid module error
+  auth, onAuthStateChanged, signInAnonymously
 } from "./firebase.js";
 
 // ===== Auth/Role helpers (gating) =====
@@ -443,6 +444,16 @@ function initSearch() {
   });
 }
 
+async function ensureAuthForChat() {
+  try {
+    if (!auth.currentUser) {
+      await signInAnonymously(auth);
+    }
+  } catch (e) {
+    console.warn("Anonymous auth failed", e);
+  }
+}
+
 // ---------- data loaders (optional /data) ----------
 let DATA_BASE = null;
 async function resolveDataBase() {
@@ -677,11 +688,27 @@ function markEnrolled(id) {
   s.add(id);
   setEnrolls(s);
   // (Optional RTDB mirror removed to avoid importing `set`; purely local is fine)
+
+  // 🔹 RTDB flag တင်ရန်
+  writeEnrollmentRTDB(id);
+
   toast("Enrolled");
   renderCatalog();
   renderMyLearning();
   showPage("mylearning");
 }
+
+async function writeEnrollmentRTDB(courseId) {
+  try {
+    const uid = auth.currentUser?.uid; // Firebase Auth current user
+    if (!uid) return;
+    const dbR = getDatabase();
+    await set(ref(dbR, `enrollments/${uid}/${courseId}`), true);
+  } catch (e) {
+    console.warn("RTDB enrollment flag failed", e);
+  }
+}
+
 async function handleEnroll(id) {
   const c =
     ALL.find((x) => x.id === id) || getCourses().find((x) => x.id === id);
@@ -1355,46 +1382,40 @@ $("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
 
 // ---------- Chat (realtime RTDB → fallback local) ----------
 function initChatRealtime() {
-  const box = $("#chatBox"),
-    input = $("#chatInput"),
-    send = $("#chatSend");
+  const box = $("#chatBox"), input = $("#chatInput"), send = $("#chatSend");
   if (!box || !send) return;
-  const user = getUser()?.email || "guest";
+
+  const displayName = getUser()?.email || "guest";
 
   try {
-    const rtdb = typeof getDatabase === "function" ? getDatabase(db.app) : null;
-    // If you require Firebase-auth to post, you can gate here. For now we only require local login.
+    const rtdb = getDatabase?.(db.app);
     if (rtdb) {
-      const roomId = "global";
+      const roomId = "global"; // Course reader ထဲရောက်ရင် courseId သို့ ပြောင်းနိုင်
       const roomRef = ref(rtdb, `chats/${roomId}`);
+
       onChildAdded(roomRef, (snap) => {
-        const m = snap.val();
-        if (!m) return;
-        box.insertAdjacentHTML(
-          "beforeend",
-          `<div class="msg"><b>${esc(
-            m.user
-          )}</b> <span class="small muted">${new Date(
-            m.ts
-          ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-        );
+        const m = snap.val(); if (!m) return;
+        box.insertAdjacentHTML("beforeend",
+          `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
         box.scrollTop = box.scrollHeight;
       });
+
       send.addEventListener("click", async () => {
-        const text = input?.value.trim();
-        if (!text) return;
+        const text = input?.value.trim(); if (!text) return;
         try {
-          await push(roomRef, { uid: user, user, text, ts: Date.now() });
+          await ensureAuthForChat();                    // <-- make sure authed
+          const uid = auth.currentUser?.uid || "nouid"; // <-- rules use this
+          await push(roomRef, { uid, user: displayName, text, ts: Date.now() });
           if (input) input.value = "";
-        } catch {
+        } catch (e) {
+          console.warn(e);
           toast("Chat failed");
         }
       });
-      return;
+
+      return; // RTDB branch done
     }
-  } catch {
-    /* fallback below */
-  }
+  } catch {}
 
   // Fallback: localStorage
   const KEY = "ol_chat_local";

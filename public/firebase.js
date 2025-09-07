@@ -134,3 +134,5 @@ export function initEmailJS() {
     try { window.emailjs.init(e.publicKey); } catch {}
   }
 }
+
+export { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
