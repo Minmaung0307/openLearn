@@ -22,24 +22,47 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// sw.js
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  if (req.method !== 'GET') return;
-
   const url = new URL(req.url);
-  if (url.host.includes('paypal.com') ||
-      url.pathname.includes('/google.firestore.v1.Firestore/')) return;
 
-  event.respondWith(
-    caches.open('ol-v1').then(async (cache)=>{
-      const hit = await cache.match(req);
-      if (hit) return hit;
-      const res = await fetch(req);
-      if (res && res.ok) cache.put(req, res.clone());
-      return res;
-    })
-  );
+  // 1) Only handle same-origin GET
+  const isSameOrigin = url.origin === self.location.origin;
+  if (req.method !== 'GET' || !isSameOrigin) return;
+
+  // 2) Normal cache-first/network fallback (edit to your strategy)
+  event.respondWith((async () => {
+    const cache = await caches.open('openlearn-v1');
+    const cached = await cache.match(req);
+    if (cached) return cached;
+    const res = await fetch(req);
+    // Only cache successful, basic (same-origin) GET responses
+    if (res.ok && res.type === 'basic') {
+      cache.put(req, res.clone());
+    }
+    return res;
+  })());
 });
+// self.addEventListener('fetch', (event) => {
+//   const req = event.request;
+//   if (req.method !== 'GET') return;
+
+//   const url = new URL(req.url);
+//   if (url.host.includes('paypal.com') ||
+//       url.pathname.includes('/google.firestore.v1.Firestore/')) return;
+
+//   event.respondWith(
+//     caches.open('ol-v1').then(async (cache)=>{
+//       const hit = await cache.match(req);
+//       if (hit) return hit;
+//       const res = await fetch(req);
+//       if (res && res.ok) cache.put(req, res.clone());
+//       return res;
+//     })
+//   );
+// });
 // self.addEventListener('fetch', (event) => {
 //   const req = event.request;
 //   // Only handle same-origin GET. Ignore POST/PUT and any cross-origin (e.g. PayPal).
