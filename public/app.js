@@ -28,40 +28,42 @@ import {
 /* ===== Auth/Role helpers (gating) ===== */
 const DEFAULT_ROLE = "student";
 const isLogged = () => !!getUser();
-const getRole  = () => (getUser()?.role || DEFAULT_ROLE);
+const getRole = () => getUser()?.role || DEFAULT_ROLE;
 
 function gateUI() {
   // Body class toggles: locked = not clickable
   document.body.classList.toggle("locked", !isLogged());
 
   // Top login/logout UI
-  const btnLogin  = document.getElementById("btn-login");
+  const btnLogin = document.getElementById("btn-login");
   const btnLogout = document.getElementById("btn-logout");
-  if (btnLogin)  btnLogin.style.display  = isLogged() ? "none" : "";
+  if (btnLogin) btnLogin.style.display = isLogged() ? "none" : "";
   if (btnLogout) btnLogout.style.display = isLogged() ? "" : "none";
 
   // Role-based visibility: mark body with role class
   document.body.dataset.role = getRole();
 
   // Elements that require auth
-  document.querySelectorAll("[data-requires-auth]").forEach(el=>{
-    if (isLogged()) el.classList.remove("gated"); else el.classList.add("gated");
+  document.querySelectorAll("[data-requires-auth]").forEach((el) => {
+    if (isLogged()) el.classList.remove("gated");
+    else el.classList.add("gated");
   });
 
   // Role-limited elements (data-role="admin" / "instructor" / "student")
   const role = getRole();
-  document.querySelectorAll("[data-role]").forEach(el=>{
-    const need = (el.getAttribute("data-role")||"").split(/\s+/);
+  document.querySelectorAll("[data-role]").forEach((el) => {
+    const need = (el.getAttribute("data-role") || "").split(/\s+/);
     el.classList.toggle("hide", !need.includes(role));
   });
 }
 
 // Global click guard → login မဝင်ရသေးရင် auth modal ဖွင့်ပြီး event ကိုပိတ်
-document.addEventListener("click", (e)=>{
+document.addEventListener("click", (e) => {
   if (isLogged()) return; // already logged in
   // Allow only: login button + auth modal inside
   if (e.target.closest("#btn-login") || e.target.closest("#authModal")) return;
-  e.preventDefault(); e.stopPropagation();
+  e.preventDefault();
+  e.stopPropagation();
   // open login pane
   if (typeof window._showLoginPane === "function") window._showLoginPane();
 });
@@ -153,6 +155,62 @@ const PALETTES = {
     btnFg: "#eaf1ff",
     btnPrimaryBg: "#2563eb",
     btnPrimaryFg: "#fff",
+  },
+  // === New popular palettes ===
+  light: {
+    bg: "#f8fafc",
+    fg: "#1e293b",
+    card: "#ffffff",
+    muted: "#64748b",
+    border: "#cbd5e1",
+    btnBg: "#e2e8f0",
+    btnFg: "#1e293b",
+    btnPrimaryBg: "#2563eb",
+    btnPrimaryFg: "#fff",
+  },
+  forest: {
+    bg: "#0d1b12",
+    fg: "#d9fbe7",
+    card: "#14281d",
+    muted: "#7db99a",
+    border: "#1e3d2c",
+    btnBg: "#194d33",
+    btnFg: "#d9fbe7",
+    btnPrimaryBg: "#34d399",
+    btnPrimaryFg: "#0d1b12",
+  },
+  sunset: {
+    bg: "#2d0a12",
+    fg: "#fff4e6",
+    card: "#43121d",
+    muted: "#f9a8a8",
+    border: "#601b2c",
+    btnBg: "#7f1d1d",
+    btnFg: "#fff4e6",
+    btnPrimaryBg: "#f97316",
+    btnPrimaryFg: "#2d0a12",
+  },
+  lavender: {
+    bg: "#1a102d",
+    fg: "#ede9fe",
+    card: "#2e1a47",
+    muted: "#c4b5fd",
+    border: "#3f2d68",
+    btnBg: "#4c1d95",
+    btnFg: "#ede9fe",
+    btnPrimaryBg: "#8b5cf6",
+    btnPrimaryFg: "#1a102d",
+  },
+  emerald: {
+    bg: "#062d1f",
+    fg: "#d1fae5",
+    card: "#064e3b",
+    muted: "#6ee7b7",
+    border: "#065f46",
+    btnBg: "#047857",
+    btnFg: "#d1fae5",
+    btnPrimaryBg: "#10b981",
+    btnPrimaryFg: "#062d1f",
   },
 };
 function applyPalette(name) {
@@ -249,7 +307,9 @@ function ensureAuthModalMarkup() {
   window._showLoginPane = () => {
     const m = document.getElementById("authModal");
     if (!m) return;
-    ["authLogin","authSignup","authForgot"].forEach(id=>document.getElementById(id)?.classList.add("ol-hidden"));
+    ["authLogin", "authSignup", "authForgot"].forEach((id) =>
+      document.getElementById(id)?.classList.add("ol-hidden")
+    );
     document.getElementById("authLogin")?.classList.remove("ol-hidden");
     m.showModal();
   };
@@ -313,11 +373,11 @@ function initAuthModal() {
   $("#doLogin")?.addEventListener("click", (e) => {
     e.preventDefault();
     const em = document.getElementById("loginEmail")?.value.trim();
-  const pw = document.getElementById("loginPass")?.value;
-  if (!em || !pw) return toast("Fill email/password");
-  setUser({ email: em, role: DEFAULT_ROLE });  // ← role default
-  setLogged(true, em);
-  document.getElementById("authModal")?.close();
+    const pw = document.getElementById("loginPass")?.value;
+    if (!em || !pw) return toast("Fill email/password");
+    setUser({ email: em, role: DEFAULT_ROLE }); // ← role default
+    setLogged(true, em);
+    document.getElementById("authModal")?.close();
     // const em = $("#loginEmail")?.value.trim(),
     //   pw = $("#loginPass")?.value;
     // if (!em || !pw) return toast("Fill email/password");
@@ -329,11 +389,11 @@ function initAuthModal() {
   $("#doSignup")?.addEventListener("click", (e) => {
     e.preventDefault();
     const em = document.getElementById("signupEmail")?.value.trim();
-  const pw = document.getElementById("signupPass")?.value;
-  if (!em || !pw) return toast("Fill email/password");
-  setUser({ email: em, role: DEFAULT_ROLE });  // ← role default
-  setLogged(true, em);
-  document.getElementById("authModal")?.close();
+    const pw = document.getElementById("signupPass")?.value;
+    if (!em || !pw) return toast("Fill email/password");
+    setUser({ email: em, role: DEFAULT_ROLE }); // ← role default
+    setLogged(true, em);
+    document.getElementById("authModal")?.close();
     // const em = $("#signupEmail")?.value.trim(),
     //   pw = $("#signupPass")?.value;
     // if (!em || !pw) return toast("Fill email/password");
