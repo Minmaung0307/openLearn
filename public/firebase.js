@@ -31,7 +31,8 @@ import {
   query,
   orderBy,
   where,
-  limit
+  limit,
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* (Optional) RTDB — used by Live Chat if available */
@@ -83,7 +84,8 @@ export {
   query,
   orderBy,
   where,
-  limit
+  limit,
+  onSnapshot
 };
 
 /* ===== PayPal SDK injector (optional) =====

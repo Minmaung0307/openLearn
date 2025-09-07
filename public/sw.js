@@ -24,21 +24,39 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  // Only handle same-origin GET. Ignore POST/PUT and any cross-origin (e.g. PayPal).
   if (req.method !== 'GET') return;
+
   const url = new URL(req.url);
-  if (url.origin !== location.origin) return;
+  if (url.host.includes('paypal.com') ||
+      url.pathname.includes('/google.firestore.v1.Firestore/')) return;
 
   event.respondWith(
-    caches.match(req).then(cached => {
-      if (cached) return cached;
-      return fetch(req).then(resp => {
-        // Only cache OK responses
-        if (!resp || resp.status !== 200) return resp;
-        const clone = resp.clone();
-        caches.open(CACHE).then(c => c.put(req, clone)).catch(()=>{});
-        return resp;
-      }).catch(() => cached); // offline fallback if we had cached
+    caches.open('ol-v1').then(async (cache)=>{
+      const hit = await cache.match(req);
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res && res.ok) cache.put(req, res.clone());
+      return res;
     })
   );
 });
+// self.addEventListener('fetch', (event) => {
+//   const req = event.request;
+//   // Only handle same-origin GET. Ignore POST/PUT and any cross-origin (e.g. PayPal).
+//   if (req.method !== 'GET') return;
+//   const url = new URL(req.url);
+//   if (url.origin !== location.origin) return;
+
+//   event.respondWith(
+//     caches.match(req).then(cached => {
+//       if (cached) return cached;
+//       return fetch(req).then(resp => {
+//         // Only cache OK responses
+//         if (!resp || resp.status !== 200) return resp;
+//         const clone = resp.clone();
+//         caches.open(CACHE).then(c => c.put(req, clone)).catch(()=>{});
+//         return resp;
+//       }).catch(() => cached); // offline fallback if we had cached
+//     })
+//   );
+// });

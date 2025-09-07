@@ -1,6 +1,116 @@
 /* =========================================================
    OpenLearn · Modern Lite (Local-first demo)
    ========================================================= */
+import {
+  db, // from firebase.js
+  collection, addDoc, serverTimestamp,
+  query, orderBy, limit, onSnapshot,
+  ensurePayPal
+} from "./firebase.js";
+
+/* ---------- Realtime Chat (per-course room) ---------- */
+// Requires firebase.js exports: getDatabase, ref, push, onChildAdded
+import { getDatabase, ref, push, onChildAdded } from "./firebase.js";
+
+const RTDB = () => {
+  try { return getDatabase(); } catch { return null; }
+};
+
+let chatDetach = null;       // to unbind listener
+let chatRoomCid = null;      // current courseId
+let IN_FINAL_MODE = false;   // disable chat while taking final
+
+// simple client-side slow-mode (2s)
+let lastSend = 0;
+
+function mountChatRoom(courseId, userEmail) {
+  if (!RTDB()) { $("#chatHint").textContent = "Chat offline (RTDB not available)"; return; }
+
+  chatRoomCid = courseId;
+  $("#chatRoomLabel").textContent = `room: ${courseId}`;
+  $("#chatList").innerHTML = "";
+  $("#chatHint").textContent = "Be respectful. Messages visible to all enrolled students in this course.";
+
+  const db = RTDB();
+  const roomRef = ref(db, `chats/${courseId}`);
+
+  // detach old
+  if (chatDetach) { chatDetach(); chatDetach = null; }
+
+  // live stream
+  chatDetach = onChildAdded(roomRef, (snap) => {
+    const m = snap.val();
+    const el = document.createElement("div");
+    el.className = "msg";
+    el.innerHTML = `<b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div>`;
+    $("#chatList").appendChild(el);
+    $("#chatList").scrollTop = $("#chatList").scrollHeight;
+  });
+
+  // send
+  $("#chatSend").onclick = async () => {
+    const now = Date.now();
+    if (IN_FINAL_MODE) return toast("Chat disabled during Final");
+    if (now - lastSend < 2000) return toast("Slow down…");
+    const input = $("#chatInput");
+    const text = (input.value || "").trim();
+    if (!text) return;
+    lastSend = now;
+
+    try {
+      await push(roomRef, {
+        uid: (getUser()?.uid || ""),
+        user: userEmail || (getUser()?.email || "student"),
+        text,
+        ts: now
+      });
+      input.value = "";
+    } catch (e) {
+      console.error(e);
+      toast("Failed to send");
+    }
+  };
+}
+
+function unmountChatRoom() {
+  if (chatDetach) { chatDetach(); chatDetach = null; }
+  $("#chatList") && ($("#chatList").innerHTML = "");
+  $("#chatRoomLabel") && ($("#chatRoomLabel").textContent = "room: —");
+}
+
+/* Hook into your existing reader */
+const _openReader = openReader; // keep reference if you already defined it
+openReader = async function (cid) {
+  // call original
+  await _openReader.call(this, cid);
+
+  // when reader opens → join course room
+  const email = getUser()?.email || currentUser?.email || "student";
+  mountChatRoom(cid, email);
+};
+
+/* When leaving reader (back button), call unmount */
+const _renderPageBack = document.getElementById("rdBack")?.onclick;
+document.getElementById("rdBack") && (document.getElementById("rdBack").onclick = () => {
+  unmountChatRoom();
+  _renderPageBack?.();
+});
+
+/* Disable chat during Final (your existing final start/finish hooks) */
+const _startFinal = startFinal;
+startFinal = function () {
+  IN_FINAL_MODE = true;     // lock
+  $("#courseChat")?.classList.add("hidden");
+  return _startFinal.call(this);
+};
+
+// After final closes (in your submit/cancel handlers), flip it back:
+function endFinalMode() {
+  IN_FINAL_MODE = false;
+  $("#courseChat")?.classList.remove("hidden");
+}
+// Example: call endFinalMode() right before/after you close #finalModal
+// in both submit success and cancel paths.
 
 /* ---------- helpers ---------- */
 const $ = (s, root = document) => root.querySelector(s);
@@ -620,6 +730,14 @@ async function addSamples() {
     },
   ];
   const now = getCourses();
+
+  // ထပ်ထပ် copy ထည့်လို့ရအောင်
+  // setCourses([...now, ...base]);
+  // ALL = getCourses();
+  // toast("Sample course added");
+  // renderCatalog(); renderAdminTable();
+
+  // တစ်ခါပဲ ထည့်လို့ရအောင်
   const add = base.filter((b) => !now.some((n) => n.id === b.id));
   if (add.length) {
     setCourses([...now, ...add]);
@@ -732,6 +850,27 @@ function markEnrolled(id) {
   renderMyLearning();
   showPage("mylearning");
 }
+
+import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// OR: export re-use from your firebase.js if you already exported `set`
+
+async function mirrorEnrollmentToRTDB(courseId) {
+  try {
+    const uid = getUser()?.uid || (getUser()?.email || "").replace(/[^a-z0-9]/gi, "_");
+    if (!uid) return;
+    const db = RTDB(); if (!db) return;
+    await set(ref(db, `enrollments/${uid}/${courseId}`), true);
+  } catch {}
+}
+
+// Inside your existing markEnrolled(id):
+async function markEnrolled(id) {
+  const s = getEnrolls(); s.add(id); setEnrolls(s);
+  await mirrorEnrollmentToRTDB(id);
+  toast("Enrolled"); renderCatalog(); renderMyLearning(); showPage("mylearning");
+}
+
 // function handleEnroll(id){
 //   const c=ALL.find(x=>x.id===id)||getCourses().find(x=>x.id===id); if(!c) return toast("Course not found");
 //   if((c.price||0)<=0) return markEnrolled(id); // free
@@ -1449,37 +1588,73 @@ $("#fontSel")?.addEventListener("change", (e) => {
 $("#btn-top-ann")?.addEventListener("click", () => showPage("dashboard"));
 $("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
 
-/* ---------- Chat (local demo) ---------- */
-function initChat() {
-  const KEY = "ol_chat_local";
-  const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
-  const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
-  const box = $("#chatBox"),
-    input = $("#chatInput"),
-    send = $("#chatSend");
-  const draw = (m) => {
-    box?.insertAdjacentHTML(
-      "beforeend",
-      `<div class="msg"><b>${esc(
-        m.user
-      )}</b> <span class="small muted">${new Date(
-        m.ts
-      ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-    );
-    if (box) box.scrollTop = box.scrollHeight;
-  };
-  let arr = load();
-  arr.forEach(draw);
-  send?.addEventListener("click", () => {
-    const text = input?.value.trim();
-    if (!text) return;
-    const m = { user: currentUser?.email || "guest", text, ts: Date.now() };
-    arr.push(m);
-    save(arr);
-    draw(m);
-    if (input) input.value = "";
+/* ---------- realtime chat ---------- */
+function initChatRealtime() {
+  const box  = document.getElementById("chatBox");
+  const input= document.getElementById("chatInput");
+  const send = document.getElementById("chatSend");
+  if (!box || !input || !send) return;
+
+  // listen newest 100 msgs (timestamp asc)
+  const q = query(
+    collection(db, "rooms", "global", "messages"),
+    orderBy("ts", "asc"),
+    limit(100)
+  );
+  onSnapshot(q, (snap) => {
+    box.innerHTML = "";
+    snap.forEach(doc => {
+      const m = doc.data();
+      const who = m.user || "student";
+      const t   = m.ts?.toDate ? m.ts.toDate().toLocaleTimeString() : "";
+      box.insertAdjacentHTML("beforeend",
+        `<div class="msg"><b>${who}</b> <span class="small muted">${t}</span><div>${m.text||""}</div></div>`
+      );
+    });
+    box.scrollTop = box.scrollHeight;
+  });
+
+  send.addEventListener("click", async () => {
+    const text = (input.value||"").trim(); if(!text) return;
+    const who  = (getUser()?.email) || "student";
+    await addDoc(collection(db, "rooms", "global", "messages"), {
+      user: who, text, ts: serverTimestamp()
+    });
+    input.value = "";
   });
 }
+
+/* ---------- Chat (local demo) ---------- */
+// function initChat() {
+//   const KEY = "ol_chat_local";
+//   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
+//   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
+//   const box = $("#chatBox"),
+//     input = $("#chatInput"),
+//     send = $("#chatSend");
+//   const draw = (m) => {
+//     box?.insertAdjacentHTML(
+//       "beforeend",
+//       `<div class="msg"><b>${esc(
+//         m.user
+//       )}</b> <span class="small muted">${new Date(
+//         m.ts
+//       ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+//     );
+//     if (box) box.scrollTop = box.scrollHeight;
+//   };
+//   let arr = load();
+//   arr.forEach(draw);
+//   send?.addEventListener("click", () => {
+//     const text = input?.value.trim();
+//     if (!text) return;
+//     const m = { user: currentUser?.email || "guest", text, ts: Date.now() };
+//     arr.push(m);
+//     save(arr);
+//     draw(m);
+//     if (input) input.value = "";
+//   });
+// }
 
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async ()=>{
