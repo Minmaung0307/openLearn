@@ -354,7 +354,7 @@ import {
   onChildAdded,
   remove,
   // optional PayPal loader (safe if not used)
-  ensurePayPal,
+  // ensurePayPal,
 } from "./firebase.js";
 
 // ------- local user state helpers (must be defined early) -------

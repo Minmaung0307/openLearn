@@ -220,36 +220,35 @@
           ></div>
           <div id="rdPage"></div>
 
-          <!-- Course Chat Panel -->
-          <section id="courseChat" class="card" style="margin-top: 12px">
-            <div class="row" style="justify-content: space-between">
-              <strong>Course Chat</strong>
-              <label class="small muted" id="chatRoomLabel">room: —</label>
-            </div>
-            <div
-              id="ccList"
-              style="
-                max-height: 260px;
-                overflow: auto;
-                margin: 8px 0;
-                padding-right: 4px;
-              "
-            ></div>
-            <div class="row">
-              <input
-                id="ccInput"
-                class="input"
-                placeholder="Write a message…"
-                style="flex: 1"
-              />
-              <button id="ccSend" class="btn primary">Send</button>
-            </div>
-            <div
-              class="small muted"
-              id="chatHint"
-              style="margin-top: 6px"
-            ></div>
-          </section>
+          <!-- Per-Course Chat (reader) -->
+<section id="courseChat" class="card" style="margin-top:12px">
+  <div class="row" style="justify-content:space-between">
+    <strong>Course Chat</strong>
+    <label class="small muted" id="chatRoomLabel">room: —</label>
+  </div>
+
+  <div id="ccList"
+       class="chat-box"
+       style="max-height:260px;overflow:auto;margin:8px 0;padding-right:4px"
+       aria-live="polite"
+       aria-label="Course chat messages">
+  </div>
+
+  <div class="row" style="gap:8px">
+    <input id="ccInput"
+           class="input grow"
+           placeholder="Write a message…"
+           style="flex:1"
+           inputmode="text"
+           maxlength="500"
+           autocomplete="off"
+           spellcheck="false"
+           aria-label="Type a course chat message">
+    <button id="ccSend" class="btn primary" type="button">Send</button>
+  </div>
+
+  <div class="small muted" id="chatHint" style="margin-top:6px"></div>
+</section>
         </div>
       </section>
 
@@ -380,21 +379,34 @@
         </div>
       </section>
 
-      <!-- Live Chat -->
-      <section id="page-livechat" class="page">
-        <div class="card narrow">
-          <div class="row"><h3 class="h4">Live Chat</h3></div>
-          <div id="chatBox" style="max-height: 260px; overflow: auto"></div>
-          <div class="row" style="margin-top: 8px">
-            <input
-              id="chatInput"
-              class="input grow"
-              placeholder="Type a message…"
-            />
-            <button class="btn" id="chatSend">Send</button>
-          </div>
-        </div>
-      </section>
+      <!-- Global Live Chat (dashboard) -->
+<section id="page-livechat" class="page">
+  <div class="card narrow">
+    <div class="row">
+      <h3 class="h4">Live Chat</h3>
+    </div>
+
+    <div id="chatBox"
+         class="chat-box"
+         style="max-height:260px;overflow:auto"
+         aria-live="polite"
+         aria-label="Live chat messages">
+    </div>
+
+    <div class="row" style="margin-top:8px">
+      <input id="chatInput"
+             class="input grow"
+             placeholder="Type a message…"
+             style="flex:1"
+             inputmode="text"
+             maxlength="500"
+             autocomplete="off"
+             spellcheck="false"
+             aria-label="Type a chat message">
+      <button class="btn" id="chatSend" type="button">Send</button>
+    </div>
+  </div>
+</section>
     </main>
 
     <!-- ========== MODALS ========== -->
