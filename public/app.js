@@ -1,5 +1,5 @@
 // app.js — OpenLearn (Firebase Auth + RTDB chat, local-first courses)
-import { remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+// import { remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getDatabase, ref, push, onChildAdded, remove } from "./firebase.js";
 /* ================= Helpers & State ================= */
 const $ = (s, r = document) => r.querySelector(s);
