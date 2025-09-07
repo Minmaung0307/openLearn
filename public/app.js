@@ -1572,7 +1572,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 1) Auth UI + restore user
   // initAuthModal?.();                   // wires login/logout + modal panes
   const u = (typeof getUser === "function" ? getUser() : null);
-  setLogged?.(!!u, u?.email);          // reflect login state in UI
+  // setLogged?.(!!u, u?.email);          // reflect login state in UI
 
   // 2) Features that depend on user/DOM
   initSidebar?.();
