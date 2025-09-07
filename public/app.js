@@ -31,6 +31,24 @@ const read = (k, d) => {
 };
 const write = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
+/* === Auth/Role helpers (safe guards) — PLACE NEAR TOP, before chat/RTDB uses === */
+window.getUser = window.getUser || (() => {
+  try { return JSON.parse(localStorage.getItem("ol_user") || "null"); }
+  catch { return null; }
+});
+
+window.isLogged = window.isLogged || (() => !!window.getUser());
+
+window.getRole = window.getRole || (() => {
+  // default role if none stored with the user object
+  return (window.getUser()?.role) || "student";
+});
+
+window.isAdminLike = window.isAdminLike || (() => {
+  const r = window.getRole();
+  return r === "owner" || r === "admin" || r === "instructor" || r === "ta";
+});
+
 /* ================= THEME ================= */
 const PALETTES = {
   slate: {
