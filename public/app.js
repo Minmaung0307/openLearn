@@ -625,20 +625,20 @@ async function loadCatalog() {
 }
 
 // app.js
-async function ensurePayPal() {
-  if (window.paypal) return;
-  await new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    const id = (window.OPENLEARN_CFG?.paypalClientId || "").trim();
-    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(
-      id
-    )}&currency=USD&components=buttons`;
-    s.async = true;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
+// async function ensurePayPal() {
+//   if (window.paypal) return;
+//   await new Promise((resolve, reject) => {
+//     const s = document.createElement("script");
+//     const id = (window.OPENLEARN_CFG?.paypalClientId || "").trim();
+//     s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(
+//       id
+//     )}&currency=USD&components=buttons`;
+//     s.async = true;
+//     s.onload = resolve;
+//     s.onerror = reject;
+//     document.head.appendChild(s);
+//   });
+// }
 
 // use right before rendering buttons
 async function startCheckout(course) {
