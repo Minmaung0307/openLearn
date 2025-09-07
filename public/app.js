@@ -1570,7 +1570,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   applyFont(localStorage.getItem("ol_font") || "16");
 
   // 1) Auth UI + restore user
-  initAuthModal?.();                   // wires login/logout + modal panes
+  // initAuthModal?.();                   // wires login/logout + modal panes
   const u = (typeof getUser === "function" ? getUser() : null);
   setLogged?.(!!u, u?.email);          // reflect login state in UI
 
