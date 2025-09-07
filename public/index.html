@@ -11,10 +11,10 @@
 
     <!-- Theme / UI -->
     <link rel="stylesheet" href="./styles.css" />
-    <script type="module" src="./firebase.js"></script>
 
-    <!-- if you include config.js -->
+    <!-- Load config BEFORE firebase.js (important) -->
     <script src="./config.js"></script>
+    <script type="module" src="./firebase.js"></script>
 
     <!-- service worker (keeps scope inside /public) -->
     <script>
@@ -25,23 +25,21 @@
       }
     </script>
 
-    <!-- Config (optional for PayPal / future Firebase) -->
+    <!-- Optional global config holder -->
     <script>
       window.OPENLEARN_CFG = window.OPENLEARN_CFG || {};
     </script>
-    <script
-      src="https://www.paypal.com/sdk/js?client-id=AVpfmQ8DyyatFaAGQ3Jg58XtUt_2cJDr1leqcc_JI8LvKIR2N5WB_yljqCOTTCtvK1hFJ7Q9X0ojXsEC&currency=USD&components=buttons"
-      async
-    ></script>
+
+    <!-- PayPal: load only if OPENLEARN_CFG.paypalClientId is set (avoid double load) -->
     <script>
       (function injectPayPal() {
         const id = (window.OPENLEARN_CFG?.paypalClientId || "").trim();
-        if (!id) return;
+        if (!id) return; // no client id -> skip (simulator in app.js will handle)
         const s = document.createElement("script");
         s.src =
           "https://www.paypal.com/sdk/js?client-id=" +
           encodeURIComponent(id) +
-          "&currency=USD";
+          "&currency=USD&components=buttons";
         s.async = true;
         document.head.appendChild(s);
       })();
@@ -325,7 +323,7 @@
             <tbody></tbody>
           </table>
         </div>
-        <!-- Controls row -->
+        <!-- Controls row (single source of truth for import/export) -->
         <div class="row" style="gap: 8px; justify-content: flex-end">
           <button class="btn" id="btn-export">Export My Courses</button>
           <button class="btn" id="btn-import">Import</button>
@@ -382,20 +380,17 @@
         </div>
       </section>
 
-      <!-- Live Chat (IDs updated to match app.js) -->
+      <!-- Live Chat -->
       <section id="page-livechat" class="page">
         <div class="card narrow">
           <div class="row"><h3 class="h4">Live Chat</h3></div>
-          <!-- changed: id="lcBox" → id="chatBox" -->
           <div id="chatBox" style="max-height: 260px; overflow: auto"></div>
           <div class="row" style="margin-top: 8px">
-            <!-- changed: id="lcInput" → id="chatInput" -->
             <input
               id="chatInput"
               class="input grow"
               placeholder="Type a message…"
             />
-            <!-- changed: id="lcSend" → id="chatSend" -->
             <button class="btn" id="chatSend">Send</button>
           </div>
         </div>
@@ -528,11 +523,7 @@
         "
       >
         <b class="modal-title">New Course</b>
-        <div class="row" style="gap: 6px">
-          <button id="btn-export" class="btn small">Export My Courses</button>
-          <input id="importFile" type="file" accept="application/json" hidden />
-          <button id="btn-import" class="btn small">Import</button>
-        </div>
+        <!-- (Import/Export controls were duplicated here previously — removed to avoid duplicate IDs) -->
         <button class="btn small" id="courseClose" type="button">Close</button>
       </div>
       <form id="courseForm" class="authpane">
@@ -653,16 +644,16 @@
         </label>
         <label style="grid-column: 1/-1"
           >Skills (comma-separated)
-          <input name="skills" class="input" placeholder="JS, React, UI/UX"
-        /></label>
+          <input name="skills" class="input" placeholder="JS, React, UI/UX" />
+        </label>
         <label style="grid-column: 1/-1"
           >Portfolio Links (github, linkedin, …)
-          <input name="links" class="input" placeholder="https://..."
-        /></label>
+          <input name="links" class="input" placeholder="https://..." />
+        </label>
         <label style="grid-column: 1/-1"
           >Social Links (YouTube, FB, IG, TikTok, X)
-          <input name="social" class="input" placeholder="https://..."
-        /></label>
+          <input name="social" class="input" placeholder="https://..." />
+        </label>
         <div
           class="row"
           style="grid-column: 1/-1; justify-content: flex-end; gap: 8px"
@@ -694,8 +685,8 @@
 
     <!-- App -->
     <script>
-      // point to your real dataset (optional)
-      window.OPENLEARN_DATA_BASE = "/public/data";
+      // On Firebase Hosting, /public is deployed as site root → data lives at /data
+      window.OPENLEARN_DATA_BASE = "/data";
     </script>
     <script type="module" src="./app.js"></script>
   </body>
