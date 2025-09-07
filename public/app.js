@@ -1465,7 +1465,7 @@ Status: ${pct >= 70 ? "Pass" : "Fail"}
 // ====== Chat settings ======
 const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
 const BAD_WORDS = ["fuck","shit","asshole","bitch","cunt","dick","pussy","rape","nigger","faggot"]; // sample only
-const isAdminLike = () => ["owner","admin","instructor","ta"].includes(getRole() || "student");
+// const isAdminLike = () => ["owner","admin","instructor","ta"].includes(getRole() || "student");
 const clean = (s)=>s.normalize("NFKC").toLowerCase();
 const hasBadWord = (text) => {
   const t = " " + clean(text) + " ";
