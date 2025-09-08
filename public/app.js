@@ -167,8 +167,8 @@ const getProfile = () =>
 const setProfile = (p) => _write("ol_profile", p || {});
 // const getUser = () => _read("ol_user", null);
 // const setUser = (u) => _write("ol_user", u);
-const getUser  = () => JSON.parse(localStorage.getItem("ol_user") || "null");
-const setUser  = (u) => localStorage.setItem("ol_user", JSON.stringify(u));
+const getUser = () => JSON.parse(localStorage.getItem("ol_user") || "null");
+const setUser = (u) => localStorage.setItem("ol_user", JSON.stringify(u));
 
 let ALL = []; // in-memory snapshot
 let currentUser = null; // transient
@@ -182,7 +182,7 @@ const getRole = () => getUser()?.role || "student";
 function gateChatUI() {
   // Firebase auth login (non-anonymous) ဖြစ်/မဖြစ် + local login fallback
   const firebaseLogged =
-    !!(window.auth?.currentUser) && !window.auth.currentUser.isAnonymous;
+    !!window.auth?.currentUser && !window.auth.currentUser.isAnonymous;
   const localLogged = typeof getUser === "function" && !!getUser();
   const ok = firebaseLogged || localLogged;
 
@@ -190,7 +190,7 @@ function gateChatUI() {
   ids.forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.toggleAttribute("disabled", !ok);    // disabled → cursor:not-allowed
+    el.toggleAttribute("disabled", !ok); // disabled → cursor:not-allowed
     // parent ‘card’ ကို gated class ခပ်လေးပါစေ (CSS က pointer-events ပိတ်မယ်)
     const card = el.closest(".card");
     if (card) card.classList.toggle("gated", !ok);
@@ -200,7 +200,6 @@ function gateChatUI() {
 // Keep synced with auth
 window.onAuthStateChanged?.(window.auth, () => gateChatUI());
 document.addEventListener("DOMContentLoaded", gateChatUI);
-
 
 function isAdminLike() {
   const role = getRole();
@@ -459,14 +458,18 @@ async function loadCatalog() {
 function getFilterValues() {
   const cat = (document.getElementById("filterCategory")?.value || "").trim();
   const lvl = (document.getElementById("filterLevel")?.value || "").trim();
-  const sort= (document.getElementById("sortBy")?.value || "").trim();
+  const sort = (document.getElementById("sortBy")?.value || "").trim();
   return { cat, lvl, sort };
 }
 function sortCourses(list, sort) {
-  if (sort === "title-asc")   return list.slice().sort((a,b)=>a.title.localeCompare(b.title));
-  if (sort === "title-desc")  return list.slice().sort((a,b)=>b.title.localeCompare(a.title));
-  if (sort === "price-asc")   return list.slice().sort((a,b)=>(a.price||0)-(b.price||0));
-  if (sort === "price-desc")  return list.slice().sort((a,b)=>(b.price||0)-(a.price||0));
+  if (sort === "title-asc")
+    return list.slice().sort((a, b) => a.title.localeCompare(b.title));
+  if (sort === "title-desc")
+    return list.slice().sort((a, b) => b.title.localeCompare(a.title));
+  if (sort === "price-asc")
+    return list.slice().sort((a, b) => (a.price || 0) - (b.price || 0));
+  if (sort === "price-desc")
+    return list.slice().sort((a, b) => (b.price || 0) - (a.price || 0));
   return list;
 }
 
@@ -480,18 +483,21 @@ function renderCatalog() {
   // build category options (with "All Categories")
   const sel = document.getElementById("filterCategory");
   if (sel && !sel.dataset._wired) {
-    const cats = Array.from(new Set(ALL.map(c => c.category || ""))).filter(Boolean).sort();
-    sel.innerHTML = `<option value="">All Categories</option>` +
-      cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    const cats = Array.from(new Set(ALL.map((c) => c.category || "")))
+      .filter(Boolean)
+      .sort();
+    sel.innerHTML =
+      `<option value="">All Categories</option>` +
+      cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
     sel.dataset._wired = "1";
   }
 
   const { cat, lvl, sort } = getFilterValues();
 
   // filter
-  let list = ALL.filter(c => {
-    const passCat = !cat || (c.category||"") === cat;
-    const passLvl = !lvl || (c.level||"") === lvl;
+  let list = ALL.filter((c) => {
+    const passCat = !cat || (c.category || "") === cat;
+    const passLvl = !lvl || (c.level || "") === lvl;
     return passCat && passLvl;
   });
 
@@ -504,37 +510,52 @@ function renderCatalog() {
   }
 
   // render
-  grid.innerHTML = list.map((c) => {
-    const search = [c.title, c.summary, c.category, c.level].join(" ");
-    const r = Number(c.rating || 4.6), priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
-    const enrolled = getEnrolls().has(c.id);
-    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
-      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+  grid.innerHTML = list
+    .map((c) => {
+      const search = [c.title, c.summary, c.category, c.level].join(" ");
+      const r = Number(c.rating || 4.6),
+        priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+      const enrolled = getEnrolls().has(c.id);
+      return `<div class="card course" data-id="${c.id}" data-search="${esc(
+        search
+      )}">
+      <img class="course-cover" src="${esc(
+        c.image || `https://picsum.photos/seed/${c.id}/640/360`
+      )}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
+        <div class="small muted">${esc(c.category || "")} • ${esc(
+        c.level || ""
+      )} • ★ ${r.toFixed(1)} • ${priceStr}</div>
         <div class="muted">${esc(c.summary || "")}</div>
         <div class="row" style="justify-content:flex-end; gap:8px">
           <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${enrolled ? "Enrolled" : "Enroll"}</button>
+          <button class="btn primary" data-enroll="${c.id}">${
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
         </div>
       </div>
     </div>`;
-  }).join("");
+    })
+    .join("");
 
   // actions
-  grid.querySelectorAll("[data-enroll]").forEach((b)=>
-    b.onclick = () => handleEnroll(b.getAttribute("data-enroll"))
-  );
-  grid.querySelectorAll("[data-details]").forEach((b)=>
-    b.onclick = () => openDetails(b.getAttribute("data-details"))
-  );
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
 }
 
 // wire filter changes (add once after renderCatalog is defined)
-["filterCategory","filterLevel","sortBy"].forEach(id=>{
+["filterCategory", "filterLevel", "sortBy"].forEach((id) => {
   const el = document.getElementById(id);
-  el && el.addEventListener("change", ()=> renderCatalog());
+  el && el.addEventListener("change", () => renderCatalog());
 });
 
 // === New Course Modal wiring ===
@@ -552,8 +573,13 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     const f = new FormData(e.target);
     const payload = {
-      id: (f.get("title") || "").toString().trim().toLowerCase().replace(/\s+/g, "-") 
-          || ("c_" + Math.random().toString(36).slice(2, 9)),
+      id:
+        (f.get("title") || "")
+          .toString()
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, "-") ||
+        "c_" + Math.random().toString(36).slice(2, 9),
       title: f.get("title")?.toString().trim(),
       category: f.get("category")?.toString().trim(),
       level: f.get("level")?.toString() || "Beginner",
@@ -566,7 +592,7 @@ document.addEventListener("DOMContentLoaded", () => {
       benefits: (f.get("benefits") || "").toString(),
       createdAt: Date.now(),
       progress: 0,
-      source: "user"
+      source: "user",
     };
     const arr = getCourses();
     arr.push(payload);
@@ -787,7 +813,7 @@ async function openReader(cid) {
   // … render course …
   renderPage();
   if (typeof wireCourseChatRealtime === "function") {
-    wireCourseChatRealtime(courseId);   // ✅ pass the function argument
+    wireCourseChatRealtime(courseId); // ✅ pass the function argument
   }
 }
 function renderPage() {
@@ -874,18 +900,23 @@ function renderAdminTable() {
 document.getElementById("btn-new-post")?.addEventListener("click", () => {
   const f = document.getElementById("postForm");
   f?.reset();
-  f && (f.dataset.editId = "");         // not editing
-  document.querySelector("#postModal .modal-title").textContent = "New Announcement";
+  f && (f.dataset.editId = ""); // not editing
+  document.querySelector("#postModal .modal-title").textContent =
+    "New Announcement";
   document.getElementById("postModal")?.showModal();
 });
 
 // close buttons
-document.getElementById("closePostModal")?.addEventListener("click", () =>
-  document.getElementById("postModal")?.close()
-);
-document.getElementById("cancelPost")?.addEventListener("click", () =>
-  document.getElementById("postModal")?.close()
-);
+document
+  .getElementById("closePostModal")
+  ?.addEventListener("click", () =>
+    document.getElementById("postModal")?.close()
+  );
+document
+  .getElementById("cancelPost")
+  ?.addEventListener("click", () =>
+    document.getElementById("postModal")?.close()
+  );
 
 // single submit handler (create or update)
 document.getElementById("postForm")?.addEventListener("submit", (e) => {
@@ -899,11 +930,19 @@ document.getElementById("postForm")?.addEventListener("submit", (e) => {
   const arr = getAnns();
 
   if (editId) {
-    const i = arr.findIndex(x => x.id === editId);
-    if (i >= 0) { arr[i].title = t; arr[i].body = b; }
+    const i = arr.findIndex((x) => x.id === editId);
+    if (i >= 0) {
+      arr[i].title = t;
+      arr[i].body = b;
+    }
     toast("Updated");
   } else {
-    arr.push({ id: "a_" + Math.random().toString(36).slice(2,9), title: t, body: b, ts: Date.now() });
+    arr.push({
+      id: "a_" + Math.random().toString(36).slice(2, 9),
+      title: t,
+      body: b,
+      ts: Date.now(),
+    });
     toast("Announcement posted");
   }
 
@@ -920,20 +959,21 @@ function wireAnnouncementEditButtons() {
     btn.onclick = () => {
       const id = btn.getAttribute("data-edit");
       const arr = getAnns();
-      const i = arr.findIndex(x => x.id === id);
+      const i = arr.findIndex((x) => x.id === id);
       if (i < 0) return;
       document.getElementById("pmTitle").value = arr[i].title || "";
-      document.getElementById("pmBody").value  = arr[i].body || "";
+      document.getElementById("pmBody").value = arr[i].body || "";
       const f = document.getElementById("postForm");
       f.dataset.editId = id; // mark editing
-      document.querySelector("#postModal .modal-title").textContent = "Edit Announcement";
+      document.querySelector("#postModal .modal-title").textContent =
+        "Edit Announcement";
       document.getElementById("postModal")?.showModal();
     };
   });
   box.querySelectorAll("[data-del]").forEach((btn) => {
     btn.onclick = () => {
       const id = btn.getAttribute("data-del");
-      const arr = getAnns().filter(x => x.id !== id);
+      const arr = getAnns().filter((x) => x.id !== id);
       setAnns(arr);
       renderAnnouncements();
       toast("Deleted");
@@ -947,7 +987,9 @@ function renderAnnouncements() {
   if (!box) return;
   const arr = getAnns().slice().reverse();
   box.innerHTML =
-    arr.map(a => `
+    arr
+      .map(
+        (a) => `
       <div class="card" data-id="${a.id}">
         <div class="row" style="justify-content:space-between">
           <strong>${esc(a.title)}</strong>
@@ -958,8 +1000,9 @@ function renderAnnouncements() {
           <button class="btn small" data-edit="${a.id}">Edit</button>
           <button class="btn small" data-del="${a.id}">Delete</button>
         </div>
-      </div>`).join("")
-    || `<div class="muted">No announcements yet.</div>`;
+      </div>`
+      )
+      .join("") || `<div class="muted">No announcements yet.</div>`;
   wireAnnouncementEditButtons();
 }
 
@@ -1052,36 +1095,51 @@ async function ensureAuthForChat() {
 
 // GLOBAL room
 function initChatRealtime() {
-  const box  = document.getElementById("chatBox");
-  const input= document.getElementById("chatInput");
+  const box = document.getElementById("chatBox");
+  const input = document.getElementById("chatInput");
   const send = document.getElementById("chatSend");
   if (!box || !send) return;
 
-  const display = (typeof getUser === "function" && getUser()?.email) || "guest";
+  const display =
+    (typeof getUser === "function" && getUser()?.email) || "guest";
 
   const canUseRTDB =
-    !!(window.auth?.currentUser) && !window.auth.currentUser.isAnonymous;
+    !!window.auth?.currentUser && !window.auth.currentUser.isAnonymous;
 
   if (canUseRTDB) {
     try {
-      const rtdb = getDatabase();                  // default app
-      const roomRef = ref(rtdb, "chats/global");   // global room
+      const rtdb = getDatabase(); // default app
+      const roomRef = ref(rtdb, "chats/global"); // global room
 
       onChildAdded(roomRef, (snap) => {
-        const m = snap.val(); if (!m) return;
-        box.insertAdjacentHTML("beforeend",
-          `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
+        const m = snap.val();
+        if (!m) return;
+        box.insertAdjacentHTML(
+          "beforeend",
+          `<div class="msg"><b>${esc(
+            m.user
+          )}</b> <span class="small muted">${new Date(
+            m.ts
+          ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+        );
         box.scrollTop = box.scrollHeight;
       });
 
       send.onclick = async () => {
-        const text = (input?.value || "").trim(); if (!text) return;
+        const text = (input?.value || "").trim();
+        if (!text) return;
         const u = window.auth.currentUser; // real user
         try {
-          await push(roomRef, { uid: u.uid, user: (u.email||"user"), text, ts: Date.now() });
+          await push(roomRef, {
+            uid: u.uid,
+            user: u.email || "user",
+            text,
+            ts: Date.now(),
+          });
           if (input) input.value = "";
         } catch (e) {
-          console.warn(e); toast("Chat failed");
+          console.warn(e);
+          toast("Chat failed");
         }
       };
       return; // RTDB branch finished
@@ -1095,48 +1153,96 @@ function initChatRealtime() {
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
   const draw = (m) => {
-    box.insertAdjacentHTML("beforeend",
-      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
+    box.insertAdjacentHTML(
+      "beforeend",
+      `<div class="msg"><b>${esc(
+        m.user
+      )}</b> <span class="small muted">${new Date(
+        m.ts
+      ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+    );
     box.scrollTop = box.scrollHeight;
   };
-  let arr = load(); arr.forEach(draw);
+  let arr = load();
+  arr.forEach(draw);
 
   send.onclick = () => {
-    const text = (input?.value || "").trim(); if (!text) return;
+    const text = (input?.value || "").trim();
+    if (!text) return;
     const m = { user: display, text, ts: Date.now() };
-    arr.push(m); save(arr); draw(m); if (input) input.value = "";
+    arr.push(m);
+    save(arr);
+    draw(m);
+    if (input) input.value = "";
   };
 }
 
 // PER-COURSE room (call this when you open a reader: wireCourseChatRealtime(courseId))
 // keep one global ref so we can detach previous listeners when switching courses
-let _ccOff = null;
 
+// ---------- Per-course chat (Realtime RTDB → fallback local) ----------
 function wireCourseChatRealtime(courseId) {
-  const list  = document.getElementById("ccList");
-  const input = document.getElementById("ccInput");
-  const send  = document.getElementById("ccSend");
-  const label = document.getElementById("chatRoomLabel");
-  if (!list || !input || !send) return;
+  const list  = $("#ccList"),
+        input = $("#ccInput"),
+        send  = $("#ccSend"),
+        label = $("#chatRoomLabel");
+  if (!list || !send) return;
 
-  // label
+  // Show which room we’re in
   if (label) label.textContent = "room: " + courseId;
 
-  // clear old messages + unhook previous listener (if any)
-  list.innerHTML = "";
-  if (typeof _ccOff === "function") { try { _ccOff(); } catch {} _ccOff = null; }
+  const display = getUser()?.email || "you";
 
-  // get RTDB (if not available we fall back to localStorage)
-  let rtdb = null;
-  try { rtdb = (typeof getDatabase === "function") ? getDatabase() : null; } catch {}
-  const display = (typeof getUser === "function" && getUser()?.email) || "you";
+  try {
+    const rtdb = getDatabase?.(db.app);
+    if (rtdb) {
+      const roomRef = ref(rtdb, `chats/${courseId}`);
 
-  // helper: draw one message
+      // Listen for new messages
+      onChildAdded(roomRef, (snap) => {
+        const m = snap.val();
+        if (!m) return;
+        list.insertAdjacentHTML(
+          "beforeend",
+          `<div class="msg"><b>${esc(m.user)}</b> 
+             <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+             <div>${esc(m.text)}</div>
+           </div>`
+        );
+        list.scrollTop = list.scrollHeight;
+      });
+
+      // Send message
+      send.addEventListener("click", async () => {
+        const text = (input?.value || "").trim();
+        if (!text) return;
+        try {
+          await ensureAuthForChat();
+          const uid = auth.currentUser?.uid || "nouid";
+          await push(roomRef, { uid, user: display, text, ts: Date.now() });
+          if (input) input.value = "";
+        } catch (e) {
+          if (e && (e.code === "auth/admin-restricted-operation" || e.code === "login-required")) {
+            toast("Please login to chat");
+            return;
+          }
+          console.warn(e);
+          toast("Chat failed");
+        }
+      });
+
+      return; // RTDB branch done
+    }
+  } catch {}
+
+  // --------- Fallback (localStorage) ---------
+  const KEY = "ol_chat_room_" + courseId;
+  const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
+  const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
   const draw = (m) => {
     list.insertAdjacentHTML(
       "beforeend",
-      `<div class="msg">
-         <b>${esc(m.user)}</b>
+      `<div class="msg"><b>${esc(m.user)}</b> 
          <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
          <div>${esc(m.text)}</div>
        </div>`
@@ -1144,67 +1250,19 @@ function wireCourseChatRealtime(courseId) {
     list.scrollTop = list.scrollHeight;
   };
 
-  if (rtdb) {
-    const roomRef = ref(rtdb, `chats/${courseId}`);
+  let arr = load();
+  list.innerHTML = "";
+  arr.forEach(draw);
 
-    // attach listener
-    const cb = (snap) => { const m = snap.val(); if (m) draw(m); };
-    onChildAdded(roomRef, cb);
-    // store a tiny off() wrapper for next time
-    _ccOff = () => { try { roomRef.off?.("child_added", cb); } catch {} };
-
-    // (re)bind click safely — remove any previous handler
-    send.onclick = null;
-    send.onclick = async () => {
-      const text = (input.value || "").trim();
-      if (!text) return;
-
-      try {
-        // make sure logged-in & not anonymous (your ensureAuthForChat should enforce this)
-        if (typeof ensureAuthForChat === "function") await ensureAuthForChat();
-
-        const uid = (window.auth?.currentUser?.uid) || "nouid";
-        const payload = { uid, user: display, text, ts: Date.now() };
-
-        // Optimistic UI: show immediately
-        draw(payload);
-
-        // push to RTDB
-        await push(roomRef, payload);
-
-        // clear input
-        input.value = "";
-      } catch (e) {
-        // If your ensureAuthForChat throws because not logged in
-        if (e && (e.code === "auth/admin-restricted-operation" || e.code === "login-required")) {
-          toast("Please login to chat");
-          return;
-        }
-        console.warn(e);
-        toast("Chat failed");
-      }
-    };
-
-    return; // RTDB path done
-  }
-
-  // ----- Fallback (localStorage) -----
-  const KEY = "ol_chat_room_" + courseId;
-  const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
-  const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
-
-  // draw existing
-  load().forEach(draw);
-
-  send.onclick = () => {
-    const text = (input.value || "").trim();
+  send.addEventListener("click", () => {
+    const text = (input?.value || "").trim();
     if (!text) return;
     const m = { user: display, text, ts: Date.now() };
-    const arr = load();
-    arr.push(m); save(arr);
+    arr.push(m);
+    save(arr);
     draw(m);
-    input.value = "";
-  };
+    if (input) input.value = "";
+  });
 }
 
 /* ---------- Settings ---------- */
