@@ -76,7 +76,7 @@ window.getUser = window.getUser || (() => {
   catch { return null; }
 });
 
-window.isLogged = window.isLogged || (() => !!window.getUser());
+// window.isLogged = window.isLogged || (() => !!window.getUser());
 
 window.getRole = window.getRole || (() => {
   // default role if none stored with the user object
