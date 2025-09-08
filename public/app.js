@@ -453,7 +453,8 @@ function renderCatalog() {
       enrolled = getEnrolls().has(c.id);
     return `<div class="card course" data-id="${c.id}" data-search="${esc(
       search
-    )}">
+    )}" data-cat="${esc(c.category||'')}"
+            data-lv="${esc(c.level||'')}">
       <img class="course-cover" src="${esc(
         c.image || `https://picsum.photos/seed/${c.id}/640/360`
       )}" alt="">
@@ -483,6 +484,58 @@ function renderCatalog() {
     .forEach(
       (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
     );
+
+    // renderCatalog() အတွင်း—grid.innerHTML ပြီးသွားချိန်၊ cats ကိုသတ်မှတ်ပြီးတဲ့နောက်:
+const catSel = document.getElementById("filterCategory");
+if (catSel) {
+  // All option ကို value="" ဖြစ်အောင်သေချာလုပ်ပေးပါ
+  catSel.innerHTML = '<option value="">All Categories</option>' +
+    [...cats].filter(Boolean).map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
+}
+
+// Filter controls event listeners
+document.getElementById("filterCategory")?.addEventListener("change", applyFilters);
+document.getElementById("filterLevel")?.addEventListener("change", applyFilters);
+document.getElementById("sortBy")?.addEventListener("change", applyFilters);
+
+// First run — initial state
+applyFilters();
+}
+
+// ---- Filters (title/level/category/sort) ----
+function applyFilters() {
+  const grid = document.getElementById("courseGrid");
+  if (!grid) return;
+
+  const cat  = document.getElementById("filterCategory")?.value || "";
+  const lev  = document.getElementById("filterLevel")?.value || "";
+  const sort = document.getElementById("sortBy")?.value || "";
+
+  // Show/Hide by category + level
+  const cards = Array.from(grid.querySelectorAll(".card.course"));
+  cards.forEach(el => {
+    const meta = el.querySelector(".small.muted")?.textContent || "";
+    const okCat = !cat || meta.includes(cat);   // "" (All) => always true
+    const okLev = !lev || meta.includes(lev);   // "" (All) => always true
+    el.style.display = (okCat && okLev) ? "" : "none";
+  });
+
+  // Sorting on visible cards
+  const visible = cards.filter(el => el.style.display !== "none");
+  visible.sort((a,b)=>{
+    const ta = a.querySelector("strong")?.textContent.toLowerCase() || "";
+    const tb = b.querySelector("strong")?.textContent.toLowerCase() || "";
+    const ma = a.querySelector(".small.muted")?.textContent || "";
+    const mb = b.querySelector(".small.muted")?.textContent || "";
+    const pa = ma.includes("$") ? parseFloat(ma.split("$")[1]) : 0;
+    const pb = mb.includes("$") ? parseFloat(mb.split("$")[1]) : 0;
+
+    if (sort === "title-asc")  return ta.localeCompare(tb);
+    if (sort === "title-desc") return tb.localeCompare(ta);
+    if (sort === "price-asc")  return pa - pb;
+    if (sort === "price-desc") return pb - pa;
+    return 0;
+  }).forEach(el => grid.appendChild(el));
 }
 
 // New Course modal open/close + submit
@@ -814,6 +867,8 @@ function renderAdminTable() {
 }
 
 /* ---------- Announcements ---------- */
+let ANN_EDITING_ID = null;
+
 $("#btn-new-post")?.addEventListener("click", () =>
   $("#postModal")?.showModal()
 );
@@ -838,62 +893,109 @@ $("#postForm")?.addEventListener("submit", (e) => {
   renderAnnouncements();
   toast("Announcement posted");
 });
+
+/* ---------- Announcements (open / create / edit / delete) ---------- */
 function renderAnnouncements() {
-  const box = $("#annList");
+  const box = document.getElementById("annList");
   if (!box) return;
-  const arr = getAnns().slice().reverse();
-  box.innerHTML =
-    arr
-      .map(
-        (a) => `
+
+  const arr = (typeof getAnns === "function" ? getAnns() : []).slice().reverse();
+  box.innerHTML = arr.map(a => `
     <div class="card" data-id="${a.id}">
-      <div class="row" style="justify-content:space-between">
-        <strong>${esc(a.title)}</strong><span class="small muted">${new Date(
-          a.ts
-        ).toLocaleString()}</span>
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <strong>${esc(a.title || "")}</strong>
+        <span class="small muted">${new Date(a.ts || Date.now()).toLocaleString()}</span>
       </div>
-      <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
-      <div class="row" style="justify-content:flex-end; gap:6px">
+      <div class="mt-1">${esc(a.body || "")}</div>
+      <div class="row" style="justify-content:flex-end;gap:6px;margin-top:6px">
         <button class="btn small" data-edit="${a.id}">Edit</button>
         <button class="btn small" data-del="${a.id}">Delete</button>
       </div>
-    </div>`
-      )
-      .join("") || `<div class="muted">No announcements yet.</div>`;
-  box.querySelectorAll("[data-del]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-del");
-        const arr = getAnns().filter((x) => x.id !== id);
-        setAnns(arr);
-        renderAnnouncements();
-        toast("Deleted");
-      })
-  );
-  box.querySelectorAll("[data-edit]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-edit");
-        const arr = getAnns();
-        const i = arr.findIndex((x) => x.id === id);
-        if (i < 0) return;
-        $("#pmTitle").value = arr[i].title || "";
-        $("#pmBody").value = arr[i].body || "";
-        $("#postModal")?.showModal();
-        const form = $("#postForm");
-        const orig = form.onsubmit;
-        form.onsubmit = (e) => {
-          e.preventDefault();
-          arr[i].title = $("#pmTitle").value.trim();
-          arr[i].body = $("#pmBody").value.trim();
-          setAnns(arr);
-          $("#postModal")?.close();
-          renderAnnouncements();
-          toast("Updated");
-          form.onsubmit = orig;
-        };
-      })
-  );
+    </div>
+  `).join("") || `<div class="muted">No announcements yet.</div>`;
+}
+
+function wireAnnouncements() {
+  // open modal (New Post)
+  document.getElementById("btn-new-post")?.addEventListener("click", () => {
+    // clear form and open as "create"
+    const f = document.getElementById("postForm");
+    if (f) { f.reset?.(); }
+    document.getElementById("pmTitle") && (document.getElementById("pmTitle").value = "");
+    document.getElementById("pmBody")  && (document.getElementById("pmBody").value  = "");
+    document.getElementById("postModal")?.showModal();
+    // mark editing id = null
+    document.getElementById("postForm")?.setAttribute("data-editing-id", "");
+  });
+
+  // close/cancel
+  document.getElementById("closePostModal")?.addEventListener("click", () => {
+    document.getElementById("postModal")?.close();
+  });
+  document.getElementById("cancelPost")?.addEventListener("click", () => {
+    document.getElementById("postModal")?.close();
+  });
+
+  // submit (create OR save edit)
+  document.getElementById("postForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const title = (document.getElementById("pmTitle")?.value || "").trim();
+    const body  = (document.getElementById("pmBody")?.value  || "").trim();
+    if (!title || !body) return toast("Fill all fields");
+
+    const arr = (typeof getAnns === "function" ? getAnns() : []);
+
+    const editingId = document.getElementById("postForm")?.getAttribute("data-editing-id") || "";
+    if (editingId) {
+      // update existing
+      const i = arr.findIndex(x => x.id === editingId);
+      if (i >= 0) {
+        arr[i].title = title;
+        arr[i].body  = body;
+        arr[i].ts    = Date.now();
+      }
+      toast("Announcement updated");
+    } else {
+      // new create
+      arr.push({
+        id: "a_" + Math.random().toString(36).slice(2, 9),
+        title, body, ts: Date.now()
+      });
+      toast("Announcement posted");
+    }
+
+    typeof setAnns === "function" && setAnns(arr);
+    document.getElementById("postModal")?.close();
+    document.getElementById("pmTitle") && (document.getElementById("pmTitle").value = "");
+    document.getElementById("pmBody")  && (document.getElementById("pmBody").value  = "");
+    renderAnnouncements();
+  });
+
+  // delegation for Edit/Delete inside the list
+  document.getElementById("annList")?.addEventListener("click", (e) => {
+    const editBtn = e.target.closest("[data-edit]");
+    const delBtn  = e.target.closest("[data-del]");
+    const arr = (typeof getAnns === "function" ? getAnns() : []);
+
+    if (editBtn) {
+      const id = editBtn.getAttribute("data-edit");
+      const i = arr.findIndex(x => x.id === id);
+      if (i < 0) return;
+      // preload form + open modal
+      document.getElementById("pmTitle") && (document.getElementById("pmTitle").value = arr[i].title || "");
+      document.getElementById("pmBody")  && (document.getElementById("pmBody").value  = arr[i].body  || "");
+      document.getElementById("postForm")?.setAttribute("data-editing-id", id);
+      document.getElementById("postModal")?.showModal();
+    }
+
+    if (delBtn) {
+      const id = delBtn.getAttribute("data-del");
+      const next = arr.filter(x => x.id !== id);
+      typeof setAnns === "function" && setAnns(next);
+      renderAnnouncements();
+      toast("Deleted");
+    }
+  });
 }
 
 /* ---------- Live Chat (global + per-course) ---------- */
@@ -953,26 +1055,25 @@ function initChatRealtime() {
       box.scrollTop = box.scrollHeight;
     });
 
-    send.addEventListener("click", async () => {
-      const text = (input?.value || "").trim();
-      if (!text) return;
-      try {
-        const u = await ensureAuthForChat();
-        await push(roomRef, {
-          uid: u.uid || "local",
-          user: u.email || display,
-          text,
-          ts: Date.now(),
-        });
-        if (input) input.value = "";
-      } catch (e) {
-        if (e?.code === "login-required") toast("Please login to chat");
-        else {
-          console.warn(e);
-          toast("Chat failed");
-        }
-      }
-    });
+    send?.addEventListener("click", async () => {
+  const text = (input?.value || "").trim();
+  if (!text) return;
+
+  // Require signed-in (non-anonymous) user
+  if (!window.auth?.currentUser || window.auth.currentUser.isAnonymous) {
+    toast("Please login to chat");
+    return;
+  }
+
+  try {
+    const uid = window.auth.currentUser.uid;
+    await push(roomRef, { uid, user: display, text, ts: Date.now() });
+    if (input) input.value = "";
+  } catch (e) {
+    console.warn(e);
+    toast("Chat failed");
+  }
+});
 
     return; // RTDB branch OK
   } catch (e) {
@@ -1127,6 +1228,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderCatalog();
   renderAdminTable();
   renderProfilePanel();
+
+  // Announcements: initial render + event wiring
+renderAnnouncements?.();
+wireAnnouncements?.();
 
   $("#btn-top-ann") && ($("#btn-top-ann").title = "Open Announcements");
   $("#btn-top-final") && ($("#btn-top-final").title = "Open Final Exam");
