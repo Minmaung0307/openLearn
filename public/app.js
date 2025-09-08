@@ -444,55 +444,87 @@ async function loadCatalog() {
 }
 
 /* ---------- catalog / details / enroll ---------- */
+// --- helpers (add once near other helpers) ---
+function getFilterValues() {
+  const cat = (document.getElementById("filterCategory")?.value || "").trim();
+  const lvl = (document.getElementById("filterLevel")?.value || "").trim();
+  const sort= (document.getElementById("sortBy")?.value || "").trim();
+  return { cat, lvl, sort };
+}
+function sortCourses(list, sort) {
+  if (sort === "title-asc")   return list.slice().sort((a,b)=>a.title.localeCompare(b.title));
+  if (sort === "title-desc")  return list.slice().sort((a,b)=>b.title.localeCompare(a.title));
+  if (sort === "price-asc")   return list.slice().sort((a,b)=>(a.price||0)-(b.price||0));
+  if (sort === "price-desc")  return list.slice().sort((a,b)=>(b.price||0)-(a.price||0));
+  return list;
+}
+
+// --- REPLACE your existing renderCatalog with this version ---
 function renderCatalog() {
-  const grid = $("#courseGrid");
+  const grid = document.getElementById("courseGrid");
   if (!grid) return;
+
   ALL = getCourses();
-  if (!ALL.length) {
-    grid.innerHTML = `<div class="muted">No courses yet.</div>`;
+
+  // build category options (with "All Categories")
+  const sel = document.getElementById("filterCategory");
+  if (sel && !sel.dataset._wired) {
+    const cats = Array.from(new Set(ALL.map(c => c.category || ""))).filter(Boolean).sort();
+    sel.innerHTML = `<option value="">All Categories</option>` +
+      cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    sel.dataset._wired = "1";
+  }
+
+  const { cat, lvl, sort } = getFilterValues();
+
+  // filter
+  let list = ALL.filter(c => {
+    const passCat = !cat || (c.category||"") === cat;
+    const passLvl = !lvl || (c.level||"") === lvl;
+    return passCat && passLvl;
+  });
+
+  // sort
+  list = sortCourses(list, sort);
+
+  if (!list.length) {
+    grid.innerHTML = `<div class="muted">No courses match the filters.</div>`;
     return;
   }
-  const cats = new Set();
-  grid.innerHTML = ALL.map((c) => {
-    cats.add(c.category || "");
+
+  // render
+  grid.innerHTML = list.map((c) => {
     const search = [c.title, c.summary, c.category, c.level].join(" ");
-    const r = Number(c.rating || 4.6),
-      priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free",
-      enrolled = getEnrolls().has(c.id);
-    return `<div class="card course" data-id="${c.id}" data-search="${esc(
-      search
-    )}">
-      <img class="course-cover" src="${esc(
-        c.image || `https://picsum.photos/seed/${c.id}/640/360`
-      )}" alt="">
+    const r = Number(c.rating || 4.6), priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+    const enrolled = getEnrolls().has(c.id);
+    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
+      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category || "")} • ${esc(
-      c.level || ""
-    )} • ★ ${r.toFixed(1)} • ${priceStr}</div>
+        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
         <div class="muted">${esc(c.summary || "")}</div>
         <div class="row" style="justify-content:flex-end; gap:8px">
           <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${
-      enrolled ? "Enrolled" : "Enroll"
-    }</button>
+          <button class="btn primary" data-enroll="${c.id}">${enrolled ? "Enrolled" : "Enroll"}</button>
         </div>
       </div>
     </div>`;
   }).join("");
 
   // actions
-  grid
-    .querySelectorAll("[data-enroll]")
-    .forEach(
-      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
-    );
-  grid
-    .querySelectorAll("[data-details]")
-    .forEach(
-      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
-    );
+  grid.querySelectorAll("[data-enroll]").forEach((b)=>
+    b.onclick = () => handleEnroll(b.getAttribute("data-enroll"))
+  );
+  grid.querySelectorAll("[data-details]").forEach((b)=>
+    b.onclick = () => openDetails(b.getAttribute("data-details"))
+  );
 }
+
+// wire filter changes (add once after renderCatalog is defined)
+["filterCategory","filterLevel","sortBy"].forEach(id=>{
+  const el = document.getElementById(id);
+  el && el.addEventListener("change", ()=> renderCatalog());
+});
 
 // === New Course Modal wiring ===
 document.addEventListener("DOMContentLoaded", () => {
@@ -819,87 +851,101 @@ function renderAdminTable() {
 }
 
 /* ---------- Announcements ---------- */
+// Render stays as you have (cards with [data-edit] & [data-del])
+// REPLACE ONLY the wiring below:
+
+// open "New Announcement"
+document.getElementById("btn-new-post")?.addEventListener("click", () => {
+  const f = document.getElementById("postForm");
+  f?.reset();
+  f && (f.dataset.editId = "");         // not editing
+  document.querySelector("#postModal .modal-title").textContent = "New Announcement";
+  document.getElementById("postModal")?.showModal();
+});
+
+// close buttons
+document.getElementById("closePostModal")?.addEventListener("click", () =>
+  document.getElementById("postModal")?.close()
+);
+document.getElementById("cancelPost")?.addEventListener("click", () =>
+  document.getElementById("postModal")?.close()
+);
+
+// single submit handler (create or update)
+document.getElementById("postForm")?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const t = document.getElementById("pmTitle")?.value.trim();
+  const b = document.getElementById("pmBody")?.value.trim();
+  if (!t || !b) return toast("Fill all fields");
+
+  const f = document.getElementById("postForm");
+  const editId = f?.dataset.editId || "";
+  const arr = getAnns();
+
+  if (editId) {
+    const i = arr.findIndex(x => x.id === editId);
+    if (i >= 0) { arr[i].title = t; arr[i].body = b; }
+    toast("Updated");
+  } else {
+    arr.push({ id: "a_" + Math.random().toString(36).slice(2,9), title: t, body: b, ts: Date.now() });
+    toast("Announcement posted");
+  }
+
+  setAnns(arr);
+  document.getElementById("postModal")?.close();
+  renderAnnouncements();
+});
+
+// when clicking Edit on a card: fill form and mark editId
+function wireAnnouncementEditButtons() {
+  const box = document.getElementById("annList");
+  if (!box) return;
+  box.querySelectorAll("[data-edit]").forEach((btn) => {
+    btn.onclick = () => {
+      const id = btn.getAttribute("data-edit");
+      const arr = getAnns();
+      const i = arr.findIndex(x => x.id === id);
+      if (i < 0) return;
+      document.getElementById("pmTitle").value = arr[i].title || "";
+      document.getElementById("pmBody").value  = arr[i].body || "";
+      const f = document.getElementById("postForm");
+      f.dataset.editId = id; // mark editing
+      document.querySelector("#postModal .modal-title").textContent = "Edit Announcement";
+      document.getElementById("postModal")?.showModal();
+    };
+  });
+  box.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.onclick = () => {
+      const id = btn.getAttribute("data-del");
+      const arr = getAnns().filter(x => x.id !== id);
+      setAnns(arr);
+      renderAnnouncements();
+      toast("Deleted");
+    };
+  });
+}
+
+// call after you render the list
 function renderAnnouncements() {
-  const box = $("#annList");
+  const box = document.getElementById("annList");
   if (!box) return;
   const arr = getAnns().slice().reverse();
   box.innerHTML =
-    arr
-      .map(
-        (a) => `
-    <div class="card" data-id="${a.id}">
-      <div class="row" style="justify-content:space-between">
-        <strong>${esc(a.title)}</strong><span class="small muted">${new Date(
-          a.ts
-        ).toLocaleString()}</span>
-      </div>
-      <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
-      <div class="row" style="justify-content:flex-end; gap:6px">
-        <button class="btn small" data-edit="${a.id}">Edit</button>
-        <button class="btn small" data-del="${a.id}">Delete</button>
-      </div>
-    </div>`
-      )
-      .join("") || `<div class="muted">No announcements yet.</div>`;
-  box.querySelectorAll("[data-del]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-del");
-        const arr = getAnns().filter((x) => x.id !== id);
-        setAnns(arr);
-        renderAnnouncements();
-        toast("Deleted");
-      })
-  );
-  box.querySelectorAll("[data-edit]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-edit");
-        const arr = getAnns();
-        const i = arr.findIndex(x => x.id === id);
-        if (i < 0) return;
-        $("#pmTitle").value = arr[i].title || "";
-        $("#pmBody").value = arr[i].body || "";
-        $("#postModal")?.showModal();
-        const form = $("#postForm");
-        const orig = form.onsubmit;
-        form.onsubmit = (e) => {
-          e.preventDefault();
-          arr[i].title = $("#pmTitle").value.trim();
-          arr[i].body = $("#pmBody").value.trim();
-          setAnns(arr);
-          $("#postModal")?.close();
-          renderAnnouncements();
-          toast("Updated");
-          form.onsubmit = orig;
-        };
-      })
-  );
+    arr.map(a => `
+      <div class="card" data-id="${a.id}">
+        <div class="row" style="justify-content:space-between">
+          <strong>${esc(a.title)}</strong>
+          <span class="small muted">${new Date(a.ts).toLocaleString()}</span>
+        </div>
+        <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
+        <div class="row" style="justify-content:flex-end; gap:6px">
+          <button class="btn small" data-edit="${a.id}">Edit</button>
+          <button class="btn small" data-del="${a.id}">Delete</button>
+        </div>
+      </div>`).join("")
+    || `<div class="muted">No announcements yet.</div>`;
+  wireAnnouncementEditButtons();
 }
-$("#btn-new-post")?.addEventListener("click", () =>
-  $("#postModal")?.showModal()
-);
-$("#closePostModal")?.addEventListener("click", () => $("#postModal")?.close());
-$("#cancelPost")?.addEventListener("click", () => $("#postModal")?.close());
-$("#postForm")?.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const t = $("#pmTitle")?.value.trim(),
-    b = $("#pmBody")?.value.trim();
-  if (!t || !b) return toast("Fill all fields");
-  const arr = getAnns();
-  arr.push({
-    id: "a_" + Math.random().toString(36).slice(2, 9),
-    title: t,
-    body: b,
-    ts: Date.now(),
-  });
-  setAnns(arr);
-  $("#postModal")?.close();
-  $("#pmTitle").value = "";
-  $("#pmBody").value = "";
-  renderAnnouncements();
-  toast("Announcement posted");
-});
 
 /* ---------- Profile ---------- */
 function renderProfilePanel() {
@@ -993,59 +1039,52 @@ function initChatRealtime() {
   const box  = document.getElementById("chatBox");
   const input= document.getElementById("chatInput");
   const send = document.getElementById("chatSend");
-  if (!box || !send) return; // no UI, skip
+  if (!box || !send) return;
 
   const display = (typeof getUser === "function" && getUser()?.email) || "guest";
 
-  try {
-    const rtdb = getDatabase();                 // uses default app
-    const roomRef = ref(rtdb, "chats/global");  // global room
+  const canUseRTDB =
+    !!(window.auth?.currentUser) && !window.auth.currentUser.isAnonymous;
 
-    // live stream
-    onChildAdded(roomRef, (snap) => {
-      const m = snap.val(); if (!m) return;
-      box.insertAdjacentHTML(
-        "beforeend",
-        `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-      );
-      box.scrollTop = box.scrollHeight;
-    });
+  if (canUseRTDB) {
+    try {
+      const rtdb = getDatabase();                  // default app
+      const roomRef = ref(rtdb, "chats/global");   // global room
 
-    // send
-    send?.addEventListener("click", async () => {
-  const text = (input?.value || "").trim();
-  if (!text) return;
-  try {
-    const u = await ensureAuthForChat(); // must be real user
-    await push(roomRef, { uid: u.uid, user: (u.email || "user"), text, ts: Date.now() });
-    if (input) input.value = "";
-  } catch (e) {
-    if (e?.code === "login-required") {
-      toast("Please login to chat");
-    } else {
-      console.warn(e);
-      toast("Chat failed");
+      onChildAdded(roomRef, (snap) => {
+        const m = snap.val(); if (!m) return;
+        box.insertAdjacentHTML("beforeend",
+          `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
+        box.scrollTop = box.scrollHeight;
+      });
+
+      send.onclick = async () => {
+        const text = (input?.value || "").trim(); if (!text) return;
+        const u = window.auth.currentUser; // real user
+        try {
+          await push(roomRef, { uid: u.uid, user: (u.email||"user"), text, ts: Date.now() });
+          if (input) input.value = "";
+        } catch (e) {
+          console.warn(e); toast("Chat failed");
+        }
+      };
+      return; // RTDB branch finished
+    } catch (e) {
+      console.warn("RTDB branch failed, falling back to local", e);
     }
   }
-});
 
-    return; // RTDB branch OK
-  } catch (e) {
-    console.warn("RTDB not available; falling back to local chat", e);
-  }
-
-  // Fallback: localStorage (per device)
+  // Fallback: local device-only chat (still usable when no Firebase auth)
   const KEY = "ol_chat_local";
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
   const draw = (m) => {
-    box.insertAdjacentHTML(
-      "beforeend",
-      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-    );
+    box.insertAdjacentHTML("beforeend",
+      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`);
     box.scrollTop = box.scrollHeight;
   };
   let arr = load(); arr.forEach(draw);
+
   send.onclick = () => {
     const text = (input?.value || "").trim(); if (!text) return;
     const m = { user: display, text, ts: Date.now() };
