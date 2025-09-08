@@ -37,13 +37,23 @@ const ADMIN_EMAILS = (window.OPENLEARN_CFG?.admins || []).map(e => (e||"").toLow
 function isLogged(){ try{ return !!(getUser?.() || window.currentUser); }catch{ return false; } }
 
 // Prevent any click unless logged in
+// NEW - gate only elements marked with [data-requires-auth]
 document.addEventListener("click", (e) => {
-  if (isLogged()) return;          // <--- here
-  if (e.target.closest("#btn-login") || e.target.closest("#authModal")) return;
-  e.preventDefault();
-  e.stopPropagation();
-  if (typeof window._showLoginPane === "function") window._showLoginPane();
+  const gated = e.target.closest("[data-requires-auth]");
+  if (gated && !isLogged()) {
+    e.preventDefault();
+    e.stopPropagation();
+    window._showLoginPane?.("authLogin");   // initAuthModal() ထဲမှာ expose လုပ်ထားဖို့
+  }
+  window._showLoginPane = (pane = "authLogin") => showPane(pane);
 });
+// document.addEventListener("click", (e) => {
+//   if (isLogged()) return;          // <--- here
+//   if (e.target.closest("#btn-login") || e.target.closest("#authModal")) return;
+//   e.preventDefault();
+//   e.stopPropagation();
+//   if (typeof window._showLoginPane === "function") window._showLoginPane();
+// });
 
 function getRole(){
   const u = (getUser?.() || {}) || {};
@@ -268,15 +278,32 @@ function ensureAuthModalMarkup() {
 
 // Update UI when logged in/out
 function setLogged(on, email) {
-  currentUser = on ? { email: email || "you@example.com" } : null;
+  // persist user
+  const prev = getUser();
+  const role = prev?.role || "student";
+  const u = on ? { email: email || prev?.email || "you@example.com", role } : null;
+  setUser(u);
+
+  // toggle UI
+  document.body.classList.toggle("locked", !on);
   const btnLogin  = document.getElementById("btn-login");
   const btnLogout = document.getElementById("btn-logout");
   if (btnLogin)  btnLogin.style.display  = on ? "none" : "";
   if (btnLogout) btnLogout.style.display = on ? "" : "none";
-  // optional: show a default page after login
-  try { showPage("catalog"); } catch {}
-  try { renderProfilePanel?.(); } catch {}
+
+  // optional: role marker
+  document.body.dataset.role = role;
 }
+// function setLogged(on, email) {
+//   currentUser = on ? { email: email || "you@example.com" } : null;
+//   const btnLogin  = document.getElementById("btn-login");
+//   const btnLogout = document.getElementById("btn-logout");
+//   if (btnLogin)  btnLogin.style.display  = on ? "none" : "";
+//   if (btnLogout) btnLogout.style.display = on ? "" : "none";
+//   // optional: show a default page after login
+//   try { showPage("catalog"); } catch {}
+//   try { renderProfilePanel?.(); } catch {}
+// }
 
 // Wire up the modal and buttons
 function initAuthModal() {
@@ -395,6 +422,14 @@ const _write = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
  */
 const getUser  = ()=> _read("ol_user", null);
 const setUser  = (u)=> _write("ol_user", u);
+const isLogged = () => !!getUser();
+const getRole  = () => (getUser()?.role) || "student";
+
+// (optional) expose to global once to avoid “already declared” if other files use them
+if (!("getUser" in window))  window.getUser  = getUser;
+if (!("setUser" in window))  window.setUser  = setUser;
+if (!("isLogged" in window)) window.isLogged = isLogged;
+if (!("getRole" in window))  window.getRole  = getRole;
 
 /* ================= Router & Gate ================= */
 function showPage(id) {
@@ -415,34 +450,66 @@ function requireLogin(action) {
 }
 
 /* ================= Topbar / Sidebar ================= */
-function initSidebar() {
-  const sb = $("#sidebar"),
-    burger = $("#btn-burger");
+function initSidebar(){
+  const sb = document.getElementById("sidebar");
+  const burger = document.getElementById("btn-burger");
   const isMobile = () => matchMedia("(max-width:1024px)").matches;
-  const setBurger = () => {
-    if (burger) burger.style.display = isMobile() ? "" : "none";
-  };
-  setBurger();
-  addEventListener("resize", setBurger);
 
-  burger?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    sb?.classList.toggle("show");
-  });
-  sb?.addEventListener("click", (e) => {
-    const b = e.target.closest(".navbtn");
-    if (!b) return;
-    if (!requireLogin()) return; // lock menu until login
-    showPage(b.dataset.page);
+  const setBurger = () => { if (burger) burger.style.display = isMobile()? "":"none"; };
+  setBurger(); addEventListener("resize", setBurger);
+
+  burger?.addEventListener("click",(e)=>{ e.stopPropagation(); sb?.classList.toggle("show"); });
+
+  sb?.addEventListener("click",(e)=>{
+    const btn = e.target.closest(".navbtn");
+    if (!btn) return;
+    const page = btn.dataset.page;
+    if (!page) return;
+
+    // If this button requires auth → gate here
+    if (btn.hasAttribute("data-requires-auth") && !isLogged()) {
+      window._showLoginPane?.();
+      return;
+    }
+
+    showPage(page);
     if (isMobile()) sb.classList.remove("show");
   });
-  document.addEventListener("click", (e) => {
-    if (!isMobile()) return;
-    if (!sb?.classList.contains("show")) return;
-    if (!e.target.closest("#sidebar") && e.target !== burger)
-      sb.classList.remove("show");
+
+  document.addEventListener("click",(e)=>{
+    if(!isMobile()) return;
+    if(!sb?.classList.contains("show")) return;
+    if(!e.target.closest("#sidebar") && e.target!==burger) sb.classList.remove("show");
   });
 }
+// function initSidebar() {
+//   const sb = $("#sidebar"),
+//     burger = $("#btn-burger");
+//   const isMobile = () => matchMedia("(max-width:1024px)").matches;
+//   const setBurger = () => {
+//     if (burger) burger.style.display = isMobile() ? "" : "none";
+//   };
+//   setBurger();
+//   addEventListener("resize", setBurger);
+
+//   burger?.addEventListener("click", (e) => {
+//     e.stopPropagation();
+//     sb?.classList.toggle("show");
+//   });
+//   sb?.addEventListener("click", (e) => {
+//     const b = e.target.closest(".navbtn");
+//     if (!b) return;
+//     if (!requireLogin()) return; // lock menu until login
+//     showPage(b.dataset.page);
+//     if (isMobile()) sb.classList.remove("show");
+//   });
+//   document.addEventListener("click", (e) => {
+//     if (!isMobile()) return;
+//     if (!sb?.classList.contains("show")) return;
+//     if (!e.target.closest("#sidebar") && e.target !== burger)
+//       sb.classList.remove("show");
+//   });
+// }
 function initSearch() {
   const input = $("#topSearch");
   const apply = () => {
@@ -1803,8 +1870,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 1) Auth UI + restore user
   initAuth();                     // wires Firebase Auth + onAuthStateChanged
-  initAuthModal?.();                   // wires login/logout + modal panes
-  
+  initAuthModal();                    // builds modal + sets window._showLoginPane
   const u = (typeof getUser === "function" ? getUser() : null);
   setLogged?.(!!u, u?.email);          // reflect login state in UI
 
@@ -1826,4 +1892,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const finBtn = document.getElementById("btn-top-final");
   if (annBtn) annBtn.title = "Open Announcements";
   if (finBtn) finBtn.title = "Open Final Exam";
+
+  // (optional) titles
+  $("#btn-top-ann") && ($("#btn-top-ann").title = "Open Announcements");
+  $("#btn-top-final") && ($("#btn-top-final").title = "Open Final Exam");
 });
