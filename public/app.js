@@ -178,12 +178,23 @@ const isLogged = () => !!getUser();
 const getRole = () => getUser()?.role || "student";
 
 // ---- Chat gating helper ----
+// Login state ကိုအခြေခံပြီး chat UI ကို enable/disable
 function gateChatUI() {
-  const loggedAndNotAnon = !!(window.auth?.currentUser) && !window.auth.currentUser.isAnonymous;
-  document.getElementById("chatInput")?.toggleAttribute("disabled", !loggedAndNotAnon);
-  document.getElementById("chatSend")?.toggleAttribute("disabled", !loggedAndNotAnon);
-  document.getElementById("ccInput")?.toggleAttribute("disabled", !loggedAndNotAnon);
-  document.getElementById("ccSend")?.toggleAttribute("disabled", !loggedAndNotAnon);
+  // Firebase auth login (non-anonymous) ဖြစ်/မဖြစ် + local login fallback
+  const firebaseLogged =
+    !!(window.auth?.currentUser) && !window.auth.currentUser.isAnonymous;
+  const localLogged = typeof getUser === "function" && !!getUser();
+  const ok = firebaseLogged || localLogged;
+
+  const ids = ["chatInput", "chatSend", "ccInput", "ccSend"];
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.toggleAttribute("disabled", !ok);    // disabled → cursor:not-allowed
+    // parent ‘card’ ကို gated class ခပ်လေးပါစေ (CSS က pointer-events ပိတ်မယ်)
+    const card = el.closest(".card");
+    if (card) card.classList.toggle("gated", !ok);
+  });
 }
 
 // Keep synced with auth
@@ -1181,6 +1192,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAuthModal();
   const u = getUser();
   setLogged(!!u, u?.email);
+
+  // ⤵️ NEW: immediately gate/ungate chat inputs based on current login state
+  if (typeof gateChatUI === "function") gateChatUI();
+
+  // ⤵️ NEW: keep chat inputs in sync when Firebase auth state changes
+  if (typeof onAuthStateChanged === "function" && window.auth) {
+    onAuthStateChanged(window.auth, () => {
+      if (typeof gateChatUI === "function") gateChatUI();
+    });
+  }
 
   // UI features
   initSidebar();

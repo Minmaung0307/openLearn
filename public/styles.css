@@ -815,3 +815,16 @@ a:hover { opacity: .9; }
   color: var(--btnFg) !important;
   border: 1px solid var(--border) !important;
 }
+
+/* --- Chat inputs: make sure text cursor shows when enabled --- */
+#chatInput, #ccInput, input.input, textarea {
+  cursor: text;              /* text I-beam cursor inside inputs */
+}
+input:disabled, textarea:disabled, button:disabled {
+  cursor: not-allowed;       /* when disabled only */
+}
+
+/* If a parent gets 'gated' class, block clicks. Otherwise allow typing. */
+.gated input, .gated textarea, .gated button {
+  pointer-events: none;
+}
