@@ -778,44 +778,64 @@ function renderMyLearning() {
     );
 }
 async function openReader(cid) {
-  const c =
-    ALL.find((x) => x.id === cid) || getCourses().find((x) => x.id === cid);
+  const c = ALL.find(x => x.id === cid) || getCourses().find(x => x.id === cid);
   if (!c) return;
+
+  // Reader state
   RD = {
     cid: c.id,
     pages: SAMPLE_PAGES(c.title),
     i: 0,
     credits: c.credits || 3,
-    score: 0,
+    score: 0
   };
-  $("#myCourses").innerHTML = "";
+
+  // Show reader
+  const my = $("#myCourses");
+  if (my) my.innerHTML = "";
   $("#reader")?.classList.remove("hidden");
   $("#rdMeta") && ($("#rdMeta").textContent = `Credits: ${RD.credits}`);
+
+  // Render first page ONCE
   renderPage();
-  $("#rdBack")?.addEventListener("click", () => {
+
+  // Navigation (overwrite old handlers to avoid duplicates)
+  const btnBack = $("#rdBack");
+  const btnPrev = $("#rdPrev");
+  const btnNext = $("#rdNext");
+  const btnBm   = $("#rdBookmark");
+  const btnNote = $("#rdNote");
+
+  if (btnBack) btnBack.onclick = () => {
     $("#reader")?.classList.add("hidden");
     renderMyLearning();
-  });
-  $("#rdPrev")?.addEventListener("click", () => {
+  };
+  if (btnPrev) btnPrev.onclick = () => {
     RD.i = Math.max(0, RD.i - 1);
     renderPage();
-  });
-  $("#rdNext")?.addEventListener("click", () => {
+  };
+  if (btnNext) btnNext.onclick = () => {
     RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
     renderPage();
-  });
-  $("#rdBookmark")?.addEventListener("click", () => toast("Bookmarked (demo)"));
-  $("#rdNote")?.addEventListener("click", () => {
+  };
+  if (btnBm) btnBm.onclick = () => toast("Bookmarked (demo)");
+  if (btnNote) btnNote.onclick = () => {
     const t = prompt("Note");
     if (!t) return;
     toast("Note saved");
-  });
-  // … render course …
-  renderPage();
+  };
+
+  // ---- Per-course chat wiring ----
+  // အရင်က bind ချထားတာရှိရင် ဖျတ် (optional, wireCourseChatRealtime က unsubscribe တန်ဖိုး retrun လုပ်မယ်ဆိုရင်)
+  if (window._ccOff) { try { window._ccOff(); } catch {} window._ccOff = null; }
+
   if (typeof wireCourseChatRealtime === "function") {
-    wireCourseChatRealtime(courseId); // ✅ pass the function argument
+    // ✅ အမှန်က ဒီလို pass လုပ်ရပါမယ် — courseId အစား c.id (သို့) cid ကိုသုံး။
+    const off = wireCourseChatRealtime(c.id);
+    if (typeof off === "function") window._ccOff = off;
   }
 }
+
 function renderPage() {
   const p = RD.pages[RD.i];
   $("#rdTitle") &&
