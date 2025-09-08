@@ -951,19 +951,24 @@ $("#profileForm")?.addEventListener("submit", (e) => {
 // Guard: make sure we only define once
 // One and only ensureAuthForChat
 // --- Chat auth guard: ensures we have an auth user (email login or anonymous) ---
+// --- Chat auth guard ---
+const ALLOW_ANON_CHAT = false; // set to false if you want "login required" only
 async function ensureAuthForChat() {
-  // If you’re already logged in via your app’s auth, this is a no-op.
-  if (window.auth?.currentUser) return window.auth.currentUser;
+  // Already logged in (email/password, Google, etc.)
+  if (auth?.currentUser) return auth.currentUser;
 
-  // If your app intentionally logs out users, allow anonymous chat (enable in Firebase console)
+  if (!ALLOW_ANON_CHAT) {
+    const err = new Error("login-required");
+    err.code = "login-required";
+    throw err;
+  }
+
+  // Try anonymous sign-in (must be enabled in Firebase Console)
   try {
-    const { signInAnonymously } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
-    const cred = await signInAnonymously(window.auth);
+    const cred = await signInAnonymously(auth);
     return cred.user;
   } catch (e) {
-    // If anonymous auth is disabled, you’ll get auth/admin-restricted-operation
-    // In that case, require full login instead of anonymous.
-    console.warn("Anonymous auth failed", e);
+    // If anonymous is disabled you'll get auth/admin-restricted-operation
     const err = new Error("login-required");
     err.code = e?.code || "login-required";
     throw err;
