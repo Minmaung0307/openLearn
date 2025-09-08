@@ -952,7 +952,7 @@ $("#profileForm")?.addEventListener("submit", (e) => {
 // One and only ensureAuthForChat
 // --- Chat auth guard: ensures we have an auth user (email login or anonymous) ---
 // --- Chat auth guard ---
-const ALLOW_ANON_CHAT = false; // set to false if you want "login required" only
+const ALLOW_ANON_CHAT = true; // set to false if you want "login required" only
 async function ensureAuthForChat() {
   // Already logged in (email/password, Google, etc.)
   if (auth?.currentUser) return auth.currentUser;
