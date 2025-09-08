@@ -949,30 +949,26 @@ $("#profileForm")?.addEventListener("submit", (e) => {
 
 /* ---------- Live Chat (global + per-course) ---------- */
 // Guard: make sure we only define once
-window.ensureAuthForChat = window.ensureAuthForChat || (async function ensureAuthForChat() {
-  // Already authed to Firebase?
-  if (window.auth?.currentUser) return window.auth.currentUser;
+// One and only ensureAuthForChat
+async function ensureAuthForChat() {
+  // If user is already signed in (email/password or anonymous), do nothing
+  if (auth && auth.currentUser) return auth.currentUser;
 
-  // Allow anonymous? (set in config.js → OPENLEARN_CFG.chat.allowAnon = true)
-  const allowAnon = !!(window.OPENLEARN_CFG && window.OPENLEARN_CFG.chat && window.OPENLEARN_CFG.chat.allowAnon);
-
-  if (allowAnon) {
-    try {
-      const { signInAnonymously } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
-      const cred = await signInAnonymously(window.auth);
-      return cred.user;
-    } catch (e) {
-      console.warn("Anonymous auth failed", e);
-      throw e; // let caller show a toast
+  try {
+    // This requires Anonymous Sign-in to be enabled in Firebase Console
+    const cred = await signInAnonymously(auth);
+    return cred.user;
+  } catch (e) {
+    // If anonymous sign-in is disabled, you’ll see auth/admin-restricted-operation
+    if (e && (e.code === "auth/admin-restricted-operation")) {
+      // Tell UI to ask for login
+      const err = new Error("login-required");
+      err.code = "login-required";
+      throw err;
     }
+    throw e; // surface other errors
   }
-
-  // Anonymous not allowed → require real login
-  if (typeof window._showLoginPane === "function") window._showLoginPane();
-  const err = new Error("login-required");
-  err.code = "login-required";
-  throw err;
-});
+}
 // async function ensureAuthForChat() {
 //   // You may allow anonymous chat if no logged-in user (optional)
 //   if (auth.currentUser) return;
