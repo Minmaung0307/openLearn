@@ -165,8 +165,10 @@ const getProfile = () =>
     social: "",
   });
 const setProfile = (p) => _write("ol_profile", p || {});
-const getUser = () => _read("ol_user", null);
-const setUser = (u) => _write("ol_user", u);
+// const getUser = () => _read("ol_user", null);
+// const setUser = (u) => _write("ol_user", u);
+const getUser  = () => JSON.parse(localStorage.getItem("ol_user") || "null");
+const setUser  = (u) => localStorage.setItem("ol_user", JSON.stringify(u));
 
 let ALL = []; // in-memory snapshot
 let currentUser = null; // transient
@@ -476,6 +478,51 @@ function renderCatalog() {
       (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
     );
 }
+
+// === New Course Modal wiring ===
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("btn-new-course")?.addEventListener("click", () => {
+    document.getElementById("courseModal")?.showModal();
+  });
+  document.getElementById("courseClose")?.addEventListener("click", () => {
+    document.getElementById("courseModal")?.close();
+  });
+  document.getElementById("courseCancel")?.addEventListener("click", () => {
+    document.getElementById("courseModal")?.close();
+  });
+  document.getElementById("courseForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const payload = {
+      id: (f.get("title") || "").toString().trim().toLowerCase().replace(/\s+/g, "-") 
+          || ("c_" + Math.random().toString(36).slice(2, 9)),
+      title: f.get("title")?.toString().trim(),
+      category: f.get("category")?.toString().trim(),
+      level: f.get("level")?.toString() || "Beginner",
+      price: Number(f.get("price") || 0),
+      rating: Number(f.get("rating") || 4.6),
+      hours: Number(f.get("hours") || 8),
+      credits: Number(f.get("credits") || 3),
+      image: f.get("img")?.toString().trim(),
+      summary: (f.get("description") || "").toString(),
+      benefits: (f.get("benefits") || "").toString(),
+      createdAt: Date.now(),
+      progress: 0,
+      source: "user"
+    };
+    const arr = getCourses();
+    arr.push(payload);
+    setCourses(arr);
+    document.getElementById("courseModal")?.close();
+
+    // Refresh UI
+    window.ALL = arr;
+    renderCatalog?.();
+    renderAdminTable?.();
+    toast("Course created");
+  });
+});
+
 function markEnrolled(id) {
   const s = getEnrolls();
   s.add(id);
@@ -794,7 +841,7 @@ function renderAnnouncements() {
       (b.onclick = () => {
         const id = b.getAttribute("data-edit");
         const arr = getAnns();
-        const i = arr.findIndex((x) => x.id === id);
+        const i = arr.findIndex(x => x.id === id);
         if (i < 0) return;
         $("#pmTitle").value = arr[i].title || "";
         $("#pmBody").value = arr[i].body || "";
