@@ -784,6 +784,11 @@ async function openReader(cid) {
     if (!t) return;
     toast("Note saved");
   });
+  // … render course …
+  renderPage();
+  if (typeof wireCourseChatRealtime === "function") {
+    wireCourseChatRealtime(courseId);   // ✅ pass the function argument
+  }
 }
 function renderPage() {
   const p = RD.pages[RD.i];
@@ -802,11 +807,6 @@ function renderPage() {
       msg.textContent = "Submitted ✔️ (+5%)";
     };
   }
-}
-
-// after renderPage();
-if (typeof wireCourseChatRealtime === "function") {
-  wireCourseChatRealtime(cid);   // <-- NEW: hook up per-course room
 }
 
 /* ---------- Gradebook ---------- */
