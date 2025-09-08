@@ -13,7 +13,6 @@ import {
   onAuthStateChanged,
 
   // 🔽 add these:
-  auth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
