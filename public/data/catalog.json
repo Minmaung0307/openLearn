@@ -35,6 +35,18 @@
       "hours": 14,
       "summary": "Pandas & plots.",
       "image": ""
+    },
+    {
+      "id": "pali-basics",
+      "title": "ပါဠိ အခြေခံ",
+      "category": "Web",
+      "level": "Intermediate",
+      "price": 0,
+      "credits": 2,
+      "rating": 4.6,
+      "hours": 8,
+      "summary": "ပါဠိ စာလုံးပေါင်း၊ ဝေါဟာရ၊ သဒ္ဒါ အခြေခံများကို လေ့လာသင်ယူနိုင်မည့် သင်ခန်းစာ",
+      "image": ""
     }
   ]
 }
