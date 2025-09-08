@@ -4,7 +4,6 @@
    - No local ensurePayPal (imported from firebase.js)
    - Global + per-course chat (no re-declared symbols)
    - Safe DOM wiring with optional chaining
-   - Chat box enabled only for logged-in (non-anon) users
    ========================================================= */
 
 import {
@@ -12,12 +11,14 @@ import {
   db,
   auth,
   onAuthStateChanged,
+  signInAnonymously,
 
   // RTDB for chat
   getDatabase,
   ref,
   push,
   onChildAdded,
+  remove,
 
   // Optional PayPal loader (do NOT re-declare here)
   ensurePayPal,
@@ -138,7 +139,10 @@ function applyPalette(name) {
       btnPrimaryFg: "--btnPrimaryFg",
     };
   Object.entries(map).forEach(([k, v]) => r.style.setProperty(v, p[k]));
-  document.body.classList.toggle("light-theme", name === "light");
+  // Light theme extras for good contrast
+  const body = document.body;
+  if (name === "light") body.classList.add("light-theme");
+  else body.classList.remove("light-theme");
 }
 function applyFont(px) {
   document.documentElement.style.setProperty("--fontSize", (px || 16) + "px");
@@ -161,17 +165,40 @@ const getProfile = () =>
     social: "",
   });
 const setProfile = (p) => _write("ol_profile", p || {});
-const getUser = () => JSON.parse(localStorage.getItem("ol_user") || "null");
-const setUser = (u) => localStorage.setItem("ol_user", JSON.stringify(u));
-let ALL = [];
-let currentUser = null;
+// const getUser = () => _read("ol_user", null);
+// const setUser = (u) => _write("ol_user", u);
+const getUser  = () => JSON.parse(localStorage.getItem("ol_user") || "null");
+const setUser  = (u) => localStorage.setItem("ol_user", JSON.stringify(u));
+
+let ALL = []; // in-memory snapshot
+let currentUser = null; // transient
 
 /* ---------- role helpers (single source of truth) ---------- */
 const isLogged = () => !!getUser();
 const getRole = () => getUser()?.role || "student";
+
+// ---- Chat gating helper ----
+function gateChatUI() {
+  const loggedAndNotAnon = !!(window.auth?.currentUser) && !window.auth.currentUser.isAnonymous;
+  document.getElementById("chatInput")?.toggleAttribute("disabled", !loggedAndNotAnon);
+  document.getElementById("chatSend")?.toggleAttribute("disabled", !loggedAndNotAnon);
+  document.getElementById("ccInput")?.toggleAttribute("disabled", !loggedAndNotAnon);
+  document.getElementById("ccSend")?.toggleAttribute("disabled", !loggedAndNotAnon);
+}
+
+// Keep synced with auth
+window.onAuthStateChanged?.(window.auth, () => gateChatUI());
+document.addEventListener("DOMContentLoaded", gateChatUI);
+
+
 function isAdminLike() {
-  const r = getRole();
-  return r === "owner" || r === "admin" || r === "instructor" || r === "ta";
+  const role = getRole();
+  return (
+    role === "owner" ||
+    role === "admin" ||
+    role === "instructor" ||
+    role === "ta"
+  );
 }
 
 /* ---------- router ---------- */
@@ -222,26 +249,6 @@ function ensureAuthModalMarkup() {
   </dialog>`;
   document.body.insertAdjacentHTML("beforeend", html);
 }
-
-function renderProfilePanel(){
-  const p = getProfile();
-  const panel = document.getElementById("profilePanel");
-  if (!panel) return;
-
-  panel.innerHTML = `
-    <div class="row" style="gap:12px">
-      <img src="${esc(p.photoURL || 'https://picsum.photos/seed/avatar/120/120')}"
-           style="width:86px;height:86px;border-radius:12px;object-fit:cover" alt="">
-      <div class="grow">
-        <div style="font-weight:700">${esc(p.displayName || '—')}</div>
-        <div class="small muted">${esc(p.bio || 'No bio yet')}</div>
-        ${p.skills ? `<div class="small" style="margin-top:6px">Skills: ${esc(p.skills)}</div>` : ""}
-        ${p.links  ? `<div class="small">Links: ${esc(p.links)}</div>` : ""}
-        ${p.social ? `<div class="small">Social: ${esc(p.social)}</div>` : ""}
-      </div>
-    </div>`;
-}
-
 function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
   const btnLogin = document.getElementById("btn-login");
@@ -251,9 +258,7 @@ function setLogged(on, email) {
   document.body.classList.toggle("locked", !on);
   document.body.dataset.role = getRole();
   showPage("catalog");
-  renderProfilePanel();
-  // Update chat gating when local login changes
-  gateChatUI();
+  renderProfilePanel?.();
 }
 function initAuthModal() {
   ensureAuthModalMarkup();
@@ -303,7 +308,7 @@ function initAuthModal() {
     showPane("authLogin");
   });
 
-  // Local demo auth actions
+  // Actions (local demo auth)
   $("#doLogin")?.addEventListener("click", (e) => {
     e.preventDefault();
     const em = $("#loginEmail")?.value.trim(),
@@ -332,7 +337,7 @@ function initAuthModal() {
     toast("Reset link sent (demo)");
   });
 
-  // Click gate for elements that require auth
+  // Global click gate for elements that require auth
   document.addEventListener("click", (e) => {
     const gated = e.target.closest("[data-requires-auth]");
     if (gated && !isLogged()) {
@@ -392,6 +397,7 @@ function initSearch() {
 
 /* ---------- data (local seed) ---------- */
 async function loadCatalog() {
+  // in this clean build we keep a local seed; you can merge external JSON if you want
   let items = [
     {
       id: "js-essentials",
@@ -446,15 +452,16 @@ function renderCatalog() {
     grid.innerHTML = `<div class="muted">No courses yet.</div>`;
     return;
   }
+  const cats = new Set();
   grid.innerHTML = ALL.map((c) => {
+    cats.add(c.category || "");
     const search = [c.title, c.summary, c.category, c.level].join(" ");
     const r = Number(c.rating || 4.6),
       priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free",
       enrolled = getEnrolls().has(c.id);
     return `<div class="card course" data-id="${c.id}" data-search="${esc(
       search
-    )}" data-cat="${esc(c.category||'')}"
-            data-lv="${esc(c.level||'')}">
+    )}">
       <img class="course-cover" src="${esc(
         c.image || `https://picsum.photos/seed/${c.id}/640/360`
       )}" alt="">
@@ -474,6 +481,7 @@ function renderCatalog() {
     </div>`;
   }).join("");
 
+  // actions
   grid
     .querySelectorAll("[data-enroll]")
     .forEach(
@@ -484,82 +492,25 @@ function renderCatalog() {
     .forEach(
       (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
     );
-
-    // renderCatalog() အတွင်း—grid.innerHTML ပြီးသွားချိန်၊ cats ကိုသတ်မှတ်ပြီးတဲ့နောက်:
-const catSel = document.getElementById("filterCategory");
-if (catSel) {
-  // All option ကို value="" ဖြစ်အောင်သေချာလုပ်ပေးပါ
-  catSel.innerHTML = '<option value="">All Categories</option>' +
-    [...cats].filter(Boolean).map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
 }
 
-// Filter controls event listeners
-document.getElementById("filterCategory")?.addEventListener("change", applyFilters);
-document.getElementById("filterLevel")?.addEventListener("change", applyFilters);
-document.getElementById("sortBy")?.addEventListener("change", applyFilters);
-
-// First run — initial state
-applyFilters();
-}
-
-// ---- Filters (title/level/category/sort) ----
-function applyFilters() {
-  const grid = document.getElementById("courseGrid");
-  if (!grid) return;
-
-  const cat  = document.getElementById("filterCategory")?.value || "";
-  const lev  = document.getElementById("filterLevel")?.value || "";
-  const sort = document.getElementById("sortBy")?.value || "";
-
-  // Show/Hide by category + level
-  const cards = Array.from(grid.querySelectorAll(".card.course"));
-  cards.forEach(el => {
-    const meta = el.querySelector(".small.muted")?.textContent || "";
-    const okCat = !cat || meta.includes(cat);   // "" (All) => always true
-    const okLev = !lev || meta.includes(lev);   // "" (All) => always true
-    el.style.display = (okCat && okLev) ? "" : "none";
-  });
-
-  // Sorting on visible cards
-  const visible = cards.filter(el => el.style.display !== "none");
-  visible.sort((a,b)=>{
-    const ta = a.querySelector("strong")?.textContent.toLowerCase() || "";
-    const tb = b.querySelector("strong")?.textContent.toLowerCase() || "";
-    const ma = a.querySelector(".small.muted")?.textContent || "";
-    const mb = b.querySelector(".small.muted")?.textContent || "";
-    const pa = ma.includes("$") ? parseFloat(ma.split("$")[1]) : 0;
-    const pb = mb.includes("$") ? parseFloat(mb.split("$")[1]) : 0;
-
-    if (sort === "title-asc")  return ta.localeCompare(tb);
-    if (sort === "title-desc") return tb.localeCompare(ta);
-    if (sort === "price-asc")  return pa - pb;
-    if (sort === "price-desc") return pb - pa;
-    return 0;
-  }).forEach(el => grid.appendChild(el));
-}
-
-// New Course modal open/close + submit
+// === New Course Modal wiring ===
 document.addEventListener("DOMContentLoaded", () => {
-  $("#btn-new-course")?.addEventListener("click", () =>
-    $("#courseModal")?.showModal()
-  );
-  $("#courseClose")?.addEventListener("click", () =>
-    $("#courseModal")?.close()
-  );
-  $("#courseCancel")?.addEventListener("click", () =>
-    $("#courseModal")?.close()
-  );
-  $("#courseForm")?.addEventListener("submit", (e) => {
+  document.getElementById("btn-new-course")?.addEventListener("click", () => {
+    document.getElementById("courseModal")?.showModal();
+  });
+  document.getElementById("courseClose")?.addEventListener("click", () => {
+    document.getElementById("courseModal")?.close();
+  });
+  document.getElementById("courseCancel")?.addEventListener("click", () => {
+    document.getElementById("courseModal")?.close();
+  });
+  document.getElementById("courseForm")?.addEventListener("submit", (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
     const payload = {
-      id:
-        (f.get("title") || "")
-          .toString()
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, "-") ||
-        "c_" + Math.random().toString(36).slice(2, 9),
+      id: (f.get("title") || "").toString().trim().toLowerCase().replace(/\s+/g, "-") 
+          || ("c_" + Math.random().toString(36).slice(2, 9)),
       title: f.get("title")?.toString().trim(),
       category: f.get("category")?.toString().trim(),
       level: f.get("level")?.toString() || "Beginner",
@@ -572,13 +523,15 @@ document.addEventListener("DOMContentLoaded", () => {
       benefits: (f.get("benefits") || "").toString(),
       createdAt: Date.now(),
       progress: 0,
-      source: "user",
+      source: "user"
     };
     const arr = getCourses();
     arr.push(payload);
     setCourses(arr);
-    $("#courseModal")?.close();
-    ALL = arr;
+    document.getElementById("courseModal")?.close();
+
+    // Refresh UI
+    window.ALL = arr;
     renderCatalog?.();
     renderAdminTable?.();
     toast("Course created");
@@ -599,7 +552,6 @@ function handleEnroll(id) {
     ALL.find((x) => x.id === id) || getCourses().find((x) => x.id === id);
   if (!c) return toast("Course not found");
   if ((c.price || 0) <= 0) return markEnrolled(id); // free
-
   const dlg = $("#payModal");
   $("#payTitle") && ($("#payTitle").textContent = "Checkout · " + c.title);
   const container = $("#paypal-container");
@@ -642,7 +594,7 @@ function handleEnroll(id) {
     markEnrolled(id);
     dlg?.close();
   });
-  $("#closePay")?.addEventListener("click", () => $("#payModal")?.close());
+  $("#closePay")?.addEventListener("click", () => dlg?.close());
   dlg?.showModal();
 }
 function openDetails(id) {
@@ -695,7 +647,7 @@ $("#closeDetails")?.addEventListener("click", () =>
   $("#detailsModal")?.close()
 );
 
-/* ---------- My Learning / Reader ---------- */
+/* ---------- My Learning / Reader (demo pages) ---------- */
 const SAMPLE_PAGES = (title) => [
   {
     type: "lesson",
@@ -833,7 +785,7 @@ function renderGradebook() {
       .join("") || "<tr><td colspan='5' class='muted'>No data</td></tr>";
 }
 
-/* ---------- Admin (table) ---------- */
+/* ---------- Admin (table only; creation handled elsewhere) ---------- */
 function renderAdminTable() {
   const tb = $("#adminTable tbody");
   if (!tb) return;
@@ -867,8 +819,63 @@ function renderAdminTable() {
 }
 
 /* ---------- Announcements ---------- */
-let ANN_EDITING_ID = null;
-
+function renderAnnouncements() {
+  const box = $("#annList");
+  if (!box) return;
+  const arr = getAnns().slice().reverse();
+  box.innerHTML =
+    arr
+      .map(
+        (a) => `
+    <div class="card" data-id="${a.id}">
+      <div class="row" style="justify-content:space-between">
+        <strong>${esc(a.title)}</strong><span class="small muted">${new Date(
+          a.ts
+        ).toLocaleString()}</span>
+      </div>
+      <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
+      <div class="row" style="justify-content:flex-end; gap:6px">
+        <button class="btn small" data-edit="${a.id}">Edit</button>
+        <button class="btn small" data-del="${a.id}">Delete</button>
+      </div>
+    </div>`
+      )
+      .join("") || `<div class="muted">No announcements yet.</div>`;
+  box.querySelectorAll("[data-del]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const id = b.getAttribute("data-del");
+        const arr = getAnns().filter((x) => x.id !== id);
+        setAnns(arr);
+        renderAnnouncements();
+        toast("Deleted");
+      })
+  );
+  box.querySelectorAll("[data-edit]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const id = b.getAttribute("data-edit");
+        const arr = getAnns();
+        const i = arr.findIndex(x => x.id === id);
+        if (i < 0) return;
+        $("#pmTitle").value = arr[i].title || "";
+        $("#pmBody").value = arr[i].body || "";
+        $("#postModal")?.showModal();
+        const form = $("#postForm");
+        const orig = form.onsubmit;
+        form.onsubmit = (e) => {
+          e.preventDefault();
+          arr[i].title = $("#pmTitle").value.trim();
+          arr[i].body = $("#pmBody").value.trim();
+          setAnns(arr);
+          $("#postModal")?.close();
+          renderAnnouncements();
+          toast("Updated");
+          form.onsubmit = orig;
+        };
+      })
+  );
+}
 $("#btn-new-post")?.addEventListener("click", () =>
   $("#postModal")?.showModal()
 );
@@ -894,300 +901,220 @@ $("#postForm")?.addEventListener("submit", (e) => {
   toast("Announcement posted");
 });
 
-/* ---------- Announcements (open / create / edit / delete) ---------- */
-function renderAnnouncements() {
-  const box = document.getElementById("annList");
-  if (!box) return;
-
-  const arr = (typeof getAnns === "function" ? getAnns() : []).slice().reverse();
-  box.innerHTML = arr.map(a => `
-    <div class="card" data-id="${a.id}">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <strong>${esc(a.title || "")}</strong>
-        <span class="small muted">${new Date(a.ts || Date.now()).toLocaleString()}</span>
+/* ---------- Profile ---------- */
+function renderProfilePanel() {
+  const p = getProfile();
+  const panel = $("#profilePanel");
+  if (!panel) return;
+  panel.innerHTML = `
+    <div class="row" style="gap:12px">
+      <img src="${esc(
+        p.photoURL || "https://picsum.photos/seed/avatar/120/120"
+      )}" style="width:86px;height:86px;border-radius:12px;object-fit:cover" alt="">
+      <div class="grow">
+        <div style="font-weight:700">${esc(p.displayName || "—")}</div>
+        <div class="small muted">${esc(p.bio || "No bio yet")}</div>
+        ${
+          p.skills
+            ? `<div class="small" style="margin-top:6px">Skills: ${esc(
+                p.skills
+              )}</div>`
+            : ""
+        }
+        ${p.links ? `<div class="small">Links: ${esc(p.links)}</div>` : ""}
+        ${p.social ? `<div class="small">Social: ${esc(p.social)}</div>` : ""}
       </div>
-      <div class="mt-1">${esc(a.body || "")}</div>
-      <div class="row" style="justify-content:flex-end;gap:6px;margin-top:6px">
-        <button class="btn small" data-edit="${a.id}">Edit</button>
-        <button class="btn small" data-del="${a.id}">Delete</button>
-      </div>
-    </div>
-  `).join("") || `<div class="muted">No announcements yet.</div>`;
+    </div>`;
 }
-
-function wireAnnouncements() {
-  // open modal (New Post)
-  document.getElementById("btn-new-post")?.addEventListener("click", () => {
-    // clear form and open as "create"
-    const f = document.getElementById("postForm");
-    if (f) { f.reset?.(); }
-    document.getElementById("pmTitle") && (document.getElementById("pmTitle").value = "");
-    document.getElementById("pmBody")  && (document.getElementById("pmBody").value  = "");
-    document.getElementById("postModal")?.showModal();
-    // mark editing id = null
-    document.getElementById("postForm")?.setAttribute("data-editing-id", "");
-  });
-
-  // close/cancel
-  document.getElementById("closePostModal")?.addEventListener("click", () => {
-    document.getElementById("postModal")?.close();
-  });
-  document.getElementById("cancelPost")?.addEventListener("click", () => {
-    document.getElementById("postModal")?.close();
-  });
-
-  // submit (create OR save edit)
-  document.getElementById("postForm")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const title = (document.getElementById("pmTitle")?.value || "").trim();
-    const body  = (document.getElementById("pmBody")?.value  || "").trim();
-    if (!title || !body) return toast("Fill all fields");
-
-    const arr = (typeof getAnns === "function" ? getAnns() : []);
-
-    const editingId = document.getElementById("postForm")?.getAttribute("data-editing-id") || "";
-    if (editingId) {
-      // update existing
-      const i = arr.findIndex(x => x.id === editingId);
-      if (i >= 0) {
-        arr[i].title = title;
-        arr[i].body  = body;
-        arr[i].ts    = Date.now();
-      }
-      toast("Announcement updated");
-    } else {
-      // new create
-      arr.push({
-        id: "a_" + Math.random().toString(36).slice(2, 9),
-        title, body, ts: Date.now()
-      });
-      toast("Announcement posted");
-    }
-
-    typeof setAnns === "function" && setAnns(arr);
-    document.getElementById("postModal")?.close();
-    document.getElementById("pmTitle") && (document.getElementById("pmTitle").value = "");
-    document.getElementById("pmBody")  && (document.getElementById("pmBody").value  = "");
-    renderAnnouncements();
-  });
-
-  // delegation for Edit/Delete inside the list
-  document.getElementById("annList")?.addEventListener("click", (e) => {
-    const editBtn = e.target.closest("[data-edit]");
-    const delBtn  = e.target.closest("[data-del]");
-    const arr = (typeof getAnns === "function" ? getAnns() : []);
-
-    if (editBtn) {
-      const id = editBtn.getAttribute("data-edit");
-      const i = arr.findIndex(x => x.id === id);
-      if (i < 0) return;
-      // preload form + open modal
-      document.getElementById("pmTitle") && (document.getElementById("pmTitle").value = arr[i].title || "");
-      document.getElementById("pmBody")  && (document.getElementById("pmBody").value  = arr[i].body  || "");
-      document.getElementById("postForm")?.setAttribute("data-editing-id", id);
-      document.getElementById("postModal")?.showModal();
-    }
-
-    if (delBtn) {
-      const id = delBtn.getAttribute("data-del");
-      const next = arr.filter(x => x.id !== id);
-      typeof setAnns === "function" && setAnns(next);
-      renderAnnouncements();
-      toast("Deleted");
-    }
-  });
-}
+$("#btn-edit-profile")?.addEventListener("click", () => {
+  const p = getProfile();
+  const dlg = $("#profileEditModal");
+  const f = $("#profileForm");
+  if (!dlg || !f) return;
+  f.displayName.value = p.displayName || "";
+  f.photoURL.value = p.photoURL || "";
+  f.bio.value = p.bio || "";
+  f.skills.value = p.skills || "";
+  f.links.value = p.links || "";
+  f.social.value = p.social || "";
+  dlg.showModal();
+});
+$("#closeProfileModal")?.addEventListener("click", () =>
+  $("#profileEditModal")?.close()
+);
+$("#cancelProfile")?.addEventListener("click", () =>
+  $("#profileEditModal")?.close()
+);
+$("#profileForm")?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const p = {
+    displayName: f.get("displayName") || "",
+    photoURL: f.get("photoURL") || "",
+    bio: f.get("bio") || "",
+    skills: f.get("skills") || "",
+    links: f.get("links") || "",
+    social: f.get("social") || "",
+  };
+  setProfile(p);
+  $("#profileEditModal")?.close();
+  renderProfilePanel();
+  toast("Profile updated");
+});
 
 /* ---------- Live Chat (global + per-course) ---------- */
-/* Gate the chat inputs: only enabled when
-   (A) local login is on (isLogged()) AND
-   (B) Firebase auth user exists and is NOT anonymous (if Firebase is being used)
-   This fixes the "cannot place cursor" when you are logged in locally.
-*/
-function gateChatUI() {
-  const locallyLogged = isLogged();
-  const anon = !!auth?.currentUser?.isAnonymous;
-  const enable = locallyLogged && !anon; // must be logged and not anon
-  $("#chatInput")?.toggleAttribute("disabled", !enable);
-  $("#chatSend")?.toggleAttribute("disabled", !enable);
-  $("#ccInput")?.toggleAttribute("disabled", !enable);
-  $("#ccSend")?.toggleAttribute("disabled", !enable);
-}
-// keep in sync with Firebase auth when present
-if (typeof onAuthStateChanged === "function" && auth) {
-  onAuthStateChanged(auth, gateChatUI);
-}
-
-/** Must be logged-in (non-anonymous) to chat */
+// Guard: make sure we only define once
+// One and only ensureAuthForChat
+// --- Chat auth guard: ensures we have an auth user (email login or anonymous) ---
+// --- Chat auth guard ---
+// const ALLOW_ANON_CHAT = false; // set to false if you want "login required" only
+// No anonymous fallback:
 async function ensureAuthForChat() {
-  // If you're not using Firebase auth email/password here,
-  // we still respect "local login" (modal) + not anonymous.
-  if (isLogged() && !auth?.currentUser?.isAnonymous)
-    return auth?.currentUser || { uid: "local", email: getUser()?.email };
+  // if you use an authInitPromise, wait here; otherwise it's fine to check directly
+  if (window.auth?.currentUser && !window.auth.currentUser.isAnonymous) {
+    return window.auth.currentUser;
+  }
   const err = new Error("login-required");
   err.code = "login-required";
   throw err;
 }
+// async function ensureAuthForChat() {
+//   // You may allow anonymous chat if no logged-in user (optional)
+//   if (auth.currentUser) return;
+//   try {
+//     await signInAnonymously(auth);
+//   } catch (e) {
+//     console.warn("Anonymous auth failed", e);
+//   }
+// }
 
 // GLOBAL room
 function initChatRealtime() {
-  const box = document.getElementById("chatBox");
-  const input = document.getElementById("chatInput");
+  const box  = document.getElementById("chatBox");
+  const input= document.getElementById("chatInput");
   const send = document.getElementById("chatSend");
-  if (!box || !send) return;
+  if (!box || !send) return; // no UI, skip
 
-  const display = getUser()?.email || "guest";
+  const display = (typeof getUser === "function" && getUser()?.email) || "guest";
+
   try {
-    const rtdb = getDatabase(); // default app
-    const roomRef = ref(rtdb, "chats/global"); // global
+    const rtdb = getDatabase();                 // uses default app
+    const roomRef = ref(rtdb, "chats/global");  // global room
 
+    // live stream
     onChildAdded(roomRef, (snap) => {
-      const m = snap.val();
-      if (!m) return;
+      const m = snap.val(); if (!m) return;
       box.insertAdjacentHTML(
         "beforeend",
-        `<div class="msg"><b>${esc(
-          m.user
-        )}</b> <span class="small muted">${new Date(
-          m.ts
-        ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+        `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
       );
       box.scrollTop = box.scrollHeight;
     });
 
+    // send
     send?.addEventListener("click", async () => {
   const text = (input?.value || "").trim();
   if (!text) return;
-
-  // Require signed-in (non-anonymous) user
-  if (!window.auth?.currentUser || window.auth.currentUser.isAnonymous) {
-    toast("Please login to chat");
-    return;
-  }
-
   try {
-    const uid = window.auth.currentUser.uid;
-    await push(roomRef, { uid, user: display, text, ts: Date.now() });
+    const u = await ensureAuthForChat(); // must be real user
+    await push(roomRef, { uid: u.uid, user: (u.email || "user"), text, ts: Date.now() });
     if (input) input.value = "";
   } catch (e) {
-    console.warn(e);
-    toast("Chat failed");
+    if (e?.code === "login-required") {
+      toast("Please login to chat");
+    } else {
+      console.warn(e);
+      toast("Chat failed");
+    }
   }
 });
 
     return; // RTDB branch OK
   } catch (e) {
-    console.warn("RTDB not available; local chat fallback", e);
+    console.warn("RTDB not available; falling back to local chat", e);
   }
 
-  // Fallback (per-device)
+  // Fallback: localStorage (per device)
   const KEY = "ol_chat_local";
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
   const draw = (m) => {
     box.insertAdjacentHTML(
       "beforeend",
-      `<div class="msg"><b>${esc(
-        m.user
-      )}</b> <span class="small muted">${new Date(
-        m.ts
-      ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
     );
     box.scrollTop = box.scrollHeight;
   };
-  let arr = load();
-  arr.forEach(draw);
+  let arr = load(); arr.forEach(draw);
   send.onclick = () => {
-    const text = (input?.value || "").trim();
-    if (!text) return;
+    const text = (input?.value || "").trim(); if (!text) return;
     const m = { user: display, text, ts: Date.now() };
-    arr.push(m);
-    save(arr);
-    draw(m);
-    if (input) input.value = "";
+    arr.push(m); save(arr); draw(m); if (input) input.value = "";
   };
 }
 
-// PER-COURSE room (call when opening a course reader)
+// PER-COURSE room (call this when you open a reader: wireCourseChatRealtime(courseId))
 function wireCourseChatRealtime(courseId) {
-  const list = $("#ccList"),
-    input = $("#ccInput"),
-    send = $("#ccSend"),
-    label = $("#chatRoomLabel");
+  const list  = document.getElementById("ccList");
+  const input = document.getElementById("ccInput");
+  const send  = document.getElementById("ccSend");
+  const label = document.getElementById("chatRoomLabel");
   if (!list || !send) return;
-  if (label) label.textContent = "room: " + courseId;
 
-  const display = getUser()?.email || "you";
+  if (label) label.textContent = "room: " + courseId;
+  const display = (typeof getUser === "function" && getUser()?.email) || "you";
+
   try {
     const rtdb = getDatabase();
     const roomRef = ref(rtdb, `chats/${courseId}`);
 
     onChildAdded(roomRef, (snap) => {
-      const m = snap.val();
-      if (!m) return;
+      const m = snap.val(); if (!m) return;
       list.insertAdjacentHTML(
         "beforeend",
-        `<div class="msg"><b>${esc(
-          m.user
-        )}</b> <span class="small muted">${new Date(
-          m.ts
-        ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+        `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
       );
       list.scrollTop = list.scrollHeight;
     });
 
-    send.addEventListener("click", async () => {
-      const text = (input?.value || "").trim();
-      if (!text) return;
-      try {
-        const u = await ensureAuthForChat();
-        await push(roomRef, {
-          uid: u.uid || "local",
-          user: u.email || display,
-          text,
-          ts: Date.now(),
-        });
-        if (input) input.value = "";
-      } catch (e) {
-        if (e?.code === "login-required") toast("Please login to chat");
-        else {
-          console.warn(e);
-          toast("Chat failed");
-        }
-      }
-    });
+    ccSend?.addEventListener("click", async () => {
+  const text = (ccInput?.value || "").trim();
+  if (!text) return;
+  try {
+    const u = await ensureAuthForChat(); // must be real user
+    await push(roomRef, { uid: u.uid, user: (u.email || "user"), text, ts: Date.now() });
+    if (ccInput) ccInput.value = "";
+  } catch (e) {
+    if (e?.code === "login-required") {
+      toast("Please login to chat");
+    } else {
+      console.warn(e);
+      toast("Chat failed");
+    }
+  }
+});
 
     return; // RTDB branch OK
   } catch (e) {
-    console.warn("RTDB not available; local per-course chat fallback", e);
+    console.warn("RTDB not available; falling back to local per-course chat", e);
   }
 
-  // Fallback local per-course
+  // Fallback (per-course) local
   const KEY = "ol_chat_room_" + courseId;
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
   const draw = (m) => {
     list.insertAdjacentHTML(
       "beforeend",
-      `<div class="msg"><b>${esc(
-        m.user
-      )}</b> <span class="small muted">${new Date(
-        m.ts
-      ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
     );
     list.scrollTop = list.scrollHeight;
   };
-  let arr = load();
-  list.innerHTML = "";
-  arr.forEach(draw);
+  let arr = load(); list.innerHTML = ""; arr.forEach(draw);
   send.onclick = () => {
-    const text = (input?.value || "").trim();
-    if (!text) return;
+    const text = (input?.value || "").trim(); if (!text) return;
     const m = { user: display, text, ts: Date.now() };
-    arr.push(m);
-    save(arr);
-    draw(m);
-    if (input) input.value = "";
+    arr.push(m); save(arr); draw(m); if (input) input.value = "";
   };
 }
 
@@ -1207,32 +1134,28 @@ $("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
 
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
+  // theme/font (instant)
   applyPalette(localStorage.getItem("ol_theme") || "slate");
   applyFont(localStorage.getItem("ol_font") || "16");
 
+  // Auth modal + restore login state
   initAuthModal();
   const u = getUser();
   setLogged(!!u, u?.email);
 
+  // UI features
   initSidebar();
   initSearch();
-  initChatRealtime(); // global chat
-  gateChatUI(); // reflect current auth
+  initChatRealtime(); // global chat ready (safe no-op if DOM absent)
 
-  try {
-    await loadCatalog();
-  } catch (e) {
-    console.warn("Catalog load failed", e);
-  }
+  // Data
+  await loadCatalog().catch((e) => console.warn("Catalog load failed", e));
   ALL = getCourses();
   renderCatalog();
   renderAdminTable();
   renderProfilePanel();
 
-  // Announcements: initial render + event wiring
-renderAnnouncements?.();
-wireAnnouncements?.();
-
+  // Hints
   $("#btn-top-ann") && ($("#btn-top-ann").title = "Open Announcements");
   $("#btn-top-final") && ($("#btn-top-final").title = "Open Final Exam");
 });
