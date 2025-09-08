@@ -176,6 +176,21 @@ let currentUser = null; // transient
 /* ---------- role helpers (single source of truth) ---------- */
 const isLogged = () => !!getUser();
 const getRole = () => getUser()?.role || "student";
+
+// ---- Chat gating helper ----
+function gateChatUI() {
+  const loggedAndNotAnon = !!(window.auth?.currentUser) && !window.auth.currentUser.isAnonymous;
+  document.getElementById("chatInput")?.toggleAttribute("disabled", !loggedAndNotAnon);
+  document.getElementById("chatSend")?.toggleAttribute("disabled", !loggedAndNotAnon);
+  document.getElementById("ccInput")?.toggleAttribute("disabled", !loggedAndNotAnon);
+  document.getElementById("ccSend")?.toggleAttribute("disabled", !loggedAndNotAnon);
+}
+
+// Keep synced with auth
+window.onAuthStateChanged?.(window.auth, () => gateChatUI());
+document.addEventListener("DOMContentLoaded", gateChatUI);
+
+
 function isAdminLike() {
   const role = getRole();
   return (
@@ -952,27 +967,16 @@ $("#profileForm")?.addEventListener("submit", (e) => {
 // One and only ensureAuthForChat
 // --- Chat auth guard: ensures we have an auth user (email login or anonymous) ---
 // --- Chat auth guard ---
-const ALLOW_ANON_CHAT = true; // set to false if you want "login required" only
+// const ALLOW_ANON_CHAT = false; // set to false if you want "login required" only
+// No anonymous fallback:
 async function ensureAuthForChat() {
-  // Already logged in (email/password, Google, etc.)
-  if (auth?.currentUser) return auth.currentUser;
-
-  if (!ALLOW_ANON_CHAT) {
-    const err = new Error("login-required");
-    err.code = "login-required";
-    throw err;
+  // if you use an authInitPromise, wait here; otherwise it's fine to check directly
+  if (window.auth?.currentUser && !window.auth.currentUser.isAnonymous) {
+    return window.auth.currentUser;
   }
-
-  // Try anonymous sign-in (must be enabled in Firebase Console)
-  try {
-    const cred = await signInAnonymously(auth);
-    return cred.user;
-  } catch (e) {
-    // If anonymous is disabled you'll get auth/admin-restricted-operation
-    const err = new Error("login-required");
-    err.code = e?.code || "login-required";
-    throw err;
-  }
+  const err = new Error("login-required");
+  err.code = "login-required";
+  throw err;
 }
 // async function ensureAuthForChat() {
 //   // You may allow anonymous chat if no logged-in user (optional)
@@ -1008,30 +1012,22 @@ function initChatRealtime() {
     });
 
     // send
-    send.onclick = async () => {
-      const text = (input?.value || "").trim();
-      if (!text) return;
-
-      try {
-        const user = await ensureAuthForChat();        // make sure auth exists
-        const uid  = user?.uid || "nouid";
-        const payload = {
-          uid,                          // must equal auth.uid in rules
-          user: String(display),        // ensure string
-          text: String(text),           // ensure string
-          ts: Date.now()                // number
-        };
-        await push(roomRef, payload);
-        if (input) input.value = "";
-      } catch (e) {
-        if (e?.code === "auth/admin-restricted-operation" || e?.code === "login-required") {
-          toast("Please login to chat");
-        } else {
-          console.warn(e);
-          toast("Chat failed");
-        }
-      }
-    };
+    send?.addEventListener("click", async () => {
+  const text = (input?.value || "").trim();
+  if (!text) return;
+  try {
+    const u = await ensureAuthForChat(); // must be real user
+    await push(roomRef, { uid: u.uid, user: (u.email || "user"), text, ts: Date.now() });
+    if (input) input.value = "";
+  } catch (e) {
+    if (e?.code === "login-required") {
+      toast("Please login to chat");
+    } else {
+      console.warn(e);
+      toast("Chat failed");
+    }
+  }
+});
 
     return; // RTDB branch OK
   } catch (e) {
@@ -1081,25 +1077,22 @@ function wireCourseChatRealtime(courseId) {
       list.scrollTop = list.scrollHeight;
     });
 
-    send.onclick = async () => {
-      const text = (input?.value || "").trim();
-      if (!text) return;
-
-      try {
-        const user = await ensureAuthForChat();
-        const uid  = user?.uid || "nouid";
-        const payload = { uid, user: String(display), text: String(text), ts: Date.now() };
-        await push(roomRef, payload);
-        if (input) input.value = "";
-      } catch (e) {
-        if (e?.code === "auth/admin-restricted-operation" || e?.code === "login-required") {
-          toast("Please login to chat");
-        } else {
-          console.warn(e);
-          toast("Chat failed");
-        }
-      }
-    };
+    ccSend?.addEventListener("click", async () => {
+  const text = (ccInput?.value || "").trim();
+  if (!text) return;
+  try {
+    const u = await ensureAuthForChat(); // must be real user
+    await push(roomRef, { uid: u.uid, user: (u.email || "user"), text, ts: Date.now() });
+    if (ccInput) ccInput.value = "";
+  } catch (e) {
+    if (e?.code === "login-required") {
+      toast("Please login to chat");
+    } else {
+      console.warn(e);
+      toast("Chat failed");
+    }
+  }
+});
 
     return; // RTDB branch OK
   } catch (e) {
