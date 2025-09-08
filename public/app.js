@@ -804,6 +804,11 @@ function renderPage() {
   }
 }
 
+// after renderPage();
+if (typeof wireCourseChatRealtime === "function") {
+  wireCourseChatRealtime(cid);   // <-- NEW: hook up per-course room
+}
+
 /* ---------- Gradebook ---------- */
 function renderGradebook() {
   const tb = $("#gbTable tbody");
@@ -1104,67 +1109,101 @@ function initChatRealtime() {
 }
 
 // PER-COURSE room (call this when you open a reader: wireCourseChatRealtime(courseId))
+// keep one global ref so we can detach previous listeners when switching courses
+let _ccOff = null;
+
 function wireCourseChatRealtime(courseId) {
   const list  = document.getElementById("ccList");
   const input = document.getElementById("ccInput");
   const send  = document.getElementById("ccSend");
   const label = document.getElementById("chatRoomLabel");
-  if (!list || !send) return;
+  if (!list || !input || !send) return;
 
+  // label
   if (label) label.textContent = "room: " + courseId;
+
+  // clear old messages + unhook previous listener (if any)
+  list.innerHTML = "";
+  if (typeof _ccOff === "function") { try { _ccOff(); } catch {} _ccOff = null; }
+
+  // get RTDB (if not available we fall back to localStorage)
+  let rtdb = null;
+  try { rtdb = (typeof getDatabase === "function") ? getDatabase() : null; } catch {}
   const display = (typeof getUser === "function" && getUser()?.email) || "you";
 
-  try {
-    const rtdb = getDatabase();
-    const roomRef = ref(rtdb, `chats/${courseId}`);
-
-    onChildAdded(roomRef, (snap) => {
-      const m = snap.val(); if (!m) return;
-      list.insertAdjacentHTML(
-        "beforeend",
-        `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
-      );
-      list.scrollTop = list.scrollHeight;
-    });
-
-    ccSend?.addEventListener("click", async () => {
-  const text = (ccInput?.value || "").trim();
-  if (!text) return;
-  try {
-    const u = await ensureAuthForChat(); // must be real user
-    await push(roomRef, { uid: u.uid, user: (u.email || "user"), text, ts: Date.now() });
-    if (ccInput) ccInput.value = "";
-  } catch (e) {
-    if (e?.code === "login-required") {
-      toast("Please login to chat");
-    } else {
-      console.warn(e);
-      toast("Chat failed");
-    }
-  }
-});
-
-    return; // RTDB branch OK
-  } catch (e) {
-    console.warn("RTDB not available; falling back to local per-course chat", e);
-  }
-
-  // Fallback (per-course) local
-  const KEY = "ol_chat_room_" + courseId;
-  const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
-  const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
+  // helper: draw one message
   const draw = (m) => {
     list.insertAdjacentHTML(
       "beforeend",
-      `<div class="msg"><b>${esc(m.user)}</b> <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+      `<div class="msg">
+         <b>${esc(m.user)}</b>
+         <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+         <div>${esc(m.text)}</div>
+       </div>`
     );
     list.scrollTop = list.scrollHeight;
   };
-  let arr = load(); list.innerHTML = ""; arr.forEach(draw);
+
+  if (rtdb) {
+    const roomRef = ref(rtdb, `chats/${courseId}`);
+
+    // attach listener
+    const cb = (snap) => { const m = snap.val(); if (m) draw(m); };
+    onChildAdded(roomRef, cb);
+    // store a tiny off() wrapper for next time
+    _ccOff = () => { try { roomRef.off?.("child_added", cb); } catch {} };
+
+    // (re)bind click safely — remove any previous handler
+    send.onclick = null;
+    send.onclick = async () => {
+      const text = (input.value || "").trim();
+      if (!text) return;
+
+      try {
+        // make sure logged-in & not anonymous (your ensureAuthForChat should enforce this)
+        if (typeof ensureAuthForChat === "function") await ensureAuthForChat();
+
+        const uid = (window.auth?.currentUser?.uid) || "nouid";
+        const payload = { uid, user: display, text, ts: Date.now() };
+
+        // Optimistic UI: show immediately
+        draw(payload);
+
+        // push to RTDB
+        await push(roomRef, payload);
+
+        // clear input
+        input.value = "";
+      } catch (e) {
+        // If your ensureAuthForChat throws because not logged in
+        if (e && (e.code === "auth/admin-restricted-operation" || e.code === "login-required")) {
+          toast("Please login to chat");
+          return;
+        }
+        console.warn(e);
+        toast("Chat failed");
+      }
+    };
+
+    return; // RTDB path done
+  }
+
+  // ----- Fallback (localStorage) -----
+  const KEY = "ol_chat_room_" + courseId;
+  const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
+  const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
+
+  // draw existing
+  load().forEach(draw);
+
   send.onclick = () => {
-    const text = (input?.value || "").trim(); if (!text) return;
+    const text = (input.value || "").trim();
+    if (!text) return;
     const m = { user: display, text, ts: Date.now() };
-    arr.push(m); save(arr); draw(m); if (input) input.value = "";
+    const arr = load();
+    arr.push(m); save(arr);
+    draw(m);
+    input.value = "";
   };
 }
 
