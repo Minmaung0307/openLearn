@@ -948,162 +948,193 @@ $("#profileForm")?.addEventListener("submit", (e) => {
 });
 
 /* ---------- Live Chat (global + per-course) ---------- */
-async function ensureAuthForChat() {
-  // You may allow anonymous chat if no logged-in user (optional)
-  if (auth.currentUser) return;
-  try {
-    await signInAnonymously(auth);
-  } catch (e) {
-    console.warn("Anonymous auth failed", e);
+// Guard: make sure we only define once
+window.ensureAuthForChat = window.ensureAuthForChat || (async function ensureAuthForChat() {
+  // Already authed to Firebase?
+  if (window.auth?.currentUser) return window.auth.currentUser;
+
+  // Allow anonymous? (set in config.js → OPENLEARN_CFG.chat.allowAnon = true)
+  const allowAnon = !!(window.OPENLEARN_CFG && window.OPENLEARN_CFG.chat && window.OPENLEARN_CFG.chat.allowAnon);
+
+  if (allowAnon) {
+    try {
+      const { signInAnonymously } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+      const cred = await signInAnonymously(window.auth);
+      return cred.user;
+    } catch (e) {
+      console.warn("Anonymous auth failed", e);
+      throw e; // let caller show a toast
+    }
   }
-}
+
+  // Anonymous not allowed → require real login
+  if (typeof window._showLoginPane === "function") window._showLoginPane();
+  const err = new Error("login-required");
+  err.code = "login-required";
+  throw err;
+});
+// async function ensureAuthForChat() {
+//   // You may allow anonymous chat if no logged-in user (optional)
+//   if (auth.currentUser) return;
+//   try {
+//     await signInAnonymously(auth);
+//   } catch (e) {
+//     console.warn("Anonymous auth failed", e);
+//   }
+// }
 
 // GLOBAL room
 function initChatRealtime() {
-  const box = $("#chatBox"),
-    input = $("#chatInput"),
-    send = $("#chatSend");
+  const box = $("#chatBox"), input = $("#chatInput"), send = $("#chatSend");
   if (!box || !send) return;
 
-  const display = getUser()?.email || "guest";
+  const display = (typeof getUser === "function" && getUser()?.email) || "guest";
+
   try {
-    const rtdb = getDatabase?.(db.app);
+    const rtdb = (typeof getDatabase === "function" && db?.app) ? getDatabase(db.app) : null;
     if (rtdb) {
       const roomRef = ref(rtdb, "chats/global");
 
       onChildAdded(roomRef, (snap) => {
-        const m = snap.val();
-        if (!m) return;
+        const m = snap.val(); if (!m) return;
         box.insertAdjacentHTML(
           "beforeend",
-          `<div class="msg"><b>${esc(
-            m.user
-          )}</b> <span class="small muted">${new Date(
-            m.ts
-          ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+          `<div class="msg">
+             <b>${esc(m.user)}</b>
+             <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+             <div>${esc(m.text)}</div>
+           </div>`
         );
         box.scrollTop = box.scrollHeight;
       });
 
+      // SINGLE listener only (fixed)
       send.addEventListener("click", async () => {
-        const text = input?.value.trim();
+        const text = (input?.value || "").trim();
         if (!text) return;
         try {
-          await ensureAuthForChat();
-          const uid = auth.currentUser?.uid || "nouid";
+          // guard: ensure logged in (or anon if allowed)
+          if (typeof window.ensureAuthForChat === "function") {
+            await window.ensureAuthForChat();
+          }
+          const uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || "nouid";
           await push(roomRef, { uid, user: display, text, ts: Date.now() });
           if (input) input.value = "";
         } catch (e) {
+          if (e && (e.code === "auth/admin-restricted-operation" || e.code === "login-required")) {
+            toast("Please login to chat");
+            return;
+          }
           console.warn(e);
           toast("Chat failed");
         }
       });
 
-      return; // RTDB branch done
+      return; // IMPORTANT: prevent fallback double-binding
     }
-  } catch {}
+  } catch {
+    // fall through to local fallback
+  }
 
-  // Fallback (localStorage)
+  // ---- Fallback (localStorage) ----
   const KEY = "ol_chat_local";
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
   const draw = (m) => {
     box.insertAdjacentHTML(
       "beforeend",
-      `<div class="msg"><b>${esc(
-        m.user
-      )}</b> <span class="small muted">${new Date(
-        m.ts
-      ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+      `<div class="msg">
+         <b>${esc(m.user)}</b>
+         <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+         <div>${esc(m.text)}</div>
+       </div>`
     );
     box.scrollTop = box.scrollHeight;
   };
-  let arr = load();
-  arr.forEach(draw);
+  let arr = load(); arr.forEach(draw);
   send.addEventListener("click", () => {
-    const text = input?.value.trim();
+    const text = (input?.value || "").trim();
     if (!text) return;
     const m = { user: display, text, ts: Date.now() };
-    arr.push(m);
-    save(arr);
-    draw(m);
+    arr.push(m); save(arr); draw(m);
     if (input) input.value = "";
   });
 }
 
 // PER-COURSE room (call this when you open a reader: wireCourseChatRealtime(courseId))
 function wireCourseChatRealtime(courseId) {
-  const list = $("#ccList"),
-    input = $("#ccInput"),
-    send = $("#ccSend"),
-    label = $("#chatRoomLabel");
+  const list = $("#ccList"), input = $("#ccInput"), send = $("#ccSend"), label = $("#chatRoomLabel");
   if (!list || !send) return;
   if (label) label.textContent = "room: " + courseId;
 
-  const display = getUser()?.email || "you";
+  const display = (typeof getUser === "function" && getUser()?.email) || "you";
+
   try {
-    const rtdb = getDatabase?.(db.app);
+    const rtdb = (typeof getDatabase === "function" && db?.app) ? getDatabase(db.app) : null;
     if (rtdb) {
       const roomRef = ref(rtdb, `chats/${courseId}`);
 
       onChildAdded(roomRef, (snap) => {
-        const m = snap.val();
-        if (!m) return;
+        const m = snap.val(); if (!m) return;
         list.insertAdjacentHTML(
           "beforeend",
-          `<div class="msg"><b>${esc(
-            m.user
-          )}</b> <span class="small muted">${new Date(
-            m.ts
-          ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+          `<div class="msg">
+             <b>${esc(m.user)}</b>
+             <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+             <div>${esc(m.text)}</div>
+           </div>`
         );
         list.scrollTop = list.scrollHeight;
       });
 
+      // SINGLE listener only (fixed)
       send.addEventListener("click", async () => {
         const text = (input?.value || "").trim();
         if (!text) return;
         try {
-          await ensureAuthForChat();
-          const uid = auth.currentUser?.uid || "nouid";
+          if (typeof window.ensureAuthForChat === "function") {
+            await window.ensureAuthForChat();
+          }
+          const uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || "nouid";
           await push(roomRef, { uid, user: display, text, ts: Date.now() });
-          input && (input.value = "");
+          if (input) input.value = "";
         } catch (e) {
+          if (e && (e.code === "auth/admin-restricted-operation" || e.code === "login-required")) {
+            toast("Please login to chat");
+            return;
+          }
           console.warn(e);
           toast("Chat failed");
         }
       });
 
-      // Optional: admin delete (click a message to remove if you add keys & rules)
-      return;
+      return; // IMPORTANT: prevent fallback double-binding
     }
-  } catch {}
+  } catch {
+    // fall through to local fallback
+  }
 
-  // Fallback per-course (local)
+  // ---- Fallback per-course (local) ----
   const KEY = "ol_chat_room_" + courseId;
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
   const draw = (m) => {
     list.insertAdjacentHTML(
       "beforeend",
-      `<div class="msg"><b>${esc(
-        m.user
-      )}</b> <span class="small muted">${new Date(
-        m.ts
-      ).toLocaleTimeString()}</span><div>${esc(m.text)}</div></div>`
+      `<div class="msg">
+         <b>${esc(m.user)}</b>
+         <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+         <div>${esc(m.text)}</div>
+       </div>`
     );
     list.scrollTop = list.scrollHeight;
   };
-  let arr = load();
-  list.innerHTML = "";
-  arr.forEach(draw);
+  let arr = load(); list.innerHTML = ""; arr.forEach(draw);
   send.addEventListener("click", () => {
     const text = (input?.value || "").trim();
     if (!text) return;
     const m = { user: display, text, ts: Date.now() };
-    arr.push(m);
-    save(arr);
-    draw(m);
+    arr.push(m); save(arr); draw(m);
     if (input) input.value = "";
   });
 }
