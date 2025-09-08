@@ -11,7 +11,12 @@ import {
   db,
   auth,
   onAuthStateChanged,
-  signInAnonymously,
+
+  // 🔽 add these:
+  auth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
 
   // RTDB for chat
   getDatabase,
@@ -275,79 +280,89 @@ function initAuthModal() {
   const modal = document.getElementById("authModal");
   if (!modal) return;
 
+  // expose for global-gate to open login pane
+  window._showLoginPane = () => showPane("authLogin");
+
   const showPane = (id) => {
-    ["authLogin", "authSignup", "authForgot"].forEach((x) =>
+    ["authLogin","authSignup","authForgot"].forEach(x => 
       document.getElementById(x)?.classList.add("ol-hidden")
     );
     document.getElementById(id)?.classList.remove("ol-hidden");
     modal.showModal();
   };
-  window._showLoginPane = () => showPane("authLogin");
 
-  // Topbar buttons
+  // ——— TOP BAR login/logout buttons ———
   document.addEventListener("click", (e) => {
-    const loginBtn = e.target.closest("#btn-login");
+    const loginBtn  = e.target.closest("#btn-login");
     const logoutBtn = e.target.closest("#btn-logout");
-    if (loginBtn) {
-      e.preventDefault();
-      showPane("authLogin");
-    }
+    if (loginBtn) { e.preventDefault(); showPane("authLogin"); }
     if (logoutBtn) {
       e.preventDefault();
-      setUser(null);
-      setLogged(false);
-      toast("Logged out");
+      (async () => {
+        try { await signOut(auth); } catch {}
+        setUser(null);
+        setLogged(false);
+        gateChatUI();
+        toast("Logged out");
+      })();
+    }
+  }, { once: false });
+
+  // ——— Nav links within modal ———
+  $("#linkSignup")?.addEventListener("click", (e)=>{ e.preventDefault(); showPane("authSignup"); });
+  $("#linkForgot")?.addEventListener("click", (e)=>{ e.preventDefault(); showPane("authForgot"); });
+  $("#backToLogin1")?.addEventListener("click", (e)=>{ e.preventDefault(); showPane("authLogin"); });
+  $("#backToLogin2")?.addEventListener("click", (e)=>{ e.preventDefault(); showPane("authLogin"); });
+
+  // ——— Login ———
+  $("#doLogin")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const em = $("#loginEmail")?.value.trim();
+    const pw = $("#loginPass")?.value;
+    if (!em || !pw) return toast("Fill email/password");
+    try {
+      await signInWithEmailAndPassword(auth, em, pw);
+      setUser({ email: em, role: "student" });   // keep UI gates working
+      setLogged(true, em);
+      modal.close();
+      gateChatUI();
+      toast("Welcome back");
+    } catch (err) {
+      console.warn(err);
+      toast("Login failed");
     }
   });
 
-  // Switch panes
-  $("#linkSignup")?.addEventListener("click", (e) => {
+  // ——— Signup ———
+  $("#doSignup")?.addEventListener("click", async (e) => {
     e.preventDefault();
-    showPane("authSignup");
-  });
-  $("#linkForgot")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    showPane("authForgot");
-  });
-  $("#backToLogin1")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    showPane("authLogin");
-  });
-  $("#backToLogin2")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    showPane("authLogin");
+    const em = $("#signupEmail")?.value.trim();
+    const pw = $("#signupPass")?.value;
+    if (!em || !pw) return toast("Fill email/password");
+    try {
+      await createUserWithEmailAndPassword(auth, em, pw);
+      setUser({ email: em, role: "student" });
+      setLogged(true, em);
+      modal.close();
+      gateChatUI();
+      toast("Account created");
+    } catch (err) {
+      console.warn(err);
+      toast("Signup failed");
+    }
   });
 
-  // Actions (local demo auth)
-  $("#doLogin")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    const em = $("#loginEmail")?.value.trim(),
-      pw = $("#loginPass")?.value;
-    if (!em || !pw) return toast("Fill email/password");
-    setUser({ email: em, role: "student" });
-    setLogged(true, em);
-    modal.close();
-    toast("Welcome back");
-  });
-  $("#doSignup")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    const em = $("#signupEmail")?.value.trim(),
-      pw = $("#signupPass")?.value;
-    if (!em || !pw) return toast("Fill email/password");
-    setUser({ email: em, role: "student" });
-    setLogged(true, em);
-    modal.close();
-    toast("Account created");
-  });
+  // ——— Forgot (demo) ———
   $("#doForgot")?.addEventListener("click", (e) => {
     e.preventDefault();
     const em = $("#forgotEmail")?.value.trim();
     if (!em) return toast("Enter email");
+    // If you want real email reset, use sendPasswordResetEmail(auth, em)
     modal.close();
     toast("Reset link sent (demo)");
   });
 
-  // Global click gate for elements that require auth
+  // ——— Global click gate for data-requires-auth ———
   document.addEventListener("click", (e) => {
     const gated = e.target.closest("[data-requires-auth]");
     if (gated && !isLogged()) {
@@ -1145,23 +1160,30 @@ function initChatRealtime() {
         box.scrollTop = box.scrollHeight;
       });
 
-      send.onclick = async () => {
-        const text = (input?.value || "").trim();
-        if (!text) return;
-        const u = window.auth.currentUser; // real user
-        try {
-          await push(roomRef, {
-            uid: u.uid,
-            user: u.email || "user",
-            text,
-            ts: Date.now(),
-          });
-          if (input) input.value = "";
-        } catch (e) {
-          console.warn(e);
-          toast("Chat failed");
-        }
-      };
+      // inside initChatRealtime() send.onclick:
+send.onclick = async () => {
+  const text = (input?.value || "").trim();
+  if (!text) return;
+  // require login (non-anonymous)
+  if (!auth.currentUser || auth.currentUser.isAnonymous) {
+    toast("Please login to chat");
+    return;
+  }
+  try {
+    const rtdb = getDatabase();
+    const roomRef = ref(rtdb, "chats/global");
+    await push(roomRef, {
+      uid: auth.currentUser.uid,
+      user: auth.currentUser.email || "user",
+      text,
+      ts: Date.now()
+    });
+    if (input) input.value = "";
+  } catch (e) {
+    console.warn(e);
+    toast("Chat failed");
+  }
+};
       return; // RTDB branch finished
     } catch (e) {
       console.warn("RTDB branch failed, falling back to local", e);
@@ -1234,22 +1256,27 @@ function wireCourseChatRealtime(courseId) {
 
       // Send message
       send.addEventListener("click", async () => {
-        const text = (input?.value || "").trim();
-        if (!text) return;
-        try {
-          await ensureAuthForChat();
-          const uid = auth.currentUser?.uid || "nouid";
-          await push(roomRef, { uid, user: display, text, ts: Date.now() });
-          if (input) input.value = "";
-        } catch (e) {
-          if (e && (e.code === "auth/admin-restricted-operation" || e.code === "login-required")) {
-            toast("Please login to chat");
-            return;
-          }
-          console.warn(e);
-          toast("Chat failed");
-        }
-      });
+  const text = (input?.value || "").trim();
+  if (!text) return;
+  if (!auth.currentUser || auth.currentUser.isAnonymous) {
+    toast("Please login to chat");
+    return;
+  }
+  try {
+    const rtdb = getDatabase();
+    const roomRef = ref(rtdb, `chats/${courseId}`);
+    await push(roomRef, {
+      uid: auth.currentUser.uid,
+      user: auth.currentUser.email || "user",
+      text,
+      ts: Date.now()
+    });
+    if (input) input.value = "";
+  } catch (e) {
+    console.warn(e);
+    toast("Chat failed");
+  }
+});
 
       return; // RTDB branch done
     }
