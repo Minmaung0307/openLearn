@@ -1,0 +1,6 @@
+[
+  { "t": "tf",    "q": "The box model includes padding and margin.", "a": "t" },
+  { "t": "short", "q": "CSS stands for Cascading ____ Sheets.", "a": "style" },
+  { "t": "mcq",   "q": "Which creates a grid layout?",
+    "choices": ["display: block", "display: grid", "display: inline"], "correct": 1 }
+]

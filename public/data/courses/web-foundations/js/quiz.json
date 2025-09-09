@@ -1,0 +1,6 @@
+[
+  { "t": "tf",    "q": "const variables cannot be re-assigned.", "a": "t" },
+  { "t": "short", "q": "DOM stands for ____ Object Model.", "a": "document" },
+  { "t": "mcq",   "q": "Which adds a listener?",
+    "choices": ["on('click')", "addEventListener('click')", "listenClick()"], "correct": 1 }
+]

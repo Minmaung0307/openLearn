@@ -37,16 +37,28 @@
       "image": ""
     },
     {
+      "id": "web-foundations",
+      "title": "Web Foundations (HTML • CSS • JS)",
+      "category": "Web",
+      "level": "Beginner",
+      "price": 0,
+      "credits": 3,
+      "rating": 4.8,
+      "hours": 30,
+      "summary": "HTML/CSS/JS အခြေခံများကို တစ်ခုတည်းတွင် သိသိသာသာ လေ့လာနိုင်စေသည်။",
+      "image": "/data/courses/web-foundations/images/cover.jpg"
+    },
+    {
       "id": "pali-basics",
       "title": "ပါဠိ အခြေခံ",
-      "category": "Web",
-      "level": "Intermediate",
+      "category": "Language",
+      "level": "Beginner",
       "price": 0,
       "credits": 2,
-      "rating": 4.6,
-      "hours": 8,
-      "summary": "ပါဠိ စာလုံးပေါင်း၊ ဝေါဟာရ၊ သဒ္ဒါ အခြေခံများကို လေ့လာသင်ယူနိုင်မည့် သင်ခန်းစာ",
-      "image": ""
+      "rating": 4.7,
+      "hours": 20,
+      "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့် வாசிப்பလေ့ကျင့်ခန်းများ။",
+      "image": "/data/courses/pali-basics/images/cover.jpg"
     }
   ]
 }

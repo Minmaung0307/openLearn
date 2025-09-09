@@ -1,0 +1,6 @@
+[
+  { "t": "tf",    "q": "HTML is a markup language.", "a": "t" },
+  { "t": "short", "q": "Tag used for links is ____", "a": "a" },
+  { "t": "mcq",   "q": "Which tag displays an image?",
+    "choices": ["<image>", "<img>", "<pic>"], "correct": 1 }
+]

@@ -215,6 +215,53 @@ function isAdminLike() {
   );
 }
 
+// --- keep if you don't already have equivalents ---
+function rewriteRelative(html, baseUrl){
+  return html.replace(
+    /(\s(?:src|href)=)(["'])(?!https?:|data:|\/)([^"']+)\2/gi,
+    (_, p1, q, p3) => `${p1}${q}${baseUrl}/${p3}${q}`
+  );
+}
+
+async function fetchJSON(path){ const r=await fetch(path,{cache:'no-cache'}); if(!r.ok) throw new Error(path); return r.json(); }
+async function fetchText(path){ const r=await fetch(path,{cache:'no-cache'}); if(!r.ok) throw new Error(path); return r.text(); }
+
+async function loadCourseBundle(courseId){
+  if (!DATA_BASE) await resolveDataBase();
+  const root = `${DATA_BASE}/courses/${courseId}`;
+
+  const meta = await fetchJSON(`${root}/meta.json`); // or loadJSON(...)
+
+  const pages = [];
+  for (const mod of (meta.modules || [])) {
+    const base = `${root}/${mod.path}`;
+    for (const l of (mod.lessons || [])) {
+      try {
+        const raw = await fetchText(`${base}/${l.file}`); // or loadText(...)
+        const html = rewriteRelative(raw, `${root}`);
+        pages.push({ type: l.type || "reading", title: l.title || l.file, html });
+      } catch (e) {
+        console.warn("Lesson load failed", e);
+      }
+    }
+    if (mod.quiz) {
+      pages.push({ type: "quiz-marker", html: `<h3>${mod.title} — Quiz</h3>` });
+    }
+  }
+
+  const quizzes = {};
+  for (const mod of (meta.modules || [])) {
+    if (!mod.quiz) continue;
+    try {
+      quizzes[mod.id] = await fetchJSON(`${root}/${mod.quiz}`); // or loadJSON(...)
+    } catch (e) {
+      console.warn("Quiz load failed", e);
+    }
+  }
+
+  return { meta, pages, quizzes };
+}
+
 /* ---------- router ---------- */
 function showPage(id) {
   $$(".page").forEach((p) => p.classList.remove("visible"));
@@ -791,29 +838,45 @@ function renderMyLearning() {
       (b) => (b.onclick = () => openReader(b.getAttribute("data-read")))
     );
 }
+
+// MERGED openReader: keeps your UI/handlers, adds real lesson loading via meta.json
 async function openReader(cid) {
   const c = ALL.find(x => x.id === cid) || getCourses().find(x => x.id === cid);
-  if (!c) return;
+  if (!c) return toast("Course not found");
 
-  // Reader state
+  // 1) Try to load real content bundle (meta + lessons + quizzes)
+  let bundle = null;
+  if (typeof loadCourseBundle === "function") {
+    try {
+      bundle = await loadCourseBundle(c.id); // { meta, pages, quizzes }
+    } catch (e) {
+      console.warn("loadCourseBundle failed; falling back to samples", e);
+    }
+  }
+
+  // 2) Build reader state (fallback to SAMPLE_PAGES if no external lessons)
+  const pages   = (bundle?.pages?.length ? bundle.pages : SAMPLE_PAGES(c.title));
+  const credits = c.credits || bundle?.meta?.credits || 3;
+
   RD = {
     cid: c.id,
-    pages: SAMPLE_PAGES(c.title),
+    pages,
     i: 0,
-    credits: c.credits || 3,
-    score: 0
+    credits,
+    score: 0,
+    quizzes: bundle?.quizzes || null // keep quizzes map if you need it later
   };
 
-  // Show reader
+  // 3) Show reader
   const my = $("#myCourses");
   if (my) my.innerHTML = "";
   $("#reader")?.classList.remove("hidden");
   $("#rdMeta") && ($("#rdMeta").textContent = `Credits: ${RD.credits}`);
 
-  // Render first page ONCE
+  // 4) Render first page ONCE
   renderPage();
 
-  // Navigation (overwrite old handlers to avoid duplicates)
+  // 5) Navigation (overwrite old handlers to avoid duplicates)
   const btnBack = $("#rdBack");
   const btnPrev = $("#rdPrev");
   const btnNext = $("#rdNext");
@@ -839,16 +902,71 @@ async function openReader(cid) {
     toast("Note saved");
   };
 
-  // ---- Per-course chat wiring ----
-  // အရင်က bind ချထားတာရှိရင် ဖျတ် (optional, wireCourseChatRealtime က unsubscribe တန်ဖိုး retrun လုပ်မယ်ဆိုရင်)
+  // 6) Per-course chat wiring (clean previous, then wire for this course)
   if (window._ccOff) { try { window._ccOff(); } catch {} window._ccOff = null; }
-
   if (typeof wireCourseChatRealtime === "function") {
-    // ✅ အမှန်က ဒီလို pass လုပ်ရပါမယ် — courseId အစား c.id (သို့) cid ကိုသုံး။
-    const off = wireCourseChatRealtime(c.id);
+    const off = wireCourseChatRealtime(c.id); // pass the real courseId
     if (typeof off === "function") window._ccOff = off;
   }
 }
+// async function openReader(cid) {
+//   const c = ALL.find(x => x.id === cid) || getCourses().find(x => x.id === cid);
+//   if (!c) return;
+
+//   // Reader state
+//   RD = {
+//     cid: c.id,
+//     pages: SAMPLE_PAGES(c.title),
+//     i: 0,
+//     credits: c.credits || 3,
+//     score: 0
+//   };
+
+//   // Show reader
+//   const my = $("#myCourses");
+//   if (my) my.innerHTML = "";
+//   $("#reader")?.classList.remove("hidden");
+//   $("#rdMeta") && ($("#rdMeta").textContent = `Credits: ${RD.credits}`);
+
+//   // Render first page ONCE
+//   renderPage();
+
+//   // Navigation (overwrite old handlers to avoid duplicates)
+//   const btnBack = $("#rdBack");
+//   const btnPrev = $("#rdPrev");
+//   const btnNext = $("#rdNext");
+//   const btnBm   = $("#rdBookmark");
+//   const btnNote = $("#rdNote");
+
+//   if (btnBack) btnBack.onclick = () => {
+//     $("#reader")?.classList.add("hidden");
+//     renderMyLearning();
+//   };
+//   if (btnPrev) btnPrev.onclick = () => {
+//     RD.i = Math.max(0, RD.i - 1);
+//     renderPage();
+//   };
+//   if (btnNext) btnNext.onclick = () => {
+//     RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+//     renderPage();
+//   };
+//   if (btnBm) btnBm.onclick = () => toast("Bookmarked (demo)");
+//   if (btnNote) btnNote.onclick = () => {
+//     const t = prompt("Note");
+//     if (!t) return;
+//     toast("Note saved");
+//   };
+
+//   // ---- Per-course chat wiring ----
+//   // အရင်က bind ချထားတာရှိရင် ဖျတ် (optional, wireCourseChatRealtime က unsubscribe တန်ဖိုး retrun လုပ်မယ်ဆိုရင်)
+//   if (window._ccOff) { try { window._ccOff(); } catch {} window._ccOff = null; }
+
+//   if (typeof wireCourseChatRealtime === "function") {
+//     // ✅ အမှန်က ဒီလို pass လုပ်ရပါမယ် — courseId အစား c.id (သို့) cid ကိုသုံး။
+//     const off = wireCourseChatRealtime(c.id);
+//     if (typeof off === "function") window._ccOff = off;
+//   }
+// }
 
 function renderPage() {
   const p = RD.pages[RD.i];

@@ -1,0 +1,5 @@
+[
+  { "t": "tf",    "q": "Nominative သည် subject ကို ပြုသည်။", "a": "t" },
+  { "t": "mcq",   "q": "ကိရိယာ (Verb) သည် မည်သို့ ပြောင်းလဲနိုင်သနည်း?",
+    "choices": ["Gender", "Tense/Person", "Case"], "correct": 1 }
+]
