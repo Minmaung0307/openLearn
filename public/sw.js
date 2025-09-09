@@ -1,5 +1,5 @@
 // sw.js (safe caching for same-origin GET only)
-const CACHE = 'ol-v3';
+const CACHE = 'ol-v7';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/app.js',
   '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'
@@ -26,8 +26,15 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  const url = new URL(req.url);
+  // const url = new URL(req.url);
+  const url = new URL(event.request.url);
 
+  // Always fetch fresh course data (no SW cache)
+  if (url.origin === location.origin && url.pathname.startsWith('/data/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
   // 1) Only handle same-origin GET
   const isSameOrigin = url.origin === self.location.origin;
   if (req.method !== 'GET' || !isSameOrigin) return;
