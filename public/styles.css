@@ -425,7 +425,7 @@ dialog.ol-modal::backdrop {
   margin: auto;
 }
 #detailsBody {
-  background: #0e1526;
+  /* background: #0e1526; */
   padding: 12px;
   border-radius: 12px;
 }
