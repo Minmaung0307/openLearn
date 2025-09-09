@@ -828,3 +828,32 @@ input:disabled, textarea:disabled, button:disabled {
 .gated input, .gated textarea, .gated button {
   pointer-events: none;
 }
+
+/* Modal default styling */
+dialog, .modal, #detailsModal, #authModal {
+  color: var(--text);          /* inherit text color from theme */
+  background: var(--bg);       /* inherit background from theme */
+  border: none;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  max-width: 720px;
+  width: 90%;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+/* Ensure headings and lists inside modal are visible */
+dialog h1, dialog h2, dialog h3, dialog h4,
+.modal h1, .modal h2, .modal h3, .modal h4 {
+  color: var(--text-strong, var(--text));
+}
+
+dialog p, dialog li,
+.modal p, .modal li {
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Close button or top actions */
+dialog::backdrop {
+  background: rgba(0,0,0,0.6);
+}
