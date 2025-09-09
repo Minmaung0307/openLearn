@@ -761,75 +761,105 @@ function handleEnroll(id) {
 //   }
 // }
 
-// ---- Details (catalog + meta merge) ----
+// ---- Details (catalog + meta merge, very defensive) ----
 async function openDetails(id){
   // 1) base from catalog/local
   const base = ALL.find(x=>x.id===id) || getCourses().find(x=>x.id===id);
   if (!base) { toast("Course not found"); return; }
 
-  // 2) try load meta.json (enrich data if available)
+  // 2) try load meta.json
   let meta = null;
   try {
     if (!DATA_BASE) await resolveDataBase();
     if (DATA_BASE) {
-      meta = await loadJSON(`${DATA_BASE}/courses/${id}/meta.json`);
+      const url = `${DATA_BASE}/courses/${id}/meta.json`;
+      console.log("[OL] details meta fetch:", url);
+      meta = await loadJSON(url);     // returns null on 404 in our loader
     }
-  } catch {}
+  } catch (e) {
+    console.warn("[OL] details meta fetch failed:", e);
+  }
 
-  // 3) merge priority: base (catalog) → meta (fills missing fields)
-  const merged = {
-    ...base,
-    // prefer catalog.image if provided, else meta.cover
-    image: base.image || meta?.cover || "",
-    // prefer catalog.description if already set; else meta.description
-    description: base.description || meta?.description || base.summary || "",
-    // benefits: allow either array (meta) or text (catalog)
-    benefits: Array.isArray(meta?.benefits) ? meta.benefits : (base.benefits || "")
+  // 3) normalize/merge from many possible fields
+  // accept alt keys: cover|image|banner, description|desc, benefits|bullets (string or array)
+  const norm = (m)=> {
+    if (!m) return {};
+    // cover
+    const cover = m.cover || m.image || m.banner || "";
+    // description
+    const description = m.description || m.desc || m.summary || "";
+    // benefits
+    let benefits = m.benefits || m.bullets || m.points || "";
+    if (typeof benefits === "string") {
+      benefits = benefits.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+    }
+    if (!Array.isArray(benefits)) benefits = [];
+    // counts
+    const modules = Array.isArray(m.modules) ? m.modules : [];
+    const lessonCount = modules.reduce((n,mod)=> n + ((mod.lessons||[]).length||0), 0);
+    return { cover, description, benefits, modules, lessonCount };
   };
 
-  // 4) render
+  const m = norm(meta);
+
+  const merged = {
+    ...base,
+    image: base.image || m.cover || "",
+    description: base.description || m.description || base.summary || "",
+    benefits: (Array.isArray(m.benefits) && m.benefits.length) ? m.benefits : (base.benefits||"")
+  };
+
+  console.log("[OL] details merged:", {base, meta, merged});
+
+  // 4) render UI
   const body = $("#detailsBody");
-  if (body) {
-    const b = Array.isArray(merged.benefits) ? merged.benefits : String(merged.benefits).split(/\n+/).filter(Boolean);
-    const r = Number(merged.rating || 4.6);
-    const priceStr = (merged.price||0) > 0 ? ("$"+merged.price) : "Free";
+  if (!body) return;
 
-    body.innerHTML = `
-      <div class="row" style="gap:12px; align-items:flex-start">
-        <img src="${esc(merged.image || `https://picsum.photos/seed/${merged.id}/480/280`)}"
-             alt=""
-             style="width:320px;max-width:38vw;border-radius:12px">
-        <div class="grow">
-          <h3 class="h4" style="margin:.2rem 0">${esc(merged.title)}</h3>
-          <div class="small muted" style="margin-bottom:.25rem">
-            ${esc(merged.category||"")} • ${esc(merged.level||"")} • ★ ${r.toFixed(1)} • ${priceStr}
-          </div>
-          <p>${esc(merged.description)}</p>
-          ${b.length ? `<ul>${b.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
-          ${meta?.modules?.length ? `<div class="small muted" style="margin:.4rem 0 0">
-            Modules: ${meta.modules.length} • Lessons: ${
-              meta.modules.reduce((n,m)=> n + (m.lessons?.length || 0), 0)
-            }
-          </div>` : ""}
-          <div class="row" style="justify-content:flex-end; gap:8px; margin-top:.6rem">
-            <button class="btn" data-details-close>Close</button>
-            <button class="btn primary" data-details-enroll="${merged.id}">
-              ${(merged.price||0)>0 ? ("Buy • $"+merged.price) : "Enroll Free"}
-            </button>
-          </div>
+  const b = Array.isArray(merged.benefits)
+    ? merged.benefits
+    : String(merged.benefits||"").split(/\n+/).map(s=>s.trim()).filter(Boolean);
+
+  const r = Number(merged.rating || 4.6);
+  const priceStr = (merged.price||0) > 0 ? ("$"+merged.price) : "Free";
+
+  body.innerHTML = `
+    <div class="row" style="gap:12px; align-items:flex-start">
+      <img src="${esc(merged.image || `https://picsum.photos/seed/${merged.id}/480/280`)}"
+           alt=""
+           style="width:320px;max-width:38vw;border-radius:12px">
+      <div class="grow">
+        <h3 class="h4" style="margin:.2rem 0">${esc(merged.title)}</h3>
+        <div class="small muted" style="margin-bottom:.25rem">
+          ${esc(merged.category||"")} • ${esc(merged.level||"")} • ★ ${r.toFixed(1)} • ${priceStr}
         </div>
-      </div>`;
 
-    const dlg = $("#detailsModal");
-    dlg?.showModal();
+        ${merged.description ? `<p>${esc(merged.description)}</p>` : ""}
 
-    body.querySelector("[data-details-close]")?.addEventListener("click", ()=> dlg?.close());
-    body.querySelector("[data-details-enroll]")?.addEventListener("click", (e)=>{
-      const cid = e.currentTarget?.getAttribute("data-details-enroll");
-      handleEnroll(cid);
-      dlg?.close();
-    });
-  }
+        ${b.length ? `<ul>${b.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+
+        ${m.modules?.length ? `
+          <div class="small muted" style="margin:.4rem 0 0">
+            Modules: ${m.modules.length} • Lessons: ${m.lessonCount}
+          </div>` : ""}
+
+        <div class="row" style="justify-content:flex-end; gap:8px; margin-top:.6rem">
+          <button class="btn" data-details-close>Close</button>
+          <button class="btn primary" data-details-enroll="${merged.id}">
+            ${(merged.price||0)>0 ? ("Buy • $"+merged.price) : "Enroll Free"}
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  const dlg = $("#detailsModal");
+  dlg?.showModal();
+
+  body.querySelector("[data-details-close]")?.addEventListener("click", ()=> dlg?.close());
+  body.querySelector("[data-details-enroll]")?.addEventListener("click", (e)=>{
+    const cid = e.currentTarget?.getAttribute("data-details-enroll");
+    handleEnroll(cid);
+    dlg?.close();
+  });
 }
 
 $("#closeDetails")?.addEventListener("click", () =>

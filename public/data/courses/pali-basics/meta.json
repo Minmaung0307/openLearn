@@ -1,40 +1,22 @@
 {
   "title": "ပါဠိ အခြေခံ",
+  "category": "Language",
+  "level": "Intermediate",
   "credits": 2,
-  "hours": 20,
+  "hours": 8,
+  "cover": "/data/courses/pali-basics/images/cover.jpg",
+  "description": "ပါဠိ စာလုံးပေါင်း၊ ဝေါဟာရ၊ သဒ္ဒါ အခြေခံများကို လေ့လာနိုင်မည့် သင်ခန်းစာ",
+  "benefits": [
+    "စာလုံးပေါင်း အခြေခံ",
+    "ဝေါဟာရ တိုးတက်စေရန် လေ့ကျင့်ရေး",
+    "သဒ္ဒါ စည်းမျဉ်းများ စနစ်တကျ"
+  ],
   "modules": [
     {
-      "id": "script",
-      "title": "စာလုံးများနှင့် အသံထွက်",
-      "path": "script",
-      "lessons": [
-        { "file": "01-alphabet.html",      "type": "reading", "title": "Alphabet" },
-        { "file": "02-syllables.html",     "type": "reading", "title": "Syllables" },
-        { "file": "03-pronunciation.html", "type": "reading", "title": "Pronunciation" }
-      ],
-      "quiz": "script/quiz.json"
-    },
-    {
-      "id": "grammar",
-      "title": "သဒ္ဒါ အခြေခံ",
-      "path": "grammar",
-      "lessons": [
-        { "file": "01-nouns.html", "type": "reading", "title": "Nouns" },
-        { "file": "02-verbs.html", "type": "reading", "title": "Verbs" },
-        { "file": "03-cases.html", "type": "reading", "title": "Cases" }
-      ],
-      "quiz": "grammar/quiz.json"
-    },
-    {
-      "id": "reading",
-      "title": "ဖတ်စာလေ့ကျင့်ခန်း",
-      "path": "reading",
-      "lessons": [
-        { "file": "01-simple-texts.html", "type": "reading", "title": "Simple Texts" },
-        { "file": "02-chanting.html",     "type": "reading", "title": "Chanting" },
-        { "file": "03-paragraphs.html",   "type": "reading", "title": "Paragraph Reading" }
-      ],
-      "quiz": "reading/quiz.json"
+      "id": "m1",
+      "title": "စာလုံးပေါင်း",
+      "path": "html",
+      "lessons": [ { "file": "l1.html", "title": "အက္ခရာမ" } ]
     }
   ]
 }
