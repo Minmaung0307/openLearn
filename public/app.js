@@ -5,7 +5,7 @@
    - Global + per-course chat (no re-declared symbols)
    - Safe DOM wiring with optional chaining
    ========================================================= */
-
+// Safety: only set if not already provided by config.js
 import {
   // Firebase base (from your firebase.js ESM wrapper)
   db,
