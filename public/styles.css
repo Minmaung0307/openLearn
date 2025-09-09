@@ -449,7 +449,7 @@ dialog#authModal {
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 16px;
-  width: min(92vw, 720px);
+  /* width: min(92vw, 720px); */
   max-height: 80vh;
   overflow: auto;
   padding: 18px;
