@@ -31,6 +31,7 @@
 html,
 body {
   height: 100%;
+  /* padding-top: var(--topbarH); */
 }
 html {
   font-size: var(--fontSize);
@@ -1020,9 +1021,7 @@ label { color: var(--fg) !important; font-weight: 600; }
 }
 
 /* Main content ကို topbar အောက် မဝင်အောင် padding ပေး */
-body {
-  padding-top: var(--topbarH);
-}
+
 
 /* iPhone safe area ကိုလည်း ထည့်ပေး */
 @supports (padding: max(0px)) {
