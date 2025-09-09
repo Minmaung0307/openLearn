@@ -1,8 +1,8 @@
 // sw.js (safe caching for same-origin GET only)
-const CACHE = 'ol-v7';
+const CACHE = 'ol-v8';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/app.js',
-  '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'
+  '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -34,7 +34,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(fetch(event.request));
     return;
   }
-  
+
   // 1) Only handle same-origin GET
   const isSameOrigin = url.origin === self.location.origin;
   if (req.method !== 'GET' || !isSameOrigin) return;

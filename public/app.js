@@ -226,40 +226,28 @@ function rewriteRelative(html, baseUrl){
 async function fetchJSON(path){ const r=await fetch(path,{cache:'no-cache'}); if(!r.ok) throw new Error(path); return r.json(); }
 async function fetchText(path){ const r=await fetch(path,{cache:'no-cache'}); if(!r.ok) throw new Error(path); return r.text(); }
 
-async function loadCourseBundle(courseId){
-  if (!DATA_BASE) await resolveDataBase();
-  const root = `${DATA_BASE}/courses/${courseId}`;
+// ---------- data loaders (robust) ----------
+const DATA_BASE_CANDIDATES = ['/data', './data', 'data'];
+let DATA_BASE = null;
 
-  const meta = await fetchJSON(`${root}/meta.json`); // or loadJSON(...)
-
-  const pages = [];
-  for (const mod of (meta.modules || [])) {
-    const base = `${root}/${mod.path}`;
-    for (const l of (mod.lessons || [])) {
-      try {
-        const raw = await fetchText(`${base}/${l.file}`); // or loadText(...)
-        const html = rewriteRelative(raw, `${root}`);
-        pages.push({ type: l.type || "reading", title: l.title || l.file, html });
-      } catch (e) {
-        console.warn("Lesson load failed", e);
-      }
-    }
-    if (mod.quiz) {
-      pages.push({ type: "quiz-marker", html: `<h3>${mod.title} — Quiz</h3>` });
-    }
+async function resolveDataBase() {
+  // 1) honor explicit config first
+  const cfgBase = (window.OPENLEARN_DATA_BASE || '').trim();
+  if (cfgBase) {
+    DATA_BASE = cfgBase;
+    console.log('[OL] DATA_BASE from config =', DATA_BASE);
+    return;
   }
-
-  const quizzes = {};
-  for (const mod of (meta.modules || [])) {
-    if (!mod.quiz) continue;
+  // 2) otherwise probe common locations
+  for (const base of DATA_BASE_CANDIDATES) {
     try {
-      quizzes[mod.id] = await fetchJSON(`${root}/${mod.quiz}`); // or loadJSON(...)
-    } catch (e) {
-      console.warn("Quiz load failed", e);
-    }
+      const r = await fetch(`${base}/catalog.json`, { cache: 'no-cache' });
+      if (r.ok) { DATA_BASE = base; console.log('[OL] DATA_BASE autodetected =', DATA_BASE); return; }
+    } catch {}
   }
-
-  return { meta, pages, quizzes };
+  // 3) last resort: null → will use seed only
+  DATA_BASE = null;
+  console.warn('[OL] No external data found — using local seed only.');
 }
 
 /* ---------- router ---------- */
@@ -468,49 +456,47 @@ function initSearch() {
 
 /* ---------- data (local seed) ---------- */
 async function loadCatalog() {
-  // in this clean build we keep a local seed; you can merge external JSON if you want
-  let items = [
-    {
-      id: "js-essentials",
-      title: "JavaScript Essentials",
-      category: "Web",
-      level: "Beginner",
-      price: 0,
-      credits: 3,
-      rating: 4.7,
-      hours: 10,
-      summary: "Start JavaScript from zero.",
-    },
-    {
-      id: "react-fast",
-      title: "React Fast-Track",
-      category: "Web",
-      level: "Intermediate",
-      price: 49,
-      credits: 2,
-      rating: 4.6,
-      hours: 8,
-      summary: "Build modern UIs.",
-    },
-    {
-      id: "py-data",
-      title: "Data Analysis with Python",
-      category: "Data",
-      level: "Intermediate",
-      price: 79,
-      credits: 3,
-      rating: 4.8,
-      hours: 14,
-      summary: "Pandas & plots.",
-    },
-  ];
+  await resolveDataBase();
+
+  let items = [];
+  if (DATA_BASE) {
+    try {
+      const url = `${DATA_BASE}/catalog.json`;
+      console.log('[OL] fetching catalog:', url);
+      const r = await fetch(url, { cache: 'no-cache' });
+      if (!r.ok) {
+        console.warn('[OL] catalog fetch not ok:', r.status, url);
+      } else {
+        const cat = await r.json();
+        items = (cat?.items) || [];
+        console.log('[OL] catalog items:', items.length);
+      }
+    } catch (e) {
+      console.warn('[OL] catalog fetch error:', e);
+    }
+  }
+
+  if (!items.length) {
+    // Local seed to keep app usable
+    items = [
+      { id:"js-essentials", title:"JavaScript Essentials", category:"Web", level:"Beginner", price:0, credits:3, rating:4.7, hours:10, summary:"Start JavaScript from zero." },
+      { id:"react-fast",    title:"React Fast-Track",      category:"Web", level:"Intermediate", price:49, credits:2, rating:4.6, hours:8,  summary:"Build modern UIs." },
+      { id:"py-data",       title:"Data Analysis with Python", category:"Data", level:"Intermediate", price:79, credits:3, rating:4.8, hours:14, summary:"Pandas & plots." }
+    ];
+    console.log('[OL] using seed items:', items.length);
+  }
+
+  // merge with any user-created courses (localStorage)
   const local = getCourses();
   const merged = [
     ...items,
-    ...local.filter((l) => !items.some((ci) => ci.id === l.id)),
+    ...local.filter(l => !items.some(ci => ci.id === l.id))
   ];
+
   setCourses(merged);
   ALL = merged;
+
+  console.log('[OL] final merged courses:', ALL.length);
   renderCatalog?.();
 }
 
