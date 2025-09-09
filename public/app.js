@@ -61,6 +61,44 @@ const _write = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
 /* ---------- theme / font ---------- */
 const PALETTES = {
+  dark: {
+    bg:"#111111", fg:"#f1f1f1", card:"#1e1e1e", muted:"#aaa",
+    border:"#333", btnBg:"#333", btnFg:"#eee",
+    btnPrimaryBg:"#0d6efd", btnPrimaryFg:"#fff"
+  },
+  rose: {
+    bg: "#fff5f7",        // very light pink background
+    fg: "#4a001f",        // deep rose text
+    card: "#ffe4ec",      // soft card background
+    muted: "#995566",     // muted rose gray
+    border: "#f3cbd1",
+    btnBg: "#f8d7e0",
+    btnFg: "#4a001f",
+    btnPrimaryBg: "#e75480",  // bright rose
+    btnPrimaryFg: "#fff"
+  },
+  ocean: {
+    bg: "#f0f8fa",        // light aqua
+    fg: "#003344",        // deep ocean blue
+    card: "#d9f0f6",      // pale teal card
+    muted: "#557d88",
+    border: "#a5d8de",
+    btnBg: "#cceef2",
+    btnFg: "#003344",
+    btnPrimaryBg: "#0077b6",  // bold ocean blue
+    btnPrimaryFg: "#fff"
+  },
+  amber: {
+    bg: "#fffdf6",        // warm light amber
+    fg: "#442200",        // dark brown text
+    card: "#fff3cd",      // amber card
+    muted: "#886633",
+    border: "#ffeeba",
+    btnBg: "#ffe8a1",
+    btnFg: "#442200",
+    btnPrimaryBg: "#ff8c00",  // vibrant amber/orange
+    btnPrimaryFg: "#fff"
+  },
   slate: {
     bg: "#0b0f17",
     fg: "#eaf1ff",
@@ -82,6 +120,28 @@ const PALETTES = {
     btnFg: "#0e1320",
     btnPrimaryBg: "#2563eb",
     btnPrimaryFg: "#fff",
+  },
+  gray: {
+    bg:"#e5e5e5",       // offwhite / light gray
+    fg:"#222",          // dark gray text
+    card:"#f2f2f2",     // lighter card
+    muted:"#555",       // mid gray muted text
+    border:"#ccc",
+    btnBg:"#ddd",
+    btnFg:"#222",
+    btnPrimaryBg:"#555",  // strong gray
+    btnPrimaryFg:"#fff"
+  },
+  offwhite: {
+    bg:"#faf7f2",       // creamy offwhite
+    fg:"#222",
+    card:"#fffefc",
+    muted:"#666",
+    border:"#ddd",
+    btnBg:"#eee",
+    btnFg:"#111",
+    btnPrimaryBg:"#8c7851", // warm brownish
+    btnPrimaryFg:"#fff"
   },
   forest: {
     bg: "#0f1713",
