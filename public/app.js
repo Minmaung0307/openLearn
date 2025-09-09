@@ -129,21 +129,42 @@ const PALETTES = {
   },
 };
 function applyPalette(name) {
-  const p = PALETTES[name] || PALETTES.slate,
-    r = document.documentElement,
-    map = {
-      bg: "--bg",
-      fg: "--fg",
-      card: "--card",
-      muted: "--muted",
-      border: "--border",
-      btnBg: "--btnBg",
-      btnFg: "--btnFg",
-      btnPrimaryBg: "--btnPrimaryBg",
-      btnPrimaryFg: "--btnPrimaryFg",
-    };
-  Object.entries(map).forEach(([k, v]) => r.style.setProperty(v, p[k]));
-  // Light theme extras for good contrast
+  const p = PALETTES[name] || PALETTES.slate;
+  const r = document.documentElement;
+
+  // 1. Apply all main palette vars
+  const map = {
+    bg: "--bg",
+    fg: "--fg",
+    card: "--card",
+    muted: "--muted",
+    border: "--border",
+    btnBg: "--btnBg",
+    btnFg: "--btnFg",
+    btnPrimaryBg: "--btnPrimaryBg",
+    btnPrimaryFg: "--btnPrimaryFg",
+  };
+  Object.entries(map).forEach(([k, v]) => {
+    if (p[k]) r.style.setProperty(v, p[k]);
+  });
+
+  // 2. Aliases for backwards compatibility
+  r.style.setProperty("--text", p.fg);
+  r.style.setProperty("--text-strong", p.fg);
+
+  // 3. RGB channels for placeholders
+  const rgb = (hex) => {
+    const h = hex.replace("#", "");
+    return h.length === 3
+      ? h.split("").map((c) => parseInt(c + c, 16))
+      : [h.slice(0, 2), h.slice(2, 4), h.slice(4, 6)].map((x) => parseInt(x, 16));
+  };
+  const [rC, gC, bC] = rgb(p.fg || "#111");
+  r.style.setProperty("--fg-r", rC);
+  r.style.setProperty("--fg-g", gC);
+  r.style.setProperty("--fg-b", bC);
+
+  // 4. Body theme flag (optional)
   const body = document.body;
   if (name === "light") body.classList.add("light-theme");
   else body.classList.remove("light-theme");
