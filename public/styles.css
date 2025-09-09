@@ -1007,3 +1007,31 @@ label { color: var(--fg) !important; font-weight: 600; }
   /* Optional: content padding bigger for touch */
   .course-body { padding: 14px !important; }
 }
+
+/* --- Topbar & safe-area (iPhone notch) --- */
+:root { --topbarH: 56px; }          /* default height; UI မတူရင် JS က update ပေးမယ် */
+
+#topbar, .topbar {
+  position: sticky;                 /* သင် fixed သုံးထားရင် sticky သို့မဟုတ် fixed 2 ခုထဲက တစ်ခုထဲနဲ့ ရ */
+  top: 0;
+  z-index: 1000;
+  backdrop-filter: saturate(120%) blur(6px);
+}
+
+/* Main content ကို topbar အောက် မဝင်အောင် padding ပေး */
+body {
+  padding-top: var(--topbarH);
+}
+
+/* iPhone safe area ကိုလည်း ထည့်ပေး */
+@supports (padding: max(0px)) {
+  body {
+    padding-top: max(var(--topbarH), env(safe-area-inset-top));
+  }
+}
+
+/* တစ်ခါတလေ .page/.app-main ကိုသာ scroll container လုပ်ထားလျှင် */
+.app-main, .page, #content, main {
+  /* အောက် 2 လိုင်း중 သင့် layout နဲ့ကိုက်တဲ့ selector အပေါ်မှာပဲထားပါ */
+  padding-top: 0;            /* scroll container ကို body မဟုတ်ရင် အောက် JS က ေပြာသလို အစားထိုး */
+}

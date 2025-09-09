@@ -1654,6 +1654,19 @@ document.getElementById("btn-start-final")?.addEventListener("click", (e) => {
 // Also make sure it's not gated when logged-in
 document.getElementById("btn-start-final")?.removeAttribute("data-requires-auth");
 
+function setTopbarOffset() {
+  const header = document.getElementById("topbar") || document.querySelector(".topbar");
+  const h = header ? Math.ceil(header.getBoundingClientRect().height) : 56;
+  document.documentElement.style.setProperty("--topbarH", h + "px");
+
+  // မင်း app က body မဟုတ်ပဲ .app-main / .page ကို scroll container လုပ်ထားရင် အောက်ကလို သူ့ကိုပဲ padding-top ပေးပါ
+  const scroller = document.querySelector(".app-main") || document.querySelector("#content") || null;
+  if (scroller) {
+    scroller.style.paddingTop = `max(${h}px, env(safe-area-inset-top))`;
+    document.body.style.paddingTop = "0px"; // body ပိုင်းပစ်လိုက်
+  }
+}
+
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
   // theme/font (instant)
@@ -1688,8 +1701,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderProfilePanel();
 
   wireAdminImportExportOnce();
+  setTopbarOffset();
 
   // Hints
   $("#btn-top-ann") && ($("#btn-top-ann").title = "Open Announcements");
   $("#btn-top-final") && ($("#btn-top-final").title = "Open Final Exam");
 });
+
+// resize / orientationchange မှာလည်း ပြန်တိုင်းတာစေ
+addEventListener("resize", setTopbarOffset);
+addEventListener("orientationchange", setTopbarOffset);
