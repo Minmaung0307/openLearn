@@ -1243,6 +1243,38 @@ function wireAnnouncementEditButtons() {
   });
 }
 
+function wireAdminImportExportOnce(){
+  document.getElementById("btn-export")?.addEventListener("click", ()=>{
+    const mine = getCourses().filter(c => c.source === "user");
+    const blob = new Blob([JSON.stringify(mine, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "openlearn-my-courses.json";
+    a.click();
+  });
+
+  document.getElementById("btn-import")?.addEventListener("click", ()=>{
+    document.getElementById("importFile")?.click();
+  });
+
+  document.getElementById("importFile")?.addEventListener("change", async (e)=>{
+    const file = e.target.files?.[0]; if(!file) return;
+    let incoming = [];
+    try { incoming = JSON.parse(await file.text()) || []; }
+    catch { return toast("Invalid JSON"); }
+
+    const arr = getCourses();
+    incoming.forEach(c=>{
+      c.source = "user";
+      const i = arr.findIndex(x=>x.id===c.id);
+      if (i>=0) arr[i]=c; else arr.push(c);
+    });
+    setCourses(arr); window.ALL = arr;
+    renderCatalog?.(); renderAdminTable?.();
+    toast("Imported");
+  });
+}
+
 // call after you render the list
 function renderAnnouncements() {
   const box = document.getElementById("annList");
@@ -1553,6 +1585,15 @@ $("#fontSel")?.addEventListener("change", (e) => {
 $("#btn-top-ann")?.addEventListener("click", () => showPage("dashboard"));
 $("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
 
+// Ensure the button is wired even after re-renders
+document.getElementById("btn-start-final")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  if (typeof startFinal === "function") startFinal();
+});
+
+// Also make sure it's not gated when logged-in
+document.getElementById("btn-start-final")?.removeAttribute("data-requires-auth");
+
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
   // theme/font (instant)
@@ -1585,6 +1626,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderCatalog();
   renderAdminTable();
   renderProfilePanel();
+
+  wireAdminImportExportOnce();
 
   // Hints
   $("#btn-top-ann") && ($("#btn-top-ann").title = "Open Announcements");

@@ -205,6 +205,13 @@ a:hover {
   justify-content: left;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
+#sidebar .navbtn .ico, 
+#sidebar .navbtn svg {
+  transform: none !important;
+  rotate: 0deg !important;
+  vertical-align: middle;
+  width: 18px; height: 18px;
+}
 #sidebar .navbtn:hover {
   background: rgba(37, 99, 235, 0.18);
   border-color: #2b4ea4;
@@ -438,7 +445,7 @@ dialog.ol-modal > .auth-modern,
 dialog.ol-modal > form,
 dialog.ol-modal > .sheet,
 dialog#authModal {
-  background: linear-gradient(180deg, #0f172a, #0b1220);
+  /* background: linear-gradient(180deg, #0f172a, #0b1220); */
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -959,3 +966,44 @@ input:disabled, textarea:disabled, button:disabled { cursor: not-allowed; }
 
 /* Gated areas (blocked while logged-out) */
 .gated { pointer-events: none; opacity:.55; filter: grayscale(40%); }
+
+/* --- Modal sizing & readability (drop-in) --- */
+dialog.ol-modal,
+#authModal,
+#courseModal,
+#postModal,
+#profileEditModal,
+#finalModal,
+#detailsModal {
+  background: var(--card) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px;
+  padding: 20px 22px;
+  width: min(92vw, 760px);            /* wider */
+  max-width: 760px;
+}
+
+dialog::backdrop { background: rgba(0,0,0,.45); }
+
+/* Labels & inputs visible on dark/light */
+label { color: var(--fg) !important; font-weight: 600; }
+.input, textarea, select {
+  background: var(--card) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border) !important;
+}
+.input::placeholder, textarea::placeholder { color: var(--muted) !important; }
+
+/* Space inside forms */
+.ol-modal .input, .ol-modal textarea, .ol-modal select { margin-top: 6px; }
+.ol-modal .authpane, #courseForm, #postForm, #profileForm { display: grid; gap: 10px; }
+
+/* Mobile-friendly course grid */
+@media (max-width: 600px){
+  #courseGrid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .card.course { border-radius: 12px; margin: 0; }
+  .course-cover { width: 100%; height: auto; display: block; }
+  /* Optional: content padding bigger for touch */
+  .course-body { padding: 14px !important; }
+}
