@@ -13,6 +13,7 @@
   --fontSize: 16px;
   --radius: 14px;
   --topbar-h: 64px;
+  /* --topbarH: 56px; */
   --topbar-bg: #0e1625;
   --topbar-fg: #eaf1ff;
   --pill-ann: #1f2a44;
@@ -23,6 +24,7 @@
   --sidebar-w-exp: 220px;
   --sidebar-bg: #0b1220f2;
 }
+
 * {
   box-sizing: border-box;
 }
@@ -1009,7 +1011,6 @@ label { color: var(--fg) !important; font-weight: 600; }
 }
 
 /* --- Topbar & safe-area (iPhone notch) --- */
-:root { --topbarH: 56px; }          /* default height; UI မတူရင် JS က update ပေးမယ် */
 
 #topbar, .topbar {
   position: sticky;                 /* သင် fixed သုံးထားရင် sticky သို့မဟုတ် fixed 2 ခုထဲက တစ်ခုထဲနဲ့ ရ */
