@@ -325,7 +325,10 @@ body.sidebar-expanded #main {
   max-width: 1200px;
   /* ပိုမိုတဲရဲချင်ရင် အောက်ကလို သက်သာရာထည့်နိုင် */
   padding-bottom: 24px;
+  padding-left: 64px;
 }
+#page-catalog {
+  padding-top: 24px;}
 /* Main page container spacing under topbar */
 main, 
 .page {
