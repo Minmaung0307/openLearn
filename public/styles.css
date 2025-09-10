@@ -19,8 +19,8 @@
   --radius: 14px;
 
   /* Fixed topbar height is dynamic → JS sets this correctly */
-  --topbar-offset: 44px; /* JS will set exact pixels via updateTopbarOffsetNow() */
-  --topbar-h: 36px; /* visual content row height inside topbar */
+  --topbar-offset: 24px; /* JS will set exact pixels via updateTopbarOffsetNow() */
+  --topbar-h: 16px; /* visual content row height inside topbar */
 
   /* Sidebar sizes */
   --sidebar-w: 72px;
