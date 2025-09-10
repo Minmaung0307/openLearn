@@ -282,12 +282,19 @@ a:hover {
   padding-right: 16px;
   padding-bottom: 60px;
   min-height: 100vh;
+  margin-top: 20px !important;
 }
 body.sidebar-expanded #main {
   padding-left: calc(var(--sidebar-w-exp) + 16px);
 }
 .page {
   display: none;
+}
+/* Main page container spacing under topbar */
+main, 
+.page {
+  margin-top: 20px !important;   /* topbar နဲ့ ကွာအောင် */
+  padding-top: 0;                /* အထက် padding များနေခြင်း جلوگیری */
 }
 .page.visible {
   display: block;
