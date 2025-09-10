@@ -311,6 +311,7 @@ body.sidebar-expanded #main {
   margin: 0 auto;
   max-width: 1200px;
   padding-bottom: 24px;
+  display: none;            /* ✅ add this */
 }
 .page.visible {
   display: block;
@@ -437,11 +438,17 @@ body.locked .auth-slot #btn-logout {
   filter: grayscale(40%);
   opacity: 0.55;
 }
-.gated,
-[data-requires-auth] {
+/* ✅ Only .gated gets disabled; auth-required items stay clickable */
+.gated {
   pointer-events: none;
   opacity: 0.55;
   filter: grayscale(40%);
+}
+/* ✅ make sure auth-required buttons are clickable */
+[data-requires-auth] {
+  pointer-events: auto;
+  opacity: 1;
+  filter: none;
 }
 
 /* Chat */
@@ -485,6 +492,16 @@ body.locked .auth-slot #btn-logout {
   z-index: 3000;                       /* over sidebar/backdrop */
   }
 }
+
+/* ✅ Desktop default: sidebar visible & interactive */
+@media (min-width: 1025px) {
+  #sidebar {
+    transform: translateX(0);
+    pointer-events: auto;
+    width: var(--sidebar-w);
+  }
+}
+
 @media (max-width: 768px) {
   .topbar-row {
     grid-template-columns: auto 1fr auto auto;
