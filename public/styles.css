@@ -668,7 +668,7 @@ dialog.ol-modal .btn {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
   } */
-   .grid{ grid-template-columns: 1fr !important; gap:12px; }
+   .grid{ grid-template-columns: 1fr !important;}
   .course-cover{ height: 150px; }
   .course .course-cover {
     height: 120px;
@@ -721,11 +721,14 @@ body.locked .auth-slot #btn-logout {
   opacity: .55;
 }
 
-body.locked #btn-login,
-body:not(.locked) #btn-login { pointer-events:auto; opacity:1; filter:none }
 
 /* သီးသန့် element gating */
-.gated { pointer-events: none; opacity: .55; filter: grayscale(40%); }
+.gated, [data-requires-auth] { pointer-events: none; opacity: .55; filter: grayscale(40%); }
+
+/* If a parent gets 'gated' class, block clicks. Otherwise allow typing. */
+.gated input, .gated textarea, .gated button {
+  pointer-events: none;
+}
 
 /* Role-based hide/show (JS က class သတ်မှတ်ပေးမယ်) */
 .hide { display:none !important; }
@@ -897,11 +900,6 @@ input:disabled, textarea:disabled, button:disabled {
   cursor: not-allowed;       /* when disabled only */
 }
 
-/* If a parent gets 'gated' class, block clicks. Otherwise allow typing. */
-.gated input, .gated textarea, .gated button {
-  pointer-events: none;
-}
-
 /* Modal default styling */
 dialog, .modal, #detailsModal, #authModal {
   color: var(--text);          /* inherit text color from theme */
@@ -1030,9 +1028,6 @@ a:hover { opacity: .9; }
 /* Chat: show I-beam cursor when enabled */
 #chatInput, #ccInput, input.input, textarea { cursor: text; }
 input:disabled, textarea:disabled, button:disabled { cursor: not-allowed; }
-
-/* Gated areas (blocked while logged-out) */
-.gated { pointer-events: none; opacity:.55; filter: grayscale(40%); }
 
 /* --- Modal sizing & readability (drop-in) --- */
 dialog.ol-modal,
