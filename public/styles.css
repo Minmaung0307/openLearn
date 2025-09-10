@@ -619,7 +619,7 @@ dialog.ol-modal .btn {
 /* Responsive */
 @media (max-width: 1024px) {
   #topSearch {
-    width: 48vw;
+    width: 55vw;
     /* width: 100%; */
     min-width: 180px;
   }
@@ -662,7 +662,7 @@ dialog.ol-modal .btn {
     display: none;
   }
   #main {
-    /* padding: 16px; */
+    padding: 16px;
   }
   /* .grid {
     grid-template-columns: 1fr 1fr;
