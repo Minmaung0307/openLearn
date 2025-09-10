@@ -442,62 +442,75 @@ function sortCourses(list, sort) {
   return list;
 }
 
-function renderCatalog(){
-  const grid = document.getElementById("courseGrid"); if (!grid) return;
-
+function renderCatalog() {
+  const grid = $("#courseGrid");
+  if (!grid) return;
   ALL = getCourses();
 
-  // ✅ Always rebuild category options (avoid iOS race)
-  const sel = document.getElementById("filterCategory");
-  if (sel){
-    const cats = Array.from(new Set(ALL.map(c => c.category || "")))
-      .filter(Boolean).sort();
+  // build categories once
+  const sel = $("#filterCategory");
+  if (sel && !sel.dataset._wired) {
+    const cats = Array.from(new Set(ALL.map((c) => c.category || "")))
+      .filter(Boolean)
+      .sort();
     sel.innerHTML =
       `<option value="">All Categories</option>` +
-      cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+      cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    sel.dataset._wired = "1";
   }
 
-  const cat  = (document.getElementById("filterCategory")?.value || "").trim();
-  const lvl  = (document.getElementById("filterLevel")?.value    || "").trim();
-  const sort = (document.getElementById("sortBy")?.value         || "").trim();
-
-  let list = ALL.filter(c => (!cat || c.category===cat) && (!lvl || c.level===lvl));
+  // filter + sort
+  const { cat, lvl, sort } = getFilterValues();
+  let list = ALL.filter(
+    (c) => (!cat || c.category === cat) && (!lvl || c.level === lvl)
+  );
   list = sortCourses(list, sort);
 
-  if (!list.length){ grid.innerHTML = `<div class="muted">No courses match the filters.</div>`; return; }
+  if (!list.length) {
+    grid.innerHTML = `<div class="muted">No courses match the filters.</div>`;
+    return;
+  }
 
-  grid.innerHTML = list.map(c=>{
-    const r = Number(c.rating||4.6);
-    const priceStr = (c.price||0) > 0 ? "$"+c.price : "Free";
-    const search = [c.title, c.summary, c.category, c.level].join(" ");
-    const enrolled = getEnrolls().has(c.id);
-    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
-      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+  grid.innerHTML = list
+    .map((c) => {
+      const search = [c.title, c.summary, c.category, c.level].join(" ");
+      const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+      const r = Number(c.rating || 4.6);
+      const enrolled = getEnrolls().has(c.id);
+      return `<div class="card course" data-id="${c.id}" data-search="${esc(
+        search
+      )}">
+      <img class="course-cover" src="${esc(
+        c.image || `https://picsum.photos/seed/${c.id}/640/360`
+      )}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
-        <div class="muted">${esc(c.summary||"")}</div>
+        <div class="small muted">${esc(c.category || "")} • ${esc(
+        c.level || ""
+      )} • ★ ${r.toFixed(1)} • ${priceStr}</div>
+        <div class="muted">${esc(c.summary || "")}</div>
         <div class="row" style="justify-content:flex-end; gap:8px">
           <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${enrolled?"Enrolled":"Enroll"}</button>
+          <button class="btn primary" data-enroll="${c.id}">${
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
         </div>
       </div>
     </div>`;
-  }).join("");
+    })
+    .join("");
 
-  grid.querySelectorAll("[data-enroll]")
-    .forEach(b => b.onclick = () => handleEnroll(b.getAttribute("data-enroll")));
-  grid.querySelectorAll("[data-details]")
-    .forEach(b => b.onclick = () => openDetails(b.getAttribute("data-details")));
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
 }
-
-// Ensure first paint always has a default option even before data arrives
-document.addEventListener("DOMContentLoaded", ()=>{
-  const catSel = document.getElementById("filterCategory");
-  if (catSel && !catSel.options.length){
-    catSel.innerHTML = `<option value="">All Categories</option>`;
-  }
-});
 ["filterCategory", "filterLevel", "sortBy"].forEach((id) => {
   document
     .getElementById(id)
@@ -551,26 +564,28 @@ function initSidebar() {
   });
 }
 
-function updateTopbarOffsetNow(){
-  const tb = document.getElementById('topbar'); if (!tb) return;
+function updateTopbarOffsetNow() {
+  const tb = $("#topbar");
+  if (!tb) return;
   const h = Math.ceil(tb.getBoundingClientRect().height);
-  document.documentElement.style.setProperty('--topbar-offset', h + 'px');
+  document.documentElement.style.setProperty("--topbar-offset", h + "px");
 }
 let _tboRaf = 0;
-function updateTopbarOffset(){
-  if(_tboRaf) cancelAnimationFrame(_tboRaf);
+function updateTopbarOffset() {
+  if (_tboRaf) cancelAnimationFrame(_tboRaf);
   _tboRaf = requestAnimationFrame(updateTopbarOffsetNow);
 }
-document.addEventListener('DOMContentLoaded', updateTopbarOffsetNow);
-addEventListener('resize', updateTopbarOffset);
-addEventListener('orientationchange', updateTopbarOffset);
-if (window.visualViewport){
-  visualViewport.addEventListener('resize', updateTopbarOffset);
-  visualViewport.addEventListener('scroll', updateTopbarOffset);
+document.addEventListener("DOMContentLoaded", updateTopbarOffsetNow);
+addEventListener("resize", updateTopbarOffset);
+addEventListener("orientationchange", updateTopbarOffset);
+if (window.visualViewport) {
+  visualViewport.addEventListener("resize", updateTopbarOffset);
+  visualViewport.addEventListener("scroll", updateTopbarOffset);
 }
-if ('ResizeObserver' in window){
-  const tb = document.getElementById('topbar');
-  if (tb){ new ResizeObserver(updateTopbarOffset).observe(tb); }
+if ("ResizeObserver" in window) {
+  const ro = new ResizeObserver(updateTopbarOffset);
+  const tb = $("#topbar");
+  tb ? ro.observe(tb) : null;
 }
 
 /* ---------- router + search ---------- */
@@ -644,7 +659,7 @@ function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
   $("#btn-login") && ($("#btn-login").style.display = on ? "none" : "");
   $("#btn-logout") && ($("#btn-logout").style.display = on ? "" : "none");
-//   document.body.classList.toggle("locked", !on);
+  document.body.classList.toggle("locked", !on);
   document.body.dataset.role = getRole();
   renderProfilePanel?.();
 }
@@ -892,28 +907,6 @@ async function openDetails(id) {
 $("#closeDetails")?.addEventListener("click", () =>
   $("#detailsModal")?.close()
 );
-
-/* ---------- Profile panel (safe no-op if element missing) ---------- */
-function renderProfilePanel(){
-  const box = document.getElementById("profilePanel");
-  if (!box) return;                     // HTML မပါရင် ပျော်ရွှင်စွာ pass
-  const p = getProfile();
-  const name = p.displayName || (getUser()?.email || "Guest");
-  const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
-  const skills = (p.skills || "").toString();
-
-  box.innerHTML = `
-    <div class="row" style="gap:12px;align-items:flex-start">
-      <img src="${esc(avatar)}" alt="" style="width:72px;height:72px;border-radius:50%">
-      <div class="grow">
-        <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
-        ${p.bio ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>` : ""}
-        ${skills ? `<div class="small muted">Skills: ${esc(skills)}</div>` : ""}
-        ${p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""}
-        ${p.social ? `<div class="small muted">Social: ${esc(p.social)}</div>` : ""}
-      </div>
-    </div>`;
-}
 
 /* ---------- My Learning / Reader ---------- */
 const SAMPLE_PAGES = (title) => [
@@ -1408,128 +1401,108 @@ function downloadTranscript(name, pct, total, correct) {
   a.download = "OpenLearn-Transcript.csv";
   a.click();
 }
-/* ---- QUIZ: robust loader + startFinal wiring (drop-in) ---- */
-
-// normalize both styles
-function normalizeQuizArray(arr){
-  const out = [];
-  for (const it of (arr||[])) {
-    if (it.t && it.q) out.push({ type: it.t, q: it.q, a: it.a, options: it.a, correct: it.correct });
-    else if (it.q && Array.isArray(it.a)) out.push({ type:"mcq", q: it.q, options: it.a, correct: it.correct });
+function startFinal() {
+  const pool = gatherAllQuestionsForFinal();
+  if (!pool.length) {
+    toast("No quizzes found in your enrolled courses");
+    return;
   }
-  return out;
-}
+  const qs = _pickRandom(pool, 12);
 
-async function fetchQuizJSON(path){
-  try {
-    const r = await fetch(path, { cache:"no-cache" });
-    if (!r.ok) return null;
-    return await r.json();
-  } catch { return null; }
-}
-
-async function loadCourseQuizBank(courseId){
-  if (!window.DATA_BASE) await resolveDataBase?.();
-  const root = `${window.DATA_BASE || "/data"}/courses/${courseId}`;
-  const arr  = await fetchQuizJSON(`${root}/quiz.json`);
-  return Array.isArray(arr) ? normalizeQuizArray(arr) : [];
-}
-
-// render 12 random questions into #finalForm
-async function startFinal(){
-  try{
-    const set = getEnrolls();
-    const enrolled = (ALL.length?ALL:getCourses()).filter(c => set.has(c.id));
-    if (!enrolled.length){ toast("Enroll some courses first."); return; }
-
-    // gather
-    let pool = [];
-    for (const c of enrolled){
-      // priority: already-loaded bundle quizzes
-      const pre = (ALL_QUIZZES && ALL_QUIZZES[c.id]) || [];
-      if (pre.length) pool = pool.concat(normalizeQuizArray(pre));
-      else pool = pool.concat(await loadCourseQuizBank(c.id));
+  const form = $("#finalForm");
+  if (!form) return;
+  form.innerHTML = "";
+  qs.forEach((it, idx) => {
+    const id = "qf_" + idx;
+    if (Array.isArray(it.a) && typeof it.correct === "number") {
+      // MCQ schema: {q, a:[], correct}
+      form.insertAdjacentHTML(
+        "beforeend",
+        `
+        <div class="card">
+          <div><b>${idx + 1}.</b> ${esc(it.q)}</div>
+          ${it.a
+            .map(
+              (op, i) =>
+                `<label><input type="radio" name="${id}" value="${i}"> ${esc(
+                  op
+                )}</label>`
+            )
+            .join("<br>")}
+        </div>`
+      );
+    } else if (it.t === "tf") {
+      form.insertAdjacentHTML(
+        "beforeend",
+        `
+        <div class="card">
+          <div><b>${idx + 1}.</b> ${esc(it.q)}</div>
+          <label><input type="radio" name="${id}" value="t"> True</label>
+          <label><input type="radio" name="${id}" value="f"> False</label>
+        </div>`
+      );
+    } else {
+      // short
+      form.insertAdjacentHTML(
+        "beforeend",
+        `
+        <div class="card">
+          <div><b>${idx + 1}.</b> ${esc(it.q)}</div>
+          <input class="input" name="${id}" placeholder="Your answer">
+        </div>`
+      );
     }
+  });
+  form.insertAdjacentHTML(
+    "beforeend",
+    `
+    <div class="row" style="justify-content:flex-end; gap:8px">
+      <button class="btn" id="cancelFinal" type="button">Cancel</button>
+      <button class="btn primary" id="submitFinal" type="button">Submit</button>
+    </div>`
+  );
 
-    // fallback: try again with lowercase ids (အချို့ project တွေ folder ထဲ lower-case ဖြစ်တတ်)
-    if (!pool.length){
-      for (const c of enrolled){
-        const low = (c.id || "").toLowerCase();
-        pool = pool.concat(await loadCourseQuizBank(low));
-      }
-    }
+  $("#cancelFinal")?.addEventListener("click", () => $("#finalModal")?.close());
+  $("#submitFinal")?.addEventListener("click", () => {
+    let score = 0;
+    qs.forEach((it, idx) => {
+      const id = "qf_" + idx;
+      const val = (
+        form.querySelector(`[name="${id}"]:checked`)?.value ||
+        form.querySelector(`[name="${id}"]`)?.value ||
+        ""
+      )
+        .toString()
+        .trim()
+        .toLowerCase();
 
-    if (!pool.length){
-      // UI ရှာဖွေရာအတွက် အနည်းဆုံး စာနာမည်ပေါ်စေ
-      document.getElementById("finalForm")?.replaceChildren();
-      document.getElementById("finalModal")?.showModal();
-      toast("No quizzes found in your enrolled courses.");
-      console.warn("[Final] quiz pool empty — check /data/courses/<id>/quiz.json");
-      return;
-    }
-
-    // pick random 12
-    const take = (a,n)=>{ const t=a.slice(); const o=[]; while(t.length && o.length<n){ o.push(t.splice(Math.floor(Math.random()*t.length),1)[0]); } return o; };
-    const qs = take(pool, Math.min(12, pool.length));
-
-    // render UI
-    const form = document.getElementById("finalForm");
-    if (!form) return;
-    form.innerHTML = "";
-    qs.forEach((it, idx)=>{
-      const name = `qf_${idx}`;
-      if (it.type==="mcq" && Array.isArray(it.options)) {
-        const opts = it.options.map((op,i)=>`<label><input type="radio" name="${name}" value="${i}"> ${esc(op)}</label>`).join("<br>");
-        form.insertAdjacentHTML("beforeend", `<div class="card"><div><b>${idx+1}.</b> ${esc(it.q)}</div><div style="margin-top:6px">${opts}</div></div>`);
-      } else if ((it.type||"").toLowerCase()==="tf") {
-        form.insertAdjacentHTML("beforeend", `<div class="card"><div><b>${idx+1}.</b> ${esc(it.q)}</div><label><input type="radio" name="${name}" value="t"> True</label> <label><input type="radio" name="${name}" value="f"> False</label></div>`);
+      if (Array.isArray(it.a) && typeof it.correct === "number") {
+        if (String(val) === String(it.correct)) score++;
+      } else if (it.t === "tf") {
+        if (val && val === String(it.a).toLowerCase()) score++;
       } else {
-        form.insertAdjacentHTML("beforeend", `<div class="card"><div><b>${idx+1}.</b> ${esc(it.q)}</div><input class="input" name="${name}" placeholder="Your answer"></div>`);
+        const ans = String(it.a || "").toLowerCase();
+        if (ans && (val === ans || val.includes(ans))) score++;
       }
     });
+    const pct = Math.round((score / qs.length) * 100);
+    if (pct >= 70) {
+      toast(`Passed ${pct}% ✔ — Downloading certificate & transcript…`);
+      downloadCertificate(getUser()?.email || "Student", pct);
+      downloadTranscript(getUser()?.email || "Student", pct, qs.length, score);
+    } else {
+      toast(`Failed ${pct}% — try again`);
+    }
+    $("#finalModal")?.close();
+  });
 
-    // actions
-    const row = document.createElement("div");
-    row.className = "row";
-    row.style.cssText = "justify-content:flex-end;gap:8px";
-    row.innerHTML = `<button class="btn" id="cancelFinal" type="button">Cancel</button>
-                     <button class="btn primary" id="submitFinal" type="button">Submit</button>`;
-    form.appendChild(row);
-
-    document.getElementById("cancelFinal")?.addEventListener("click", ()=> document.getElementById("finalModal")?.close());
-    document.getElementById("submitFinal")?.addEventListener("click", ()=>{
-      let score=0;
-      qs.forEach((it, idx)=>{
-        const name = `qf_${idx}`;
-        const chosen = (form.querySelector(`[name="${name}"]:checked`)?.value || form.querySelector(`[name="${name}"]`)?.value || "").toString().trim();
-        if (it.type==="mcq")        { if (chosen !== "" && String(chosen)===String(it.correct)) score++; }
-        else if ((it.type||"").toLowerCase()==="tf") { if (chosen && chosen.toLowerCase()===String(it.a).toLowerCase()) score++; }
-        else { const ans=(String(it.a||"")).toLowerCase(); if (ans && chosen.toLowerCase().includes(ans)) score++; }
-      });
-      const pct = Math.round(score/qs.length*100);
-      if (pct>=70){ toast(`Passed ${pct}% ✔`); /* downloadCertificate() / downloadTranscript() if you already have them */ }
-      else toast(`Failed ${pct}% — try again`);
-      document.getElementById("finalModal")?.close();
-    });
-
-    document.getElementById("finalModal")?.showModal();
-  }catch(e){
-    console.warn(e);
-    toast("Final exam failed to load.");
-  }
+  $("#finalModal")?.showModal();
 }
-
-// ✅ make sure the button is wired even if DOM changed later
-function wireStartFinalButton(){
-  const btn = document.getElementById("btn-start-final");
-  if (btn && !btn.dataset._wired){
-    btn.addEventListener("click", (e)=>{ e.preventDefault(); startFinal(); });
-    btn.dataset._wired = "1";
-  }
-}
-document.addEventListener("DOMContentLoaded", wireStartFinalButton);
-const _finalObs = new MutationObserver(wireStartFinalButton);
-_finalObs.observe(document.body, { childList:true, subtree:true });
+// wire the button (id must exist in your HTML)
+$("#btn-start-final")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  startFinal();
+});
 
 /* --- (Part 5/5) — Chat (global & per-course), Settings, Boot --- */
 /* --- (Part 5/5) — Chat (global & per-course), Settings, Boot --- */
@@ -1770,33 +1743,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   ALL = getCourses();
   renderCatalog();
   renderAdminTable();
-  if (typeof renderProfilePanel === "function") renderProfilePanel();
-//   renderProfilePanel();
+  renderProfilePanel();
   renderAnnouncements();
 
   // One-time import/export wiring
   wireAdminImportExportOnce();
 });
-
-// Keep --topbar-offset in sync with real pixel height
-(function(){
-  function setTopOffset(){
-    const tb = document.getElementById("topbar");
-    if (!tb) return;
-    const h = Math.ceil(tb.getBoundingClientRect().height);
-    document.documentElement.style.setProperty("--topbar-offset", h + "px");
-  }
-  const run = ()=> requestAnimationFrame(setTopOffset);
-
-  document.addEventListener("DOMContentLoaded", run);
-  addEventListener("resize", run);
-  addEventListener("orientationchange", run);
-  if (window.visualViewport){
-    visualViewport.addEventListener("resize", run);
-    visualViewport.addEventListener("scroll", run);
-  }
-  if ("ResizeObserver" in window){
-    const tb = document.getElementById("topbar");
-    if (tb) new ResizeObserver(run).observe(tb);
-  }
-})();
