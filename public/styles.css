@@ -561,6 +561,12 @@ dialog.ol-modal .btn {
   opacity: 1;
 }
 
+.filters-wrap {
+  display: grid;
+  grid-template-columns: repeat( auto-fit, minmax(160px, 1fr) );
+  gap: 8px;
+  align-items: center;
+}
 /* Responsive */
 @media (max-width: 1024px) {
   #topSearch {
@@ -627,6 +633,11 @@ dialog.ol-modal .btn {
   #logo{ order:2; }
   #topSearchWrap{ order:2; justify-content:center; }
   .top-right{ order:3; }
+  .filters-wrap { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .filters-wrap { grid-template-columns: 1fr; }
+  #courseGrid { grid-template-columns: 1fr; }
 }
 @media (max-width: 420px) {
   .grid {
@@ -635,6 +646,8 @@ dialog.ol-modal .btn {
   .topbar-row {
     padding: 0 10px;
   }
+  .filters-wrap { grid-template-columns: 1fr; }
+  #courseGrid { grid-template-columns: 1fr; }
 }
 input,
 textarea,
@@ -1002,6 +1015,13 @@ label { color: var(--fg) !important; font-weight: 600; }
 .ol-modal .input, .ol-modal textarea, .ol-modal select { margin-top: 6px; }
 .ol-modal .authpane, #courseForm, #postForm, #profileForm { display: grid; gap: 10px; }
 
+/* iPhone: course cards full-width look good */
+#courseGrid {
+  display: grid;
+  grid-template-columns: repeat( auto-fit, minmax(280px, 1fr) );
+  gap: 12px;
+}
+
 /* Mobile-friendly course grid */
 @media (max-width: 600px){
   #courseGrid { display: grid; grid-template-columns: 1fr; gap: 12px; }
@@ -1041,4 +1061,31 @@ label { color: var(--fg) !important; font-weight: 600; }
    We'll set padding via JS. Reset here so we don't double-pad. */
 .app-scroll {
   padding-top: 0;
+}
+
+/* (Topbar overlap guard on iPhone) */
+body.has-fixed-topbar main,
+main.has-topbar-padding {
+  padding-top: max(56px, var(--topbarHeight, 56px));
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+.table-responsive .ol-table {
+  min-width: 720px; /* ensure columns stay visible */
+}
+.table-responsive .ol-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 1;
+}
+
+.topbar .icon,
+#sidebar .navbtn .icon {
+  transform: none !important;
+  line-height: 1 !important;
+  vertical-align: middle;
 }

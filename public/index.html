@@ -164,7 +164,7 @@
     <main id="main">
       <!-- Courses -->
       <section id="page-catalog" class="page visible">
-        <div class="row" style="margin-bottom: 10px; gap: 8px">
+        <div class="row filters-wrap" style="margin-bottom: 10px; gap: 8px">
           <select
             id="filterCategory"
             class="input"
@@ -266,7 +266,7 @@
 
       <!-- Gradebook -->
       <section id="page-gradebook" class="page">
-        <div class="card">
+        <div class="card table-responsive">
           <h3 class="h4">Gradebook</h3>
           <table class="ol-table" id="gbTable">
             <thead>
@@ -324,8 +324,8 @@
         </div>
         <!-- Controls row (single source of truth for import/export) -->
         <div class="row" style="gap: 8px; justify-content: flex-end">
-          <button class="btn" id="btn-export">Export My Courses</button>
-          <button class="btn" id="btn-import">Import</button>
+          <button class="btn" id="btn-export" data-requires-auth>Export My Courses</button>
+          <button class="btn" id="btn-import" data-requires-auth>Import</button>
           <input
             id="importFile"
             type="file"
@@ -693,6 +693,21 @@
       </div>
       <form id="finalForm" class="stack"></form>
     </dialog>
+
+    <!-- Admin view modal -->
+    <dialog id="adminViewModal" class="ol-modal">
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <strong id="avmTitle">Course</strong>
+      <button class="btn" id="avmClose">Close</button>
+    </div>
+    <div id="avmBody" class="muted" style="margin:.5rem 0 1rem"></div>
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      <button class="btn" id="avmEdit">Edit</button>
+      <button class="btn" id="avmDelete">Delete</button>
+    </div>
+  </div>
+</dialog>
 
     <!-- Toast -->
     <div id="toast"></div>

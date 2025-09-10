@@ -331,6 +331,41 @@ async function resolveDataBase() {
   console.warn('[OL] No external data found — using local seed only.');
 }
 
+/* ---------- load quiz JSON ---------- */
+async function fetchQuizJSON(path) {
+  const r = await fetch(path, { cache: "no-cache" });
+  if (!r.ok) return null;
+  return r.json().catch(()=>null);
+}
+
+// Normalize both formats:
+// 1) [{t:'tf'|'short', q:'...', a:'t'|'f'|'answer'}]
+// 2) [{q:'...', a:['opt1','opt2',...], correct: 1}]
+function normalizeQuizArray(arr) {
+  const out = [];
+  for (const it of (arr || [])) {
+    if (it.t && it.q) {
+      out.push({ type: it.t, q: it.q, a: it.a });
+    } else if (it.q && Array.isArray(it.a)) {
+      out.push({ type: "mcq", q: it.q, options: it.a, correct: it.correct });
+    }
+  }
+  return out;
+}
+
+// Try /data/courses/<id>/quiz.json and module quizzes under meta if present
+async function loadCourseQuizBank(courseId) {
+  if (!window.DATA_BASE) await resolveDataBase?.();
+  const base = `${window.DATA_BASE || "/data"}/courses/${courseId}`;
+  const main = await fetchQuizJSON(`${base}/quiz.json`);
+  let bank = [];
+  if (Array.isArray(main)) bank = normalizeQuizArray(main);
+
+  // If you also have module quizzes in meta, you could merge here too.
+  return bank;
+}
+
+
 /* ---------- router ---------- */
 function showPage(id) {
   $$(".page").forEach((p) => p.classList.remove("visible"));
@@ -1183,36 +1218,114 @@ function renderGradebook() {
 
 /* ---------- Admin (table only; creation handled elsewhere) ---------- */
 function renderAdminTable() {
-  const tb = $("#adminTable tbody");
-  if (!tb) return;
-  const list = ALL.length ? ALL : getCourses();
-  tb.innerHTML =
-    list
-      .map(
-        (c) => `
+  const tb = document.querySelector("#adminTable tbody"); if (!tb) return;
+  const list = (window.ALL && window.ALL.length) ? window.ALL : getCourses();
+
+  tb.innerHTML = list.map(c => `
     <tr data-id="${c.id}">
-      <td>${esc(c.title)}</td><td>${esc(c.category || "")}</td><td>${esc(
-          c.level || ""
-        )}</td>
-      <td>${esc(String(c.rating || 4.6))}</td><td>${esc(
-          String(c.hours || 8)
-        )}</td><td>${(c.price || 0) > 0 ? "$" + c.price : "Free"}</td>
+      <td><a href="#" data-view="${c.id}">${esc(c.title)}</a></td>
+      <td>${esc(c.category||"")}</td>
+      <td>${esc(c.level||"")}</td>
+      <td>${esc(String(c.rating||4.6))}</td>
+      <td>${esc(String(c.hours||8))}</td>
+      <td>${(c.price||0)>0?("$"+c.price):"Free"}</td>
       <td><button class="btn small" data-del="${c.id}">Delete</button></td>
-    </tr>`
-      )
-      .join("") || "<tr><td colspan='7' class='muted'>No courses</td></tr>";
-  tb.querySelectorAll("[data-del]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-del");
-        const arr = getCourses().filter((x) => x.id !== id);
-        setCourses(arr);
-        ALL = arr;
-        renderCatalog();
-        renderAdminTable();
-      })
-  );
+    </tr>`).join("") || "<tr><td colspan='7' class='muted'>No courses</td></tr>";
+
+  // Open drill-down
+  tb.querySelectorAll("[data-view]").forEach(a => a.onclick = (e) => {
+    e.preventDefault();
+    const id = a.getAttribute("data-view");
+    const c = list.find(x => x.id === id);
+    if (!c) return;
+
+    document.getElementById("avmTitle").textContent = c.title || "Course";
+    document.getElementById("avmBody").innerHTML = `
+      <div class="small">Category: ${esc(c.category||"")}</div>
+      <div class="small">Level: ${esc(c.level||"")}</div>
+      <div class="small">Rating: ${esc(String(c.rating||""))}</div>
+      <div class="small">Hours: ${esc(String(c.hours||""))}</div>
+      <p style="margin-top:.5rem">${esc(c.summary||"")}</p>
+    `;
+    const dlg = document.getElementById("adminViewModal");
+    dlg?.showModal();
+
+    // Edit
+    document.getElementById("avmEdit").onclick = () => {
+      // Re-use your existing "New Course" modal to edit:
+      const f = document.getElementById("courseForm");
+      document.getElementById("courseModal")?.showModal();
+      // prefill
+      f.title.value = c.title||"";
+      f.category.value = c.category||"";
+      f.level.value = c.level||"Beginner";
+      f.price.value = Number(c.price||0);
+      f.rating.value = Number(c.rating||4.6);
+      f.hours.value = Number(c.hours||0);
+      f.credits.value = Number(c.credits||0);
+      f.img.value = c.image||"";
+      f.description.value = c.summary||"";
+      f.benefits.value = c.benefits||"";
+      // On submit you already overwrite by id if needed
+      dlg?.close();
+    };
+
+    // Delete
+    document.getElementById("avmDelete").onclick = () => {
+      const arr = getCourses().filter(x => x.id !== id);
+      setCourses(arr);
+      window.ALL = arr;
+      renderCatalog();
+      renderAdminTable();
+      toast("Deleted");
+      dlg?.close();
+    };
+  });
+
+  // Old delete (row button)
+  tb.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+    const id = b.getAttribute("data-del");
+    const arr = getCourses().filter(x => x.id !== id);
+    setCourses(arr); window.ALL = arr;
+    renderCatalog(); renderAdminTable();
+  });
+
+  // Admin view modal close
+  document.getElementById("avmClose")?.addEventListener("click", () => {
+    document.getElementById("adminViewModal")?.close();
+  });
 }
+// function renderAdminTable() {
+//   const tb = $("#adminTable tbody");
+//   if (!tb) return;
+//   const list = ALL.length ? ALL : getCourses();
+//   tb.innerHTML =
+//     list
+//       .map(
+//         (c) => `
+//     <tr data-id="${c.id}">
+//       <td>${esc(c.title)}</td><td>${esc(c.category || "")}</td><td>${esc(
+//           c.level || ""
+//         )}</td>
+//       <td>${esc(String(c.rating || 4.6))}</td><td>${esc(
+//           String(c.hours || 8)
+//         )}</td><td>${(c.price || 0) > 0 ? "$" + c.price : "Free"}</td>
+//       <td><button class="btn small" data-del="${c.id}">Delete</button></td>
+//     </tr>`
+//       )
+//       .join("") || "<tr><td colspan='7' class='muted'>No courses</td></tr>";
+//   tb.querySelectorAll("[data-del]").forEach(
+//     (b) =>
+//       (b.onclick = () => {
+//         const id = b.getAttribute("data-del");
+//         const arr = getCourses().filter((x) => x.id !== id);
+//         setCourses(arr);
+//         ALL = arr;
+//         renderCatalog();
+//         renderAdminTable();
+//       })
+//   );
+// }
 
 /* ---------- Announcements ---------- */
 // Render stays as you have (cards with [data-edit] & [data-del])
@@ -1420,6 +1533,114 @@ $("#profileForm")?.addEventListener("submit", (e) => {
   renderProfilePanel();
   toast("Profile updated");
 });
+
+async function startFinal() {
+  const set = getEnrolls();                      // Set of enrolled course ids
+  const enrolled = (window.ALL || getCourses()).filter(c => set.has(c.id));
+  if (!enrolled.length) {
+    toast("Enroll some courses first.");
+    return;
+  }
+  // gather quiz banks
+  let pool = [];
+  for (const c of enrolled) {
+    const bank = await loadCourseQuizBank(c.id);
+    pool = pool.concat(bank);
+  }
+  if (pool.length === 0) {
+    toast("No quizzes found in your enrolled courses.");
+    return;
+  }
+
+  // pick random 12 (or fewer)
+  const pick = (arr, n) => {
+    const a = arr.slice();
+    const out = [];
+    while (a.length && out.length < n) {
+      out.push(a.splice(Math.floor(Math.random() * a.length), 1)[0]);
+    }
+    return out;
+  };
+  const qs = pick(pool, 12);
+
+  // render UI into #finalForm
+  const form = document.getElementById("finalForm");
+  if (!form) return;
+  form.innerHTML = "";
+
+  qs.forEach((it, idx) => {
+    const id = "qf_" + idx;
+    if (it.type === "mcq" && Array.isArray(it.options)) {
+      const opts = it.options.map((op, i) =>
+        `<label><input type="radio" name="${id}" value="${i}"> ${esc(op)}</label>`).join("<br>");
+      form.insertAdjacentHTML("beforeend", `
+        <div class="card">
+          <div><b>${idx+1}.</b> ${esc(it.q)}</div>
+          <div style="margin-top:6px">${opts}</div>
+        </div>`);
+    } else if (it.type === "tf") {
+      form.insertAdjacentHTML("beforeend", `
+        <div class="card">
+          <div><b>${idx+1}.</b> ${esc(it.q)}</div>
+          <label><input type="radio" name="${id}" value="t"> True</label>
+          <label><input type="radio" name="${id}" value="f"> False</label>
+        </div>`);
+    } else {
+      form.insertAdjacentHTML("beforeend", `
+        <div class="card">
+          <div><b>${idx+1}.</b> ${esc(it.q)}</div>
+          <input class="input" name="${id}" placeholder="Your answer">
+        </div>`);
+    }
+  });
+
+  // submit + cancel
+  const submit = document.createElement("div");
+  submit.className = "row";
+  submit.style.cssText = "justify-content:flex-end;gap:8px";
+  submit.innerHTML = `
+    <button class="btn" id="cancelFinal" type="button">Cancel</button>
+    <button class="btn primary" id="submitFinal" type="button">Submit</button>`;
+  form.appendChild(submit);
+
+  document.getElementById("cancelFinal")?.addEventListener("click", () => {
+    document.getElementById("finalModal")?.close();
+  });
+
+  document.getElementById("submitFinal")?.addEventListener("click", () => {
+    let score = 0;
+    qs.forEach((it, idx) => {
+      const id = "qf_" + idx;
+      let val = (
+        form.querySelector(`[name="${id}"]:checked`)?.value ||
+        form.querySelector(`[name="${id}"]`)?.value ||
+        ""
+      ).toString().trim().toLowerCase();
+
+      if (it.type === "mcq") {
+        if (String(val) === String(it.correct)) score++;
+      } else if (it.type === "tf") {
+        if (val && (val === String(it.a).toLowerCase())) score++;
+      } else {
+        // short
+        const ans = String(it.a || "").toLowerCase();
+        if (ans && val.includes(ans)) score++;
+      }
+    });
+
+    const pct = Math.round(score / qs.length * 100);
+    if (pct >= 70) {
+      toast(`Passed ${pct}% ✔ — Downloading certificate & transcript…`);
+      downloadCertificate((getUser()?.email || "Student"), pct);
+      downloadTranscript((getUser()?.email || "Student"), pct, qs.length, score);
+    } else {
+      toast(`Failed ${pct}% — try again`);
+    }
+    document.getElementById("finalModal")?.close();
+  });
+
+  document.getElementById("finalModal")?.showModal();
+}
 
 /* ---------- Live Chat (global + per-course) ---------- */
 // Guard: make sure we only define once
@@ -1711,4 +1932,44 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Hints
   $("#btn-top-ann") && ($("#btn-top-ann").title = "Open Announcements");
   $("#btn-top-final") && ($("#btn-top-final").title = "Open Final Exam");
+});
+
+// one-time admin import/export wiring
+(function wireAdminImportExportOnce(){
+  const ex = document.getElementById("btn-export");
+  const im = document.getElementById("btn-import");
+  const file = document.getElementById("importFile");
+  if (!ex || !im || !file) return;
+
+  ex.addEventListener("click", ()=>{
+    const user = getCourses().filter(c => c.source === "user");
+    const blob = new Blob([JSON.stringify(user, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "openlearn-my-courses.json";
+    a.click();
+  });
+
+  im.addEventListener("click", ()=> file.click());
+  file.addEventListener("change", async (e)=>{
+    const f = e.target.files?.[0]; if (!f) return;
+    const text = await f.text();
+    let incoming=[]; try { incoming = JSON.parse(text)||[]; } catch { return toast("Invalid JSON"); }
+    const arr = getCourses();
+    incoming.forEach(c=>{
+      c.source="user";
+      const i = arr.findIndex(x => x.id === c.id);
+      if (i>=0) arr[i]=c; else arr.push(c);
+    });
+    setCourses(arr); window.ALL = arr;
+    renderCatalog(); renderAdminTable();
+    toast("Imported");
+  });
+})();
+
+["filterCategory","filterLevel","sortBy"].forEach(id=>{
+  document.getElementById(id)?.addEventListener("change", ()=> {
+    if (typeof applyFilters === "function") applyFilters();
+    else if (typeof renderCatalog === "function") renderCatalog(); // fallback
+  });
 });
