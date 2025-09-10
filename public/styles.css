@@ -1,4 +1,3 @@
-/* --- (Part 1/2) — Base, Layout, Topbar/Sidebar, Main --- */
 /* =========================
    OpenLearn • Clean Styles
    (Part 1/2) — Base & Layout
@@ -19,8 +18,8 @@
   --radius: 14px;
 
   /* Fixed topbar height is dynamic → JS sets this correctly */
-  --topbar-offset: 24px; /* JS will set exact pixels via updateTopbarOffsetNow() */
-  /* --topbar-h: 16px; visual content row height inside topbar */
+  --topbar-offset: 64px; /* JS will set exact pixels via updateTopbarOffsetNow() */
+  --topbar-h: 56px; /* visual content row height inside topbar */
 
   /* Sidebar sizes */
   --sidebar-w: 72px;
@@ -50,9 +49,6 @@ body {
     Helvetica, Arial, Noto Sans, sans-serif;
   -webkit-overflow-scrolling: touch;
 }
-
-/* Remove any global body padding that could push topbar down */
-html, body{ margin:0 !important; padding:0 !important; }
 
 /* Helpers */
 .hidden,
@@ -90,30 +86,16 @@ a:hover {
 
 /* ===== TOPBAR (fixed, never scrolls away) ===== */
 #topbar {
-  position: fixed !important;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 3000;
-  padding-top: env(safe-area-inset-top);
-  background: var(--card, #111827) !important;
+  z-index: 9999;
+  background: var(--card);
   color: var(--fg);
-  border-bottom: 1px solid var(--border, #1f2a3b) !important;
+  border-bottom: 1px solid var(--border);
   padding-top: env(safe-area-inset-top);
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  transform: none !important;
-}
-/* Topbar should be on top of content & sidebar */
-#topbar, .topbar{
-  position: fixed !important;
-  top: 0; left: 0; right: 0;
-  z-index: 2500;                       /* > sidebar */
-  background: rgba(14,22,37,0.98) !important; /* solid-ish */
-  -webkit-backdrop-filter: none !important;    /* turn off if you want zero translucency */
-  backdrop-filter: none !important;
-  border-bottom: 1px solid var(--border) !important;
-  color: var(--fg) !important;
+  backdrop-filter: saturate(120%) blur(6px);
 }
 .topbar-row {
   display: grid;
@@ -214,16 +196,14 @@ a:hover {
   position: fixed;
   left: 0;
   bottom: 0;
-  z-index: 1500;
-  top: var(--topbar-offset); /* sits under topbar */
-  width: var(--sidebar-w, 64px);
+  z-index: 60;
+  top: var(--topbar-offset);
+  width: var(--sidebar-w);
   background: var(--card);
   color: var(--fg);
   border-right: 1px solid var(--border);
   overflow: hidden;
   transition: width 0.18s ease;
-  transform: translateX(-100%);       /* hidden by default on mobile */
-  pointer-events: none;                /* ⬅️ important */
 }
 #sidebar.expanded {
   width: var(--sidebar-w-exp);
@@ -278,21 +258,13 @@ a:hover {
 #sidebar.show {
   width: 220px;
   transform: translateX(0);
-  pointer-events: auto;                /* only clickable when open */
 }
 
 /* ===== MAIN (leave room for topbar + sidebar) ===== */
 .with-topbar {
-/* JS ကတွက်တဲ့ --topbar-offset + iPhone safe-area */
-  padding-top: calc(var(--topbar-offset) + env(safe-area-inset-top)) !important;
+  /* JS will set --topbar-offset to exact topbar height; we pad once here */
+  padding-top: var(--topbar-offset);
 }
-
-/* ပြတ်တောက်ဖို့: အခြား container တွေရဲ့ top padding/remove */
-.with-topbar, .page, #main, .main, .pages, .page-root, body > main, #app, .app-main, #content, main {
-  /* topbar spacing ကို .with-topbar တစ်ခုတည်းမှာပဲ ထိန်းမယ် */
-  padding-top: var(--topbar-offset) !important;
-}
-
 #main {
   position: relative;
   min-height: 100vh;
@@ -311,7 +283,6 @@ body.sidebar-expanded #main {
   margin: 0 auto;
   max-width: 1200px;
   padding-bottom: 24px;
-  display: none;            /* ✅ add this */
 }
 .page.visible {
   display: block;
@@ -438,17 +409,11 @@ body.locked .auth-slot #btn-logout {
   filter: grayscale(40%);
   opacity: 0.55;
 }
-/* ✅ Only .gated gets disabled; auth-required items stay clickable */
-.gated {
+.gated,
+[data-requires-auth] {
   pointer-events: none;
   opacity: 0.55;
   filter: grayscale(40%);
-}
-/* ✅ make sure auth-required buttons are clickable */
-[data-requires-auth] {
-  pointer-events: auto;
-  opacity: 1;
-  filter: none;
 }
 
 /* Chat */
@@ -488,20 +453,8 @@ body.locked .auth-slot #btn-logout {
   }
   #btn-burger {
     display: grid;
-    position: relative;
-  z-index: 3000;                       /* over sidebar/backdrop */
   }
 }
-
-/* ✅ Desktop default: sidebar visible & interactive */
-@media (min-width: 1025px) {
-  #sidebar {
-    transform: translateX(0);
-    pointer-events: auto;
-    width: var(--sidebar-w);
-  }
-}
-
 @media (max-width: 768px) {
   .topbar-row {
     grid-template-columns: auto 1fr auto auto;
@@ -546,7 +499,6 @@ body.locked .auth-slot #btn-logout {
   }
 }
 
-/* --- (Part 2/2) — Modals, Tables, Mobile tweaks --- */
 /* =========================
    OpenLearn • Clean Styles
    (Part 2/2) — Components & Modals
