@@ -1,0 +1,36 @@
+{
+  "common": [
+    { "t": "tf", "q": "Variables declared with const cannot be reassigned.", "a": "t" },
+    { "t": "short", "q": "DOM stands for ____ Object Model.", "a": "document" },
+    { "t": "tf", "q": "querySelectorAll returns a live HTMLCollection.", "a": "f" },
+    { "t": "short", "q": "Method to add an item to the end of an array?", "a": "push" }
+  ],
+
+  "html-course": [
+    {
+      "q": "What does HTML stand for?",
+      "a": [
+        "Hyper Text Markup Language",
+        "Home Tool Markup Language",
+        "Hyperlinks and Text Markup Language"
+      ],
+      "correct": 0
+    }
+  ],
+
+  "css-course": [
+    {
+      "q": "Which property controls text size in CSS?",
+      "a": ["font-style", "font-size", "text-size"],
+      "correct": 1
+    }
+  ],
+
+  "js-course": [
+    {
+      "q": "Which keyword is used to declare a variable in ES6?",
+      "a": ["var", "let", "define"],
+      "correct": 1
+    }
+  ]
+}

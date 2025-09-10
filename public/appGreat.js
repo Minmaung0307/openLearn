@@ -442,62 +442,75 @@ function sortCourses(list, sort) {
   return list;
 }
 
-function renderCatalog(){
-  const grid = document.getElementById("courseGrid"); if (!grid) return;
-
+function renderCatalog() {
+  const grid = $("#courseGrid");
+  if (!grid) return;
   ALL = getCourses();
 
-  // ✅ Always rebuild category options (avoid iOS race)
-  const sel = document.getElementById("filterCategory");
-  if (sel){
-    const cats = Array.from(new Set(ALL.map(c => c.category || "")))
-      .filter(Boolean).sort();
+  // build categories once
+  const sel = $("#filterCategory");
+  if (sel && !sel.dataset._wired) {
+    const cats = Array.from(new Set(ALL.map((c) => c.category || "")))
+      .filter(Boolean)
+      .sort();
     sel.innerHTML =
       `<option value="">All Categories</option>` +
-      cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+      cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    sel.dataset._wired = "1";
   }
 
-  const cat  = (document.getElementById("filterCategory")?.value || "").trim();
-  const lvl  = (document.getElementById("filterLevel")?.value    || "").trim();
-  const sort = (document.getElementById("sortBy")?.value         || "").trim();
-
-  let list = ALL.filter(c => (!cat || c.category===cat) && (!lvl || c.level===lvl));
+  // filter + sort
+  const { cat, lvl, sort } = getFilterValues();
+  let list = ALL.filter(
+    (c) => (!cat || c.category === cat) && (!lvl || c.level === lvl)
+  );
   list = sortCourses(list, sort);
 
-  if (!list.length){ grid.innerHTML = `<div class="muted">No courses match the filters.</div>`; return; }
+  if (!list.length) {
+    grid.innerHTML = `<div class="muted">No courses match the filters.</div>`;
+    return;
+  }
 
-  grid.innerHTML = list.map(c=>{
-    const r = Number(c.rating||4.6);
-    const priceStr = (c.price||0) > 0 ? "$"+c.price : "Free";
-    const search = [c.title, c.summary, c.category, c.level].join(" ");
-    const enrolled = getEnrolls().has(c.id);
-    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
-      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+  grid.innerHTML = list
+    .map((c) => {
+      const search = [c.title, c.summary, c.category, c.level].join(" ");
+      const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+      const r = Number(c.rating || 4.6);
+      const enrolled = getEnrolls().has(c.id);
+      return `<div class="card course" data-id="${c.id}" data-search="${esc(
+        search
+      )}">
+      <img class="course-cover" src="${esc(
+        c.image || `https://picsum.photos/seed/${c.id}/640/360`
+      )}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
-        <div class="muted">${esc(c.summary||"")}</div>
+        <div class="small muted">${esc(c.category || "")} • ${esc(
+        c.level || ""
+      )} • ★ ${r.toFixed(1)} • ${priceStr}</div>
+        <div class="muted">${esc(c.summary || "")}</div>
         <div class="row" style="justify-content:flex-end; gap:8px">
           <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${enrolled?"Enrolled":"Enroll"}</button>
+          <button class="btn primary" data-enroll="${c.id}">${
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
         </div>
       </div>
     </div>`;
-  }).join("");
+    })
+    .join("");
 
-  grid.querySelectorAll("[data-enroll]")
-    .forEach(b => b.onclick = () => handleEnroll(b.getAttribute("data-enroll")));
-  grid.querySelectorAll("[data-details]")
-    .forEach(b => b.onclick = () => openDetails(b.getAttribute("data-details")));
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
 }
-
-// Ensure first paint always has a default option even before data arrives
-document.addEventListener("DOMContentLoaded", ()=>{
-  const catSel = document.getElementById("filterCategory");
-  if (catSel && !catSel.options.length){
-    catSel.innerHTML = `<option value="">All Categories</option>`;
-  }
-});
 ["filterCategory", "filterLevel", "sortBy"].forEach((id) => {
   document
     .getElementById(id)
@@ -551,26 +564,28 @@ function initSidebar() {
   });
 }
 
-function updateTopbarOffsetNow(){
-  const tb = document.getElementById('topbar'); if (!tb) return;
+function updateTopbarOffsetNow() {
+  const tb = $("#topbar");
+  if (!tb) return;
   const h = Math.ceil(tb.getBoundingClientRect().height);
-  document.documentElement.style.setProperty('--topbar-offset', h + 'px');
+  document.documentElement.style.setProperty("--topbar-offset", h + "px");
 }
 let _tboRaf = 0;
-function updateTopbarOffset(){
-  if(_tboRaf) cancelAnimationFrame(_tboRaf);
+function updateTopbarOffset() {
+  if (_tboRaf) cancelAnimationFrame(_tboRaf);
   _tboRaf = requestAnimationFrame(updateTopbarOffsetNow);
 }
-document.addEventListener('DOMContentLoaded', updateTopbarOffsetNow);
-addEventListener('resize', updateTopbarOffset);
-addEventListener('orientationchange', updateTopbarOffset);
-if (window.visualViewport){
-  visualViewport.addEventListener('resize', updateTopbarOffset);
-  visualViewport.addEventListener('scroll', updateTopbarOffset);
+document.addEventListener("DOMContentLoaded", updateTopbarOffsetNow);
+addEventListener("resize", updateTopbarOffset);
+addEventListener("orientationchange", updateTopbarOffset);
+if (window.visualViewport) {
+  visualViewport.addEventListener("resize", updateTopbarOffset);
+  visualViewport.addEventListener("scroll", updateTopbarOffset);
 }
-if ('ResizeObserver' in window){
-  const tb = document.getElementById('topbar');
-  if (tb){ new ResizeObserver(updateTopbarOffset).observe(tb); }
+if ("ResizeObserver" in window) {
+  const ro = new ResizeObserver(updateTopbarOffset);
+  const tb = $("#topbar");
+  tb ? ro.observe(tb) : null;
 }
 
 /* ---------- router + search ---------- */

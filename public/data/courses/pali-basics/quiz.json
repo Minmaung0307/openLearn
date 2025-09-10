@@ -1,0 +1,20 @@
+[
+  { "type": "mcq",
+    "q": "What hook is used to add state to a function component?",
+    "options": ["useEffect", "useMemo", "useState", "useRef"],
+    "correct": 2
+  },
+  { "type": "tf",
+    "q": "Keys help React identify which items changed in a list.",
+    "a": "t"
+  },
+  { "type": "short",
+    "q": "What do we call the one-way data flow principle in React? (hint: ___ down)",
+    "a": "props"
+  },
+  { "type": "mcq",
+    "q": "Which of the following causes a re-render?",
+    "options": ["Reading a ref", "Calling setState", "Mutating a local var", "console.log"],
+    "correct": 1
+  }
+]

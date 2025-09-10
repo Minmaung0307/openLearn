@@ -121,3 +121,13 @@ window.CONFIG = CONFIG;
           <button id="btn-burger" class="btn" aria-label="Menu">☰</button>
         </div>
       </div>
+
+# Quiz Sample
+## MCQ (single correct)
+- { "type": "mcq", "q": "…", "options": ["A","B","C","D"], "correct": 2 }
+
+## True/False
+- { "type": "tf", "q": "…", "a": "t" }
+
+## Short answer (contains text match)
+- { "type": "short", "q": "…", "a": "keyword" }
