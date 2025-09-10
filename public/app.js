@@ -582,44 +582,112 @@ async function loadCatalog() {
 }
 
 /* ---------- catalog / details / enroll ---------- */
-// Helper: read filter + sort controls
+// --- helpers (add once near other helpers) ---
 function getFilterValues() {
-  const cat  = document.getElementById("filterCategory")?.value || "";
-  const lvl  = document.getElementById("filterLevel")?.value || "";
-  const sort = document.getElementById("sortBy")?.value || "";
+  const cat = (document.getElementById("filterCategory")?.value || "").trim();
+  const lvl = (document.getElementById("filterLevel")?.value || "").trim();
+  const sort = (document.getElementById("sortBy")?.value || "").trim();
   return { cat, lvl, sort };
 }
-
-function applyFilters() {
-  const { cat, lvl, sort } = getFilterValues();
-  let arr = getCourses();
-
-  // Filter by category
-  if (cat) arr = arr.filter(c => c.category === cat);
-  // Filter by level
-  if (lvl) arr = arr.filter(c => c.level === lvl);
-
-  // Sorting
-  if (sort === "title-asc") arr.sort((a,b)=> a.title.localeCompare(b.title));
-  if (sort === "title-desc") arr.sort((a,b)=> b.title.localeCompare(a.title));
-  if (sort === "price-asc") arr.sort((a,b)=> (a.price||0) - (b.price||0));
-  if (sort === "price-desc") arr.sort((a,b)=> (b.price||0) - (a.price||0));
-
-  renderCatalog(arr);
+function sortCourses(list, sort) {
+  if (sort === "title-asc")
+    return list.slice().sort((a, b) => a.title.localeCompare(b.title));
+  if (sort === "title-desc")
+    return list.slice().sort((a, b) => b.title.localeCompare(a.title));
+  if (sort === "price-asc")
+    return list.slice().sort((a, b) => (a.price || 0) - (b.price || 0));
+  if (sort === "price-desc")
+    return list.slice().sort((a, b) => (b.price || 0) - (a.price || 0));
+  return list;
 }
 
-["filterCategory","filterLevel","sortBy"].forEach(id=>{
-  document.getElementById(id)?.addEventListener("change", applyFilters);
+// --- REPLACE your existing renderCatalog with this version ---
+function renderCatalog() {
+  const grid = document.getElementById("courseGrid");
+  if (!grid) return;
+
+  ALL = getCourses();
+
+  // build category options (with "All Categories")
+  const sel = document.getElementById("filterCategory");
+  if (sel && !sel.dataset._wired) {
+    const cats = Array.from(new Set(ALL.map((c) => c.category || "")))
+      .filter(Boolean)
+      .sort();
+    sel.innerHTML =
+      `<option value="">All Categories</option>` +
+      cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    sel.dataset._wired = "1";
+  }
+
+  const { cat, lvl, sort } = getFilterValues();
+
+  // filter
+  let list = ALL.filter((c) => {
+    const passCat = !cat || (c.category || "") === cat;
+    const passLvl = !lvl || (c.level || "") === lvl;
+    return passCat && passLvl;
+  });
+
+  // sort
+  list = sortCourses(list, sort);
+
+  if (!list.length) {
+    grid.innerHTML = `<div class="muted">No courses match the filters.</div>`;
+    return;
+  }
+
+  // render
+  grid.innerHTML = list
+    .map((c) => {
+      const search = [c.title, c.summary, c.category, c.level].join(" ");
+      const r = Number(c.rating || 4.6),
+        priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+      const enrolled = getEnrolls().has(c.id);
+      return `<div class="card course" data-id="${c.id}" data-search="${esc(
+        search
+      )}">
+      <img class="course-cover" src="${esc(
+        c.image || `https://picsum.photos/seed/${c.id}/640/360`
+      )}" alt="">
+      <div class="course-body">
+        <strong>${esc(c.title)}</strong>
+        <div class="small muted">${esc(c.category || "")} • ${esc(
+        c.level || ""
+      )} • ★ ${r.toFixed(1)} • ${priceStr}</div>
+        <div class="muted">${esc(c.summary || "")}</div>
+        <div class="row" style="justify-content:flex-end; gap:8px">
+          <button class="btn" data-details="${c.id}">Details</button>
+          <button class="btn primary" data-enroll="${c.id}">${
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
+        </div>
+      </div>
+    </div>`;
+    })
+    .join("");
+
+  // actions
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
+}
+
+// wire filter changes (add once after renderCatalog is defined)
+["filterCategory", "filterLevel", "sortBy"].forEach((id) => {
+  const el = document.getElementById(id);
+  el && el.addEventListener("change", () => renderCatalog());
 });
 
 // === New Course Modal wiring ===
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("btn-add-sample")?.addEventListener("click", ()=>{
-  // your existing addSample() logic
-  if (typeof addSampleData === "function") addSampleData();
-  renderCatalog();
-  toast("Sample courses added");
-});
   document.getElementById("btn-new-course")?.addEventListener("click", () => {
     document.getElementById("courseModal")?.showModal();
   });
@@ -1267,25 +1335,6 @@ function wireAdminImportExportOnce(){
   });
 }
 
-document.getElementById("annForm")?.addEventListener("submit", (e)=>{
-  e.preventDefault();
-  const f = new FormData(e.target);
-  const id = f.get("id");
-  const anns = getAnns();
-  const i = anns.findIndex(x=> x.id === id);
-  const payload = {
-    id: id || ("a_"+Date.now()),
-    title: f.get("title")?.toString().trim(),
-    body:  f.get("body")?.toString().trim(),
-    ts: Date.now()
-  };
-  if (i>=0) anns[i] = { ...anns[i], ...payload }; else anns.push(payload);
-  setAnns(anns);
-  renderAnnouncements?.();
-  document.getElementById("annModal")?.close();
-  toast(i>=0 ? "Announcement updated" : "Announcement added");
-});
-
 // call after you render the list
 function renderAnnouncements() {
   const box = document.getElementById("annList");
@@ -1600,7 +1649,6 @@ $("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
 document.getElementById("btn-start-final")?.addEventListener("click", (e) => {
   e.preventDefault();
   if (typeof startFinal === "function") startFinal();
-  toast("Starting final (demo) — coming soon");
 });
 
 // Also make sure it's not gated when logged-in
