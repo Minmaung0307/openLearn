@@ -686,6 +686,23 @@ function sortCourses(list, sort) {
   return list;
 }
 
+function updateTopbarOffset(){
+  const tb = document.getElementById('topbar');
+  if (!tb) return;
+  // 실제 표시되는 pixel height ကို ယူ — safe-area padding ပါပြီးသား
+  const h = Math.ceil(tb.getBoundingClientRect().height);
+  document.documentElement.style.setProperty('--topbar-offset', h + 'px');
+}
+
+// run once + keep in sync when viewport changes
+document.addEventListener('DOMContentLoaded', updateTopbarOffset);
+window.addEventListener('resize', updateTopbarOffset);
+window.addEventListener('orientationchange', updateTopbarOffset);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', updateTopbarOffset);
+  window.visualViewport.addEventListener('scroll', updateTopbarOffset);
+}
+
 // --- REPLACE your existing renderCatalog with this version ---
 function renderCatalog() {
   const grid = document.getElementById("courseGrid");
@@ -1941,23 +1958,6 @@ function setTopbarOffset() {
     scroller.style.paddingTop = `max(${h}px, env(safe-area-inset-top))`;
     document.body.style.paddingTop = "0px"; // avoid double padding
   }
-}
-
-function updateTopbarOffset(){
-  const tb = document.getElementById('topbar');
-  if (!tb) return;
-  // 실제 표시되는 pixel height ကို ယူ — safe-area padding ပါပြီးသား
-  const h = Math.ceil(tb.getBoundingClientRect().height);
-  document.documentElement.style.setProperty('--topbar-offset', h + 'px');
-}
-
-// run once + keep in sync when viewport changes
-document.addEventListener('DOMContentLoaded', updateTopbarOffset);
-window.addEventListener('resize', updateTopbarOffset);
-window.addEventListener('orientationchange', updateTopbarOffset);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', updateTopbarOffset);
-  window.visualViewport.addEventListener('scroll', updateTopbarOffset);
 }
 
 /* ---------- Boot ---------- */
