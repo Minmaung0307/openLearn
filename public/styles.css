@@ -110,9 +110,26 @@ a:hover {
   margin: 0 auto;
   justify-content: space-between;
 }
-.logo {
+/* logo စာသားသက်သက်အတွက် */
+/* .logo {
   font-weight: 700;
   white-space: nowrap;
+} */
+
+/* logo စာသားနဲ့ logo icon အတွက် */
+.logo {
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+  font-size: 18px;
+}
+.logo::before {
+  content: "";
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  background: url("./icons/plant.png") no-repeat center/contain;
+  margin-right: 8px;
 }
 .search-wrap .input {
   width: 100%;
