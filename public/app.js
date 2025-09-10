@@ -582,7 +582,35 @@ async function loadCatalog() {
 }
 
 /* ---------- catalog / details / enroll ---------- */
-getFilterValues()
+// Helper: read filter + sort controls
+function getFilterValues() {
+  const cat  = document.getElementById("filterCategory")?.value || "";
+  const lvl  = document.getElementById("filterLevel")?.value || "";
+  const sort = document.getElementById("sortBy")?.value || "";
+  return { cat, lvl, sort };
+}
+
+function applyFilters() {
+  const { cat, lvl, sort } = getFilterValues();
+  let arr = getCourses();
+
+  // Filter by category
+  if (cat) arr = arr.filter(c => c.category === cat);
+  // Filter by level
+  if (lvl) arr = arr.filter(c => c.level === lvl);
+
+  // Sorting
+  if (sort === "title-asc") arr.sort((a,b)=> a.title.localeCompare(b.title));
+  if (sort === "title-desc") arr.sort((a,b)=> b.title.localeCompare(a.title));
+  if (sort === "price-asc") arr.sort((a,b)=> (a.price||0) - (b.price||0));
+  if (sort === "price-desc") arr.sort((a,b)=> (b.price||0) - (a.price||0));
+
+  renderCatalog(arr);
+}
+
+["filterCategory","filterLevel","sortBy"].forEach(id=>{
+  document.getElementById(id)?.addEventListener("change", applyFilters);
+});
 
 // === New Course Modal wiring ===
 document.addEventListener("DOMContentLoaded", () => {
