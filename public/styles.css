@@ -1109,11 +1109,11 @@ label { color: var(--fg) !important; font-weight: 600; }
 
 
 /* iPhone safe area ကိုလည်း ထည့်ပေး */
-@supports (padding: max(0px)) {
+/* @supports (padding: max(0px)) {
   body {
     padding-top: max(var(--topbarH), env(safe-area-inset-top));
   }
-}
+} */
 
 /* တစ်ခါတလေ .page/.app-main ကိုသာ scroll container လုပ်ထားလျှင် */
 .app-main, .page, #content, main {
