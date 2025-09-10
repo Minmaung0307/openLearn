@@ -319,8 +319,7 @@ body.sidebar-expanded #main {
   overflow: visible; transform: none;
 
   /* topbar + safe-area အတွက် space */
-  padding-top: calc(16px + var(--topbar-h) + env(safe-area-inset-top));
-  padding-top: calc(16px + var(--topbar-h) + constant(safe-area-inset-top));
+  padding-top: var(--topbar-offset);
 }
 /* Safari ဘက်ကျောင်းညှိ */
 @supports not (padding-top: env(safe-area-inset-top)) {
@@ -332,12 +331,7 @@ body.sidebar-expanded #main {
   max-width: 1200px;
   padding-bottom: 24px;
 }
-/* Main page container spacing under topbar */
-main, 
-.page {
-  margin-top: 17px !important;   /* topbar နဲ့ ကွာအောင် */
-  padding-top: 0;                /* အထက် padding များနေခြင်း جلوگیری */
-}
+
 .page.visible {
   display: block;
 }
@@ -728,6 +722,8 @@ body.locked .auth-slot #btn-logout {
 /* If a parent gets 'gated' class, block clicks. Otherwise allow typing. */
 .gated input, .gated textarea, .gated button {
   pointer-events: none;
+  opacity:.55; 
+  filter:grayscale(40%);
 }
 
 /* Role-based hide/show (JS က class သတ်မှတ်ပေးမယ်) */
@@ -767,15 +763,20 @@ body.locked .auth-slot #btn-logout {
 html, body {
   background: var(--bg) !important;
   color: var(--fg) !important;
+  margin: 0;
 }
 
 /* Topbar */
 .topbar {
+  position: sticky;     /* or position: fixed; left:0; right:0; */
+  top: 0;
+  z-index: 1000;
+  margin-top: 0;
+  padding-top: env(safe-area-inset-top);
   background: var(--card) !important;
   color: var(--fg) !important;
   border-bottom: 1px solid var(--border) !important;
   backdrop-filter: saturate(120%) blur(6px);
-  z-index: 100;
 }
 #sidebar  { z-index: 60; }
 .topbar .iconbtn,
@@ -793,6 +794,8 @@ html, body {
 
 /* Sidebar */
 #sidebar {
+  position: sticky;            /* if you use sticky drawer */
+  top: var(--topbar-offset);
   background: var(--card) !important;
   color: var(--fg) !important;
   border-right: 1px solid var(--border) !important;

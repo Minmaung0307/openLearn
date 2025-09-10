@@ -686,22 +686,55 @@ function sortCourses(list, sort) {
   return list;
 }
 
-function updateTopbarOffset(){
+function updateTopbarOffsetNow() {
   const tb = document.getElementById('topbar');
   if (!tb) return;
-  // 실제 표시되는 pixel height ကို ယူ — safe-area padding ပါပြီးသား
-  const h = Math.ceil(tb.getBoundingClientRect().height);
+  const h = Math.ceil(tb.getBoundingClientRect().height || 56);
   document.documentElement.style.setProperty('--topbar-offset', h + 'px');
 }
 
-// run once + keep in sync when viewport changes
-document.addEventListener('DOMContentLoaded', updateTopbarOffset);
-window.addEventListener('resize', updateTopbarOffset);
-window.addEventListener('orientationchange', updateTopbarOffset);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', updateTopbarOffset);
-  window.visualViewport.addEventListener('scroll', updateTopbarOffset);
+let _rAF = null;
+function updateTopbarOffset() {
+  if (_rAF) return;                 // debounce in the same frame
+  _rAF = requestAnimationFrame(() => {
+    _rAF = null;
+    updateTopbarOffsetNow();
+  });
 }
+
+// Run once
+document.addEventListener('DOMContentLoaded', updateTopbarOffsetNow, {once:true});
+
+// Keep in sync on viewport changes
+window.addEventListener('resize', updateTopbarOffset, { passive: true });
+window.addEventListener('orientationchange', updateTopbarOffset, { passive: true });
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', updateTopbarOffset, { passive: true });
+  window.visualViewport.addEventListener('scroll', updateTopbarOffset, { passive: true });
+}
+
+// React to actual topbar size changes (logo swap, font change, etc.)
+if ('ResizeObserver' in window) {
+  const ro = new ResizeObserver(updateTopbarOffset);
+  const tb = document.getElementById('topbar');
+  if (tb) ro.observe(tb);
+}
+// function updateTopbarOffset(){
+//   const tb = document.getElementById('topbar');
+//   if (!tb) return;
+//   // 실제 표시되는 pixel height ကို ယူ — safe-area padding ပါပြီးသား
+//   const h = Math.ceil(tb.getBoundingClientRect().height);
+//   document.documentElement.style.setProperty('--topbar-offset', h + 'px');
+// }
+
+// // run once + keep in sync when viewport changes
+// document.addEventListener('DOMContentLoaded', updateTopbarOffset);
+// window.addEventListener('resize', updateTopbarOffset);
+// window.addEventListener('orientationchange', updateTopbarOffset);
+// if (window.visualViewport) {
+//   window.visualViewport.addEventListener('resize', updateTopbarOffset);
+//   window.visualViewport.addEventListener('scroll', updateTopbarOffset);
+// }
 
 // --- REPLACE your existing renderCatalog with this version ---
 function renderCatalog() {
