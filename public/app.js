@@ -644,7 +644,7 @@ function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
   $("#btn-login") && ($("#btn-login").style.display = on ? "none" : "");
   $("#btn-logout") && ($("#btn-logout").style.display = on ? "" : "none");
-  document.body.classList.toggle("locked", !on);
+//   document.body.classList.toggle("locked", !on);
   document.body.dataset.role = getRole();
   renderProfilePanel?.();
 }
@@ -892,6 +892,28 @@ async function openDetails(id) {
 $("#closeDetails")?.addEventListener("click", () =>
   $("#detailsModal")?.close()
 );
+
+/* ---------- Profile panel (safe no-op if element missing) ---------- */
+function renderProfilePanel(){
+  const box = document.getElementById("profilePanel");
+  if (!box) return;                     // HTML မပါရင် ပျော်ရွှင်စွာ pass
+  const p = getProfile();
+  const name = p.displayName || (getUser()?.email || "Guest");
+  const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
+  const skills = (p.skills || "").toString();
+
+  box.innerHTML = `
+    <div class="row" style="gap:12px;align-items:flex-start">
+      <img src="${esc(avatar)}" alt="" style="width:72px;height:72px;border-radius:50%">
+      <div class="grow">
+        <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
+        ${p.bio ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>` : ""}
+        ${skills ? `<div class="small muted">Skills: ${esc(skills)}</div>` : ""}
+        ${p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""}
+        ${p.social ? `<div class="small muted">Social: ${esc(p.social)}</div>` : ""}
+      </div>
+    </div>`;
+}
 
 /* ---------- My Learning / Reader ---------- */
 const SAMPLE_PAGES = (title) => [
@@ -1748,7 +1770,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   ALL = getCourses();
   renderCatalog();
   renderAdminTable();
-  renderProfilePanel();
+  if (typeof renderProfilePanel === "function") renderProfilePanel();
+//   renderProfilePanel();
   renderAnnouncements();
 
   // One-time import/export wiring
