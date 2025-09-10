@@ -526,31 +526,81 @@ function initAuthModal() {
 /* ---------- sidebar (hover drawer / burger mobile) ---------- */
 function initSidebar() {
   const sb = $("#sidebar"),
-    burger = $("#btn-burger");
+        burger = $("#btn-burger");
   const isMobile = () => matchMedia("(max-width:1024px)").matches;
+
   const setBurger = () => {
     if (burger) burger.style.display = isMobile() ? "" : "none";
   };
   setBurger();
   addEventListener("resize", setBurger);
 
+  // NEW: reflect expanded/hover/drawer state in <body> so CSS can pad #main
+  const setExpandedFlag = (on) => {
+    document.body.classList.toggle("sidebar-expanded", !!on);
+  };
+
+  // Desktop hover → widen + push main
+  sb?.addEventListener("mouseenter", () => { if (!isMobile()) setExpandedFlag(true); });
+  sb?.addEventListener("mouseleave", () => { if (!isMobile()) setExpandedFlag(false); });
+
+  // Mobile drawer toggle (burger)
   burger?.addEventListener("click", (e) => {
     e.stopPropagation();
     sb?.classList.toggle("show");
+    setExpandedFlag(sb?.classList.contains("show"));
   });
+
+  // Click a nav item → route + collapse drawer on mobile
   sb?.addEventListener("click", (e) => {
     const b = e.target.closest(".navbtn");
     if (!b) return;
     showPage(b.dataset.page);
-    if (isMobile()) sb.classList.remove("show");
+    if (isMobile()) {
+      sb.classList.remove("show");
+      setExpandedFlag(false);
+    }
+    // optional: scroll top for nicer UX
+    window.scrollTo({ top: 0, behavior: "smooth" });
   });
+
+  // Close drawer when clicking outside on mobile
   document.addEventListener("click", (e) => {
     if (!isMobile()) return;
     if (!sb?.classList.contains("show")) return;
-    if (!e.target.closest("#sidebar") && e.target !== burger)
+    if (!e.target.closest("#sidebar") && e.target !== burger) {
       sb.classList.remove("show");
+      setExpandedFlag(false);
+    }
   });
 }
+// function initSidebar() {
+//   const sb = $("#sidebar"),
+//     burger = $("#btn-burger");
+//   const isMobile = () => matchMedia("(max-width:1024px)").matches;
+//   const setBurger = () => {
+//     if (burger) burger.style.display = isMobile() ? "" : "none";
+//   };
+//   setBurger();
+//   addEventListener("resize", setBurger);
+
+//   burger?.addEventListener("click", (e) => {
+//     e.stopPropagation();
+//     sb?.classList.toggle("show");
+//   });
+//   sb?.addEventListener("click", (e) => {
+//     const b = e.target.closest(".navbtn");
+//     if (!b) return;
+//     showPage(b.dataset.page);
+//     if (isMobile()) sb.classList.remove("show");
+//   });
+//   document.addEventListener("click", (e) => {
+//     if (!isMobile()) return;
+//     if (!sb?.classList.contains("show")) return;
+//     if (!e.target.closest("#sidebar") && e.target !== burger)
+//       sb.classList.remove("show");
+//   });
+// }
 
 /* ---------- top search ---------- */
 function initSearch() {

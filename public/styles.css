@@ -306,6 +306,7 @@ a:hover {
   padding-right: 16px;
   padding-bottom: 60px;
   min-height: 100vh;
+  z-index: 1;
   /* margin-top: 20px !important; */
 }
 body.sidebar-expanded #main {
@@ -771,7 +772,9 @@ html, body {
   color: var(--fg) !important;
   border-bottom: 1px solid var(--border) !important;
   backdrop-filter: saturate(120%) blur(6px);
+  z-index: 100;
 }
+#sidebar  { z-index: 60; }
 .topbar .iconbtn,
 .topbar .pill,
 .topbar a {
