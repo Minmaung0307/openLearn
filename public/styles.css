@@ -51,6 +51,9 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Remove any global body padding that could push topbar down */
+html, body{ margin:0 !important; padding:0 !important; }
+
 /* Helpers */
 .hidden,
 .ol-hidden {
@@ -91,13 +94,14 @@ a:hover {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 1000;
+  z-index: 3000;
   padding-top: env(safe-area-inset-top);
-  background: var(--card) !important;
+  background: var(--card, #111827) !important;
   color: var(--fg);
-  border-bottom: 1px solid var(--border) !important;
+  border-bottom: 1px solid var(--border, #1f2a3b) !important;
   padding-top: env(safe-area-inset-top);
-  backdrop-filter: saturate(120%) blur(6px);
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
   transform: none !important;
 }
 /* Topbar should be on top of content & sidebar */
@@ -284,9 +288,9 @@ a:hover {
 }
 
 /* ပြတ်တောက်ဖို့: အခြား container တွေရဲ့ top padding/remove */
-.page, .main, .pages, .page-root, body > main, #app, .app-main, #content, main {
+.with-topbar, .page, #main, .main, .pages, .page-root, body > main, #app, .app-main, #content, main {
   /* topbar spacing ကို .with-topbar တစ်ခုတည်းမှာပဲ ထိန်းမယ် */
-  padding-top: 0 !important;
+  padding-top: var(--topbar-offset) !important;
 }
 
 #main {

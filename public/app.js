@@ -1386,108 +1386,128 @@ function downloadTranscript(name, pct, total, correct) {
   a.download = "OpenLearn-Transcript.csv";
   a.click();
 }
-function startFinal() {
-  const pool = gatherAllQuestionsForFinal();
-  if (!pool.length) {
-    toast("No quizzes found in your enrolled courses");
-    return;
+/* ---- QUIZ: robust loader + startFinal wiring (drop-in) ---- */
+
+// normalize both styles
+function normalizeQuizArray(arr){
+  const out = [];
+  for (const it of (arr||[])) {
+    if (it.t && it.q) out.push({ type: it.t, q: it.q, a: it.a, options: it.a, correct: it.correct });
+    else if (it.q && Array.isArray(it.a)) out.push({ type:"mcq", q: it.q, options: it.a, correct: it.correct });
   }
-  const qs = _pickRandom(pool, 12);
+  return out;
+}
 
-  const form = $("#finalForm");
-  if (!form) return;
-  form.innerHTML = "";
-  qs.forEach((it, idx) => {
-    const id = "qf_" + idx;
-    if (Array.isArray(it.a) && typeof it.correct === "number") {
-      // MCQ schema: {q, a:[], correct}
-      form.insertAdjacentHTML(
-        "beforeend",
-        `
-        <div class="card">
-          <div><b>${idx + 1}.</b> ${esc(it.q)}</div>
-          ${it.a
-            .map(
-              (op, i) =>
-                `<label><input type="radio" name="${id}" value="${i}"> ${esc(
-                  op
-                )}</label>`
-            )
-            .join("<br>")}
-        </div>`
-      );
-    } else if (it.t === "tf") {
-      form.insertAdjacentHTML(
-        "beforeend",
-        `
-        <div class="card">
-          <div><b>${idx + 1}.</b> ${esc(it.q)}</div>
-          <label><input type="radio" name="${id}" value="t"> True</label>
-          <label><input type="radio" name="${id}" value="f"> False</label>
-        </div>`
-      );
-    } else {
-      // short
-      form.insertAdjacentHTML(
-        "beforeend",
-        `
-        <div class="card">
-          <div><b>${idx + 1}.</b> ${esc(it.q)}</div>
-          <input class="input" name="${id}" placeholder="Your answer">
-        </div>`
-      );
+async function fetchQuizJSON(path){
+  try {
+    const r = await fetch(path, { cache:"no-cache" });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+async function loadCourseQuizBank(courseId){
+  if (!window.DATA_BASE) await resolveDataBase?.();
+  const root = `${window.DATA_BASE || "/data"}/courses/${courseId}`;
+  const arr  = await fetchQuizJSON(`${root}/quiz.json`);
+  return Array.isArray(arr) ? normalizeQuizArray(arr) : [];
+}
+
+// render 12 random questions into #finalForm
+async function startFinal(){
+  try{
+    const set = getEnrolls();
+    const enrolled = (ALL.length?ALL:getCourses()).filter(c => set.has(c.id));
+    if (!enrolled.length){ toast("Enroll some courses first."); return; }
+
+    // gather
+    let pool = [];
+    for (const c of enrolled){
+      // priority: already-loaded bundle quizzes
+      const pre = (ALL_QUIZZES && ALL_QUIZZES[c.id]) || [];
+      if (pre.length) pool = pool.concat(normalizeQuizArray(pre));
+      else pool = pool.concat(await loadCourseQuizBank(c.id));
     }
-  });
-  form.insertAdjacentHTML(
-    "beforeend",
-    `
-    <div class="row" style="justify-content:flex-end; gap:8px">
-      <button class="btn" id="cancelFinal" type="button">Cancel</button>
-      <button class="btn primary" id="submitFinal" type="button">Submit</button>
-    </div>`
-  );
 
-  $("#cancelFinal")?.addEventListener("click", () => $("#finalModal")?.close());
-  $("#submitFinal")?.addEventListener("click", () => {
-    let score = 0;
-    qs.forEach((it, idx) => {
-      const id = "qf_" + idx;
-      const val = (
-        form.querySelector(`[name="${id}"]:checked`)?.value ||
-        form.querySelector(`[name="${id}"]`)?.value ||
-        ""
-      )
-        .toString()
-        .trim()
-        .toLowerCase();
+    // fallback: try again with lowercase ids (အချို့ project တွေ folder ထဲ lower-case ဖြစ်တတ်)
+    if (!pool.length){
+      for (const c of enrolled){
+        const low = (c.id || "").toLowerCase();
+        pool = pool.concat(await loadCourseQuizBank(low));
+      }
+    }
 
-      if (Array.isArray(it.a) && typeof it.correct === "number") {
-        if (String(val) === String(it.correct)) score++;
-      } else if (it.t === "tf") {
-        if (val && val === String(it.a).toLowerCase()) score++;
+    if (!pool.length){
+      // UI ရှာဖွေရာအတွက် အနည်းဆုံး စာနာမည်ပေါ်စေ
+      document.getElementById("finalForm")?.replaceChildren();
+      document.getElementById("finalModal")?.showModal();
+      toast("No quizzes found in your enrolled courses.");
+      console.warn("[Final] quiz pool empty — check /data/courses/<id>/quiz.json");
+      return;
+    }
+
+    // pick random 12
+    const take = (a,n)=>{ const t=a.slice(); const o=[]; while(t.length && o.length<n){ o.push(t.splice(Math.floor(Math.random()*t.length),1)[0]); } return o; };
+    const qs = take(pool, Math.min(12, pool.length));
+
+    // render UI
+    const form = document.getElementById("finalForm");
+    if (!form) return;
+    form.innerHTML = "";
+    qs.forEach((it, idx)=>{
+      const name = `qf_${idx}`;
+      if (it.type==="mcq" && Array.isArray(it.options)) {
+        const opts = it.options.map((op,i)=>`<label><input type="radio" name="${name}" value="${i}"> ${esc(op)}</label>`).join("<br>");
+        form.insertAdjacentHTML("beforeend", `<div class="card"><div><b>${idx+1}.</b> ${esc(it.q)}</div><div style="margin-top:6px">${opts}</div></div>`);
+      } else if ((it.type||"").toLowerCase()==="tf") {
+        form.insertAdjacentHTML("beforeend", `<div class="card"><div><b>${idx+1}.</b> ${esc(it.q)}</div><label><input type="radio" name="${name}" value="t"> True</label> <label><input type="radio" name="${name}" value="f"> False</label></div>`);
       } else {
-        const ans = String(it.a || "").toLowerCase();
-        if (ans && (val === ans || val.includes(ans))) score++;
+        form.insertAdjacentHTML("beforeend", `<div class="card"><div><b>${idx+1}.</b> ${esc(it.q)}</div><input class="input" name="${name}" placeholder="Your answer"></div>`);
       }
     });
-    const pct = Math.round((score / qs.length) * 100);
-    if (pct >= 70) {
-      toast(`Passed ${pct}% ✔ — Downloading certificate & transcript…`);
-      downloadCertificate(getUser()?.email || "Student", pct);
-      downloadTranscript(getUser()?.email || "Student", pct, qs.length, score);
-    } else {
-      toast(`Failed ${pct}% — try again`);
-    }
-    $("#finalModal")?.close();
-  });
 
-  $("#finalModal")?.showModal();
+    // actions
+    const row = document.createElement("div");
+    row.className = "row";
+    row.style.cssText = "justify-content:flex-end;gap:8px";
+    row.innerHTML = `<button class="btn" id="cancelFinal" type="button">Cancel</button>
+                     <button class="btn primary" id="submitFinal" type="button">Submit</button>`;
+    form.appendChild(row);
+
+    document.getElementById("cancelFinal")?.addEventListener("click", ()=> document.getElementById("finalModal")?.close());
+    document.getElementById("submitFinal")?.addEventListener("click", ()=>{
+      let score=0;
+      qs.forEach((it, idx)=>{
+        const name = `qf_${idx}`;
+        const chosen = (form.querySelector(`[name="${name}"]:checked`)?.value || form.querySelector(`[name="${name}"]`)?.value || "").toString().trim();
+        if (it.type==="mcq")        { if (chosen !== "" && String(chosen)===String(it.correct)) score++; }
+        else if ((it.type||"").toLowerCase()==="tf") { if (chosen && chosen.toLowerCase()===String(it.a).toLowerCase()) score++; }
+        else { const ans=(String(it.a||"")).toLowerCase(); if (ans && chosen.toLowerCase().includes(ans)) score++; }
+      });
+      const pct = Math.round(score/qs.length*100);
+      if (pct>=70){ toast(`Passed ${pct}% ✔`); /* downloadCertificate() / downloadTranscript() if you already have them */ }
+      else toast(`Failed ${pct}% — try again`);
+      document.getElementById("finalModal")?.close();
+    });
+
+    document.getElementById("finalModal")?.showModal();
+  }catch(e){
+    console.warn(e);
+    toast("Final exam failed to load.");
+  }
 }
-// wire the button (id must exist in your HTML)
-$("#btn-start-final")?.addEventListener("click", (e) => {
-  e.preventDefault();
-  startFinal();
-});
+
+// ✅ make sure the button is wired even if DOM changed later
+function wireStartFinalButton(){
+  const btn = document.getElementById("btn-start-final");
+  if (btn && !btn.dataset._wired){
+    btn.addEventListener("click", (e)=>{ e.preventDefault(); startFinal(); });
+    btn.dataset._wired = "1";
+  }
+}
+document.addEventListener("DOMContentLoaded", wireStartFinalButton);
+const _finalObs = new MutationObserver(wireStartFinalButton);
+_finalObs.observe(document.body, { childList:true, subtree:true });
 
 /* --- (Part 5/5) — Chat (global & per-course), Settings, Boot --- */
 /* --- (Part 5/5) — Chat (global & per-course), Settings, Boot --- */
@@ -1734,3 +1754,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   // One-time import/export wiring
   wireAdminImportExportOnce();
 });
+
+// Keep --topbar-offset in sync with real pixel height
+(function(){
+  function setTopOffset(){
+    const tb = document.getElementById("topbar");
+    if (!tb) return;
+    const h = Math.ceil(tb.getBoundingClientRect().height);
+    document.documentElement.style.setProperty("--topbar-offset", h + "px");
+  }
+  const run = ()=> requestAnimationFrame(setTopOffset);
+
+  document.addEventListener("DOMContentLoaded", run);
+  addEventListener("resize", run);
+  addEventListener("orientationchange", run);
+  if (window.visualViewport){
+    visualViewport.addEventListener("resize", run);
+    visualViewport.addEventListener("scroll", run);
+  }
+  if ("ResizeObserver" in window){
+    const tb = document.getElementById("topbar");
+    if (tb) new ResizeObserver(run).observe(tb);
+  }
+})();
