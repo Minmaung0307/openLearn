@@ -25,21 +25,6 @@
   --sidebar-bg: #0b1220f2;
 }
 
-/* inputs readable in light theme */
-:root.light-theme .input,
-:root.light-theme textarea,
-:root.light-theme select {
-  background: #fff;
-  color: #111;
-  border-color: #e2e8f0;
-}
-:root.light-theme dialog.ol-modal .input,
-:root.light-theme dialog.ol-modal textarea,
-:root.light-theme dialog.ol-modal select {
-  background: #fff;
-  color: #111;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -228,7 +213,7 @@ a:hover {
   transform: none !important;
   rotate: 0deg !important;
   vertical-align: middle;
-  width: 22px; height: 22px;
+  width: 18px; height: 18px;
 }
 #sidebar .navbtn:hover {
   background: rgba(37, 99, 235, 0.18);
@@ -459,13 +444,11 @@ dialog.ol-modal::backdrop {
 }
 
 /* immediate child used as the card/sheet */ dialog.ol-modal > .modal-card,
-dialog.ol-modal > .modal-card,
 dialog.ol-modal > .auth-modern,
 dialog.ol-modal > form,
 dialog.ol-modal > .sheet,
 dialog#authModal {
   /* background: linear-gradient(180deg, #0f172a, #0b1220); */
-  background: var(--card);
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -624,7 +607,7 @@ dialog.ol-modal .btn {
     display: none;
   }
   #main {
-    padding-top: calc(var(--topbar-h, 64px) + 16px);
+    padding: 16px;
   }
   /* .grid {
     grid-template-columns: 1fr 1fr;
@@ -644,7 +627,6 @@ dialog.ol-modal .btn {
   #logo{ order:2; }
   #topSearchWrap{ order:2; justify-content:center; }
   .top-right{ order:3; }
-  #catalogFilters { position: relative; z-index: 1; }
 }
 @media (max-width: 420px) {
   .grid {
@@ -728,7 +710,6 @@ html, body {
   color: var(--fg) !important;
   border-bottom: 1px solid var(--border) !important;
   backdrop-filter: saturate(120%) blur(6px);
-  z-index: 50;
 }
 .topbar .iconbtn,
 .topbar .pill,
@@ -748,7 +729,6 @@ html, body {
   background: var(--card) !important;
   color: var(--fg) !important;
   border-right: 1px solid var(--border) !important;
-  z-index: 40;
 }
 #sidebar .navbtn {
   color: var(--fg) !important;
@@ -809,7 +789,6 @@ dialog.ol-modal,
   border: 1px solid var(--border) !important;
 }
 dialog::backdrop { background: rgba(0,0,0,.45); }
-dialog.ol-modal::backdrop { background: rgba(10,14,25,.64); }
 
 /* Reader view */
 #reader {
@@ -1063,7 +1042,3 @@ label { color: var(--fg) !important; font-weight: 600; }
 .app-scroll {
   padding-top: 0;
 }
-
-/* keep filters / buttons visible and nicely spaced */
-#catalogFilters .stack label { font-size: 12px; opacity: .9; }
-#catalogFilters select, #catalogFilters .btn { height: 40px; }
