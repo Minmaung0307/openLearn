@@ -590,7 +590,7 @@ dialog.ol-modal .btn {
   }
   #main {
     padding-left: 16px;
-    padding-top: calc(var(--topbar-h, 64px) + 16px);
+    /* padding-top: calc(var(--topbar-h, 64px) + 16px); */
   }
   #btn-burger {
     display: grid;
@@ -620,7 +620,7 @@ dialog.ol-modal .btn {
     display: none;
   }
   #main {
-    padding: 16px;
+    /* padding: 16px; */
   }
   /* .grid {
     grid-template-columns: 1fr 1fr;
