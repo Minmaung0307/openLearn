@@ -2,25 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width,initial-scale=1, viewport-fit=cover, maximum-scale=1"
-    />
+    <meta name="viewport" content="width=device-width,initial-scale=1, viewport-fit=cover, maximum-scale=1" />
     <title>OpenLearn · Modern Lite</title>
 
+    <!-- Icons/Manifest (optional) -->
     <link rel="icon" href="./icons/icon-192.png" />
     <link rel="manifest" href="./manifest.json" />
+
+    <!-- Theme / UI -->
     <link rel="stylesheet" href="./styles.css" />
 
-    <!-- Config + Firebase -->
+    <!-- Load config BEFORE firebase.js (important) -->
     <script src="./config.js"></script>
     <script type="module" src="./firebase.js"></script>
 
-    <!-- Optional PayPal autoload -->
+    <!-- service worker (keeps scope inside /public) -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("./sw.js", { scope: "./" })
+          .catch(console.warn);
+      }
+    </script>
+
+    <!-- Optional global config holder -->
+    <script>
+      window.OPENLEARN_CFG = window.OPENLEARN_CFG || {};
+    </script>
+
+    <!-- PayPal: load only if OPENLEARN_CFG.paypalClientId is set (avoid double load) -->
     <script>
       (function injectPayPal() {
         const id = (window.OPENLEARN_CFG?.paypalClientId || "").trim();
-        if (!id) return;
+        if (!id) return; // no client id -> skip (simulator in app.js will handle)
         const s = document.createElement("script");
         s.src =
           "https://www.paypal.com/sdk/js?client-id=" +
@@ -31,13 +45,15 @@
       })();
     </script>
   </head>
-  <body class="with-topbar">
-    <!-- TOPBAR -->
-    <header id="topbar">
+  <body>
+    <!-- ========== TOPBAR (inline, one row) ========== -->
+    <header class="topbar" id="topbar">
       <div class="topbar-row">
+        <!-- Left: logo + burger -->
         <button id="btn-burger" aria-label="Menu">☰</button>
         <div id="logo" class="logo">OpenLearn</div>
 
+        <!-- Middle: search (desktop full / mobile icon toggle) -->
         <div id="topSearchWrap" class="search-wrap">
           <button id="topSearchToggle" aria-label="Search" class="search-ico">
             🔍
@@ -50,6 +66,7 @@
           />
         </div>
 
+        <!-- Right: announce + final + auth -->
         <div class="top-right">
           <button id="btn-top-ann" class="icon-pill pill-ann">
             🔔 <span class="txt">Announcements</span>
@@ -65,7 +82,7 @@
       </div>
     </header>
 
-    <!-- SIDEBAR -->
+    <!-- ========== SIDEBAR (icon-only; labels on hover/drawer) ========== -->
     <aside id="sidebar">
       <nav>
         <button
@@ -143,11 +160,11 @@
       </nav>
     </aside>
 
-    <!-- MAIN -->
+    <!-- ========== MAIN ========== -->
     <main id="main" class="with-topbar">
-      <!-- Catalog -->
+      <!-- Courses -->
       <section id="page-catalog" class="page visible">
-        <div class="row filters-wrap" style="margin-bottom: 10px">
+        <div class="row filters-wrap" style="margin-bottom: 10px; gap: 8px">
           <select
             id="filterCategory"
             class="input"
@@ -177,10 +194,11 @@
         <div id="courseGrid" class="grid"></div>
       </section>
 
-      <!-- My Learning + Reader -->
+      <!-- My Learning -->
       <section id="page-mylearning" class="page">
         <div id="myCourses" class="grid"></div>
 
+        <!-- Reader (fullscreen inside the page) -->
         <div id="reader" class="card hidden" style="margin-top: 12px">
           <div id="rdBar" class="row">
             <button class="btn" id="rdBack">← Back</button>
@@ -191,7 +209,9 @@
             <button class="btn small" id="rdBookmark">🔖</button>
             <button class="btn small" id="rdNote">📝</button>
           </div>
-          <div class="progress"><div id="rdProgress" class="bar"></div></div>
+          <div class="progress" id="rdProgressWrap">
+            <div id="rdProgress" class="bar"></div>
+          </div>
           <h3 id="rdTitle" class="h4" style="margin-top: 10px"></h3>
           <div
             id="rdMeta"
@@ -200,33 +220,35 @@
           ></div>
           <div id="rdPage"></div>
 
-          <!-- Per-course chat -->
-          <section id="courseChat" class="card" style="margin-top: 12px">
-            <div class="row" style="justify-content: space-between">
-              <strong>Course Chat</strong>
-              <label class="small muted" id="chatRoomLabel">room: —</label>
-            </div>
-            <div
-              id="ccList"
-              style="
-                max-height: 260px;
-                overflow: auto;
-                margin: 8px 0;
-                padding-right: 4px;
-              "
-              aria-live="polite"
-            ></div>
-            <div class="row" style="gap: 8px">
-              <input
-                id="ccInput"
-                class="input grow"
-                placeholder="Write a message…"
-              />
-              <button id="ccSend" class="btn primary" type="button">
-                Send
-              </button>
-            </div>
-          </section>
+          <!-- Per-Course Chat (reader) -->
+<section id="courseChat" class="card" style="margin-top:12px">
+  <div class="row" style="justify-content:space-between">
+    <strong>Course Chat</strong>
+    <label class="small muted" id="chatRoomLabel">room: —</label>
+  </div>
+
+  <div id="ccList"
+       class="chat-box"
+       style="max-height:260px;overflow:auto;margin:8px 0;padding-right:4px"
+       aria-live="polite"
+       aria-label="Course chat messages">
+  </div>
+
+  <div class="row" style="gap:8px">
+    <input id="ccInput"
+           class="input grow"
+           placeholder="Write a message…"
+           style="flex:1"
+           inputmode="text"
+           maxlength="500"
+           autocomplete="off"
+           spellcheck="false"
+           aria-label="Type a course chat message">
+    <button id="ccSend" class="btn primary" type="button">Send</button>
+  </div>
+
+  <div class="small muted" id="chatHint" style="margin-top:6px"></div>
+</section>
         </div>
       </section>
 
@@ -261,7 +283,7 @@
         </div>
       </section>
 
-      <!-- Finals -->
+      <!-- Final Exam (entry page) -->
       <section id="page-finals" class="page">
         <div class="card">
           <div
@@ -300,10 +322,9 @@
             <tbody></tbody>
           </table>
         </div>
+        <!-- Controls row (single source of truth for import/export) -->
         <div class="row" style="gap: 8px; justify-content: flex-end">
-          <button class="btn" id="btn-export" data-requires-auth>
-            Export My Courses
-          </button>
+          <button class="btn" id="btn-export" data-requires-auth>Export My Courses</button>
           <button class="btn" id="btn-import" data-requires-auth>Import</button>
           <input
             id="importFile"
@@ -337,8 +358,8 @@
                 <option value="amber">Amber</option>
                 <option value="slate" selected>Slate</option>
                 <option value="light">Light</option>
-                <option value="gray">Gray</option>
-                <option value="offwhite">Offwhite</option>
+                <option value="light">Gray</option>
+                <option value="light">Offwhite</option>
                 <option value="forest">Forest</option>
                 <option value="sunset">Sunset</option>
                 <option value="lavender">Lavender</option>
@@ -360,30 +381,43 @@
         </div>
       </section>
 
-      <!-- Live Chat -->
-      <section id="page-livechat" class="page">
-        <div class="card narrow">
-          <div class="row"><h3 class="h4">Live Chat</h3></div>
-          <div
-            id="chatBox"
-            aria-live="polite"
-            style="max-height: 260px; overflow: auto"
-          ></div>
-          <div class="row" style="margin-top: 8px">
-            <input
-              id="chatInput"
-              class="input grow"
-              placeholder="Type a message…"
-            />
-            <button class="btn" id="chatSend" type="button">Send</button>
-          </div>
-        </div>
-      </section>
+      <!-- Global Live Chat (dashboard) -->
+<section id="page-livechat" class="page">
+  <div class="card narrow">
+    <div class="row">
+      <h3 class="h4">Live Chat</h3>
+    </div>
+
+    <div id="chatBox"
+         class="chat-box"
+         style="max-height:260px;overflow:auto"
+         aria-live="polite"
+         aria-label="Live chat messages">
+    </div>
+
+    <div class="row" style="margin-top:8px">
+      <input id="chatInput"
+             class="input grow"
+             placeholder="Type a message…"
+             style="flex:1"
+             inputmode="text"
+             maxlength="500"
+             autocomplete="off"
+             spellcheck="false"
+             aria-label="Type a chat message">
+      <button class="btn" id="chatSend" type="button">Send</button>
+    </div>
+  </div>
+</section>
     </main>
 
-    <!-- MODALS -->
+    <!-- ========== MODALS ========== -->
+
+    <!-- Login (login-only default; signup/forgot via links) -->
     <dialog id="authModal" class="ol-modal card auth-modern">
       <div class="auth-brand">🎓 OpenLearn</div>
+
+      <!-- Login -->
       <form id="authLogin" class="authpane" method="dialog">
         <label
           >Email <input id="loginEmail" class="input" type="email" required
@@ -396,10 +430,12 @@
           Login
         </button>
         <div class="auth-links">
-          <a href="#" id="linkSignup">Sign up</a
-          ><a href="#" id="linkForgot">Forgot password?</a>
+          <a href="#" id="linkSignup">Sign up</a>
+          <a href="#" id="linkForgot">Forgot password?</a>
         </div>
       </form>
+
+      <!-- Signup (hidden) -->
       <form id="authSignup" class="authpane ol-hidden" method="dialog">
         <label
           >Email <input id="signupEmail" class="input" type="email" required
@@ -415,6 +451,8 @@
           <a href="#" id="backToLogin1">Back to login</a>
         </div>
       </form>
+
+      <!-- Forgot (hidden) -->
       <form id="authForgot" class="authpane ol-hidden" method="dialog">
         <label
           >Email <input id="forgotEmail" class="input" type="email" required
@@ -428,6 +466,7 @@
       </form>
     </dialog>
 
+    <!-- Course Details -->
     <dialog id="detailsModal" class="ol-modal card">
       <div
         class="row"
@@ -443,6 +482,7 @@
       <div id="detailsBody"></div>
     </dialog>
 
+    <!-- Payment -->
     <dialog id="payModal" class="ol-modal card">
       <div
         class="row"
@@ -486,6 +526,7 @@
       </div>
     </dialog>
 
+    <!-- New Course -->
     <dialog id="courseModal" class="ol-modal card">
       <div
         class="row"
@@ -496,6 +537,7 @@
         "
       >
         <b class="modal-title">New Course</b>
+        <!-- (Import/Export controls were duplicated here previously — removed to avoid duplicate IDs) -->
         <button class="btn small" id="courseClose" type="button">Close</button>
       </div>
       <form id="courseForm" class="authpane">
@@ -562,6 +604,7 @@
       </form>
     </dialog>
 
+    <!-- Announcement -->
     <dialog id="postModal" class="ol-modal card">
       <div
         class="row"
@@ -589,6 +632,7 @@
       </form>
     </dialog>
 
+    <!-- Profile Edit -->
     <dialog id="profileEditModal" class="ol-modal card">
       <div
         class="row"
@@ -614,16 +658,16 @@
         </label>
         <label style="grid-column: 1/-1"
           >Skills (comma-separated)
-          <input name="skills" class="input" placeholder="JS, React, UI/UX"
-        /></label>
+          <input name="skills" class="input" placeholder="JS, React, UI/UX" />
+        </label>
         <label style="grid-column: 1/-1"
-          >Portfolio Links
-          <input name="links" class="input" placeholder="https://..."
-        /></label>
+          >Portfolio Links (github, linkedin, …)
+          <input name="links" class="input" placeholder="https://..." />
+        </label>
         <label style="grid-column: 1/-1"
-          >Social Links
-          <input name="social" class="input" placeholder="https://..."
-        /></label>
+          >Social Links (YouTube, FB, IG, TikTok, X)
+          <input name="social" class="input" placeholder="https://..." />
+        </label>
         <div
           class="row"
           style="grid-column: 1/-1; justify-content: flex-end; gap: 8px"
@@ -634,6 +678,7 @@
       </form>
     </dialog>
 
+    <!-- Final Exam modal -->
     <dialog id="finalModal" class="ol-modal card">
       <div
         class="row"
@@ -649,44 +694,29 @@
       <form id="finalForm" class="stack"></form>
     </dialog>
 
+    <!-- Admin view modal -->
     <dialog id="adminViewModal" class="ol-modal">
-      <div class="card">
-        <div
-          class="row"
-          style="justify-content: space-between; align-items: center"
-        >
-          <strong id="avmTitle">Course</strong>
-          <button class="btn" id="avmClose">Close</button>
-        </div>
-        <div id="avmBody" class="muted" style="margin: 0.5rem 0 1rem"></div>
-        <div class="row" style="gap: 8px; justify-content: flex-end">
-          <button class="btn" id="avmEdit">Edit</button>
-          <button class="btn" id="avmDelete">Delete</button>
-        </div>
-      </div>
-    </dialog>
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <strong id="avmTitle">Course</strong>
+      <button class="btn" id="avmClose">Close</button>
+    </div>
+    <div id="avmBody" class="muted" style="margin:.5rem 0 1rem"></div>
+    <div class="row" style="gap:8px;justify-content:flex-end">
+      <button class="btn" id="avmEdit">Edit</button>
+      <button class="btn" id="avmDelete">Delete</button>
+    </div>
+  </div>
+</dialog>
 
     <!-- Toast -->
     <div id="toast"></div>
 
     <!-- App -->
     <script>
+      // On Firebase Hosting, /public is deployed as site root → data lives at /data
       window.OPENLEARN_DATA_BASE = "/data";
     </script>
     <script type="module" src="./app.js"></script>
-
-    <!-- tiny UX: mobile search toggle (no duplicate listeners) -->
-    <script>
-      (function () {
-        const btn = document.getElementById("topSearchToggle");
-        if (!btn) return;
-        btn.addEventListener("click", () => {
-          document.body.classList.toggle("search-open");
-          const box = document.getElementById("topSearch");
-          if (box && document.body.classList.contains("search-open"))
-            box.focus();
-        });
-      })();
-    </script>
   </body>
 </html>
