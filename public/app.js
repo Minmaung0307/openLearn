@@ -960,12 +960,12 @@ function renderProfilePanel() {
   const p = getProfile();
   const name = p.displayName || getUser()?.email || "Guest";
   const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
-  const skills = (p.skills || "").toString();
 
-  const completed = Array.from(getCompleted());
-  const items = (ALL.length ? ALL : getCourses()).filter((c) =>
-    completed.includes(c.id)
-  );
+  const completed = getCompletedRaw();
+  const dic = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
+  const items = completed
+    .map((x) => ({ meta: x, course: dic.get(x.id) }))
+    .filter((x) => x.course);
 
   box.innerHTML = `
     <div class="row" style="gap:12px;align-items:flex-start">
@@ -979,7 +979,11 @@ function renderProfilePanel() {
             ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
             : ""
         }
-        ${skills ? `<div class="small muted">Skills: ${esc(skills)}</div>` : ""}
+        ${
+          p.skills
+            ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
+            : ""
+        }
         ${
           p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""
         }
@@ -988,18 +992,30 @@ function renderProfilePanel() {
             ? `<div class="small muted">Social: ${esc(p.social)}</div>`
             : ""
         }
+
         <div style="margin-top:10px">
           <b class="small">Transcript</b>
           ${
             items.length
-              ? `<ul class="small" style="margin:.25rem 0 0 .9rem">${items
-                  .map(
-                    (c) =>
-                      `<li>${esc(
-                        c.title
-                      )} — ${new Date().toLocaleDateString()}</li>`
-                  )
-                  .join("")}</ul>`
+              ? `<table class="ol-table small" style="margin-top:.35rem">
+                  <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
+                  <tbody>
+                    ${items
+                      .map(
+                        ({ course, meta }) => `
+                      <tr>
+                        <td>${esc(course.title)}</td>
+                        <td>${new Date(meta.ts).toLocaleDateString()}</td>
+                        <td>${
+                          meta.score != null
+                            ? Math.round(meta.score * 100) + "%"
+                            : "—"
+                        }</td>
+                      </tr>`
+                      )
+                      .join("")}
+                  </tbody>
+                 </table>`
               : `<div class="small muted">No completed courses yet.</div>`
           }
         </div>
@@ -1094,15 +1110,118 @@ const SAMPLE_PAGES = (title) => [
     type: "exercise",
     html: `<h3>Practice</h3><ol><li>Upload a file</li><li>Short answer</li></ol><input class="input" placeholder="Your answer">`,
   },
+  // Quiz page with metadata
   {
     type: "quiz",
-    html: `<h3>Quiz 1</h3><p>Q1) Short answer</p><input id="q1" class="input" placeholder="Your answer"><div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>`,
+    quiz: {
+      questions: [
+        { q: "2 + 2 = ?", choices: ["3", "4", "5"], answer: 1 },
+        {
+          q: "JS array method to add at end?",
+          choices: ["push", "shift", "map"],
+          answer: 0,
+        },
+        {
+          q: "typeof null = ?",
+          choices: ["'object'", "'null'", "'undefined'"],
+          answer: 0,
+        },
+        { q: "CSS for color?", choices: ["color", "fill", "paint"], answer: 0 },
+      ],
+    },
   },
+  // {
+  //   type: "quiz",
+  //   html: `<h3>Quiz 1</h3><p>Q1) Short answer</p><input id="q1" class="input" placeholder="Your answer"><div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>`,
+  // },
   {
     type: "project",
     html: `<h3>Mini Project</h3><input type="file"><p class="small muted">Upload your work (demo).</p>`,
   },
 ];
+
+function renderPage() {
+  const p = RD.pages[RD.i];
+  if (!p) return;
+  $("#rdTitle").textContent = `${RD.i + 1}. ${String(
+    p.type || "PAGE"
+  ).toUpperCase()}`;
+  $("#rdPageInfo").textContent = `${RD.i + 1} / ${RD.pages.length}`;
+  $("#rdProgress").style.width =
+    Math.round(((RD.i + 1) / RD.pages.length) * 100) + "%";
+
+  if (p.type === "quiz" && p.quiz) {
+    renderQuiz(p);
+  } else {
+    $("#rdPage").innerHTML = p.html || "";
+  }
+
+  // Last page → complete
+  if (RD.i === RD.pages.length - 1) {
+    // mark complete with last quiz score if any
+    markCourseComplete(RD.cid, LAST_QUIZ_SCORE || null);
+    setTimeout(() => showCongrats(), 80);
+  }
+
+  const btn = $("#qSubmit"),
+    msg = $("#qMsg");
+  if (btn) btn.onclick = () => (msg ? (msg.textContent = "Submitted ✔️") : 0);
+}
+
+let LAST_QUIZ_SCORE = 0;
+
+function renderQuiz(p) {
+  const q = p.quiz?.questions || [];
+  const wrap = document.createElement("div");
+  wrap.innerHTML = `<h3>Quiz</h3>
+    <ol style="line-height:1.7">
+      ${q
+        .map(
+          (it, i) => `
+        <li style="margin:8px 0">
+          <div>${esc(it.q)}</div>
+          ${it.choices
+            .map(
+              (c, j) => `
+            <label style="display:block;margin-left:.5rem">
+              <input type="radio" name="q${i}" value="${j}"> ${esc(c)}
+            </label>`
+            )
+            .join("")}
+        </li>`
+        )
+        .join("")}
+    </ol>
+    <div class="row" style="gap:8px;margin-top:8px">
+      <button class="btn" id="qCheck">Check</button>
+      <span class="small muted" id="qMsg"></span>
+    </div>`;
+  $("#rdPage").innerHTML = "";
+  $("#rdPage").appendChild(wrap);
+
+  $("#qCheck").onclick = () => {
+    const answers = q.map((_, i) => {
+      const picked = document.querySelector(`input[name="q${i}"]:checked`);
+      return picked ? Number(picked.value) : -1;
+    });
+    let correct = 0;
+    answers.forEach((a, i) => {
+      if (a === q[i].answer) correct++;
+    });
+    const score = correct / (q.length || 1);
+    LAST_QUIZ_SCORE = score;
+    const msg = $("#qMsg");
+    if (msg)
+      msg.textContent = `Score: ${Math.round(score * 100)}% (${correct}/${
+        q.length
+      })`;
+
+    if (score >= 0.85) launchFireworks();
+    if (score >= 0.75) toast("Great! You unlocked the next lesson 🎉");
+    else toast("At least 75% required — try again");
+  };
+}
+
 let RD = { cid: null, pages: [], i: 0, credits: 0 };
 
 function renderMyLearning() {
@@ -1160,22 +1279,37 @@ function renderMyLearning() {
 function showCertificate(course) {
   const name = getProfile().displayName || getUser()?.email || "Student";
   const today = new Date().toLocaleDateString();
+  const completed = getCompletedRaw().find(x => x.id === course.id);
+  const scoreTxt = completed?.score != null ? `${Math.round(completed.score*100)}%` : "—";
+
   $("#certBody").innerHTML = `
-    <div style="text-align:center; padding:18px">
-      <div style="font-size:20px; font-weight:700; margin-bottom:6px">Certificate of Completion</div>
-      <div class="muted" style="margin-bottom:6px">This certifies that</div>
-      <div style="font-size:24px; font-weight:800; margin-bottom:6px">${esc(
-        name
-      )}</div>
-      <div class="muted" style="margin-bottom:6px">has successfully completed</div>
-      <div style="font-size:18px; font-weight:700; margin-bottom:6px">${esc(
-        course.title
-      )}</div>
-      <div class="small muted">Credits: ${
-        course.credits || 3
-      } • Date: ${today}</div>
-    </div>`;
+    <div class="cert-doc">
+      <div class="cert-head">OpenLearn Institute</div>
+      <div class="cert-sub">Certificate of Completion</div>
+      <div class="cert-name">${esc(name)}</div>
+      <div class="cert-sub">has successfully completed</div>
+      <div class="cert-course">${esc(course.title)}</div>
+      <div class="cert-meta">Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}</div>
+      <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
+        <div class="cert-seal" title="Official Seal"></div>
+        <img class="qr" alt="Verify" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=OPENLEARN-${encodeURIComponent(course.id)}">
+      </div>
+      <div class="cert-signs">
+        <div class="sig"><div style="height:24px"></div><div>______________________</div><div>Registrar</div></div>
+        <div class="sig"><div style="height:24px"></div><div>______________________</div><div>Dean of Studies</div></div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:flex-end; gap:8px; margin-top:10px">
+      <button class="btn" id="certTranscript" type="button">Open Transcript</button>
+    </div>
+  `;
   $("#certModal")?.showModal();
+
+  $("#certTranscript")?.addEventListener("click", () => {
+    // simply switch to Profile page where transcript is shown
+    showPage("profile");
+    $("#certModal")?.close();
+  });
 }
 $("#certClose")?.addEventListener("click", () => $("#certModal")?.close());
 $("#certPrint")?.addEventListener("click", () => window.print());
@@ -1212,6 +1346,26 @@ $("#certPrint")?.addEventListener("click", () => window.print());
 //     (b) => (b.onclick = () => openReader(b.getAttribute("data-read")))
 //   );
 // }
+
+// ---- Completed courses (keep ts/score) ----
+const getCompletedRaw = () => _read("ol_completed_v2", []); // [{id, ts, score}]
+const setCompletedRaw = (arr) => _write("ol_completed_v2", arr || []);
+const hasCompleted = (id) => getCompletedRaw().some((x) => x.id === id);
+
+function markCourseComplete(id, score = null) {
+  const arr = getCompletedRaw();
+  if (!arr.some((x) => x.id === id)) {
+    arr.push({
+      id,
+      ts: Date.now(),
+      score: typeof score === "number" ? score : null,
+    });
+    setCompletedRaw(arr);
+  }
+  // 🔁 Refresh transcript immediately
+  renderProfilePanel?.();
+  renderMyLearning?.();
+}
 
 async function openReader(cid) {
   const c =
@@ -1250,6 +1404,21 @@ async function openReader(cid) {
       RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
       renderPage();
     };
+
+  // inside openReader(...) after btnNext is set
+  btnNext.onclick = () => {
+    const p = RD.pages[RD.i];
+    // If current is a quiz, need 75%+ to proceed
+    if (p?.type === "quiz" && p.quiz) {
+      if (LAST_QUIZ_SCORE < 0.75) {
+        toast("Need ≥ 75% to continue");
+        return;
+      }
+    }
+    RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+    renderPage();
+  };
+
   if (btnBm) btnBm.onclick = () => toast("Bookmarked (demo)");
   if (btnNote)
     btnNote.onclick = () => {
@@ -1301,6 +1470,42 @@ function renderPage() {
   if (RD.i === RD.pages.length - 1) {
     markCourseComplete(RD.cid);
   }
+}
+
+function launchFireworks() {
+  // super-lightweight confetti via CSS
+  const burst = document.createElement("div");
+  burst.style.position = "fixed";
+  burst.style.left = 0;
+  burst.style.top = 0;
+  burst.style.right = 0;
+  burst.style.bottom = 0;
+  burst.style.pointerEvents = "none";
+  burst.style.zIndex = 2000;
+  burst.innerHTML = `<div class="confetti"></div>`;
+  document.body.appendChild(burst);
+  setTimeout(() => burst.remove(), 1200);
+}
+function showCongrats() {
+  const dlg = document.createElement("dialog");
+  dlg.className = "ol-modal card";
+  dlg.innerHTML = `
+    <div style="text-align:center;padding:10px">
+      <div style="font-size:22px;font-weight:800">🎓 Congratulations!</div>
+      <p class="muted">You’ve completed this course. Great work!</p>
+      <div class="row" style="justify-content:center;gap:8px;margin-top:8px">
+        <button class="btn" id="cgClose">Close</button>
+        <button class="btn primary" id="cgCert">View Certificate</button>
+      </div>
+    </div>`;
+  document.body.appendChild(dlg);
+  dlg.showModal();
+  $("#cgClose").onclick = () => dlg.close();
+  $("#cgCert").onclick = () => {
+    dlg.close();
+    const c = ALL.find(x => x.id === RD.cid) || getCourses().find(x => x.id === RD.cid);
+    if (c) showCertificate(c);
+  };
 }
 
 /* =========================================================
