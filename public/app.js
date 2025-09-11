@@ -405,20 +405,24 @@ function renderCatalog() {
           <div class="row" style="justify-content:flex-end; gap:8px">
             <button class="btn" data-details="${c.id}">Details</button>
             <button class="btn primary" data-enroll="${c.id}">${
-              enrolled ? "Enrolled" : "Enroll"
-            }</button>
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
           </div>
         </div>
       </div>`;
     })
     .join("");
 
-  grid.querySelectorAll("[data-enroll]").forEach(
-    (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
-  );
-  grid.querySelectorAll("[data-details]").forEach(
-    (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
-  );
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
 }
 
 // default filter dropdown before data arrives
@@ -436,10 +440,16 @@ document.addEventListener("DOMContentLoaded", () => {
 function initSidebar() {
   const sb = $("#sidebar"),
     burger = $("#btn-burger");
-  const isMobile = () => matchMedia("(max-width:1024px)").matches;
+
+  // ✅ Tablet/iPad ကိုပါ ချဲ့သတ်ရုံနဲ့ mobile-like အလုပ်လုပ်စေမယ်
+  const mqNarrow = matchMedia("(max-width:1024px)");
+  const mqNoHover = matchMedia("(hover: none)");
+  const mqCoarse = matchMedia("(pointer: coarse)");
+  const isTouchLike = () =>
+    mqNarrow.matches || mqNoHover.matches || mqCoarse.matches;
 
   const setBurger = () => {
-    if (burger) burger.style.display = isMobile() ? "" : "none";
+    if (burger) burger.style.display = isTouchLike() ? "" : "none";
   };
   setBurger();
   addEventListener("resize", setBurger);
@@ -447,30 +457,40 @@ function initSidebar() {
   const setExpandedFlag = (on) =>
     document.body.classList.toggle("sidebar-expanded", !!on);
 
-  sb?.addEventListener("mouseenter", () => {
-    if (!isMobile()) setExpandedFlag(true);
-  });
-  sb?.addEventListener("mouseleave", () => {
-    if (!isMobile()) setExpandedFlag(false);
+  // ✅ hover မရှိတဲ့ deviceတွေ (iPad) အတွက် — sidebar ကို tap (blank area) လုပ်ရင် expand/collapse
+  sb?.addEventListener("click", (e) => {
+    const navBtn = e.target.closest(".navbtn");
+    if (navBtn) return; // nav click ကို အောက်မှာ handle ပြန်လုပ်မယ်
+    if (isTouchLike()) {
+      const on = !document.body.classList.contains("sidebar-expanded");
+      setExpandedFlag(on);
+    }
   });
 
+  // ✅ burger drawer (<=1024px or touch-like) toggle
   burger?.addEventListener("click", (e) => {
     e.stopPropagation();
     sb?.classList.toggle("show");
     setExpandedFlag(sb?.classList.contains("show"));
   });
+
+  // ✅ Navigation
   sb?.addEventListener("click", (e) => {
     const b = e.target.closest(".navbtn");
     if (!b) return;
     showPage(b.dataset.page);
-    if (isMobile()) {
+
+    // touch-like device တွေမှာ page ပြောင်းရင် drawer ပိတ်ပေးမယ်
+    if (isTouchLike()) {
       sb.classList.remove("show");
       setExpandedFlag(false);
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
+
+  // ✅ drawer နဲ့အပြင်ကနေ တစ်ချက်တည်းပိတ်ပေးမယ် (touch-like)
   document.addEventListener("click", (e) => {
-    if (!isMobile()) return;
+    if (!isTouchLike()) return;
     if (!sb?.classList.contains("show")) return;
     if (!e.target.closest("#sidebar") && e.target !== burger) {
       sb.classList.remove("show");
@@ -478,6 +498,51 @@ function initSidebar() {
     }
   });
 }
+// function initSidebar() {
+//   const sb = $("#sidebar"),
+//     burger = $("#btn-burger");
+//   const isMobile = () => matchMedia("(max-width:1024px)").matches;
+
+//   const setBurger = () => {
+//     if (burger) burger.style.display = isMobile() ? "" : "none";
+//   };
+//   setBurger();
+//   addEventListener("resize", setBurger);
+
+//   const setExpandedFlag = (on) =>
+//     document.body.classList.toggle("sidebar-expanded", !!on);
+
+//   sb?.addEventListener("mouseenter", () => {
+//     if (!isMobile()) setExpandedFlag(true);
+//   });
+//   sb?.addEventListener("mouseleave", () => {
+//     if (!isMobile()) setExpandedFlag(false);
+//   });
+
+//   burger?.addEventListener("click", (e) => {
+//     e.stopPropagation();
+//     sb?.classList.toggle("show");
+//     setExpandedFlag(sb?.classList.contains("show"));
+//   });
+//   sb?.addEventListener("click", (e) => {
+//     const b = e.target.closest(".navbtn");
+//     if (!b) return;
+//     showPage(b.dataset.page);
+//     if (isMobile()) {
+//       sb.classList.remove("show");
+//       setExpandedFlag(false);
+//     }
+//     window.scrollTo({ top: 0, behavior: "smooth" });
+//   });
+//   document.addEventListener("click", (e) => {
+//     if (!isMobile()) return;
+//     if (!sb?.classList.contains("show")) return;
+//     if (!e.target.closest("#sidebar") && e.target !== burger) {
+//       sb.classList.remove("show");
+//       setExpandedFlag(false);
+//     }
+//   });
+// }
 
 /* keep --topbar-offset accurate */
 function setTopbarOffset() {
@@ -505,7 +570,9 @@ function showPage(id) {
   $("#page-" + id)?.classList.add("visible");
 
   // optional: highlight active nav
-  $$("#sidebar .navbtn").forEach(b => b.classList.toggle("active", b.dataset.page === id));
+  $$("#sidebar .navbtn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.page === id)
+  );
 
   if (id === "mylearning") renderMyLearning();
   if (id === "gradebook") renderGradebook();
@@ -793,16 +860,16 @@ async function openDetails(id) {
         <div class="row" style="justify-content:flex-end; gap:8px; margin-top:.6rem">
           <button class="btn" data-details-close>Close</button>
           <button class="btn primary" data-details-enroll="${merged.id}">${
-            (merged.price || 0) > 0 ? "Buy • $" + merged.price : "Enroll Free"
-          }</button>
+    (merged.price || 0) > 0 ? "Buy • $" + merged.price : "Enroll Free"
+  }</button>
         </div>
       </div>
     </div>`;
   const dlg = $("#detailsModal");
   dlg?.showModal();
-  body.querySelector("[data-details-close]")?.addEventListener("click", () =>
-    dlg?.close()
-  );
+  body
+    .querySelector("[data-details-close]")
+    ?.addEventListener("click", () => dlg?.close());
   body
     .querySelector("[data-details-enroll]")
     ?.addEventListener("click", (e) => {
@@ -829,7 +896,8 @@ $("#btn-new-course")?.addEventListener("click", () => {
   courseForm.credits.value = 3;
   courseForm.img.value = "";
   courseForm.description.value = "";
-  courseForm.benefits.value = "Hands-on projects\nDownloadable resources\nCertificate";
+  courseForm.benefits.value =
+    "Hands-on projects\nDownloadable resources\nCertificate";
   courseModal?.showModal();
 });
 
@@ -838,11 +906,13 @@ $("#courseCancel")?.addEventListener("click", () => courseModal?.close());
 
 // helper: make id from title
 function slugify(s) {
-  return String(s || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60) || ("c_" + Math.random().toString(36).slice(2, 9));
+  return (
+    String(s || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "c_" + Math.random().toString(36).slice(2, 9)
+  );
 }
 
 courseForm?.addEventListener("submit", (e) => {
@@ -863,14 +933,17 @@ courseForm?.addEventListener("submit", (e) => {
     image: (f.img.value || "").trim(),
     summary: (f.description.value || "").trim(),
     benefits: (f.benefits.value || "")
-      .split(/\n+/).map(s => s.trim()).filter(Boolean),
+      .split(/\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean),
     source: "user",
   };
 
   // upsert into local storage
   const arr = getCourses();
-  const i = arr.findIndex(c => c.id === course.id);
-  if (i >= 0) arr[i] = course; else arr.push(course);
+  const i = arr.findIndex((c) => c.id === course.id);
+  if (i >= 0) arr[i] = course;
+  else arr.push(course);
   setCourses(arr);
   ALL = arr;
 
@@ -889,9 +962,16 @@ function renderProfilePanel() {
   const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
   const skills = (p.skills || "").toString();
 
+  const completed = Array.from(getCompleted());
+  const items = (ALL.length ? ALL : getCourses()).filter((c) =>
+    completed.includes(c.id)
+  );
+
   box.innerHTML = `
     <div class="row" style="gap:12px;align-items:flex-start">
-      <img src="${esc(avatar)}" alt="" style="width:72px;height:72px;border-radius:50%">
+      <img src="${esc(
+        avatar
+      )}" alt="" style="width:72px;height:72px;border-radius:50%">
       <div class="grow">
         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
         ${
@@ -900,15 +980,60 @@ function renderProfilePanel() {
             : ""
         }
         ${skills ? `<div class="small muted">Skills: ${esc(skills)}</div>` : ""}
-        ${p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""}
+        ${
+          p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""
+        }
         ${
           p.social
             ? `<div class="small muted">Social: ${esc(p.social)}</div>`
             : ""
         }
+        <div style="margin-top:10px">
+          <b class="small">Transcript</b>
+          ${
+            items.length
+              ? `<ul class="small" style="margin:.25rem 0 0 .9rem">${items
+                  .map(
+                    (c) =>
+                      `<li>${esc(
+                        c.title
+                      )} — ${new Date().toLocaleDateString()}</li>`
+                  )
+                  .join("")}</ul>`
+              : `<div class="small muted">No completed courses yet.</div>`
+          }
+        </div>
       </div>
     </div>`;
 }
+// function renderProfilePanel() {
+//   const box = $("#profilePanel");
+//   if (!box) return;
+//   const p = getProfile();
+//   const name = p.displayName || getUser()?.email || "Guest";
+//   const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
+//   const skills = (p.skills || "").toString();
+
+//   box.innerHTML = `
+//     <div class="row" style="gap:12px;align-items:flex-start">
+//       <img src="${esc(avatar)}" alt="" style="width:72px;height:72px;border-radius:50%">
+//       <div class="grow">
+//         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
+//         ${
+//           p.bio
+//             ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
+//             : ""
+//         }
+//         ${skills ? `<div class="small muted">Skills: ${esc(skills)}</div>` : ""}
+//         ${p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""}
+//         ${
+//           p.social
+//             ? `<div class="small muted">Social: ${esc(p.social)}</div>`
+//             : ""
+//         }
+//       </div>
+//     </div>`;
+// }
 
 // --- Profile Edit modal wiring ---
 $("#btn-edit-profile")?.addEventListener("click", () => {
@@ -919,29 +1044,33 @@ $("#btn-edit-profile")?.addEventListener("click", () => {
   // prefill
   if (f) {
     f.displayName.value = p.displayName || "";
-    f.photoURL.value   = p.photoURL   || "";
-    f.bio.value        = p.bio        || "";
-    f.skills.value     = p.skills     || "";
-    f.links.value      = p.links      || "";
-    f.social.value     = p.social     || "";
+    f.photoURL.value = p.photoURL || "";
+    f.bio.value = p.bio || "";
+    f.skills.value = p.skills || "";
+    f.links.value = p.links || "";
+    f.social.value = p.social || "";
   }
   m?.showModal();
 });
 
 // close buttons
-$("#closeProfileModal")?.addEventListener("click", () => $("#profileEditModal")?.close());
-$("#cancelProfile")?.addEventListener("click", () => $("#profileEditModal")?.close());
+$("#closeProfileModal")?.addEventListener("click", () =>
+  $("#profileEditModal")?.close()
+);
+$("#cancelProfile")?.addEventListener("click", () =>
+  $("#profileEditModal")?.close()
+);
 
 $("#profileForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
   const f = e.currentTarget;
   const data = {
     displayName: f.displayName.value.trim(),
-    photoURL:    f.photoURL.value.trim(),
-    bio:         f.bio.value.trim(),
-    skills:      f.skills.value.trim(),
-    links:       f.links.value.trim(),
-    social:      f.social.value.trim(),
+    photoURL: f.photoURL.value.trim(),
+    bio: f.bio.value.trim(),
+    skills: f.skills.value.trim(),
+    links: f.links.value.trim(),
+    social: f.social.value.trim(),
   };
   setProfile(data);
   renderProfilePanel();
@@ -980,35 +1109,110 @@ function renderMyLearning() {
   const grid = $("#myCourses");
   if (!grid) return;
   const set = getEnrolls();
+  const completed = getCompleted();
   const list = (ALL.length ? ALL : getCourses()).filter((c) => set.has(c.id));
+
   grid.innerHTML =
     list
       .map((c) => {
+        const isDone = completed.has(c.id);
         const r = Number(c.rating || 4.6);
         return `<div class="card course" data-id="${c.id}">
-      <img class="course-cover" src="${esc(
-        c.image || `https://picsum.photos/seed/${c.id}/640/360`
-      )}" alt="">
-      <div class="course-body">
-        <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category || "")} • ${esc(
+        <img class="course-cover" src="${esc(
+          c.image || `https://picsum.photos/seed/${c.id}/640/360`
+        )}" alt="">
+        <div class="course-body">
+          <strong>${esc(c.title)}</strong>
+          <div class="small muted">${esc(c.category || "")} • ${esc(
           c.level || ""
-        )} • ★ ${r.toFixed(1)} • ${
-          (c.price || 0) > 0 ? "$" + c.price : "Free"
-        }</div>
-        <div class="muted">${esc(c.summary || "")}</div>
-        <div class="row" style="justify-content:flex-end"><button class="btn" data-read="${
-          c.id
-        }">Continue</button></div>
-      </div>
-    </div>`;
+        )} • ★ ${r.toFixed(1)}</div>
+          <div class="muted">${esc(c.summary || "")}</div>
+          <div class="row" style="justify-content:flex-end; gap:8px">
+            <button class="btn" data-read="${c.id}">Continue</button>
+            <button class="btn" data-cert="${c.id}" ${
+          isDone ? "" : "disabled"
+        }>Certificate</button>
+          </div>
+        </div>
+      </div>`;
       })
       .join("") ||
     `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
-  grid.querySelectorAll("[data-read]").forEach(
-    (b) => (b.onclick = () => openReader(b.getAttribute("data-read")))
+
+  grid
+    .querySelectorAll("[data-read]")
+    .forEach(
+      (b) => (b.onclick = () => openReader(b.getAttribute("data-read")))
+    );
+  grid.querySelectorAll("[data-cert]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const id = b.getAttribute("data-cert");
+        if (!getCompleted().has(id))
+          return toast("Finish the course to unlock certificate");
+        const c =
+          ALL.find((x) => x.id === id) || getCourses().find((x) => x.id === id);
+        if (c) showCertificate(c);
+      })
   );
 }
+
+function showCertificate(course) {
+  const name = getProfile().displayName || getUser()?.email || "Student";
+  const today = new Date().toLocaleDateString();
+  $("#certBody").innerHTML = `
+    <div style="text-align:center; padding:18px">
+      <div style="font-size:20px; font-weight:700; margin-bottom:6px">Certificate of Completion</div>
+      <div class="muted" style="margin-bottom:6px">This certifies that</div>
+      <div style="font-size:24px; font-weight:800; margin-bottom:6px">${esc(
+        name
+      )}</div>
+      <div class="muted" style="margin-bottom:6px">has successfully completed</div>
+      <div style="font-size:18px; font-weight:700; margin-bottom:6px">${esc(
+        course.title
+      )}</div>
+      <div class="small muted">Credits: ${
+        course.credits || 3
+      } • Date: ${today}</div>
+    </div>`;
+  $("#certModal")?.showModal();
+}
+$("#certClose")?.addEventListener("click", () => $("#certModal")?.close());
+$("#certPrint")?.addEventListener("click", () => window.print());
+// function renderMyLearning() {
+//   const grid = $("#myCourses");
+//   if (!grid) return;
+//   const set = getEnrolls();
+//   const list = (ALL.length ? ALL : getCourses()).filter((c) => set.has(c.id));
+//   grid.innerHTML =
+//     list
+//       .map((c) => {
+//         const r = Number(c.rating || 4.6);
+//         return `<div class="card course" data-id="${c.id}">
+//       <img class="course-cover" src="${esc(
+//         c.image || `https://picsum.photos/seed/${c.id}/640/360`
+//       )}" alt="">
+//       <div class="course-body">
+//         <strong>${esc(c.title)}</strong>
+//         <div class="small muted">${esc(c.category || "")} • ${esc(
+//           c.level || ""
+//         )} • ★ ${r.toFixed(1)} • ${
+//           (c.price || 0) > 0 ? "$" + c.price : "Free"
+//         }</div>
+//         <div class="muted">${esc(c.summary || "")}</div>
+//         <div class="row" style="justify-content:flex-end"><button class="btn" data-read="${
+//           c.id
+//         }">Continue</button></div>
+//       </div>
+//     </div>`;
+//       })
+//       .join("") ||
+//     `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
+//   grid.querySelectorAll("[data-read]").forEach(
+//     (b) => (b.onclick = () => openReader(b.getAttribute("data-read")))
+//   );
+// }
+
 async function openReader(cid) {
   const c =
     ALL.find((x) => x.id === cid) || getCourses().find((x) => x.id === cid);
@@ -1064,6 +1268,16 @@ async function openReader(cid) {
   const off = wireCourseChatRealtime(c.id);
   if (typeof off === "function") window._ccOff = off;
 }
+
+// — store / read completed courses —
+const getCompleted = () => new Set(_read("ol_completed", []));
+const setCompleted = (set) => _write("ol_completed", Array.from(set));
+function markCourseComplete(id) {
+  const s = getCompleted();
+  s.add(id);
+  setCompleted(s);
+}
+
 function renderPage() {
   const p = RD.pages[RD.i];
   if (!p) return;
@@ -1077,9 +1291,16 @@ function renderPage() {
   $("#rdProgress") &&
     ($("#rdProgress").style.width =
       Math.round(((RD.i + 1) / RD.pages.length) * 100) + "%");
+
+  // demo quiz submit
   const btn = $("#qSubmit"),
     msg = $("#qMsg");
   if (btn) btn.onclick = () => (msg ? (msg.textContent = "Submitted ✔️") : 0);
+
+  // ✅ reached last page → mark completed
+  if (RD.i === RD.pages.length - 1) {
+    markCourseComplete(RD.cid);
+  }
 }
 
 /* =========================================================
@@ -1301,12 +1522,8 @@ $("#btn-new-post")?.addEventListener("click", () => {
   $("#postModal .modal-title").textContent = "New Announcement";
   $("#postModal")?.showModal();
 });
-$("#closePostModal")?.addEventListener("click", () =>
-  $("#postModal")?.close()
-);
-$("#cancelPost")?.addEventListener("click", () =>
-  $("#postModal")?.close()
-);
+$("#closePostModal")?.addEventListener("click", () => $("#postModal")?.close());
+$("#cancelPost")?.addEventListener("click", () => $("#postModal")?.close());
 $("#postForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
   const t = $("#pmTitle")?.value.trim();
@@ -1564,9 +1781,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   stripFinalsUI();
 
   // keep auth-required items clickable (defensive)
-document.querySelectorAll("[data-requires-auth]").forEach(el => {
-  el.style.pointerEvents = "auto";
-});
+  document.querySelectorAll("[data-requires-auth]").forEach((el) => {
+    el.style.pointerEvents = "auto";
+  });
 });
 
 /* ---------- Finals Removal Shim ---------- */

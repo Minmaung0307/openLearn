@@ -258,8 +258,8 @@ a:hover {
 #sidebar:hover .navbtn span,
 #sidebar.show .navbtn span,
 body.sidebar-expanded #sidebar .navbtn span {
-  display: inline-block;
-  opacity: 1;
+  display: inline-block !important;
+  opacity: 1 !important;
 }
 
 #sidebar.show {
