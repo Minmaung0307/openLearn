@@ -586,8 +586,8 @@ dialog.ol-modal::backdrop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 12px;
 }
 .auth-links.single { justify-content: flex-end; }
 .auth-links a { padding: 2px 0; }
@@ -595,7 +595,7 @@ dialog.ol-modal::backdrop {
 /* Make primary actions stand out and fill width in modals */
 .authpane .btn.wide, .authpane .btn.primary.wide {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .modal-title {
@@ -681,4 +681,69 @@ input:disabled,
 textarea:disabled,
 button:disabled {
   cursor: not-allowed;
+}
+
+/* ---- Modal forms polish: labels + fields + placeholders ---- */
+.authpane label,
+#courseForm label,
+#postForm label,
+#profileForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 6px 0;
+}
+
+.authpane input.input,
+.authpane select.input,
+.authpane textarea.input,
+#courseForm .input,
+#postForm .input,
+#profileForm .input,
+#courseForm select.input {
+  width: 100%;
+  height: 42px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+}
+
+#courseForm textarea.input,
+#postForm textarea.input,
+#profileForm textarea.input {
+  min-height: 120px;
+  height: auto;
+  padding: 12px;
+  resize: vertical;
+}
+
+.input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: .85;
+}
+
+/* focus state: clearer but subtle */
+.authpane .input:focus,
+#courseForm .input:focus,
+#postForm .input:focus,
+#profileForm .input:focus,
+.authpane select.input:focus {
+  outline: none;
+  border-color: color-mix(in oklab, var(--btnPrimaryBg) 60%, var(--border));
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+/* course form: responsive grid for neat alignment */
+#courseForm {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: start;
+}
+#courseForm label[style*="grid-column: 1/-1"] {
+  /* keep existing full-width fields full */
+  grid-column: 1 / -1 !important;
 }

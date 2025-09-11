@@ -814,6 +814,72 @@ $("#closeDetails")?.addEventListener("click", () =>
   $("#detailsModal")?.close()
 );
 
+// --- New Course modal: open / close / save ---
+const courseForm = $("#courseForm");
+const courseModal = $("#courseModal");
+
+$("#btn-new-course")?.addEventListener("click", () => {
+  if (!courseForm) return;
+  courseForm.reset();
+  // sensible defaults
+  courseForm.level.value = "Beginner";
+  courseForm.price.value = 0;
+  courseForm.rating.value = 4.6;
+  courseForm.hours.value = 6;
+  courseForm.credits.value = 3;
+  courseForm.img.value = "";
+  courseForm.description.value = "";
+  courseForm.benefits.value = "Hands-on projects\nDownloadable resources\nCertificate";
+  courseModal?.showModal();
+});
+
+$("#courseClose")?.addEventListener("click", () => courseModal?.close());
+$("#courseCancel")?.addEventListener("click", () => courseModal?.close());
+
+// helper: make id from title
+function slugify(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || ("c_" + Math.random().toString(36).slice(2, 9));
+}
+
+courseForm?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = e.currentTarget;
+
+  const title = f.title.value.trim();
+  const id = slugify(title);
+  const course = {
+    id,
+    title,
+    category: f.category.value.trim() || "General",
+    level: f.level.value,
+    price: Number(f.price.value || 0),
+    rating: Number(f.rating.value || 0),
+    hours: Number(f.hours.value || 0),
+    credits: Number(f.credits.value || 0),
+    image: (f.img.value || "").trim(),
+    summary: (f.description.value || "").trim(),
+    benefits: (f.benefits.value || "")
+      .split(/\n+/).map(s => s.trim()).filter(Boolean),
+    source: "user",
+  };
+
+  // upsert into local storage
+  const arr = getCourses();
+  const i = arr.findIndex(c => c.id === course.id);
+  if (i >= 0) arr[i] = course; else arr.push(course);
+  setCourses(arr);
+  ALL = arr;
+
+  renderCatalog();
+  renderAdminTable();
+  toast("Course saved");
+  courseModal?.close();
+});
+
 /* ---------- Profile panel (safe no-op if element missing) ---------- */
 function renderProfilePanel() {
   const box = $("#profilePanel");
