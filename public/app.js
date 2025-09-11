@@ -715,8 +715,13 @@ function initAuthModal() {
       modal.close();
       gateChatUI();
       toast("Welcome back");
-    } catch {
-      toast("Login failed");
+    } catch (err) {
+      console.error("Login error:", err);
+      const msg =
+        err?.code === "auth/invalid-credential"
+          ? "Invalid email/password"
+          : err?.message || "Login failed";
+      toast(msg);
     }
   });
 
@@ -1228,7 +1233,7 @@ function renderMyLearning() {
   const grid = $("#myCourses");
   if (!grid) return;
   const set = getEnrolls();
-  const completed = getCompleted();
+  const completed = new Set(getCompletedRaw().map((x) => x.id));
   const list = (ALL.length ? ALL : getCourses()).filter((c) => set.has(c.id));
 
   grid.innerHTML =
@@ -1279,8 +1284,9 @@ function renderMyLearning() {
 function showCertificate(course) {
   const name = getProfile().displayName || getUser()?.email || "Student";
   const today = new Date().toLocaleDateString();
-  const completed = getCompletedRaw().find(x => x.id === course.id);
-  const scoreTxt = completed?.score != null ? `${Math.round(completed.score*100)}%` : "—";
+  const completed = getCompletedRaw().find((x) => x.id === course.id);
+  const scoreTxt =
+    completed?.score != null ? `${Math.round(completed.score * 100)}%` : "—";
 
   $("#certBody").innerHTML = `
     <div class="cert-doc">
@@ -1289,10 +1295,14 @@ function showCertificate(course) {
       <div class="cert-name">${esc(name)}</div>
       <div class="cert-sub">has successfully completed</div>
       <div class="cert-course">${esc(course.title)}</div>
-      <div class="cert-meta">Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}</div>
+      <div class="cert-meta">Credits: ${
+        course.credits || 3
+      } • Score: ${scoreTxt} • Date: ${today}</div>
       <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
         <div class="cert-seal" title="Official Seal"></div>
-        <img class="qr" alt="Verify" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=OPENLEARN-${encodeURIComponent(course.id)}">
+        <img class="qr" alt="Verify" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=OPENLEARN-${encodeURIComponent(
+          course.id
+        )}">
       </div>
       <div class="cert-signs">
         <div class="sig"><div style="height:24px"></div><div>______________________</div><div>Registrar</div></div>
@@ -1399,16 +1409,11 @@ async function openReader(cid) {
       RD.i = Math.max(0, RD.i - 1);
       renderPage();
     };
-  if (btnNext)
-    btnNext.onclick = () => {
-      RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
-      renderPage();
-    };
-
-  // inside openReader(...) after btnNext is set
+  // after: const btnBack = $("#rdBack"), btnPrev = $("#rdPrev"), btnNext = $("#rdNext"), ...
+if (btnNext) {
   btnNext.onclick = () => {
     const p = RD.pages[RD.i];
-    // If current is a quiz, need 75%+ to proceed
+    // quiz page ဖြစ်ရင် ≥75% မရခင် पुढेမသွားစေ
     if (p?.type === "quiz" && p.quiz) {
       if (LAST_QUIZ_SCORE < 0.75) {
         toast("Need ≥ 75% to continue");
@@ -1418,6 +1423,7 @@ async function openReader(cid) {
     RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
     renderPage();
   };
+}
 
   if (btnBm) btnBm.onclick = () => toast("Bookmarked (demo)");
   if (btnNote)
@@ -1436,40 +1442,6 @@ async function openReader(cid) {
   }
   const off = wireCourseChatRealtime(c.id);
   if (typeof off === "function") window._ccOff = off;
-}
-
-// — store / read completed courses —
-const getCompleted = () => new Set(_read("ol_completed", []));
-const setCompleted = (set) => _write("ol_completed", Array.from(set));
-function markCourseComplete(id) {
-  const s = getCompleted();
-  s.add(id);
-  setCompleted(s);
-}
-
-function renderPage() {
-  const p = RD.pages[RD.i];
-  if (!p) return;
-  $("#rdTitle") &&
-    ($("#rdTitle").textContent = `${RD.i + 1}. ${String(
-      p.type || "PAGE"
-    ).toUpperCase()}`);
-  $("#rdPage") && ($("#rdPage").innerHTML = p.html);
-  $("#rdPageInfo") &&
-    ($("#rdPageInfo").textContent = `${RD.i + 1} / ${RD.pages.length}`);
-  $("#rdProgress") &&
-    ($("#rdProgress").style.width =
-      Math.round(((RD.i + 1) / RD.pages.length) * 100) + "%");
-
-  // demo quiz submit
-  const btn = $("#qSubmit"),
-    msg = $("#qMsg");
-  if (btn) btn.onclick = () => (msg ? (msg.textContent = "Submitted ✔️") : 0);
-
-  // ✅ reached last page → mark completed
-  if (RD.i === RD.pages.length - 1) {
-    markCourseComplete(RD.cid);
-  }
 }
 
 function launchFireworks() {
@@ -1503,7 +1475,9 @@ function showCongrats() {
   $("#cgClose").onclick = () => dlg.close();
   $("#cgCert").onclick = () => {
     dlg.close();
-    const c = ALL.find(x => x.id === RD.cid) || getCourses().find(x => x.id === RD.cid);
+    const c =
+      ALL.find((x) => x.id === RD.cid) ||
+      getCourses().find((x) => x.id === RD.cid);
     if (c) showCertificate(c);
   };
 }
