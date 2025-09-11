@@ -438,49 +438,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
 /* ---------- sidebar + topbar offset (fixed) ---------- */
 function initSidebar() {
-  const sb = $("#sidebar"),
-    burger = $("#btn-burger");
+  const sb = $("#sidebar"), burger = $("#btn-burger");
+  const mqTouch = matchMedia("(hover: none), (pointer: coarse)");
+  const isTouchLike = () => mqTouch.matches || matchMedia("(max-width:1024px)").matches;
 
-  // ✅ Tablet/iPad ကိုပါ ချဲ့သတ်ရုံနဲ့ mobile-like အလုပ်လုပ်စေမယ်
-  const mqNarrow = matchMedia("(max-width:1024px)");
-  const mqNoHover = matchMedia("(hover: none)");
-  const mqCoarse = matchMedia("(pointer: coarse)");
-  const isTouchLike = () =>
-    mqNarrow.matches || mqNoHover.matches || mqCoarse.matches;
+  const setExpandedFlag = (on) => document.body.classList.toggle("sidebar-expanded", !!on);
 
-  const setBurger = () => {
-    if (burger) burger.style.display = isTouchLike() ? "" : "none";
-  };
-  setBurger();
-  addEventListener("resize", setBurger);
+  const setBurger = () => { if (burger) burger.style.display = isTouchLike() ? "" : "none"; };
+  setBurger(); addEventListener("resize", setBurger);
 
-  const setExpandedFlag = (on) =>
-    document.body.classList.toggle("sidebar-expanded", !!on);
-
-  // ✅ hover မရှိတဲ့ deviceတွေ (iPad) အတွက် — sidebar ကို tap (blank area) လုပ်ရင် expand/collapse
+  // 🔁 First tap on nav = expand (if collapsed); second tap = navigate
   sb?.addEventListener("click", (e) => {
     const navBtn = e.target.closest(".navbtn");
-    if (navBtn) return; // nav click ကို အောက်မှာ handle ပြန်လုပ်မယ်
-    if (isTouchLike()) {
-      const on = !document.body.classList.contains("sidebar-expanded");
-      setExpandedFlag(on);
+    if (!navBtn) return;
+
+    const expanded = document.body.classList.contains("sidebar-expanded") || sb.classList.contains("show");
+    if (isTouchLike() && !expanded) {
+      // first tap expands only
+      e.preventDefault();
+      e.stopPropagation();
+      sb.classList.add("show");
+      setExpandedFlag(true);
+      return;
     }
-  });
 
-  // ✅ burger drawer (<=1024px or touch-like) toggle
-  burger?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    sb?.classList.toggle("show");
-    setExpandedFlag(sb?.classList.contains("show"));
-  });
-
-  // ✅ Navigation
-  sb?.addEventListener("click", (e) => {
-    const b = e.target.closest(".navbtn");
-    if (!b) return;
-    showPage(b.dataset.page);
-
-    // touch-like device တွေမှာ page ပြောင်းရင် drawer ပိတ်ပေးမယ်
+    // already expanded → navigate
+    showPage(navBtn.dataset.page);
     if (isTouchLike()) {
       sb.classList.remove("show");
       setExpandedFlag(false);
@@ -488,7 +471,14 @@ function initSidebar() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
-  // ✅ drawer နဲ့အပြင်ကနေ တစ်ချက်တည်းပိတ်ပေးမယ် (touch-like)
+  // burger for drawer
+  burger?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    sb?.classList.toggle("show");
+    setExpandedFlag(sb?.classList.contains("show"));
+  });
+
+  // tap outside closes
   document.addEventListener("click", (e) => {
     if (!isTouchLike()) return;
     if (!sb?.classList.contains("show")) return;
@@ -498,6 +488,67 @@ function initSidebar() {
     }
   });
 }
+// function initSidebar() {
+//   const sb = $("#sidebar"),
+//     burger = $("#btn-burger");
+
+//   // ✅ Tablet/iPad ကိုပါ ချဲ့သတ်ရုံနဲ့ mobile-like အလုပ်လုပ်စေမယ်
+//   const mqNarrow = matchMedia("(max-width:1024px)");
+//   const mqNoHover = matchMedia("(hover: none)");
+//   const mqCoarse = matchMedia("(pointer: coarse)");
+//   const isTouchLike = () =>
+//     mqNarrow.matches || mqNoHover.matches || mqCoarse.matches;
+
+//   const setBurger = () => {
+//     if (burger) burger.style.display = isTouchLike() ? "" : "none";
+//   };
+//   setBurger();
+//   addEventListener("resize", setBurger);
+
+//   const setExpandedFlag = (on) =>
+//     document.body.classList.toggle("sidebar-expanded", !!on);
+
+//   // ✅ hover မရှိတဲ့ deviceတွေ (iPad) အတွက် — sidebar ကို tap (blank area) လုပ်ရင် expand/collapse
+//   sb?.addEventListener("click", (e) => {
+//     const navBtn = e.target.closest(".navbtn");
+//     if (navBtn) return; // nav click ကို အောက်မှာ handle ပြန်လုပ်မယ်
+//     if (isTouchLike()) {
+//       const on = !document.body.classList.contains("sidebar-expanded");
+//       setExpandedFlag(on);
+//     }
+//   });
+
+//   // ✅ burger drawer (<=1024px or touch-like) toggle
+//   burger?.addEventListener("click", (e) => {
+//     e.stopPropagation();
+//     sb?.classList.toggle("show");
+//     setExpandedFlag(sb?.classList.contains("show"));
+//   });
+
+//   // ✅ Navigation
+//   sb?.addEventListener("click", (e) => {
+//     const b = e.target.closest(".navbtn");
+//     if (!b) return;
+//     showPage(b.dataset.page);
+
+//     // touch-like device တွေမှာ page ပြောင်းရင် drawer ပိတ်ပေးမယ်
+//     if (isTouchLike()) {
+//       sb.classList.remove("show");
+//       setExpandedFlag(false);
+//     }
+//     window.scrollTo({ top: 0, behavior: "smooth" });
+//   });
+
+//   // ✅ drawer နဲ့အပြင်ကနေ တစ်ချက်တည်းပိတ်ပေးမယ် (touch-like)
+//   document.addEventListener("click", (e) => {
+//     if (!isTouchLike()) return;
+//     if (!sb?.classList.contains("show")) return;
+//     if (!e.target.closest("#sidebar") && e.target !== burger) {
+//       sb.classList.remove("show");
+//       setExpandedFlag(false);
+//     }
+//   });
+// }
 // function initSidebar() {
 //   const sb = $("#sidebar"),
 //     burger = $("#btn-burger");
