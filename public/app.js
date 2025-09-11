@@ -503,6 +503,10 @@ if ("ResizeObserver" in window) {
 function showPage(id) {
   $$(".page").forEach((p) => p.classList.remove("visible"));
   $("#page-" + id)?.classList.add("visible");
+
+  // optional: highlight active nav
+  $$("#sidebar .navbtn").forEach(b => b.classList.toggle("active", b.dataset.page === id));
+  
   if (id === "mylearning") renderMyLearning();
   if (id === "gradebook") renderGradebook();
   if (id === "admin") renderAdminTable();
@@ -577,7 +581,7 @@ function setLogged(on, email) {
   // NEW: flip body flags so CSS can react
   document.body.classList.toggle("logged", !!on);
   document.body.classList.toggle("anon", !on);
-  
+
   renderProfilePanel?.();
 }
 function initAuthModal() {

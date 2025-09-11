@@ -227,6 +227,10 @@ a:hover {
   justify-content: left;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
+#sidebar .navbtn.active {
+  background: rgba(255,255,255,.08);
+  border-color: var(--btnPrimaryBg);
+}
 #sidebar .navbtn:hover {
   background: rgba(255, 255, 255, 0.08);
 }
@@ -288,13 +292,14 @@ body.sidebar-expanded #main {
 
 /* Pages */
 .page {
+  display: none;         /* ✅ hide by default */
   position: relative;
   margin: 0 auto;
   max-width: 1200px;
   padding-bottom: 24px;
 }
 .page.visible {
-  display: block;
+  display: block;  /* ✅ only the active page shows */
 }
 
 /* Grids / tables */
