@@ -506,7 +506,7 @@ function showPage(id) {
 
   // optional: highlight active nav
   $$("#sidebar .navbtn").forEach(b => b.classList.toggle("active", b.dataset.page === id));
-  
+
   if (id === "mylearning") renderMyLearning();
   if (id === "gradebook") renderGradebook();
   if (id === "admin") renderAdminTable();
@@ -843,6 +843,45 @@ function renderProfilePanel() {
       </div>
     </div>`;
 }
+
+// --- Profile Edit modal wiring ---
+$("#btn-edit-profile")?.addEventListener("click", () => {
+  const m = $("#profileEditModal");
+  const f = $("#profileForm");
+  const p = getProfile();
+
+  // prefill
+  if (f) {
+    f.displayName.value = p.displayName || "";
+    f.photoURL.value   = p.photoURL   || "";
+    f.bio.value        = p.bio        || "";
+    f.skills.value     = p.skills     || "";
+    f.links.value      = p.links      || "";
+    f.social.value     = p.social     || "";
+  }
+  m?.showModal();
+});
+
+// close buttons
+$("#closeProfileModal")?.addEventListener("click", () => $("#profileEditModal")?.close());
+$("#cancelProfile")?.addEventListener("click", () => $("#profileEditModal")?.close());
+
+$("#profileForm")?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = e.currentTarget;
+  const data = {
+    displayName: f.displayName.value.trim(),
+    photoURL:    f.photoURL.value.trim(),
+    bio:         f.bio.value.trim(),
+    skills:      f.skills.value.trim(),
+    links:       f.links.value.trim(),
+    social:      f.social.value.trim(),
+  };
+  setProfile(data);
+  renderProfilePanel();
+  $("#profileEditModal")?.close();
+  toast("Profile saved");
+});
 
 /* ---------- My Learning / Reader ---------- */
 const SAMPLE_PAGES = (title) => [
