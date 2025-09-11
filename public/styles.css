@@ -778,3 +778,8 @@ textarea::placeholder {
   background: radial-gradient(#caa, #900); opacity:.85; margin:0 auto;
   border: 4px double #722;
 }
+
+/* Announcements card items already use .card */
+/* If inner text looked too pale, ensure: */
+#annList .card { background: var(--card); color: var(--fg); border-color: var(--border); }
+#annList .muted { color: var(--muted); }

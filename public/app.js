@@ -1155,50 +1155,133 @@ $("#profileForm")?.addEventListener("submit", (e) => {
 });
 
 /* ---------- My Learning / Reader ---------- */
-const SAMPLE_PAGES = (title) => [
-  {
-    type: "lesson",
-    html: `<h3>${esc(
-      title
-    )} — Welcome</h3><p>Intro video:</p><video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v1/800/320"></video>`,
-  },
-  {
-    type: "reading",
-    html: `<h3>Chapter 1</h3><p>Reading with image & audio:</p><img style="width:100%;border-radius:10px" src="https://picsum.photos/seed/p1/800/360"><audio controls style="width:100%"></audio>`,
-  },
-  {
-    type: "exercise",
-    html: `<h3>Practice</h3><ol><li>Upload a file</li><li>Short answer</li></ol><input class="input" placeholder="Your answer">`,
-  },
-  // Quiz page with metadata
-  {
-    type: "quiz",
-    quiz: {
-      questions: [
-        { q: "2 + 2 = ?", choices: ["3", "4", "5"], answer: 1 },
-        {
-          q: "JS array method to add at end?",
-          choices: ["push", "shift", "map"],
-          answer: 0,
-        },
-        {
-          q: "typeof null = ?",
-          choices: ["'object'", "'null'", "'undefined'"],
-          answer: 0,
-        },
-        { q: "CSS for color?", choices: ["color", "fill", "paint"], answer: 0 },
-      ],
-    },
-  },
-  // {
-  //   type: "quiz",
-  //   html: `<h3>Quiz 1</h3><p>Q1) Short answer</p><input id="q1" class="input" placeholder="Your answer"><div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>`,
-  // },
-  {
-    type: "project",
-    html: `<h3>Mini Project</h3><input type="file"><p class="small muted">Upload your work (demo).</p>`,
-  },
-];
+// const SAMPLE_PAGES = (title) => [
+//   {
+//     type: "lesson",
+//     html: `<h3>${esc(
+//       title
+//     )} — Welcome</h3><p>Intro video:</p><video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v1/800/320"></video>`,
+//   },
+//   {
+//     type: "reading",
+//     html: `<h3>Chapter 1</h3><p>Reading with image & audio:</p><img style="width:100%;border-radius:10px" src="https://picsum.photos/seed/p1/800/360"><audio controls style="width:100%"></audio>`,
+//   },
+//   {
+//     type: "exercise",
+//     html: `<h3>Practice</h3><ol><li>Upload a file</li><li>Short answer</li></ol><input class="input" placeholder="Your answer">`,
+//   },
+//   // Quiz page with metadata
+//   {
+//     type: "quiz",
+//     quiz: {
+//       questions: [
+//         { q: "2 + 2 = ?", choices: ["3", "4", "5"], answer: 1 },
+//         {
+//           q: "JS array method to add at end?",
+//           choices: ["push", "shift", "map"],
+//           answer: 0,
+//         },
+//         {
+//           q: "typeof null = ?",
+//           choices: ["'object'", "'null'", "'undefined'"],
+//           answer: 0,
+//         },
+//         { q: "CSS for color?", choices: ["color", "fill", "paint"], answer: 0 },
+//       ],
+//     },
+//   },
+//   // {
+//   //   type: "quiz",
+//   //   html: `<h3>Quiz 1</h3><p>Q1) Short answer</p><input id="q1" class="input" placeholder="Your answer"><div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>`,
+//   // },
+//   {
+//     type: "project",
+//     html: `<h3>Mini Project</h3><input type="file"><p class="small muted">Upload your work (demo).</p>`,
+//   },
+// ];
+// --- helpers (file read) ---
+async function fetchTextSafe(url) {
+  try {
+    const r = await fetch(url, { cache: "no-cache" });
+    if (!r.ok) return null;
+    return await r.text();
+  } catch { return null; }
+}
+async function fetchJsonSafe(url) {
+  try {
+    const r = await fetch(url, { cache: "no-cache" });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+// --- normalize quiz json to unified shape ---
+function normalizeQuizArray(arr) {
+  // input item shapes we support:
+  // {type:"single", q, a:[...], correct:index}
+  // {type:"multiple", q, a:[...], correct:[indexes]}
+  // {type:"short", q, a: "answer" | ["a1","a2"]}
+  return (arr || []).map(item => {
+    const type = (item.type || "single").toLowerCase();
+    if (type === "short") {
+      const answers = Array.isArray(item.a) ? item.a : [item.a];
+      return { type: "short", q: item.q, answers };
+    }
+    if (type === "multiple") {
+      return { type: "multiple", q: item.q, choices: item.a || [], correct: new Set(item.correct || []) };
+    }
+    // default single
+    return { type: "single", q: item.q, choices: item.a || [], correct: Number(item.correct ?? -1) };
+  });
+}
+
+// --- build pages from meta + files ---
+async function buildCoursePages(courseId, fallbackTitle = "") {
+  await resolveDataBase();
+  const base = DATA_BASE ? `${DATA_BASE}/courses/${courseId}` : null;
+
+  // if no data folder, fallback to sample
+  if (!base) {
+    return [
+      { type: "lesson", html: `<h3>${esc(fallbackTitle)} — Welcome</h3><p>Demo page.</p>` }
+    ];
+  }
+
+  const meta = await fetchJsonSafe(`${base}/meta.json`);
+  if (!meta) {
+    return [
+      { type: "lesson", html: `<h3>${esc(fallbackTitle)}</h3><p>No meta.json found.</p>` }
+    ];
+  }
+
+  const pages = [];
+  const modules = Array.isArray(meta.modules) ? meta.modules : [];
+
+  for (const mod of modules) {
+    const lessons = Array.isArray(mod.lessons) ? mod.lessons : [];
+    // lesson files -> html pages
+    for (const ls of lessons) {
+      const file = ls.file || "";
+      const html = file ? await fetchTextSafe(`${base}/${file}`) : "";
+      pages.push({
+        type: "lesson",
+        html: html || `<h3>${esc(ls.title || "Lesson")}</h3><p class="muted">(${esc(file || "no file")})</p>`
+      });
+    }
+    // quiz file -> quiz page
+    if (mod.quiz) {
+      const qjson = await fetchJsonSafe(`${base}/${mod.quiz}`);
+      const questions = normalizeQuizArray(qjson || []);
+      pages.push({ type: "quiz", quiz: { questions } });
+    }
+  }
+
+  // safety: at least 1 page
+  if (!pages.length) {
+    pages.push({ type: "lesson", html: `<h3>${esc(meta.title || fallbackTitle)}</h3><p>No lessons.</p>` });
+  }
+  return pages;
+}
 
 function renderPage() {
   const p = RD.pages[RD.i];
@@ -1228,53 +1311,133 @@ function renderPage() {
   if (btn) btn.onclick = () => (msg ? (msg.textContent = "Submitted ✔️") : 0);
 }
 
+// let LAST_QUIZ_SCORE = 0;
+
+// function renderQuiz(p) {
+//   const q = p.quiz?.questions || [];
+//   const wrap = document.createElement("div");
+//   wrap.innerHTML = `<h3>Quiz</h3>
+//     <ol style="line-height:1.7">
+//       ${q
+//         .map(
+//           (it, i) => `
+//         <li style="margin:8px 0">
+//           <div>${esc(it.q)}</div>
+//           ${it.choices
+//             .map(
+//               (c, j) => `
+//             <label style="display:block;margin-left:.5rem">
+//               <input type="radio" name="q${i}" value="${j}"> ${esc(c)}
+//             </label>`
+//             )
+//             .join("")}
+//         </li>`
+//         )
+//         .join("")}
+//     </ol>
+//     <div class="row" style="gap:8px;margin-top:8px">
+//       <button class="btn" id="qCheck">Check</button>
+//       <span class="small muted" id="qMsg"></span>
+//     </div>`;
+//   $("#rdPage").innerHTML = "";
+//   $("#rdPage").appendChild(wrap);
+
+//   $("#qCheck").onclick = () => {
+//     const answers = q.map((_, i) => {
+//       const picked = document.querySelector(`input[name="q${i}"]:checked`);
+//       return picked ? Number(picked.value) : -1;
+//     });
+//     let correct = 0;
+//     answers.forEach((a, i) => {
+//       if (a === q[i].answer) correct++;
+//     });
+//     const score = correct / (q.length || 1);
+//     LAST_QUIZ_SCORE = score;
+//     const msg = $("#qMsg");
+//     if (msg)
+//       msg.textContent = `Score: ${Math.round(score * 100)}% (${correct}/${
+//         q.length
+//       })`;
+
+//     if (score >= 0.85) launchFireworks();
+//     if (score >= 0.75) toast("Great! You unlocked the next lesson 🎉");
+//     else toast("At least 75% required — try again");
+//   };
+// }
 let LAST_QUIZ_SCORE = 0;
 
 function renderQuiz(p) {
   const q = p.quiz?.questions || [];
   const wrap = document.createElement("div");
-  wrap.innerHTML = `<h3>Quiz</h3>
-    <ol style="line-height:1.7">
-      ${q
-        .map(
-          (it, i) => `
-        <li style="margin:8px 0">
-          <div>${esc(it.q)}</div>
-          ${it.choices
-            .map(
-              (c, j) => `
-            <label style="display:block;margin-left:.5rem">
-              <input type="radio" name="q${i}" value="${j}"> ${esc(c)}
-            </label>`
-            )
-            .join("")}
-        </li>`
-        )
-        .join("")}
-    </ol>
-    <div class="row" style="gap:8px;margin-top:8px">
-      <button class="btn" id="qCheck">Check</button>
-      <span class="small muted" id="qMsg"></span>
-    </div>`;
+  wrap.innerHTML = `<h3>Quiz</h3>`;
+
+  const list = document.createElement("ol");
+  list.style.lineHeight = "1.7";
+  q.forEach((it, i) => {
+    const li = document.createElement("li");
+    li.style.margin = "8px 0";
+    li.insertAdjacentHTML("beforeend", `<div>${esc(it.q)}</div>`);
+
+    if (it.type === "single") {
+      (it.choices || []).forEach((c, j) => {
+        li.insertAdjacentHTML("beforeend",
+          `<label style="display:block;margin-left:.5rem">
+            <input type="radio" name="q${i}" value="${j}"> ${esc(c)}
+           </label>`);
+      });
+    } else if (it.type === "multiple") {
+      (it.choices || []).forEach((c, j) => {
+        li.insertAdjacentHTML("beforeend",
+          `<label style="display:block;margin-left:.5rem">
+            <input type="checkbox" name="q${i}" value="${j}"> ${esc(c)}
+           </label>`);
+      });
+    } else { // short
+      li.insertAdjacentHTML("beforeend",
+        `<input class="input" name="q${i}" placeholder="Your answer" style="margin-left:.5rem">`);
+    }
+
+    list.appendChild(li);
+  });
+
+  const controls = document.createElement("div");
+  controls.className = "row";
+  controls.style.cssText = "gap:8px;margin-top:8px";
+  controls.innerHTML = `<button class="btn" id="qCheck">Check</button>
+                        <span class="small muted" id="qMsg"></span>`;
+
+  wrap.appendChild(list);
+  wrap.appendChild(controls);
   $("#rdPage").innerHTML = "";
   $("#rdPage").appendChild(wrap);
 
   $("#qCheck").onclick = () => {
-    const answers = q.map((_, i) => {
-      const picked = document.querySelector(`input[name="q${i}"]:checked`);
-      return picked ? Number(picked.value) : -1;
-    });
     let correct = 0;
-    answers.forEach((a, i) => {
-      if (a === q[i].answer) correct++;
+
+    q.forEach((it, i) => {
+      if (it.type === "single") {
+        const picked = document.querySelector(`input[name="q${i}"]:checked`);
+        const val = picked ? Number(picked.value) : -1;
+        if (val === it.correct) correct++;
+      } else if (it.type === "multiple") {
+        const picks = Array.from(document.querySelectorAll(`input[name="q${i}"]:checked`))
+          .map(x => Number(x.value));
+        const want = Array.from(it.correct);
+        picks.sort(); want.sort();
+        const ok = picks.length === want.length && picks.every((v, idx) => v === want[idx]);
+        if (ok) correct++;
+      } else {
+        const input = document.querySelector(`input[name="q${i}"]`);
+        const ans = (input?.value || "").trim().toLowerCase();
+        const accepts = (it.answers || []).map(s => String(s).trim().toLowerCase());
+        if (accepts.includes(ans)) correct++;
+      }
     });
+
     const score = correct / (q.length || 1);
     LAST_QUIZ_SCORE = score;
     const msg = $("#qMsg");
-    if (msg)
-      msg.textContent = `Score: ${Math.round(score * 100)}% (${correct}/${
-        q.length
-      })`;
+    if (msg) msg.textContent = `Score: ${Math.round(score * 100)}% (${correct}/${q.length})`;
 
     if (score >= 0.85) launchFireworks();
     if (score >= 0.75) toast("Great! You unlocked the next lesson 🎉");
@@ -1432,16 +1595,79 @@ function markCourseComplete(id, score = null) {
   renderMyLearning?.();
 }
 
+// async function openReader(cid) {
+//   const c =
+//     ALL.find((x) => x.id === cid) || getCourses().find((x) => x.id === cid);
+//   if (!c) return toast("Course not found");
+
+//   // (simple) demo pages
+//   const pages = SAMPLE_PAGES(c.title);
+//   const credits = c.credits || 3;
+
+//   RD = { cid: c.id, pages, i: 0, credits };
+
+//   $("#myCourses") && ($("#myCourses").innerHTML = "");
+//   $("#reader")?.classList.remove("hidden");
+//   $("#rdMeta") && ($("#rdMeta").textContent = `Credits: ${RD.credits}`);
+
+//   renderPage();
+
+//   const btnBack = $("#rdBack"),
+//     btnPrev = $("#rdPrev"),
+//     btnNext = $("#rdNext"),
+//     btnBm = $("#rdBookmark"),
+//     btnNote = $("#rdNote");
+//   if (btnBack)
+//     btnBack.onclick = () => {
+//       $("#reader")?.classList.add("hidden");
+//       renderMyLearning();
+//     };
+//   if (btnPrev)
+//     btnPrev.onclick = () => {
+//       RD.i = Math.max(0, RD.i - 1);
+//       renderPage();
+//     };
+//   // after: const btnBack = $("#rdBack"), btnPrev = $("#rdPrev"), btnNext = $("#rdNext"), ...
+// if (btnNext) {
+//   btnNext.onclick = () => {
+//     const p = RD.pages[RD.i];
+//     // quiz page ဖြစ်ရင် ≥75% မရခင် पुढेမသွားစေ
+//     if (p?.type === "quiz" && p.quiz) {
+//       if (LAST_QUIZ_SCORE < 0.75) {
+//         toast("Need ≥ 75% to continue");
+//         return;
+//       }
+//     }
+//     RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+//     renderPage();
+//   };
+// }
+
+//   if (btnBm) btnBm.onclick = () => toast("Bookmarked (demo)");
+//   if (btnNote)
+//     btnNote.onclick = () => {
+//       const t = prompt("Note");
+//       if (!t) return;
+//       toast("Note saved");
+//     };
+
+//   // per-course chat
+//   if (window._ccOff) {
+//     try {
+//       window._ccOff();
+//     } catch {}
+//     window._ccOff = null;
+//   }
+//   const off = wireCourseChatRealtime(c.id);
+//   if (typeof off === "function") window._ccOff = off;
+// }
 async function openReader(cid) {
-  const c =
-    ALL.find((x) => x.id === cid) || getCourses().find((x) => x.id === cid);
+  const c = ALL.find(x => x.id === cid) || getCourses().find(x => x.id === cid);
   if (!c) return toast("Course not found");
 
-  // (simple) demo pages
-  const pages = SAMPLE_PAGES(c.title);
-  const credits = c.credits || 3;
-
-  RD = { cid: c.id, pages, i: 0, credits };
+  // 🔄 build pages from /data/courses/<id>/...
+  const pages = await buildCoursePages(c.id, c.title);
+  RD = { cid: c.id, pages, i: 0, credits: c.credits || 3 };
 
   $("#myCourses") && ($("#myCourses").innerHTML = "");
   $("#reader")?.classList.remove("hidden");
@@ -1450,51 +1676,27 @@ async function openReader(cid) {
   renderPage();
 
   const btnBack = $("#rdBack"),
-    btnPrev = $("#rdPrev"),
-    btnNext = $("#rdNext"),
-    btnBm = $("#rdBookmark"),
-    btnNote = $("#rdNote");
-  if (btnBack)
-    btnBack.onclick = () => {
-      $("#reader")?.classList.add("hidden");
-      renderMyLearning();
-    };
-  if (btnPrev)
-    btnPrev.onclick = () => {
-      RD.i = Math.max(0, RD.i - 1);
-      renderPage();
-    };
-  // after: const btnBack = $("#rdBack"), btnPrev = $("#rdPrev"), btnNext = $("#rdNext"), ...
-if (btnNext) {
-  btnNext.onclick = () => {
+        btnPrev = $("#rdPrev"),
+        btnNext = $("#rdNext"),
+        btnBm   = $("#rdBookmark"),
+        btnNote = $("#rdNote");
+
+  if (btnBack) btnBack.onclick = () => { $("#reader")?.classList.add("hidden"); renderMyLearning(); };
+  if (btnPrev) btnPrev.onclick = () => { RD.i = Math.max(0, RD.i - 1); renderPage(); };
+  if (btnNext) btnNext.onclick = () => {
     const p = RD.pages[RD.i];
-    // quiz page ဖြစ်ရင် ≥75% မရခင် पुढेမသွားစေ
-    if (p?.type === "quiz" && p.quiz) {
-      if (LAST_QUIZ_SCORE < 0.75) {
-        toast("Need ≥ 75% to continue");
-        return;
-      }
+    if (p?.type === "quiz" && LAST_QUIZ_SCORE < 0.75) {
+      toast("Need ≥ 75% to continue");
+      return;
     }
     RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
     renderPage();
   };
-}
-
   if (btnBm) btnBm.onclick = () => toast("Bookmarked (demo)");
-  if (btnNote)
-    btnNote.onclick = () => {
-      const t = prompt("Note");
-      if (!t) return;
-      toast("Note saved");
-    };
+  if (btnNote) btnNote.onclick = () => { const t = prompt("Note"); if (t) toast("Note saved"); };
 
-  // per-course chat
-  if (window._ccOff) {
-    try {
-      window._ccOff();
-    } catch {}
-    window._ccOff = null;
-  }
+  // per-course chat wire (unchanged)
+  if (window._ccOff) { try { window._ccOff(); } catch {} window._ccOff = null; }
   const off = wireCourseChatRealtime(c.id);
   if (typeof off === "function") window._ccOff = off;
 }
