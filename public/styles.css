@@ -420,6 +420,21 @@ body.locked .auth-slot #btn-logout {
 }
 
 /* --- FIX: Auth-gated elements should still be clickable to open modal --- */
+/* ---- state-based gating for auth-required controls ---- */
+/* logged out: dim visually but keep clickable (JS will open login modal) */
+body.anon [data-requires-auth] {
+  pointer-events: auto;
+  opacity: 0.55;
+  filter: grayscale(40%);
+}
+
+/* logged in: fully active */
+body.logged [data-requires-auth] {
+  pointer-events: auto;
+  opacity: 1;
+  filter: none;
+}
+
 /* (မ login ရသေးသူတွေ့တွင် [data-requires-auth] ကို click လုပ်ရင် modal ဖေါ်ချင်တယ်,
    pointer-events: none; မသုံးပါ—visual dim ပဲထားပါ) */
 [data-requires-auth] {
@@ -434,13 +449,13 @@ body.locked .auth-slot #btn-logout {
   opacity: 0.55;
   filter: grayscale(40%);
 }
-
+/* 
 .gated,
 [data-requires-auth] {
   pointer-events: none;
   opacity: 0.55;
   filter: grayscale(40%);
-}
+} */
 
 /* Chat */
 #chatBox {

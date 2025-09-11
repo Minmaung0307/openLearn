@@ -573,7 +573,11 @@ function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
   $("#btn-login") && ($("#btn-login").style.display = on ? "none" : "");
   $("#btn-logout") && ($("#btn-logout").style.display = on ? "" : "none");
-  document.body.dataset.role = getRole();
+
+  // NEW: flip body flags so CSS can react
+  document.body.classList.toggle("logged", !!on);
+  document.body.classList.toggle("anon", !on);
+  
   renderProfilePanel?.();
 }
 function initAuthModal() {
