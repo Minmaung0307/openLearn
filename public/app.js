@@ -1449,6 +1449,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Remove Finals from UI if present (robust no-op if missing)
   stripFinalsUI();
+
+  // keep auth-required items clickable (defensive)
+document.querySelectorAll("[data-requires-auth]").forEach(el => {
+  el.style.pointerEvents = "auto";
+});
 });
 
 /* ---------- Finals Removal Shim ---------- */

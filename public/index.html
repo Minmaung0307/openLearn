@@ -357,43 +357,84 @@
       <div class="auth-brand">🎓 OpenLearn</div>
       <form id="authLogin" class="authpane" method="dialog">
         <label
-          >Email <input id="loginEmail" class="input" type="email" required
-        /></label>
+          >Email
+          <input
+            id="loginEmail"
+            class="input"
+            type="email"
+            placeholder="you@example.com"
+            required
+          />
+        </label>
         <label
           >Password
-          <input id="loginPass" class="input" type="password" required
-        /></label>
+          <input
+            id="loginPass"
+            class="input"
+            type="password"
+            placeholder="••••••••"
+            required
+          />
+        </label>
+
         <button class="btn primary wide" id="doLogin" type="submit">
           Login
         </button>
+
         <div class="auth-links">
-          <a href="#" id="linkSignup">Sign up</a
-          ><a href="#" id="linkForgot">Forgot password?</a>
+          <a href="#" id="linkSignup">Create an account</a>
+          <a href="#" id="linkForgot">Forgot password?</a>
         </div>
       </form>
+
       <form id="authSignup" class="authpane ol-hidden" method="dialog">
         <label
-          >Email <input id="signupEmail" class="input" type="email" required
-        /></label>
+          >Email
+          <input
+            id="signupEmail"
+            class="input"
+            type="email"
+            placeholder="you@example.com"
+            required
+          />
+        </label>
         <label
           >Password
-          <input id="signupPass" class="input" type="password" required
-        /></label>
+          <input
+            id="signupPass"
+            class="input"
+            type="password"
+            placeholder="At least 6 characters"
+            required
+          />
+        </label>
+
         <button class="btn primary wide" id="doSignup" type="submit">
           Create Account
         </button>
-        <div class="auth-links">
+
+        <div class="auth-links single">
           <a href="#" id="backToLogin1">Back to login</a>
         </div>
       </form>
+
       <form id="authForgot" class="authpane ol-hidden" method="dialog">
         <label
-          >Email <input id="forgotEmail" class="input" type="email" required
-        /></label>
+          >Email
+          <input
+            id="forgotEmail"
+            class="input"
+            type="email"
+            placeholder="you@example.com"
+            required
+          />
+        </label>
+
         <button class="btn wide" id="doForgot" type="submit">
           Send Reset Link
         </button>
-        <div class="auth-links">
+
+        <div class="auth-links single">
           <a href="#" id="backToLogin2">Back to login</a>
         </div>
       </form>

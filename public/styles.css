@@ -263,6 +263,13 @@ body.sidebar-expanded #sidebar .navbtn span {
   transform: translateX(0);
 }
 
+/* --- FIX: Sidebar labels show/hide nicely and stay interactive --- */
+#sidebar .navbtn span { white-space: nowrap; opacity: 1; transition: opacity .12s ease; }
+#sidebar:not(.expanded):not(.show):not(:hover) .navbtn span { display: none; opacity: 0; }
+#sidebar:hover .navbtn span,
+#sidebar.show .navbtn span,
+body.sidebar-expanded #sidebar .navbtn span { display: inline-block; opacity: 1; }
+
 /* ===== MAIN ===== */
 .with-topbar {
   padding-top: var(--topbar-offset);
@@ -411,6 +418,23 @@ body.locked .auth-slot #btn-logout {
   filter: grayscale(40%);
   opacity: 0.55;
 }
+
+/* --- FIX: Auth-gated elements should still be clickable to open modal --- */
+/* (မ login ရသေးသူတွေ့တွင် [data-requires-auth] ကို click လုပ်ရင် modal ဖေါ်ချင်တယ်,
+   pointer-events: none; မသုံးပါ—visual dim ပဲထားပါ) */
+[data-requires-auth] {
+  opacity: 0.9;
+  filter: grayscale(10%);
+  pointer-events: auto; /* ✅ allow clicks — JS gate ပြောမယ် */
+}
+
+/* app-side gated state (eg. chat input only) ကိုပဲจริงๆ disable */
+.gated {
+  pointer-events: none;
+  opacity: 0.55;
+  filter: grayscale(40%);
+}
+
 .gated,
 [data-requires-auth] {
   pointer-events: none;
@@ -524,6 +548,36 @@ dialog.ol-modal::backdrop {
   border-radius: 16px;
   padding: 18px;
 }
+
+/* --- Auth modal polish: labels, inputs, link spacing --- */
+.auth-modern .authpane label {
+  display: block;
+  font-weight: 600;
+  margin: 8px 0 4px;
+}
+.auth-modern .authpane .input {
+  width: 100%;
+  margin-top: 4px;
+}
+.auth-modern .authpane .input::placeholder { color: var(--muted); opacity: .9; }
+
+/* Links row: space them out, avoid "glued" look */
+.auth-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+.auth-links.single { justify-content: flex-end; }
+.auth-links a { padding: 2px 0; }
+
+/* Make primary actions stand out and fill width in modals */
+.authpane .btn.wide, .authpane .btn.primary.wide {
+  width: 100%;
+  margin-top: 8px;
+}
+
 .modal-title {
   font-weight: 700;
 }
