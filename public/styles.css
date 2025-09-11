@@ -140,7 +140,7 @@ a:hover {
   height: 40px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: #0b1220;
+  background: var(--card);   /* was #0b1220 */
   color: var(--fg);
   padding: 0 12px;
 }
@@ -177,9 +177,10 @@ a:hover {
   transform: translateY(-1px);
 }
 .pill-ann {
-  background: var(--pill-ann);
-  color: var(--pill-ann-txt);
-  border-color: #334155;
+  /* was: background: var(--pill-ann); color: var(--pill-ann-txt); border-color: #334155; */
+  background: rgba(var(--fg-r), var(--fg-g), var(--fg-b), 0.08);
+  color: var(--fg);
+  border-color: var(--border);
 }
 /* ❌ .pill-final removed */
 

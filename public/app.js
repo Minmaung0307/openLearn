@@ -159,6 +159,8 @@ const PALETTES = {
     btnFg: "#4a001f",
     btnPrimaryBg: "#e75480",
     btnPrimaryFg: "#fff",
+    pillAnn: "#f6dbe4",
+  pillAnnTxt: "#4a001f"
   },
   ocean: {
     bg: "#f0f8fa",
@@ -196,8 +198,10 @@ function applyPalette(name = "slate") {
     btnFg: "--btnFg",
     btnPrimaryBg: "--btnPrimaryBg",
     btnPrimaryFg: "--btnPrimaryFg",
+    pillAnn: "--pill-ann", 
+    pillAnnTxt: "--pill-ann-txt"
   };
-  Object.entries(map).forEach(([k, v]) => r.style.setProperty(v, p[k]));
+  Object.entries(map).forEach(([k, v]) => p[k] && r.style.setProperty(v, p[k]));
   const rgb = (hex) => {
     const h = hex.replace("#", "");
     return h.length === 3
