@@ -1,40 +1,17 @@
 {
+  "id": "web-foundations",
   "title": "Web Foundations",
+  "description": "Learn the foundations of web development: HTML, CSS, and basic layout.",
   "credits": 3,
-  "hours": 30,
   "modules": [
     {
-      "id": "html",
-      "title": "HTML Course",
-      "path": "html",
+      "id": "m1",
+      "title": "HTML Basics",
       "lessons": [
-        { "file": "01-intro.html",     "type": "reading", "title": "Intro to the Web & HTML" },
-        { "file": "02-elements.html",  "type": "reading", "title": "Common Elements" },
-        { "file": "03-media.html",     "type": "reading", "title": "Images, Audio & Video" }
+        { "file": "lesson1.html", "title": "HTML Elements" },
+        { "file": "lesson2.html", "title": "Attributes & Structure" }
       ],
-      "quiz": "html/quiz.json"
-    },
-    {
-      "id": "css",
-      "title": "CSS Course",
-      "path": "css",
-      "lessons": [
-        { "file": "01-selectors.html", "type": "reading", "title": "Selectors" },
-        { "file": "02-box-model.html", "type": "reading", "title": "Box Model" },
-        { "file": "03-layout.html",    "type": "reading", "title": "Flex & Grid Layout" }
-      ],
-      "quiz": "css/quiz.json"
-    },
-    {
-      "id": "js",
-      "title": "JavaScript Course",
-      "path": "js",
-      "lessons": [
-        { "file": "01-basics.html",    "type": "reading", "title": "JS Basics" },
-        { "file": "02-dom.html",       "type": "reading", "title": "DOM" },
-        { "file": "03-events.html",    "type": "reading", "title": "Events & Handlers" }
-      ],
-      "quiz": "js/quiz.json"
+      "quiz": "quiz1.json"
     }
   ]
 }

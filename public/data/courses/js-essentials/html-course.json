@@ -1,0 +1,19 @@
+[
+  {
+    "type": "single",
+    "q": "Which keyword declares a constant in JS?",
+    "a": ["var", "let", "const"],
+    "correct": 2
+  },
+  {
+    "type": "multiple",
+    "q": "Which are primitive data types?",
+    "a": ["string", "boolean", "object", "number"],
+    "correct": [0, 1, 3]
+  },
+  {
+    "type": "short",
+    "q": "What is the output of typeof null?",
+    "a": "object"
+  }
+]

@@ -1,40 +1,35 @@
 {
+  "id": "js-essentials",
+  "title": "JavaScript Essentials",
+  "description": "Learn JavaScript from scratch with basics to DOM and functions.",
   "credits": 3,
-  "lessons": [
-    { "file": "l1.html", "title": "Intro to JS" },
-    { "file": "l2.html", "title": "Variables & Data Types" },
+  "modules": [
     {
-    "id": "html-course",
-    "title": "Complete HTML Course",
-    "category": "Web Development",
-    "level": "Beginner",
-    "hours": 40,
-    "pages": 120,
-    "summary": "Learn HTML from scratch with text, images, audio, video, quizzes, and assignments.",
-    "credits": 3,
-    "source": "system"
-  },
-  {
-    "id": "css-course",
-    "title": "Complete CSS Course",
-    "category": "Web Development",
-    "level": "Intermediate",
-    "hours": 45,
-    "pages": 120,
-    "summary": "Master CSS with practical examples, multimedia, quizzes, assignments, and certification.",
-    "credits": 3,
-    "source": "system"
-  },
-  {
-    "id": "js-course",
-    "title": "Complete JavaScript Course",
-    "category": "Web Development",
-    "level": "Advanced",
-    "hours": 60,
-    "pages": 120,
-    "summary": "Deep dive into JavaScript with lessons, videos, quizzes, projects, and certification.",
-    "credits": 3,
-    "source": "system"
-  }
+      "id": "html-course",
+      "title": "Introduction to JavaScript",
+      "lessons": [
+        { "file": "lesson1.html", "title": "What is JavaScript?" },
+        { "file": "lesson2.html", "title": "Variables and Data Types" }
+      ],
+      "quiz": "html-course"
+    },
+    {
+      "id": "css-course",
+      "title": "DOM and Events",
+      "lessons": [
+        { "file": "lesson3.html", "title": "DOM Basics" },
+        { "file": "lesson4.html", "title": "Event Handling" }
+      ],
+      "quiz": "css-course.json"
+    },
+    {
+      "id": "js-course",
+      "title": "DOM and Events",
+      "lessons": [
+        { "file": "lesson3.html", "title": "DOM Basics" },
+        { "file": "lesson4.html", "title": "Event Handling" }
+      ],
+      "quiz": "js-course.json"
+    }
   ]
 }

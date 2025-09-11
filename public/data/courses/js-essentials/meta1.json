@@ -1,0 +1,40 @@
+{
+  "credits": 3,
+  "lessons": [
+    { "file": "l1.html", "title": "Intro to JS" },
+    { "file": "l2.html", "title": "Variables & Data Types" },
+    {
+    "id": "html-course",
+    "title": "Complete HTML Course",
+    "category": "Web Development",
+    "level": "Beginner",
+    "hours": 40,
+    "pages": 120,
+    "summary": "Learn HTML from scratch with text, images, audio, video, quizzes, and assignments.",
+    "credits": 3,
+    "source": "system"
+  },
+  {
+    "id": "css-course",
+    "title": "Complete CSS Course",
+    "category": "Web Development",
+    "level": "Intermediate",
+    "hours": 45,
+    "pages": 120,
+    "summary": "Master CSS with practical examples, multimedia, quizzes, assignments, and certification.",
+    "credits": 3,
+    "source": "system"
+  },
+  {
+    "id": "js-course",
+    "title": "Complete JavaScript Course",
+    "category": "Web Development",
+    "level": "Advanced",
+    "hours": 60,
+    "pages": 120,
+    "summary": "Deep dive into JavaScript with lessons, videos, quizzes, projects, and certification.",
+    "credits": 3,
+    "source": "system"
+  }
+  ]
+}

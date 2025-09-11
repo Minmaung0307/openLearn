@@ -1,0 +1,13 @@
+[
+  {
+    "type": "single",
+    "q": "Which method selects an element by CSS selector?",
+    "a": ["getElementById", "querySelector", "getElementsByClassName"],
+    "correct": 1
+  },
+  {
+    "type": "short",
+    "q": "Event to detect a button click?",
+    "a": "click"
+  }
+]

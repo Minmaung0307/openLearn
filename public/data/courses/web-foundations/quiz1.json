@@ -1,0 +1,19 @@
+[
+  {
+    "type": "single",
+    "q": "HTML stands for?",
+    "a": ["Hyper Text Markup Language", "Home Tool Markup Language", "Hyperlinks and Text Management Language"],
+    "correct": 0
+  },
+  {
+    "type": "multiple",
+    "q": "Which are semantic HTML elements?",
+    "a": ["<div>", "<header>", "<section>", "<span>"],
+    "correct": [1, 2]
+  },
+  {
+    "type": "short",
+    "q": "Which HTML tag is used to display an image?",
+    "a": "img"
+  }
+]

@@ -1,22 +1,26 @@
 {
+  "id": "pali-basics",
   "title": "ပါဠိ အခြေခံ",
   "category": "Language",
   "level": "Intermediate",
-  "credits": 2,
-  "hours": 8,
-  "cover": "/data/courses/pali-basics/images/cover.jpg",
-  "description": "ပါဠိ စာလုံးပေါင်း၊ ဝေါဟာရ၊ သဒ္ဒါ အခြေခံများကို လေ့လာနိုင်မည့် သင်ခန်းစာ",
+  "description": "ပါဠိ အခြေခံသဒ္ဒါ၊ စာလုံးပေါင်းနှင့် ဝေါဟာရများကို လေ့လာပါ။",
   "benefits": [
     "စာလုံးပေါင်း အခြေခံ",
     "ဝေါဟာရ တိုးတက်စေရန် လေ့ကျင့်ရေး",
     "သဒ္ဒါ စည်းမျဉ်းများ စနစ်တကျ"
   ],
+  "credits": 2,
+  "hours": 8,
+  "cover": "/data/courses/pali-basics/images/cover.jpg",
   "modules": [
     {
       "id": "m1",
-      "title": "စာလုံးပေါင်း",
-      "path": "html",
-      "lessons": [ { "file": "l1.html", "title": "အက္ခရာမ" } ]
+      "title": "ပါဠိ စာလုံးပေါင်း",
+      "lessons": [
+        { "file": "lesson1.html", "title": "အသံအက္ခရာများ" },
+        { "file": "lesson2.html", "title": "အက္ခရာ ပေါင်းစပ်နည်း" }
+      ],
+      "quiz": "quiz1.json"
     }
   ]
 }
