@@ -1,10 +1,7 @@
 /* =========================================================
-   OpenLearn · Clean app.js (ESM)
-   - Single role helpers (no duplicates)
-   - Global + per-course chat (no re-declared symbols)
-   - Finals quiz pool + details meta loader
+   OpenLearn · app.js (Clean, Finals removed)
+   Part 1/5 — Imports, helpers, theme, state, roles
    ========================================================= */
-/* --- (Part 1/5) Imports, tiny helpers, theme, state, auth roles ---*/
 import {
   db,
   auth,
@@ -18,10 +15,6 @@ import {
   ref,
   push,
   onChildAdded,
-  remove,
-
-  // Optional PayPal loader (keep, but only used if present in your UI)
-  ensurePayPal,
 } from "./firebase.js";
 
 /* ---------- tiny DOM helpers ---------- */
@@ -55,19 +48,8 @@ const _read = (k, d) => {
 };
 const _write = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
-/* ---------- theme / font ---------- */
+/* ---------- responsive theme / font ---------- */
 const PALETTES = {
-  dark: {
-    bg: "#111",
-    fg: "#f1f1f1",
-    card: "#1e1e1e",
-    muted: "#aaa",
-    border: "#333",
-    btnBg: "#333",
-    btnFg: "#eee",
-    btnPrimaryBg: "#0d6efd",
-    btnPrimaryFg: "#fff",
-  },
   slate: {
     bg: "#0b0f17",
     fg: "#eaf1ff",
@@ -88,6 +70,17 @@ const PALETTES = {
     btnBg: "#eef2f7",
     btnFg: "#0e1320",
     btnPrimaryBg: "#2563eb",
+    btnPrimaryFg: "#fff",
+  },
+  dark: {
+    bg: "#111",
+    fg: "#f1f1f1",
+    card: "#1e1e1e",
+    muted: "#aaa",
+    border: "#333",
+    btnBg: "#333",
+    btnFg: "#eee",
+    btnPrimaryBg: "#0d6efd",
     btnPrimaryFg: "#fff",
   },
   gray: {
@@ -190,9 +183,9 @@ const PALETTES = {
     btnPrimaryFg: "#fff",
   },
 };
-function applyPalette(name) {
-  const p = PALETTES[name] || PALETTES.slate,
-    r = document.documentElement;
+function applyPalette(name = "slate") {
+  const p = PALETTES[name] || PALETTES.slate;
+  const r = document.documentElement;
   const map = {
     bg: "--bg",
     fg: "--fg",
@@ -204,9 +197,7 @@ function applyPalette(name) {
     btnPrimaryBg: "--btnPrimaryBg",
     btnPrimaryFg: "--btnPrimaryFg",
   };
-  Object.entries(map).forEach(([k, v]) => p[k] && r.style.setProperty(v, p[k]));
-  r.style.setProperty("--text", p.fg);
-  r.style.setProperty("--text-strong", p.fg);
+  Object.entries(map).forEach(([k, v]) => r.style.setProperty(v, p[k]));
   const rgb = (hex) => {
     const h = hex.replace("#", "");
     return h.length === 3
@@ -215,14 +206,13 @@ function applyPalette(name) {
           parseInt(x, 16)
         );
   };
-  const [rr, gg, bb] = rgb(p.fg || "#111");
+  const [rr, gg, bb] = rgb(p.fg);
   r.style.setProperty("--fg-r", rr);
   r.style.setProperty("--fg-g", gg);
   r.style.setProperty("--fg-b", bb);
-  document.body.classList.toggle("light-theme", name === "light");
 }
-function applyFont(px) {
-  document.documentElement.style.setProperty("--fontSize", (px || 16) + "px");
+function applyFont(px = 16) {
+  document.documentElement.style.setProperty("--fontSize", px + "px");
 }
 
 /* ---------- state (localStorage) ---------- */
@@ -253,10 +243,12 @@ const isAdminLike = () =>
 
 /* ---------- globals ---------- */
 let ALL = []; // merged catalog list
-let currentUser = null; // transient
-const ALL_QUIZZES = {}; // { courseId: [questions...] }
+let currentUser = null;
 
-/* --- (Part 2/5) Data loader, details, filters, catalog, sidebar, topbar offset --- */
+/* =========================================================
+   Part 2/5 — Data loaders, catalog, sidebar/topbar, search
+   ========================================================= */
+
 /* ---------- data base resolver ---------- */
 const DATA_BASE_CANDIDATES = ["/data", "./data", "data"];
 let DATA_BASE = null;
@@ -265,7 +257,6 @@ async function resolveDataBase() {
   const cfg = (window.OPENLEARN_DATA_BASE || "").trim();
   if (cfg) {
     DATA_BASE = cfg;
-    console.log("[OL] DATA_BASE from config =", DATA_BASE);
     return;
   }
   for (const base of DATA_BASE_CANDIDATES) {
@@ -273,16 +264,12 @@ async function resolveDataBase() {
       const r = await fetch(`${base}/catalog.json`, { cache: "no-cache" });
       if (r.ok) {
         DATA_BASE = base;
-        console.log("[OL] DATA_BASE autodetected =", DATA_BASE);
         return;
       }
     } catch {}
   }
-  DATA_BASE = null;
-  console.warn("[OL] No external data found — using seed.");
+  DATA_BASE = null; // use seed
 }
-
-/* ---------- fetch helpers ---------- */
 async function fetchJSON(path) {
   const r = await fetch(path, { cache: "no-cache" });
   if (!r.ok) return null;
@@ -292,89 +279,20 @@ async function fetchJSON(path) {
     return null;
   }
 }
-async function fetchText(path) {
-  const r = await fetch(path, { cache: "no-cache" });
-  if (!r.ok) throw new Error(path);
-  return r.text();
-}
-
-/* ---------- course bundle loader (meta + lessons + quizzes) ---------- */
-function rewriteRelative(html, baseUrl) {
-  return html.replace(
-    /(\s(?:src|href)=)(["'])(?!https?:|data:|\/)([^"']+)\2/gi,
-    (_, p1, q, p3) => `${p1}${q}${baseUrl}/${p3}${q}`
-  );
-}
-
-async function loadCourseBundle(courseId) {
-  if (!DATA_BASE) await resolveDataBase();
-  if (!DATA_BASE) return { meta: null, pages: [], quizzes: null };
-
-  const root = `${DATA_BASE}/courses/${courseId}`;
-  const meta = await fetchJSON(`${root}/meta.json`); // may be null
-
-  const pages = [];
-  if (meta?.modules?.length) {
-    for (const mod of meta.modules) {
-      const base = `${root}/${mod.path || ""}`.replace(/\/+$/, "");
-      for (const l of mod.lessons || []) {
-        try {
-          const raw = await fetchText(`${base}/${l.file}`);
-          const html = rewriteRelative(raw, root);
-          pages.push({
-            type: l.type || "reading",
-            title: l.title || l.file,
-            html,
-          });
-        } catch (e) {
-          console.warn("Lesson load failed", e);
-        }
-      }
-      if (mod.quiz)
-        pages.push({
-          type: "quiz-marker",
-          html: `<h3>${mod.title} — Quiz</h3>`,
-        });
-    }
-  }
-
-  // collect quizzes per module (optional)
-  const quizzes = {};
-  if (meta?.modules?.length) {
-    for (const mod of meta.modules) {
-      if (!mod.quiz) continue;
-      const q = await fetchJSON(`${root}/${mod.quiz}`);
-      if (Array.isArray(q)) quizzes[mod.id] = q;
-    }
-  }
-
-  // flatten to ALL_QUIZZES[courseId]
-  const pool = [];
-  Object.values(quizzes).forEach(
-    (arr) => Array.isArray(arr) && arr.forEach((it) => pool.push(it))
-  );
-  if (pool.length) ALL_QUIZZES[courseId] = pool;
-
-  return { meta, pages, quizzes };
-}
 
 /* ---------- catalog loader ---------- */
 async function loadCatalog() {
   await resolveDataBase();
-
   let items = [];
   if (DATA_BASE) {
     try {
       const url = `${DATA_BASE}/catalog.json`;
-      console.log("[OL] fetching catalog:", url);
       const r = await fetch(url, { cache: "no-cache" });
       if (r.ok) {
         const cat = await r.json();
         items = cat?.items || [];
       }
-    } catch (e) {
-      console.warn("[OL] catalog fetch error:", e);
-    }
+    } catch {}
   }
   if (!items.length) {
     items = [
@@ -424,12 +342,6 @@ async function loadCatalog() {
 }
 
 /* ---------- filters + catalog ---------- */
-function getFilterValues() {
-  const cat = ($("#filterCategory")?.value || "").trim();
-  const lvl = ($("#filterLevel")?.value || "").trim();
-  const sort = ($("#sortBy")?.value || "").trim();
-  return { cat, lvl, sort };
-}
 function sortCourses(list, sort) {
   if (sort === "title-asc")
     return list.slice().sort((a, b) => a.title.localeCompare(b.title));
@@ -441,68 +353,84 @@ function sortCourses(list, sort) {
     return list.slice().sort((a, b) => (b.price || 0) - (a.price || 0));
   return list;
 }
-
-function renderCatalog(){
-  const grid = document.getElementById("courseGrid"); if (!grid) return;
+function renderCatalog() {
+  const grid = $("#courseGrid");
+  if (!grid) return;
 
   ALL = getCourses();
 
-  // ✅ Always rebuild category options (avoid iOS race)
-  const sel = document.getElementById("filterCategory");
-  if (sel){
-    const cats = Array.from(new Set(ALL.map(c => c.category || "")))
-      .filter(Boolean).sort();
+  // Build categories safely every time to avoid race
+  const sel = $("#filterCategory");
+  if (sel) {
+    const cats = Array.from(new Set(ALL.map((c) => c.category || "")))
+      .filter(Boolean)
+      .sort();
     sel.innerHTML =
       `<option value="">All Categories</option>` +
-      cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+      cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
   }
 
-  const cat  = (document.getElementById("filterCategory")?.value || "").trim();
-  const lvl  = (document.getElementById("filterLevel")?.value    || "").trim();
-  const sort = (document.getElementById("sortBy")?.value         || "").trim();
+  const cat = ($("#filterCategory")?.value || "").trim();
+  const lvl = ($("#filterLevel")?.value || "").trim();
+  const sort = ($("#sortBy")?.value || "").trim();
 
-  let list = ALL.filter(c => (!cat || c.category===cat) && (!lvl || c.level===lvl));
+  let list = ALL.filter(
+    (c) => (!cat || c.category === cat) && (!lvl || c.level === lvl)
+  );
   list = sortCourses(list, sort);
 
-  if (!list.length){ grid.innerHTML = `<div class="muted">No courses match the filters.</div>`; return; }
+  if (!list.length) {
+    grid.innerHTML = `<div class="muted">No courses match the filters.</div>`;
+    return;
+  }
 
-  grid.innerHTML = list.map(c=>{
-    const r = Number(c.rating||4.6);
-    const priceStr = (c.price||0) > 0 ? "$"+c.price : "Free";
-    const search = [c.title, c.summary, c.category, c.level].join(" ");
-    const enrolled = getEnrolls().has(c.id);
-    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
-      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
-      <div class="course-body">
-        <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
-        <div class="muted">${esc(c.summary||"")}</div>
-        <div class="row" style="justify-content:flex-end; gap:8px">
-          <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${enrolled?"Enrolled":"Enroll"}</button>
+  grid.innerHTML = list
+    .map((c) => {
+      const r = Number(c.rating || 4.6);
+      const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+      const search = [c.title, c.summary, c.category, c.level].join(" ");
+      const enrolled = getEnrolls().has(c.id);
+      return `<div class="card course" data-id="${c.id}" data-search="${esc(
+        search
+      )}">
+        <img class="course-cover" src="${esc(
+          c.image || `https://picsum.photos/seed/${c.id}/640/360`
+        )}" alt="">
+        <div class="course-body">
+          <strong>${esc(c.title)}</strong>
+          <div class="small muted">${esc(c.category || "")} • ${esc(
+        c.level || ""
+      )} • ★ ${r.toFixed(1)} • ${priceStr}</div>
+          <div class="muted">${esc(c.summary || "")}</div>
+          <div class="row" style="justify-content:flex-end; gap:8px">
+            <button class="btn" data-details="${c.id}">Details</button>
+            <button class="btn primary" data-enroll="${c.id}">${
+              enrolled ? "Enrolled" : "Enroll"
+            }</button>
+          </div>
         </div>
-      </div>
-    </div>`;
-  }).join("");
+      </div>`;
+    })
+    .join("");
 
-  grid.querySelectorAll("[data-enroll]")
-    .forEach(b => b.onclick = () => handleEnroll(b.getAttribute("data-enroll")));
-  grid.querySelectorAll("[data-details]")
-    .forEach(b => b.onclick = () => openDetails(b.getAttribute("data-details")));
+  grid.querySelectorAll("[data-enroll]").forEach(
+    (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+  );
+  grid.querySelectorAll("[data-details]").forEach(
+    (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+  );
 }
 
-// Ensure first paint always has a default option even before data arrives
-document.addEventListener("DOMContentLoaded", ()=>{
-  const catSel = document.getElementById("filterCategory");
-  if (catSel && !catSel.options.length){
+// default filter dropdown before data arrives
+document.addEventListener("DOMContentLoaded", () => {
+  const catSel = $("#filterCategory");
+  if (catSel && !catSel.options.length) {
     catSel.innerHTML = `<option value="">All Categories</option>`;
   }
 });
-["filterCategory", "filterLevel", "sortBy"].forEach((id) => {
-  document
-    .getElementById(id)
-    ?.addEventListener("change", () => renderCatalog());
-});
+["filterCategory", "filterLevel", "sortBy"].forEach((id) =>
+  document.getElementById(id)?.addEventListener("change", renderCatalog)
+);
 
 /* ---------- sidebar + topbar offset (fixed) ---------- */
 function initSidebar() {
@@ -551,26 +479,24 @@ function initSidebar() {
   });
 }
 
-function updateTopbarOffsetNow(){
-  const tb = document.getElementById('topbar'); if (!tb) return;
+/* keep --topbar-offset accurate */
+function setTopbarOffset() {
+  const tb = $("#topbar");
+  if (!tb) return;
   const h = Math.ceil(tb.getBoundingClientRect().height);
-  document.documentElement.style.setProperty('--topbar-offset', h + 'px');
+  document.documentElement.style.setProperty("--topbar-offset", h + "px");
 }
-let _tboRaf = 0;
-function updateTopbarOffset(){
-  if(_tboRaf) cancelAnimationFrame(_tboRaf);
-  _tboRaf = requestAnimationFrame(updateTopbarOffsetNow);
+const _runTopbarOffset = () => requestAnimationFrame(setTopbarOffset);
+document.addEventListener("DOMContentLoaded", _runTopbarOffset);
+addEventListener("resize", _runTopbarOffset);
+addEventListener("orientationchange", _runTopbarOffset);
+if (window.visualViewport) {
+  visualViewport.addEventListener("resize", _runTopbarOffset);
+  visualViewport.addEventListener("scroll", _runTopbarOffset);
 }
-document.addEventListener('DOMContentLoaded', updateTopbarOffsetNow);
-addEventListener('resize', updateTopbarOffset);
-addEventListener('orientationchange', updateTopbarOffset);
-if (window.visualViewport){
-  visualViewport.addEventListener('resize', updateTopbarOffset);
-  visualViewport.addEventListener('scroll', updateTopbarOffset);
-}
-if ('ResizeObserver' in window){
-  const tb = document.getElementById('topbar');
-  if (tb){ new ResizeObserver(updateTopbarOffset).observe(tb); }
+if ("ResizeObserver" in window) {
+  const tb = $("#topbar");
+  tb && new ResizeObserver(_runTopbarOffset).observe(tb);
 }
 
 /* ---------- router + search ---------- */
@@ -599,7 +525,10 @@ function initSearch() {
   });
 }
 
-/* --- (Part 3/5) — Auth modal, catalog actions, details, my learning, reader ---*/
+/* =========================================================
+   Part 3/5 — Auth, catalog actions, details, profile, reader
+   ========================================================= */
+
 /* ---------- auth modal ---------- */
 function ensureAuthModalMarkup() {
   if ($("#authModal")) return;
@@ -644,7 +573,6 @@ function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
   $("#btn-login") && ($("#btn-login").style.display = on ? "none" : "");
   $("#btn-logout") && ($("#btn-logout").style.display = on ? "" : "none");
-//   document.body.classList.toggle("locked", !on);
   document.body.dataset.role = getRole();
   renderProfilePanel?.();
 }
@@ -653,7 +581,6 @@ function initAuthModal() {
   const modal = $("#authModal");
   if (!modal) return;
 
-  // define before using
   const showPane = (id) => {
     ["authLogin", "authSignup", "authForgot"].forEach((x) =>
       $("#" + x)?.classList.add("ol-hidden")
@@ -661,10 +588,8 @@ function initAuthModal() {
     $("#" + id)?.classList.remove("ol-hidden");
     modal.showModal();
   };
-  // expose for gates
   window._showLoginPane = () => showPane("authLogin");
 
-  // topbar buttons
   document.addEventListener("click", (e) => {
     const loginBtn = e.target.closest("#btn-login");
     const logoutBtn = e.target.closest("#btn-logout");
@@ -686,7 +611,6 @@ function initAuthModal() {
     }
   });
 
-  // pane links
   $("#linkSignup")?.addEventListener("click", (e) => {
     e.preventDefault();
     showPane("authSignup");
@@ -704,7 +628,6 @@ function initAuthModal() {
     showPane("authLogin");
   });
 
-  // login
   $("#doLogin")?.addEventListener("click", async (e) => {
     e.preventDefault();
     const em = $("#loginEmail")?.value.trim();
@@ -717,13 +640,11 @@ function initAuthModal() {
       modal.close();
       gateChatUI();
       toast("Welcome back");
-    } catch (err) {
-      console.warn(err);
+    } catch {
       toast("Login failed");
     }
   });
 
-  // signup
   $("#doSignup")?.addEventListener("click", async (e) => {
     e.preventDefault();
     const em = $("#signupEmail")?.value.trim();
@@ -736,13 +657,11 @@ function initAuthModal() {
       modal.close();
       gateChatUI();
       toast("Account created");
-    } catch (err) {
-      console.warn(err);
+    } catch {
       toast("Signup failed");
     }
   });
 
-  // forgot (demo)
   $("#doForgot")?.addEventListener("click", (e) => {
     e.preventDefault();
     const em = $("#forgotEmail")?.value.trim();
@@ -751,7 +670,7 @@ function initAuthModal() {
     toast("Reset link sent (demo)");
   });
 
-  // global auth gate
+  // open login when a gated control is hit
   document.addEventListener("click", (e) => {
     const gated = e.target.closest("[data-requires-auth]");
     if (gated && !isLogged()) {
@@ -777,7 +696,6 @@ function handleEnroll(id) {
     ALL.find((x) => x.id === id) || getCourses().find((x) => x.id === id);
   if (!c) return toast("Course not found");
   if ((c.price || 0) <= 0) return markEnrolled(id);
-  // If you use PayPal modal in your HTML, wire it here (kept minimal)
   toast("Demo checkout — marking as enrolled");
   markEnrolled(id);
 }
@@ -786,19 +704,14 @@ function handleEnroll(id) {
 async function openDetails(id) {
   const base =
     ALL.find((x) => x.id === id) || getCourses().find((x) => x.id === id);
-  if (!base) {
-    toast("Course not found");
-    return;
-  }
+  if (!base) return toast("Course not found");
 
   let meta = null;
   try {
     if (!DATA_BASE) await resolveDataBase();
     if (DATA_BASE)
       meta = await fetchJSON(`${DATA_BASE}/courses/${id}/meta.json`);
-  } catch (e) {
-    console.warn("[OL] details meta fetch failed:", e);
-  }
+  } catch {}
 
   const m = (() => {
     if (!meta)
@@ -872,16 +785,16 @@ async function openDetails(id) {
         <div class="row" style="justify-content:flex-end; gap:8px; margin-top:.6rem">
           <button class="btn" data-details-close>Close</button>
           <button class="btn primary" data-details-enroll="${merged.id}">${
-    (merged.price || 0) > 0 ? "Buy • $" + merged.price : "Enroll Free"
-  }</button>
+            (merged.price || 0) > 0 ? "Buy • $" + merged.price : "Enroll Free"
+          }</button>
         </div>
       </div>
     </div>`;
   const dlg = $("#detailsModal");
   dlg?.showModal();
-  body
-    .querySelector("[data-details-close]")
-    ?.addEventListener("click", () => dlg?.close());
+  body.querySelector("[data-details-close]")?.addEventListener("click", () =>
+    dlg?.close()
+  );
   body
     .querySelector("[data-details-enroll]")
     ?.addEventListener("click", (e) => {
@@ -894,11 +807,11 @@ $("#closeDetails")?.addEventListener("click", () =>
 );
 
 /* ---------- Profile panel (safe no-op if element missing) ---------- */
-function renderProfilePanel(){
-  const box = document.getElementById("profilePanel");
-  if (!box) return;                     // HTML မပါရင် ပျော်ရွှင်စွာ pass
+function renderProfilePanel() {
+  const box = $("#profilePanel");
+  if (!box) return;
   const p = getProfile();
-  const name = p.displayName || (getUser()?.email || "Guest");
+  const name = p.displayName || getUser()?.email || "Guest";
   const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
   const skills = (p.skills || "").toString();
 
@@ -907,10 +820,18 @@ function renderProfilePanel(){
       <img src="${esc(avatar)}" alt="" style="width:72px;height:72px;border-radius:50%">
       <div class="grow">
         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
-        ${p.bio ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>` : ""}
+        ${
+          p.bio
+            ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
+            : ""
+        }
         ${skills ? `<div class="small muted">Skills: ${esc(skills)}</div>` : ""}
         ${p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""}
-        ${p.social ? `<div class="small muted">Social: ${esc(p.social)}</div>` : ""}
+        ${
+          p.social
+            ? `<div class="small muted">Social: ${esc(p.social)}</div>`
+            : ""
+        }
       </div>
     </div>`;
 }
@@ -936,11 +857,11 @@ const SAMPLE_PAGES = (title) => [
     html: `<h3>Quiz 1</h3><p>Q1) Short answer</p><input id="q1" class="input" placeholder="Your answer"><div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>`,
   },
   {
-    type: "final",
-    html: `<h3>Final Project</h3><input type="file"><p class="small muted">Complete to earn certificate/transcript (demo).</p>`,
+    type: "project",
+    html: `<h3>Mini Project</h3><input type="file"><p class="small muted">Upload your work (demo).</p>`,
   },
 ];
-let RD = { cid: null, pages: [], i: 0, credits: 0, score: 0 };
+let RD = { cid: null, pages: [], i: 0, credits: 0 };
 
 function renderMyLearning() {
   const grid = $("#myCourses");
@@ -971,37 +892,20 @@ function renderMyLearning() {
       })
       .join("") ||
     `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
-  grid
-    .querySelectorAll("[data-read]")
-    .forEach(
-      (b) => (b.onclick = () => openReader(b.getAttribute("data-read")))
-    );
+  grid.querySelectorAll("[data-read]").forEach(
+    (b) => (b.onclick = () => openReader(b.getAttribute("data-read")))
+  );
 }
-
-// merged: loads real lessons if available (meta.json), else sample pages
 async function openReader(cid) {
   const c =
     ALL.find((x) => x.id === cid) || getCourses().find((x) => x.id === cid);
   if (!c) return toast("Course not found");
 
-  let bundle = null;
-  try {
-    bundle = await loadCourseBundle(c.id);
-  } catch (e) {
-    console.warn("loadCourseBundle failed", e);
-  }
+  // (simple) demo pages
+  const pages = SAMPLE_PAGES(c.title);
+  const credits = c.credits || 3;
 
-  const pages = bundle?.pages?.length ? bundle.pages : SAMPLE_PAGES(c.title);
-  const credits = c.credits || bundle?.meta?.credits || 3;
-
-  RD = {
-    cid: c.id,
-    pages,
-    i: 0,
-    credits,
-    score: 0,
-    quizzes: bundle?.quizzes || null,
-  };
+  RD = { cid: c.id, pages, i: 0, credits };
 
   $("#myCourses") && ($("#myCourses").innerHTML = "");
   $("#reader")?.classList.remove("hidden");
@@ -1044,12 +948,9 @@ async function openReader(cid) {
     } catch {}
     window._ccOff = null;
   }
-  if (typeof wireCourseChatRealtime === "function") {
-    const off = wireCourseChatRealtime(c.id);
-    if (typeof off === "function") window._ccOff = off;
-  }
+  const off = wireCourseChatRealtime(c.id);
+  if (typeof off === "function") window._ccOff = off;
 }
-
 function renderPage() {
   const p = RD.pages[RD.i];
   if (!p) return;
@@ -1065,14 +966,12 @@ function renderPage() {
       Math.round(((RD.i + 1) / RD.pages.length) * 100) + "%");
   const btn = $("#qSubmit"),
     msg = $("#qMsg");
-  if (btn)
-    btn.onclick = () => {
-      if (msg) msg.textContent = "Submitted ✔️ (+5%)";
-    };
+  if (btn) btn.onclick = () => (msg ? (msg.textContent = "Submitted ✔️") : 0);
 }
 
-/* --- (Part 4/5) — Gradebook, Admin, Announcements, Finals helpers --- */
-/* --- (Part 4/5) — Gradebook, Admin, Announcements, Finals helpers --- */
+/* =========================================================
+   Part 4/5 — Gradebook, Admin, Announcements, Import/Export, Chat
+   ========================================================= */
 
 /* ---------- Gradebook ---------- */
 function renderGradebook() {
@@ -1092,12 +991,12 @@ function renderGradebook() {
       .map(
         (r) =>
           `<tr>
-      <td>${esc(r.student)}</td>
-      <td>${esc(r.course)}</td>
-      <td>${esc(r.score)}</td>
-      <td>${esc(r.credits)}</td>
-      <td>${esc(r.progress)}</td>
-    </tr>`
+            <td>${esc(r.student)}</td>
+            <td>${esc(r.course)}</td>
+            <td>${esc(r.score)}</td>
+            <td>${esc(r.credits)}</td>
+            <td>${esc(r.progress)}</td>
+          </tr>`
       )
       .join("") || "<tr><td colspan='5' class='muted'>No data</td></tr>";
 }
@@ -1112,20 +1011,19 @@ function renderAdminTable() {
     list
       .map(
         (c) => `
-    <tr data-id="${c.id}">
-      <td><a href="#" data-view="${c.id}">${esc(c.title)}</a></td>
-      <td>${esc(c.category || "")}</td>
-      <td>${esc(c.level || "")}</td>
-      <td>${esc(String(c.rating || 4.6))}</td>
-      <td>${esc(String(c.hours || 8))}</td>
-      <td>${(c.price || 0) > 0 ? "$" + c.price : "Free"}</td>
-      <td><button class="btn small" data-del="${c.id}">Delete</button></td>
-    </tr>
-  `
+      <tr data-id="${c.id}">
+        <td><a href="#" data-view="${c.id}">${esc(c.title)}</a></td>
+        <td>${esc(c.category || "")}</td>
+        <td>${esc(c.level || "")}</td>
+        <td>${esc(String(c.rating || 4.6))}</td>
+        <td>${esc(String(c.hours || 8))}</td>
+        <td>${(c.price || 0) > 0 ? "$" + c.price : "Free"}</td>
+        <td><button class="btn small" data-del="${c.id}">Delete</button></td>
+      </tr>`
       )
       .join("") || "<tr><td colspan='7' class='muted'>No courses</td></tr>";
 
-  // Row delete
+  // Delete
   tb.querySelectorAll("[data-del]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -1139,7 +1037,7 @@ function renderAdminTable() {
       })
   );
 
-  // Drill-down view
+  // View / edit
   tb.querySelectorAll("[data-view]").forEach(
     (a) =>
       (a.onclick = (e) => {
@@ -1147,20 +1045,15 @@ function renderAdminTable() {
         const id = a.getAttribute("data-view");
         const c = list.find((x) => x.id === id);
         if (!c) return;
-
         $("#avmTitle").textContent = c.title || "Course";
         $("#avmBody").innerHTML = `
-      <div class="small">Category: ${esc(c.category || "")}</div>
-      <div class="small">Level: ${esc(c.level || "")}</div>
-      <div class="small">Rating: ${esc(String(c.rating || ""))}</div>
-      <div class="small">Hours: ${esc(String(c.hours || ""))}</div>
-      <p style="margin-top:.5rem">${esc(c.summary || "")}</p>
-    `;
+          <div class="small">Category: ${esc(c.category || "")}</div>
+          <div class="small">Level: ${esc(c.level || "")}</div>
+          <div class="small">Rating: ${esc(String(c.rating || ""))}</div>
+          <div class="small">Hours: ${esc(String(c.hours || ""))}</div>
+          <p style="margin-top:.5rem">${esc(c.summary || "")}</p>`;
+        $("#adminViewModal")?.showModal();
 
-        const dlg = $("#adminViewModal");
-        dlg?.showModal();
-
-        // Edit → reuse New Course modal
         $("#avmEdit").onclick = () => {
           const f = $("#courseForm");
           $("#courseModal")?.showModal();
@@ -1174,10 +1067,8 @@ function renderAdminTable() {
           f.img.value = c.image || "";
           f.description.value = c.summary || "";
           f.benefits.value = c.benefits || "";
-          dlg?.close();
+          $("#adminViewModal")?.close();
         };
-
-        // Delete from modal
         $("#avmDelete").onclick = () => {
           const arr = getCourses().filter((x) => x.id !== id);
           setCourses(arr);
@@ -1185,17 +1076,16 @@ function renderAdminTable() {
           renderCatalog();
           renderAdminTable();
           toast("Deleted");
-          dlg?.close();
+          $("#adminViewModal")?.close();
         };
       })
   );
-
   $("#avmClose")?.addEventListener("click", () =>
     $("#adminViewModal")?.close()
   );
 }
 
-/* ---------- Import / Export (one-time wiring) ---------- */
+/* ---------- Import / Export ---------- */
 function wireAdminImportExportOnce() {
   const ex = $("#btn-export");
   const im = $("#btn-import");
@@ -1203,7 +1093,6 @@ function wireAdminImportExportOnce() {
   if (!ex || !im || !file) return;
 
   ex.addEventListener("click", () => {
-    // export only user-created (source:"user") to keep seed clean
     const mine = getCourses().filter((c) => c.source === "user");
     const blob = new Blob([JSON.stringify(mine, null, 2)], {
       type: "application/json",
@@ -1258,8 +1147,7 @@ function renderAnnouncements() {
         <button class="btn small" data-edit="${a.id}">Edit</button>
         <button class="btn small" data-del="${a.id}">Delete</button>
       </div>
-    </div>
-  `
+    </div>`
       )
       .join("") || `<div class="muted">No announcements yet.</div>`;
   wireAnnouncementEditButtons();
@@ -1293,7 +1181,6 @@ function wireAnnouncementEditButtons() {
       })
   );
 }
-// compose / edit modal actions
 $("#btn-new-post")?.addEventListener("click", () => {
   const f = $("#postForm");
   f?.reset();
@@ -1301,8 +1188,12 @@ $("#btn-new-post")?.addEventListener("click", () => {
   $("#postModal .modal-title").textContent = "New Announcement";
   $("#postModal")?.showModal();
 });
-$("#closePostModal")?.addEventListener("click", () => $("#postModal")?.close());
-$("#cancelPost")?.addEventListener("click", () => $("#postModal")?.close());
+$("#closePostModal")?.addEventListener("click", () =>
+  $("#postModal")?.close()
+);
+$("#cancelPost")?.addEventListener("click", () =>
+  $("#postModal")?.close()
+);
 $("#postForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
   const t = $("#pmTitle")?.value.trim();
@@ -1332,211 +1223,8 @@ $("#postForm")?.addEventListener("submit", (e) => {
   renderAnnouncements();
 });
 
-/* ---------- Finals: pool + UI + downloads ---------- */
-function _pickRandom(arr, n) {
-  const a = arr.slice();
-  const out = [];
-  while (a.length && out.length < n) {
-    out.push(a.splice(Math.floor(Math.random() * a.length), 1)[0]);
-  }
-  return out;
-}
-function gatherAllQuestionsForFinal() {
-  const enrolled = Array.from(getEnrolls());
-  const collected = [];
-  // prefer enrolled courses
-  enrolled.forEach((cid) => {
-    const arr = ALL_QUIZZES[cid];
-    if (Array.isArray(arr) && arr.length) collected.push(...arr);
-  });
-  // if nothing, try any loaded
-  if (!collected.length) {
-    for (const cid in ALL_QUIZZES) {
-      const arr = ALL_QUIZZES[cid];
-      if (Array.isArray(arr) && arr.length) collected.push(...arr);
-    }
-  }
-  // small fallback so button never does nothing
-  if (!collected.length) {
-    collected.push(
-      { t: "tf", q: "CSS is used for styling web pages.", a: "t" },
-      { t: "short", q: "HTTP status 404 means what?", a: "not found" },
-      { t: "short", q: "DOM stands for?", a: "document object model" },
-      { t: "short", q: "Array method to add at end?", a: "push" },
-      { t: "tf", q: "React is a backend framework.", a: "f" },
-      { t: "short", q: "SQL keyword for unique rows?", a: "distinct" },
-      { t: "tf", q: "JSON stands for JavaScript Object Notation.", a: "t" }
-    );
-  }
-  return collected;
-}
-function downloadCertificate(name, pct) {
-  // simple canvas certificate
-  const c = document.createElement("canvas");
-  c.width = 1200;
-  c.height = 800;
-  const ctx = c.getContext("2d");
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, c.width, c.height);
-  ctx.strokeStyle = "#222";
-  ctx.lineWidth = 6;
-  ctx.strokeRect(20, 20, c.width - 40, c.height - 40);
-  ctx.font = "48px serif";
-  ctx.fillStyle = "#111";
-  ctx.fillText("Certificate of Completion", 280, 180);
-  ctx.font = "36px system-ui, -apple-system, Segoe UI";
-  ctx.fillText(`Awarded to: ${name}`, 280, 300);
-  ctx.fillText(`Final Exam Score: ${pct}%`, 280, 360);
-  ctx.fillText(`Date: ${new Date().toLocaleDateString()}`, 280, 420);
-  const a = document.createElement("a");
-  a.href = c.toDataURL("image/png");
-  a.download = "OpenLearn-Certificate.png";
-  a.click();
-}
-function downloadTranscript(name, pct, total, correct) {
-  const lines = [
-    "OpenLearn Transcript",
-    `Name,${name}`,
-    `Final Exam Score,${pct}%`,
-    `Correct,${correct}`,
-    `Total,${total}`,
-    `Date,${new Date().toISOString()}`,
-  ].join("\n");
-  const blob = new Blob([lines], { type: "text/csv" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "OpenLearn-Transcript.csv";
-  a.click();
-}
-/* ---- QUIZ: robust loader + startFinal wiring (drop-in) ---- */
-
-// normalize both styles
-function normalizeQuizArray(arr){
-  const out = [];
-  for (const it of (arr||[])) {
-    if (it.t && it.q) out.push({ type: it.t, q: it.q, a: it.a, options: it.a, correct: it.correct });
-    else if (it.q && Array.isArray(it.a)) out.push({ type:"mcq", q: it.q, options: it.a, correct: it.correct });
-  }
-  return out;
-}
-
-async function fetchQuizJSON(path){
-  try {
-    const r = await fetch(path, { cache:"no-cache" });
-    if (!r.ok) return null;
-    return await r.json();
-  } catch { return null; }
-}
-
-async function loadCourseQuizBank(courseId){
-  if (!window.DATA_BASE) await resolveDataBase?.();
-  const root = `${window.DATA_BASE || "/data"}/courses/${courseId}`;
-  const arr  = await fetchQuizJSON(`${root}/quiz.json`);
-  return Array.isArray(arr) ? normalizeQuizArray(arr) : [];
-}
-
-// render 12 random questions into #finalForm
-async function startFinal(){
-  try{
-    const set = getEnrolls();
-    const enrolled = (ALL.length?ALL:getCourses()).filter(c => set.has(c.id));
-    if (!enrolled.length){ toast("Enroll some courses first."); return; }
-
-    // gather
-    let pool = [];
-    for (const c of enrolled){
-      // priority: already-loaded bundle quizzes
-      const pre = (ALL_QUIZZES && ALL_QUIZZES[c.id]) || [];
-      if (pre.length) pool = pool.concat(normalizeQuizArray(pre));
-      else pool = pool.concat(await loadCourseQuizBank(c.id));
-    }
-
-    // fallback: try again with lowercase ids (အချို့ project တွေ folder ထဲ lower-case ဖြစ်တတ်)
-    if (!pool.length){
-      for (const c of enrolled){
-        const low = (c.id || "").toLowerCase();
-        pool = pool.concat(await loadCourseQuizBank(low));
-      }
-    }
-
-    if (!pool.length){
-      // UI ရှာဖွေရာအတွက် အနည်းဆုံး စာနာမည်ပေါ်စေ
-      document.getElementById("finalForm")?.replaceChildren();
-      document.getElementById("finalModal")?.showModal();
-      toast("No quizzes found in your enrolled courses.");
-      console.warn("[Final] quiz pool empty — check /data/courses/<id>/quiz.json");
-      return;
-    }
-
-    // pick random 12
-    const take = (a,n)=>{ const t=a.slice(); const o=[]; while(t.length && o.length<n){ o.push(t.splice(Math.floor(Math.random()*t.length),1)[0]); } return o; };
-    const qs = take(pool, Math.min(12, pool.length));
-
-    // render UI
-    const form = document.getElementById("finalForm");
-    if (!form) return;
-    form.innerHTML = "";
-    qs.forEach((it, idx)=>{
-      const name = `qf_${idx}`;
-      if (it.type==="mcq" && Array.isArray(it.options)) {
-        const opts = it.options.map((op,i)=>`<label><input type="radio" name="${name}" value="${i}"> ${esc(op)}</label>`).join("<br>");
-        form.insertAdjacentHTML("beforeend", `<div class="card"><div><b>${idx+1}.</b> ${esc(it.q)}</div><div style="margin-top:6px">${opts}</div></div>`);
-      } else if ((it.type||"").toLowerCase()==="tf") {
-        form.insertAdjacentHTML("beforeend", `<div class="card"><div><b>${idx+1}.</b> ${esc(it.q)}</div><label><input type="radio" name="${name}" value="t"> True</label> <label><input type="radio" name="${name}" value="f"> False</label></div>`);
-      } else {
-        form.insertAdjacentHTML("beforeend", `<div class="card"><div><b>${idx+1}.</b> ${esc(it.q)}</div><input class="input" name="${name}" placeholder="Your answer"></div>`);
-      }
-    });
-
-    // actions
-    const row = document.createElement("div");
-    row.className = "row";
-    row.style.cssText = "justify-content:flex-end;gap:8px";
-    row.innerHTML = `<button class="btn" id="cancelFinal" type="button">Cancel</button>
-                     <button class="btn primary" id="submitFinal" type="button">Submit</button>`;
-    form.appendChild(row);
-
-    document.getElementById("cancelFinal")?.addEventListener("click", ()=> document.getElementById("finalModal")?.close());
-    document.getElementById("submitFinal")?.addEventListener("click", ()=>{
-      let score=0;
-      qs.forEach((it, idx)=>{
-        const name = `qf_${idx}`;
-        const chosen = (form.querySelector(`[name="${name}"]:checked`)?.value || form.querySelector(`[name="${name}"]`)?.value || "").toString().trim();
-        if (it.type==="mcq")        { if (chosen !== "" && String(chosen)===String(it.correct)) score++; }
-        else if ((it.type||"").toLowerCase()==="tf") { if (chosen && chosen.toLowerCase()===String(it.a).toLowerCase()) score++; }
-        else { const ans=(String(it.a||"")).toLowerCase(); if (ans && chosen.toLowerCase().includes(ans)) score++; }
-      });
-      const pct = Math.round(score/qs.length*100);
-      if (pct>=70){ toast(`Passed ${pct}% ✔`); /* downloadCertificate() / downloadTranscript() if you already have them */ }
-      else toast(`Failed ${pct}% — try again`);
-      document.getElementById("finalModal")?.close();
-    });
-
-    document.getElementById("finalModal")?.showModal();
-  }catch(e){
-    console.warn(e);
-    toast("Final exam failed to load.");
-  }
-}
-
-// ✅ make sure the button is wired even if DOM changed later
-function wireStartFinalButton(){
-  const btn = document.getElementById("btn-start-final");
-  if (btn && !btn.dataset._wired){
-    btn.addEventListener("click", (e)=>{ e.preventDefault(); startFinal(); });
-    btn.dataset._wired = "1";
-  }
-}
-document.addEventListener("DOMContentLoaded", wireStartFinalButton);
-const _finalObs = new MutationObserver(wireStartFinalButton);
-_finalObs.observe(document.body, { childList:true, subtree:true });
-
-/* --- (Part 5/5) — Chat (global & per-course), Settings, Boot --- */
-/* --- (Part 5/5) — Chat (global & per-course), Settings, Boot --- */
-
-/* ---------- Chat gating (enable/disable inputs) ---------- */
+/* ---------- Chat gating ---------- */
 function gateChatUI() {
-  // Firebase non-anonymous OR local mirror user
   const isFb = !!auth?.currentUser && !auth.currentUser.isAnonymous;
   const isLocal = !!getUser();
   const ok = isFb || isLocal;
@@ -1550,16 +1238,7 @@ function gateChatUI() {
   });
 }
 
-/* ---------- Chat guard: login required (no anonymous) ---------- */
-async function ensureAuthForChat() {
-  if (auth?.currentUser && !auth.currentUser.isAnonymous)
-    return auth.currentUser;
-  const err = new Error("login-required");
-  err.code = "login-required";
-  throw err;
-}
-
-/* ---------- Global Live Chat ---------- */
+/* ---------- Global Live Chat (RTDB if available; local fallback) ---------- */
 function initChatRealtime() {
   const box = $("#chatBox"),
     input = $("#chatInput"),
@@ -1569,12 +1248,11 @@ function initChatRealtime() {
   const display = getUser()?.email || "guest";
 
   try {
-    // require login for RTDB
     if (!auth?.currentUser || auth.currentUser.isAnonymous)
       throw new Error("no-auth");
 
-    const rtdb = getDatabase(); // default app
-    const roomRef = ref(rtdb, "chats/global"); // global room
+    const rtdb = getDatabase();
+    const roomRef = ref(rtdb, "chats/global");
 
     onChildAdded(roomRef, (snap) => {
       const m = snap.val();
@@ -1606,17 +1284,14 @@ function initChatRealtime() {
           ts: Date.now(),
         });
         if (input) input.value = "";
-      } catch (e) {
-        console.warn(e);
+      } catch {
         toast("Chat failed");
       }
     };
     return;
-  } catch (e) {
-    // fall through to local fallback
-  }
+  } catch {}
 
-  // Local-only fallback (works offline / without auth)
+  // Local-only fallback
   const KEY = "ol_chat_local";
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
@@ -1690,16 +1365,14 @@ function wireCourseChatRealtime(courseId) {
           ts: Date.now(),
         });
         if (input) input.value = "";
-      } catch (e) {
-        console.warn(e);
+      } catch {
         toast("Chat failed");
       }
     };
     return;
-  } catch (e) {
-    // fallback to local
-  }
+  } catch {}
 
+  // local fallback
   const KEY = "ol_chat_room_" + courseId;
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
@@ -1727,6 +1400,10 @@ function wireCourseChatRealtime(courseId) {
   };
 }
 
+/* =========================================================
+   Part 5/5 — Settings, Boot, Finals Removal Shim
+   ========================================================= */
+
 /* ---------- Settings ---------- */
 $("#themeSel")?.addEventListener("change", (e) => {
   localStorage.setItem("ol_theme", e.target.value);
@@ -1736,12 +1413,6 @@ $("#fontSel")?.addEventListener("change", (e) => {
   localStorage.setItem("ol_font", e.target.value);
   applyFont(e.target.value);
 });
-$("#btn-top-ann")?.addEventListener("click", () => showPage("dashboard"));
-$("#btn-top-final")?.addEventListener("click", () => showPage("finals"));
-$("#btn-start-final")?.addEventListener("click", (e) => {
-  e.preventDefault();
-  startFinal();
-});
 
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1749,12 +1420,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   applyPalette(localStorage.getItem("ol_theme") || "slate");
   applyFont(localStorage.getItem("ol_font") || "16");
 
-  // Auth modal + restore login state
+  // Auth modal + restore login
   initAuthModal();
   const u = getUser();
   setLogged(!!u, u?.email);
 
-  // Gate chat inputs immediately + keep in sync with Firebase auth
+  // Gate chat inputs and keep in sync
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
     onAuthStateChanged(auth, () => gateChatUI());
@@ -1766,37 +1437,29 @@ document.addEventListener("DOMContentLoaded", async () => {
   initChatRealtime();
 
   // Data
-  await loadCatalog().catch((e) => console.warn("Catalog load failed", e));
+  await loadCatalog().catch(() => {});
   ALL = getCourses();
   renderCatalog();
   renderAdminTable();
-  if (typeof renderProfilePanel === "function") renderProfilePanel();
-//   renderProfilePanel();
+  renderProfilePanel?.();
   renderAnnouncements();
 
   // One-time import/export wiring
   wireAdminImportExportOnce();
+
+  // Remove Finals from UI if present (robust no-op if missing)
+  stripFinalsUI();
 });
 
-// Keep --topbar-offset in sync with real pixel height
-(function(){
-  function setTopOffset(){
-    const tb = document.getElementById("topbar");
-    if (!tb) return;
-    const h = Math.ceil(tb.getBoundingClientRect().height);
-    document.documentElement.style.setProperty("--topbar-offset", h + "px");
-  }
-  const run = ()=> requestAnimationFrame(setTopOffset);
-
-  document.addEventListener("DOMContentLoaded", run);
-  addEventListener("resize", run);
-  addEventListener("orientationchange", run);
-  if (window.visualViewport){
-    visualViewport.addEventListener("resize", run);
-    visualViewport.addEventListener("scroll", run);
-  }
-  if ("ResizeObserver" in window){
-    const tb = document.getElementById("topbar");
-    if (tb) new ResizeObserver(run).observe(tb);
-  }
-})();
+/* ---------- Finals Removal Shim ---------- */
+function stripFinalsUI() {
+  // Top pill
+  $("#btn-top-final")?.remove();
+  // Sidebar nav item
+  $$(`#sidebar .navbtn[data-page="finals"]`).forEach((b) => b.remove());
+  // Finals page/section + modal
+  $("#page-finals")?.remove();
+  $("#finalModal")?.remove();
+  // Any stray click handlers (defensive)
+  document.querySelectorAll('[data-page="finals"]').forEach((n) => n.remove());
+}

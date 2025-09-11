@@ -1,6 +1,5 @@
 /* =========================
    OpenLearn • Clean Styles
-   (Part 1/2) — Base & Layout
    ========================= */
 
 /* === THEME TOKENS === */
@@ -17,19 +16,16 @@
   --fontSize: 16px;
   --radius: 14px;
 
-  /* Fixed topbar height is dynamic → JS sets this correctly */
-  --topbar-offset: 64px; /* JS will set exact pixels via updateTopbarOffsetNow() */
-  --topbar-h: 56px; /* visual content row height inside topbar */
+  --topbar-offset: 64px;
+  --topbar-h: 56px;
 
-  /* Sidebar sizes */
   --sidebar-w: 72px;
   --sidebar-w-exp: 220px;
 
   /* Pills */
   --pill-ann: #1f2a44;
   --pill-ann-txt: #d6dcff;
-  --pill-final: #1b2a19;
-  --pill-final-txt: #c5f5d3;
+  /* ❌ finals pill removed */
 }
 
 /* Reset / base */
@@ -84,7 +80,7 @@ a:hover {
   text-decoration: underline;
 }
 
-/* ===== TOPBAR (fixed, never scrolls away) ===== */
+/* ===== TOPBAR ===== */
 #topbar {
   position: fixed;
   top: 0;
@@ -185,13 +181,9 @@ a:hover {
   color: var(--pill-ann-txt);
   border-color: #334155;
 }
-.pill-final {
-  background: var(--pill-final);
-  color: var(--pill-final-txt);
-  border-color: #2b4630;
-}
+/* ❌ .pill-final removed */
 
-/* ===== SIDEBAR (fixed; top respects topbar) ===== */
+/* ===== SIDEBAR ===== */
 #sidebar {
   position: fixed;
   left: 0;
@@ -247,22 +239,32 @@ a:hover {
   line-height: 1;
   margin-left: 2px;
 }
+/* ——— Sidebar label behavior (fixed) ——— */
 #sidebar .navbtn span {
   white-space: nowrap;
-  opacity: 0.95;
-  display: inline-block;
+  opacity: 1;
+  transition: opacity 120ms ease;
 }
-#sidebar:not(.expanded):not(.show) .navbtn span {
+/* hide labels only when collapsed AND not hovered */
+#sidebar:not(.expanded):not(.show):not(:hover) .navbtn span {
   display: none;
+  opacity: 0;
 }
+/* show labels on hover, on drawer (.show), or when body has expanded flag */
+#sidebar:hover .navbtn span,
+#sidebar.show .navbtn span,
+body.sidebar-expanded #sidebar .navbtn span {
+  display: inline-block;
+  opacity: 1;
+}
+
 #sidebar.show {
   width: 220px;
   transform: translateX(0);
 }
 
-/* ===== MAIN (leave room for topbar + sidebar) ===== */
+/* ===== MAIN ===== */
 .with-topbar {
-  /* JS will set --topbar-offset to exact topbar height; we pad once here */
   padding-top: var(--topbar-offset);
 }
 #main {
@@ -499,12 +501,7 @@ body.locked .auth-slot #btn-logout {
   }
 }
 
-/* =========================
-   OpenLearn • Clean Styles
-   (Part 2/2) — Components & Modals
-   ========================= */
-
-/* Filters grid */
+/* Components & Modals */
 .filters-wrap {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -512,7 +509,6 @@ body.locked .auth-slot #btn-logout {
   align-items: center;
 }
 
-/* Dialog / Modals */
 dialog.ol-modal {
   border: none;
   padding: 0;
@@ -536,7 +532,6 @@ dialog.ol-modal,
 #courseModal,
 #postModal,
 #profileEditModal,
-#finalModal,
 #detailsModal {
   background: var(--card) !important;
   color: var(--fg) !important;
@@ -568,7 +563,6 @@ dialog.ol-modal textarea {
   resize: vertical;
 }
 
-/* Admin table in card with sticky header on narrow screens */
 .table-responsive {
   width: 100%;
   overflow-x: auto;
@@ -583,7 +577,6 @@ dialog.ol-modal textarea {
   z-index: 1;
 }
 
-/* Mobile course grid */
 #courseGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
