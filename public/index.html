@@ -1,165 +1,701 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>OpenLearn</title>
-  <link rel="stylesheet" href="/styles.css"/>
-  <script src="/config.js"></script>
-</head>
-<body class="anon">
-  <!-- Sidebar (must exist exactly once) -->
-  <aside id="sidebar">
-    <div class="brand">🎓 OpenLearn</div>
-    <nav>
-      <button class="navbtn active" data-page="catalog">Courses</button>
-      <button class="navbtn" data-page="mylearning">My Learning</button>
-      <button class="navbtn" data-page="dashboard">Announcements</button>
-      <button class="navbtn" data-page="gradebook">Gradebook</button>
-      <button class="navbtn" data-page="admin">Admin</button>
-      <button class="navbtn" data-page="profile">Profile</button>
-    </nav>
-    <div class="sidebar-foot small">
-      <button id="btn-login" class="btn small">Login</button>
-      <button id="btn-logout" class="btn small" style="display:none">Logout</button>
-    </div>
-  </aside>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1, viewport-fit=cover, maximum-scale=1"
+    />
+    <title>OpenLearn · Modern Lite 2025</title>
 
-  <!-- Topbar -->
-  <header id="topbar">
-    <button id="btn-burger" aria-label="Menu">☰</button>
-    <input id="topSearch" class="input" placeholder="Search courses and press Enter"/>
-    <div class="grow"></div>
-    <select id="themeSel" class="input">
-      <option value="slate">Slate</option><option value="light">Light</option>
-      <option value="dark">Dark</option><option value="forest">Forest</option>
-      <option value="sunset">Sunset</option><option value="lavender">Lavender</option>
-      <option value="emerald">Emerald</option><option value="ocean">Ocean</option>
-      <option value="amber">Amber</option><option value="rose">Rose</option>
-      <option value="gray">Gray</option><option value="offwhite">Offwhite</option>
-    </select>
-    <select id="fontSel" class="input">
-      <option value="16">16</option><option value="15">15</option>
-      <option value="14">14</option><option value="18">18</option>
-    </select>
-  </header>
+    <link rel="icon" href="./icons/icon-192.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="stylesheet" href="./styles.css" />
 
-  <!-- Main -->
-  <main id="main">
-    <!-- Catalog (default visible) -->
-    <section id="page-catalog" class="page visible">
-      <div class="toolbar row wrap">
-        <select id="filterCategory" class="input" style="min-width:180px">
-          <option value="">All Categories</option>
-        </select>
-        <select id="filterLevel" class="input">
-          <option value="">All levels</option>
-          <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
-        </select>
-        <select id="sortBy" class="input">
-          <option value="">Sort</option>
-          <option value="title-asc">Title ↑</option>
-          <option value="title-desc">Title ↓</option>
-          <option value="price-asc">Price ↑</option>
-          <option value="price-desc">Price ↓</option>
-        </select>
-        <div class="grow"></div>
-        <button id="btn-new-course" class="btn" data-requires-auth>New Course</button>
-      </div>
-      <div id="courseGrid" class="grid"></div>
-    </section>
+    <!-- Config + Firebase -->
+    <script src="./config.js"></script>
+    <script type="module" src="./firebase.js"></script>
 
-    <!-- Other pages (empty shells first; JS fills later) -->
-    <section id="page-mylearning" class="page">
-      <div id="myCourses" class="grid"></div>
-      <div id="reader" class="card hidden">
-        <div class="row"><button id="rdBack" class="btn">← Back</button><div class="grow"></div><div id="rdMeta" class="small muted"></div></div>
-        <div class="row" style="align-items:center;margin:.5rem 0">
-          <strong id="rdTitle">1. LESSON</strong><div class="grow"></div><span id="rdPageInfo" class="small muted">1 / 5</span>
+    <!-- Optional PayPal autoload -->
+    <script>
+      (function injectPayPal() {
+        const id = (window.OPENLEARN_CFG?.paypalClientId || "").trim();
+        if (!id) return;
+        const s = document.createElement("script");
+        s.src =
+          "https://www.paypal.com/sdk/js?client-id=" +
+          encodeURIComponent(id) +
+          "&currency=USD&components=buttons";
+        s.async = true;
+        document.head.appendChild(s);
+      })();
+    </script>
+  </head>
+  <body class="with-topbar">
+    <!-- TOPBAR -->
+    <header id="topbar">
+      <div class="topbar-row">
+        <button id="btn-burger" aria-label="Menu">☰</button>
+        <div id="logo" class="logo">OpenLearn</div>
+
+        <div id="topSearchWrap" class="search-wrap">
+          <button id="topSearchToggle" aria-label="Search" class="search-ico">
+            🔍
+          </button>
+          <input
+            id="topSearch"
+            class="input"
+            type="search"
+            placeholder="Search courses…"
+          />
         </div>
-        <div class="progress"><div id="rdProgress"></div></div>
-        <div id="rdPage" class="reader-page"></div>
-        <div class="row" style="justify-content:space-between;margin-top:.75rem">
-          <div class="row" style="gap:6px">
-            <button id="rdBookmark" class="btn">Bookmark</button>
-            <button id="rdNote" class="btn">Add Note</button>
-          </div>
-          <div class="row" style="gap:6px">
-            <button id="rdPrev" class="btn">Prev</button>
-            <button id="rdNext" class="btn primary">Next</button>
-          </div>
-        </div>
-        <div class="card" style="margin-top:12px">
-          <div class="row"><strong>Course Chat</strong><div class="grow"></div><span id="chatRoomLabel" class="small muted">room: —</span></div>
-          <div id="ccList" class="chatlist"></div>
-          <div class="row" style="gap:6px;margin-top:6px">
-            <input id="ccInput" class="input" placeholder="Message…" disabled/>
-            <button id="ccSend" class="btn" disabled>Send</button>
-          </div>
+
+        <div class="top-right">
+          <button id="btn-top-ann" class="icon-pill pill-ann">
+            🔔 <span class="txt">Announcements</span>
+          </button>
+          <!-- ❌ Removed Finals pill -->
+          <button id="btn-login" class="btn">Login</button>
+          <button id="btn-logout" class="btn" style="display: none">
+            Logout
+          </button>
         </div>
       </div>
-    </section>
+    </header>
 
-    <section id="page-dashboard" class="page"><div id="annList" class="stack"></div></section>
-    <section id="page-gradebook" class="page">
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <nav>
+        <button
+          class="navbtn"
+          data-page="catalog"
+          title="Courses"
+          data-requires-auth
+        >
+          <i>📚</i><span>Courses</span>
+        </button>
+        <button
+          class="navbtn"
+          data-page="mylearning"
+          title="My Learning"
+          data-requires-auth
+        >
+          <i>🎒</i><span>My Learning</span>
+        </button>
+        <button
+          class="navbtn"
+          data-page="dashboard"
+          title="Dashboard"
+          data-requires-auth
+        >
+          <i>🏠</i><span>Dashboard</span>
+        </button>
+        <button
+          class="navbtn"
+          data-page="gradebook"
+          title="Gradebook"
+          data-requires-auth
+        >
+          <i>🗂️</i><span>Gradebook</span>
+        </button>
+        <!-- ❌ Removed Final Exam item -->
+        <button
+          class="navbtn"
+          data-page="admin"
+          title="Admin"
+          data-requires-auth
+        >
+          <i>🛠️</i><span>Admin</span>
+        </button>
+        <button
+          class="navbtn"
+          data-page="profile"
+          title="Profile"
+          data-requires-auth
+        >
+          <i>👤</i><span>Profile</span>
+        </button>
+        <button
+          class="navbtn"
+          data-page="settings"
+          title="Settings"
+          data-requires-auth
+        >
+          <i>⚙️</i><span>Settings</span>
+        </button>
+        <button
+          class="navbtn"
+          data-page="livechat"
+          title="Live Chat"
+          data-requires-auth
+        >
+          <i>💬</i><span>Live Chat</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- MAIN -->
+    <main id="main" class="with-topbar">
+      <!-- Catalog -->
+      <section id="page-catalog" class="page visible">
+        <div class="row filters-wrap" style="margin-bottom: 10px">
+          <select
+            id="filterCategory"
+            class="input"
+            style="max-width: 220px"
+          ></select>
+          <select id="filterLevel" class="input" style="max-width: 180px">
+            <option value="">All Levels</option>
+            <option>Beginner</option>
+            <option>Intermediate</option>
+            <option>Advanced</option>
+          </select>
+          <select id="sortBy" class="input" style="max-width: 180px">
+            <option value="">Sort</option>
+            <option value="title-asc">Title A–Z</option>
+            <option value="title-desc">Title Z–A</option>
+            <option value="price-asc">Price Low</option>
+            <option value="price-desc">Price High</option>
+          </select>
+          <div class="grow"></div>
+          <button class="btn" id="btn-add-samples" data-requires-auth>
+            Add sample data
+          </button>
+          <button class="btn primary" id="btn-new-course" data-requires-auth>
+            + New Course
+          </button>
+        </div>
+        <div id="courseGrid" class="grid"></div>
+      </section>
+
+      <!-- My Learning + Reader -->
+      <section id="page-mylearning" class="page">
+        <div id="myCourses" class="grid"></div>
+
+        <div id="reader" class="card hidden" style="margin-top: 12px">
+          <div id="rdBar" class="row">
+            <button class="btn" id="rdBack">← Back</button>
+            <div class="grow"></div>
+            <button class="btn small" id="rdPrev">Prev</button>
+            <span class="small muted" id="rdPageInfo"></span>
+            <button class="btn small" id="rdNext">Next</button>
+            <button class="btn small" id="rdBookmark">🔖</button>
+            <button class="btn small" id="rdNote">📝</button>
+          </div>
+          <div class="progress"><div id="rdProgress" class="bar"></div></div>
+          <h3 id="rdTitle" class="h4" style="margin-top: 10px"></h3>
+          <div
+            id="rdMeta"
+            class="small muted"
+            style="margin: 0.3rem 0 0.6rem"
+          ></div>
+          <div id="rdPage"></div>
+
+          <!-- Per-course chat -->
+          <section id="courseChat" class="card" style="margin-top: 12px">
+            <div class="row" style="justify-content: space-between">
+              <strong>Course Chat</strong>
+              <label class="small muted" id="chatRoomLabel">room: —</label>
+            </div>
+            <div
+              id="ccList"
+              style="
+                max-height: 260px;
+                overflow: auto;
+                margin: 8px 0;
+                padding-right: 4px;
+              "
+              aria-live="polite"
+            ></div>
+            <div class="row" style="gap: 8px">
+              <input
+                id="ccInput"
+                class="input grow"
+                placeholder="Write a message…"
+              />
+              <button id="ccSend" class="btn primary" type="button">
+                Send
+              </button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- Dashboard · Announcements -->
+      <section id="page-dashboard" class="page">
+        <div class="row" style="margin-bottom: 10px">
+          <h2 class="h4">Announcements</h2>
+          <div class="grow"></div>
+          <button class="btn primary" id="btn-new-post">
+            + Add Announcement
+          </button>
+        </div>
+        <div id="annList" class="stack"></div>
+      </section>
+
+      <!-- Gradebook -->
+      <section id="page-gradebook" class="page">
+        <div class="card table-responsive">
+          <h3 class="h4">Gradebook</h3>
+          <table class="ol-table" id="gbTable">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Course</th>
+                <th>Score</th>
+                <th>Credits</th>
+                <th>Progress</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Admin -->
+      <section id="page-admin" class="page">
+        <div class="card">
+          <h3 class="h4">Courses</h3>
+          <table class="ol-table" id="adminTable">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Level</th>
+                <th>Rating</th>
+                <th>Hours</th>
+                <th>Price</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="row" style="gap: 8px; justify-content: flex-end">
+          <button class="btn" id="btn-export" data-requires-auth>
+            Export My Courses
+          </button>
+          <button class="btn" id="btn-import" data-requires-auth>Import</button>
+          <input
+            id="importFile"
+            type="file"
+            accept="application/json"
+            class="hidden"
+          />
+        </div>
+      </section>
+
+      <!-- Profile -->
+      <section id="page-profile" class="page">
+        <div class="row" style="margin-bottom: 10px">
+          <h2 class="h4">Profile</h2>
+          <div class="grow"></div>
+          <button class="btn" id="btn-edit-profile">+ Add Profile Data</button>
+        </div>
+        <div id="profilePanel" class="card"></div>
+      </section>
+
+      <!-- Settings -->
+      <section id="page-settings" class="page">
+        <div class="card narrow">
+          <div class="row">
+            <label
+              >Theme&nbsp;
+              <select id="themeSel" class="input" style="max-width: 200px">
+                <option value="dark">Dark</option>
+                <option value="rose">Rose</option>
+                <option value="ocean">Ocean</option>
+                <option value="amber">Amber</option>
+                <option value="slate" selected>Slate</option>
+                <option value="light">Light</option>
+                <option value="gray">Gray</option>
+                <option value="offwhite">Offwhite</option>
+                <option value="forest">Forest</option>
+                <option value="sunset">Sunset</option>
+                <option value="lavender">Lavender</option>
+                <option value="emerald">Emerald</option>
+              </select>
+            </label>
+            <div class="grow"></div>
+            <label
+              >Font size&nbsp;
+              <select id="fontSel" class="input" style="max-width: 160px">
+                <option value="14">Small</option>
+                <option value="16" selected>Base</option>
+                <option value="18">Comfortable</option>
+                <option value="20">Large</option>
+                <option value="22">XL</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Live Chat -->
+      <section id="page-livechat" class="page">
+        <div class="card narrow">
+          <div class="row"><h3 class="h4">Live Chat</h3></div>
+          <div
+            id="chatBox"
+            aria-live="polite"
+            style="max-height: 260px; overflow: auto"
+          ></div>
+          <div class="row" style="margin-top: 8px">
+            <input
+              id="chatInput"
+              class="input grow"
+              placeholder="Type a message…"
+            />
+            <button class="btn" id="chatSend" type="button">Send</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- MODALS -->
+    <dialog id="authModal" class="ol-modal card auth-modern">
+      <div class="auth-brand">🎓 OpenLearn</div>
+      <form id="authLogin" class="authpane" method="dialog">
+        <label
+          >Email
+          <input
+            id="loginEmail"
+            class="input"
+            type="email"
+            placeholder="you@example.com"
+            required
+          />
+        </label>
+        <label
+          >Password
+          <input
+            id="loginPass"
+            class="input"
+            type="password"
+            placeholder="••••••••"
+            required
+          />
+        </label>
+
+        <button class="btn primary wide" id="doLogin" type="submit">
+          Login
+        </button>
+
+        <div class="auth-links">
+          <a href="#" id="linkSignup">Create an account</a>
+          <a href="#" id="linkForgot">Forgot password?</a>
+        </div>
+      </form>
+
+      <form id="authSignup" class="authpane ol-hidden" method="dialog">
+        <label
+          >Email
+          <input
+            id="signupEmail"
+            class="input"
+            type="email"
+            placeholder="you@example.com"
+            required
+          />
+        </label>
+        <label
+          >Password
+          <input
+            id="signupPass"
+            class="input"
+            type="password"
+            placeholder="At least 6 characters"
+            required
+          />
+        </label>
+
+        <button class="btn primary wide" id="doSignup" type="submit">
+          Create Account
+        </button>
+
+        <div class="auth-links single">
+          <a href="#" id="backToLogin1">Back to login</a>
+        </div>
+      </form>
+
+      <form id="authForgot" class="authpane ol-hidden" method="dialog">
+        <label
+          >Email
+          <input
+            id="forgotEmail"
+            class="input"
+            type="email"
+            placeholder="you@example.com"
+            required
+          />
+        </label>
+
+        <button class="btn wide" id="doForgot" type="submit">
+          Send Reset Link
+        </button>
+
+        <div class="auth-links single">
+          <a href="#" id="backToLogin2">Back to login</a>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="detailsModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title">Course Details</b>
+        <button class="btn small" id="closeDetails" type="button">Close</button>
+      </div>
+      <div id="detailsBody"></div>
+    </dialog>
+
+    <dialog id="payModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title" id="payTitle">Checkout</b>
+        <button class="btn small" id="closePay" type="button">Close</button>
+      </div>
+      <div id="payBody" class="row" style="flex-wrap: wrap; gap: 12px">
+        <div class="card" style="flex: 1; min-width: 260px">
+          <h3 class="h4">Pay with PayPal (USD)</h3>
+          <div id="paypal-container"></div>
+          <div class="muted" id="paypalNote"></div>
+        </div>
+        <div class="card" style="flex: 1; min-width: 260px">
+          <h3 class="h4">Pay with MMK</h3>
+          <p class="muted">Demo QR → press “I Paid”.</p>
+          <div class="row" style="gap: 10px; flex-wrap: wrap">
+            <img
+              class="qr"
+              alt="CBPay"
+              src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CBPAY-DEMO"
+            />
+            <img
+              class="qr"
+              alt="KBZPay"
+              src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=KBZPAY-DEMO"
+            />
+            <img
+              class="qr"
+              alt="WavePay"
+              src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=WAVEPAY-DEMO"
+            />
+          </div>
+          <button class="btn primary" id="mmkPaid">I Paid (MMK)</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="courseModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title">New Course</b>
+        <button class="btn small" id="courseClose" type="button">Close</button>
+      </div>
+      <form id="courseForm" class="authpane">
+        <label>Title <input name="title" class="input" required /></label>
+        <label
+          >Category
+          <input name="category" class="input" value="General" required
+        /></label>
+        <label
+          >Level
+          <select name="level" class="input">
+            <option>Beginner</option>
+            <option>Intermediate</option>
+            <option>Advanced</option>
+          </select>
+        </label>
+        <label
+          >Price (USD)
+          <input name="price" class="input" type="number" step="0.01" value="0"
+        /></label>
+        <label
+          >Rating (0–5)
+          <input
+            name="rating"
+            class="input"
+            type="number"
+            step="0.1"
+            value="4.6"
+        /></label>
+        <label
+          >Hours
+          <input name="hours" class="input" type="number" step="1" value="6"
+        /></label>
+        <label
+          >Credits
+          <input name="credits" class="input" type="number" step="1" value="3"
+        /></label>
+        <label style="grid-column: 1/-1"
+          >Image URL
+          <input name="img" class="input" placeholder="auto if empty"
+        /></label>
+        <label style="grid-column: 1/-1"
+          >Description
+          <textarea name="description" class="input" rows="3"></textarea>
+        </label>
+        <label style="grid-column: 1/-1"
+          >Benefits (one per line)
+          <textarea
+            name="benefits"
+            class="input"
+            rows="3"
+            placeholder="Hands-on projects&#10;Downloadable resources&#10;Certificate"
+          ></textarea>
+        </label>
+        <div
+          class="row"
+          style="grid-column: 1/-1; justify-content: flex-end; gap: 8px"
+        >
+          <button class="btn" id="courseCancel" type="button">Cancel</button>
+          <button class="btn primary" id="courseSave" type="submit">
+            Save
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="postModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title">New Announcement</b>
+        <button class="btn small" id="closePostModal" type="button">
+          Close
+        </button>
+      </div>
+      <form id="postForm" class="authpane">
+        <label>Title <input id="pmTitle" class="input" required /></label>
+        <label style="grid-column: 1/-1"
+          >Body
+          <textarea id="pmBody" class="input" rows="6" required></textarea>
+        </label>
+        <div class="row" style="justify-content: flex-end; gap: 8px">
+          <button class="btn" id="cancelPost" type="button">Cancel</button>
+          <button class="btn primary" id="savePost" type="submit">Post</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="profileEditModal" class="ol-modal card">
+      <div
+        class="row"
+        style="
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 6px;
+        "
+      >
+        <b class="modal-title">Add Profile Data</b>
+        <button class="btn small" id="closeProfileModal" type="button">
+          Close
+        </button>
+      </div>
+      <form id="profileForm" class="authpane">
+        <label>Name <input name="displayName" class="input" /></label>
+        <label
+          >Avatar URL
+          <input name="photoURL" class="input" placeholder="https://..."
+        /></label>
+        <label style="grid-column: 1/-1"
+          >Short Bio <textarea name="bio" class="input" rows="3"></textarea>
+        </label>
+        <label style="grid-column: 1/-1"
+          >Skills (comma-separated)
+          <input name="skills" class="input" placeholder="JS, React, UI/UX" />
+        </label>
+        <label style="grid-column: 1/-1"
+          >Portfolio Links
+          <input name="links" class="input" placeholder="https://..." />
+        </label>
+        <label style="grid-column: 1/-1"
+          >Social Links
+          <input name="social" class="input" placeholder="https://..." />
+        </label>
+        <div
+          class="row"
+          style="grid-column: 1/-1; justify-content: flex-end; gap: 8px"
+        >
+          <button class="btn" id="cancelProfile" type="button">Cancel</button>
+          <button class="btn primary" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="adminViewModal" class="ol-modal">
       <div class="card">
-        <table class="ol-table" id="gbTable">
-          <thead><tr><th>Student</th><th>Course</th><th>Score</th><th>Credits</th><th>Progress</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <div
+          class="row"
+          style="justify-content: space-between; align-items: center"
+        >
+          <strong id="avmTitle">Course</strong>
+          <button class="btn" id="avmClose">Close</button>
+        </div>
+        <div id="avmBody" class="muted" style="margin: 0.5rem 0 1rem"></div>
+        <div class="row" style="gap: 8px; justify-content: flex-end">
+          <button class="btn" id="avmEdit">Edit</button>
+          <button class="btn" id="avmDelete">Delete</button>
+        </div>
       </div>
-    </section>
-    <section id="page-admin" class="page">
-      <div class="row wrap" style="gap:8px;margin-bottom:.5rem">
-        <button id="btn-export" class="btn">Export My Courses</button>
-        <button id="btn-import" class="btn">Import</button>
-        <input id="importFile" type="file" accept="application/json" hidden/>
+    </dialog>
+    <dialog id="certModal" class="ol-modal card">
+      <div id="certBody"></div>
+      <div
+        class="row"
+        style="justify-content: flex-end; gap: 8px; margin-top: 10px"
+      >
+        <button class="btn" id="certPrint" type="button">
+          Print / Save PDF
+        </button>
+        <button class="btn" id="certClose" type="button">Close</button>
       </div>
-      <div class="card">
-        <table class="ol-table" id="adminTable"><thead>
-          <tr><th>Title</th><th>Category</th><th>Level</th><th>Rating</th><th>Hours</th><th>Price</th><th></th></tr>
-        </thead><tbody></tbody></table>
-      </div>
-    </section>
-    <section id="page-profile" class="page"><div class="row" style="justify-content:flex-end;margin-bottom:.5rem">
-      <button id="btn-edit-profile" class="btn">Edit Profile</button></div><div id="profilePanel" class="card"></div></section>
-  </main>
+    </dialog>
 
-  <!-- Modals (minimal set; can add others later) -->
-  <dialog id="detailsModal" class="ol-modal card"><div id="detailsBody"></div><div class="row" style="justify-content:flex-end;gap:6px;margin-top:10px"><button id="closeDetails" class="btn">Close</button></div></dialog>
-  <dialog id="courseModal" class="ol-modal card"><form id="courseForm" method="dialog" class="stack">
-    <div class="h4">New Course</div>
-    <label>Title</label><input class="input" name="title" required/>
-    <label>Category</label><input class="input" name="category"/>
-    <label>Level</label><select class="input" name="level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
-    <div class="grid three">
-      <div><label>Price</label><input class="input" name="price" type="number"/></div>
-      <div><label>Rating</label><input class="input" name="rating" type="number" step="0.1"/></div>
-      <div><label>Image URL</label><input class="input" name="img"/></div>
-    </div>
-    <div class="grid two">
-      <div><label>Hours</label><input class="input" name="hours" type="number"/></div>
-      <div><label>Credits</label><input class="input" name="credits" type="number"/></div>
-    </div>
-    <label>Description</label><textarea class="input" name="description"></textarea>
-    <label>Benefits (one per line)</label><textarea class="input" name="benefits"></textarea>
-    <div class="row" style="justify-content:flex-end;gap:6px"><button id="courseCancel" class="btn">Cancel</button><button class="btn primary" type="submit">Save</button></div>
-  </form><button id="courseClose" class="btn" style="margin-top:8px">Close</button></dialog>
+    <!-- Toast -->
+    <div id="toast"></div>
 
-  <dialog id="profileEditModal" class="ol-modal card"><form id="profileForm" class="stack" method="dialog">
-    <div class="h4">Edit Profile</div>
-    <label>Name</label><input class="input" name="displayName"/>
-    <label>Photo URL</label><input class="input" name="photoURL"/>
-    <label>Bio</label><textarea class="input" name="bio"></textarea>
-    <label>Skills</label><input class="input" name="skills"/>
-    <label>Links</label><input class="input" name="links"/>
-    <label>Social</label><input class="input" name="social"/>
-    <div class="row" style="justify-content:flex-end;gap:6px"><button id="cancelProfile" class="btn">Cancel</button><button class="btn primary" type="submit">Save</button></div>
-  </form><button id="closeProfileModal" class="btn" style="margin-top:8px">Close</button></dialog>
+    <!-- App -->
+    <script>
+      window.OPENLEARN_DATA_BASE = "/data";
+    </script>
+    <script type="module" src="./app.js"></script>
 
-  <div id="toast"></div>
-
-  <script type="module" src="/firebase.js"></script>
-  <script type="module" src="/app.js"></script>
-</body>
+    <!-- tiny UX: mobile search toggle (no duplicate listeners) -->
+    <script>
+      (function () {
+        const btn = document.getElementById("topSearchToggle");
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+          document.body.classList.toggle("search-open");
+          const box = document.getElementById("topSearch");
+          if (box && document.body.classList.contains("search-open"))
+            box.focus();
+        });
+      })();
+    </script>
+  </body>
 </html>
