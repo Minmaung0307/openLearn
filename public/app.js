@@ -722,12 +722,12 @@ function markEnrolled(id) {
   showPage("mylearning");
 }
 // replace your current handleEnroll with:
-async function handleEnroll(id) {
+function handleEnroll(id) {
   const c = ALL.find(x => x.id === id) || getCourses().find(x => x.id === id);
   if (!c) return toast("Course not found");
-  if ((c.price || 0) <= 0) return markEnrolled(id); // free → direct enroll
-  // paid → open checkout modal
-  openPay(c);
+  if ((c.price || 0) <= 0) return markEnrolled(id);  // free path
+  // Paid path:
+  openPay(c); // ✅ show checkout modal and render PayPal buttons
 }
 
 async function openPay(course) {
@@ -779,6 +779,109 @@ async function openPay(course) {
   }, { once: true });
 
   modal?.showModal();
+}
+
+let _paypalButtons = null;
+async function renderButtonsUSD(priceUSD, onApproved) {
+  // Ensure the SDK exists (don’t load twice)
+  if (!window.paypal) {
+    toast("PayPal SDK not loaded");
+    return null;
+  }
+
+  // destroy any previous instance
+  try { _paypalButtons?.close?.(); } catch {}
+  _paypalButtons = null;
+
+  const container = document.getElementById("paypal-container");
+  if (!container) return null;
+  container.innerHTML = ""; // clean mount point
+
+  _paypalButtons = window.paypal.Buttons({
+    style: { layout: "vertical", shape: "rect" },
+    createOrder: (data, actions) => {
+      return actions.order.create({
+        intent: "CAPTURE",
+        purchase_units: [
+          {
+            amount: {
+              currency_code: "USD",
+              value: String(priceUSD ?? 1)
+            }
+          }
+        ]
+      });
+    },
+    onApprove: async (data, actions) => {
+      try {
+        const details = await actions.order.capture();
+        onApproved?.(details);
+      } catch (e) {
+        console.warn("PayPal capture error", e);
+        toast("Payment failed. Try again.");
+      }
+    },
+    onError: (err) => {
+      console.warn("PayPal error", err);
+      toast("PayPal error");
+    }
+  });
+
+  try {
+    await _paypalButtons.render("#paypal-container");
+  } catch (e) {
+    console.warn("Buttons render failed", e);
+  }
+  return _paypalButtons;
+}
+
+function closePayModal() {
+  try { _paypalButtons?.close?.(); } catch {}
+  _paypalButtons = null;
+  const dlg = document.getElementById("payModal");
+  if (dlg && typeof dlg.close === "function") dlg.close();
+  const container = document.getElementById("paypal-container");
+  if (container) container.innerHTML = "";
+}
+
+async function openPay(course) {
+  const dlg = document.getElementById("payModal");
+  if (!dlg) return;
+
+  // show modal first (user gesture already happened when clicking Enroll)
+  dlg.showModal();
+
+  // wire close once
+  const closeBtn = document.getElementById("closePay");
+  if (closeBtn && !closeBtn._wired) {
+    closeBtn._wired = true;
+    closeBtn.addEventListener("click", closePayModal);
+  }
+  // allow Esc / backdrop
+  dlg.addEventListener("cancel", (e) => {
+    e.preventDefault(); // keep consistent close path
+    closePayModal();
+  }, { once: true });
+
+  // render buttons for this course price
+  const price = Number(course.price || 0) || 1;
+  await renderButtonsUSD(price, () => {
+    toast("Payment successful 🎉");
+    // mark enrolled and close
+    markEnrolled(course.id);
+    closePayModal();
+  });
+
+  // MMK “I Paid” button
+  const mmkBtn = document.getElementById("mmkPaid");
+  if (mmkBtn && !mmkBtn._wired) {
+    mmkBtn._wired = true;
+    mmkBtn.addEventListener("click", () => {
+      toast("Payment recorded (MMK)");
+      markEnrolled(course.id);
+      closePayModal();
+    });
+  }
 }
 
 /* ---------- details (catalog + meta merge) ---------- */
