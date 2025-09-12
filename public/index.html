@@ -1,364 +1,165 @@
-<!-- (Part 1/2) — Shell, Topbar, Sidebar, Catalog & Reader -->
-<!-- index.html (Part 1/2) -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OpenLearn</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <!-- config.js MUST define window.OPENLEARN_CFG + OPENLEARN_DATA_BASE (optional) -->
-    <script src="./config.js"></script>
-  </head>
-  <body class="anon">
-    <!-- Sidebar -->
-    <aside id="sidebar">
-      <div class="brand">🎓 OpenLearn</div>
-      <nav>
-        <button class="navbtn active" data-page="catalog">Courses</button>
-        <button class="navbtn" data-page="mylearning">My Learning</button>
-        <button class="navbtn" data-page="dashboard">Announcements</button>
-        <button class="navbtn" data-page="gradebook">Gradebook</button>
-        <button class="navbtn" data-page="admin">Admin</button>
-        <button class="navbtn" data-page="profile">Profile</button>
-      </nav>
-      <div class="sidebar-foot small">
-        <button id="btn-login" class="btn small">Login</button>
-        <button id="btn-logout" class="btn small" style="display: none">
-          Logout
-        </button>
-      </div>
-    </aside>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>OpenLearn</title>
+  <link rel="stylesheet" href="/styles.css"/>
+  <script src="/config.js"></script>
+</head>
+<body class="anon">
+  <!-- Sidebar (must exist exactly once) -->
+  <aside id="sidebar">
+    <div class="brand">🎓 OpenLearn</div>
+    <nav>
+      <button class="navbtn active" data-page="catalog">Courses</button>
+      <button class="navbtn" data-page="mylearning">My Learning</button>
+      <button class="navbtn" data-page="dashboard">Announcements</button>
+      <button class="navbtn" data-page="gradebook">Gradebook</button>
+      <button class="navbtn" data-page="admin">Admin</button>
+      <button class="navbtn" data-page="profile">Profile</button>
+    </nav>
+    <div class="sidebar-foot small">
+      <button id="btn-login" class="btn small">Login</button>
+      <button id="btn-logout" class="btn small" style="display:none">Logout</button>
+    </div>
+  </aside>
 
-    <!-- Topbar -->
-    <header id="topbar">
-      <button id="btn-burger" aria-label="Menu">☰</button>
-      <input
-        id="topSearch"
-        class="input"
-        placeholder="Search courses and press Enter"
-      />
-      <div class="grow"></div>
-      <select id="themeSel" class="input">
-        <option value="slate">Slate</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-        <option value="forest">Forest</option>
-        <option value="sunset">Sunset</option>
-        <option value="lavender">Lavender</option>
-        <option value="emerald">Emerald</option>
-        <option value="ocean">Ocean</option>
-        <option value="amber">Amber</option>
-        <option value="rose">Rose</option>
-        <option value="gray">Gray</option>
-        <option value="offwhite">Offwhite</option>
-      </select>
-      <select id="fontSel" class="input">
-        <option value="16">16</option>
-        <option value="15">15</option>
-        <option value="14">14</option>
-        <option value="18">18</option>
-      </select>
-    </header>
+  <!-- Topbar -->
+  <header id="topbar">
+    <button id="btn-burger" aria-label="Menu">☰</button>
+    <input id="topSearch" class="input" placeholder="Search courses and press Enter"/>
+    <div class="grow"></div>
+    <select id="themeSel" class="input">
+      <option value="slate">Slate</option><option value="light">Light</option>
+      <option value="dark">Dark</option><option value="forest">Forest</option>
+      <option value="sunset">Sunset</option><option value="lavender">Lavender</option>
+      <option value="emerald">Emerald</option><option value="ocean">Ocean</option>
+      <option value="amber">Amber</option><option value="rose">Rose</option>
+      <option value="gray">Gray</option><option value="offwhite">Offwhite</option>
+    </select>
+    <select id="fontSel" class="input">
+      <option value="16">16</option><option value="15">15</option>
+      <option value="14">14</option><option value="18">18</option>
+    </select>
+  </header>
 
-    <!-- Main -->
-    <main id="main">
-      <!-- Page: Catalog -->
-      <section id="page-catalog" class="page visible">
-        <div class="toolbar row wrap">
-          <select id="filterCategory" class="input" style="min-width: 180px">
-            <option value="">All Categories</option>
-          </select>
-          <select id="filterLevel" class="input">
-            <option value="">All levels</option>
-            <option>Beginner</option>
-            <option>Intermediate</option>
-            <option>Advanced</option>
-          </select>
-          <select id="sortBy" class="input">
-            <option value="">Sort</option>
-            <option value="title-asc">Title ↑</option>
-            <option value="title-desc">Title ↓</option>
-            <option value="price-asc">Price ↑</option>
-            <option value="price-desc">Price ↓</option>
-          </select>
-          <div class="grow"></div>
-          <button id="btn-new-course" class="btn" data-requires-auth>
-            New Course
-          </button>
-        </div>
-        <div id="courseGrid" class="grid"></div>
-      </section>
-
-      <!-- Page: My Learning -->
-      <section id="page-mylearning" class="page">
-        <div id="myCourses" class="grid"></div>
-
-        <!-- Reader -->
-        <div id="reader" class="card hidden">
-          <div class="row" style="align-items: center">
-            <button class="btn" id="rdBack">← Back</button>
-            <div class="grow"></div>
-            <div id="rdMeta" class="small muted"></div>
-          </div>
-          <div class="row" style="align-items: center; margin: 0.5rem 0">
-            <strong id="rdTitle">1. LESSON</strong>
-            <div class="grow"></div>
-            <span id="rdPageInfo" class="small muted">1 / 5</span>
-          </div>
-          <div class="progress"><div id="rdProgress"></div></div>
-          <div id="rdPage" class="reader-page"></div>
-          <div
-            class="row"
-            style="justify-content: space-between; margin-top: 0.75rem"
-          >
-            <div class="row" style="gap: 6px">
-              <button id="rdBookmark" class="btn">Bookmark</button>
-              <button id="rdNote" class="btn">Add Note</button>
-            </div>
-            <div class="row" style="gap: 6px">
-              <button id="rdPrev" class="btn">Prev</button>
-              <button id="rdNext" class="btn primary">Next</button>
-            </div>
-          </div>
-
-          <!-- Per-course chat -->
-          <div class="card" style="margin-top: 12px">
-            <div class="row" style="align-items: center">
-              <strong>Course Chat</strong>
-              <div class="grow"></div>
-              <span id="chatRoomLabel" class="small muted">room: —</span>
-            </div>
-            <div id="ccList" class="chatlist"></div>
-            <div class="row" style="gap: 6px; margin-top: 6px">
-              <input
-                id="ccInput"
-                class="input"
-                placeholder="Message…"
-                disabled
-              />
-              <button id="ccSend" class="btn" disabled>Send</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- (Part 2/2) — Dashboard, Gradebook, Admin, Profile, Chat & Modals -->
-      <!-- Page: Dashboard (Announcements) -->
-      <section id="page-dashboard" class="page">
-        <div
-          class="row"
-          style="justify-content: flex-end; margin-bottom: 0.5rem"
-        >
-          <button id="btn-new-post" class="btn" data-requires-auth>
-            New Announcement
-          </button>
-        </div>
-        <div id="annList" class="stack"></div>
-      </section>
-
-      <!-- Page: Gradebook -->
-      <section id="page-gradebook" class="page">
-        <div class="card">
-          <table class="ol-table" id="gbTable">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Course</th>
-                <th>Score</th>
-                <th>Credits</th>
-                <th>Progress</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Page: Admin -->
-      <section id="page-admin" class="page">
-        <div class="row wrap" style="gap: 8px; margin-bottom: 0.5rem">
-          <button id="btn-export" class="btn">Export My Courses</button>
-          <button id="btn-import" class="btn">Import</button>
-          <input id="importFile" type="file" accept="application/json" hidden />
-        </div>
-        <div class="card">
-          <table class="ol-table" id="adminTable">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Level</th>
-                <th>Rating</th>
-                <th>Hours</th>
-                <th>Price</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Page: Profile -->
-      <section id="page-profile" class="page">
-        <div
-          class="row"
-          style="justify-content: flex-end; margin-bottom: 0.5rem"
-        >
-          <button id="btn-edit-profile" class="btn">Edit Profile</button>
-        </div>
-        <div id="profilePanel" class="card"></div>
-      </section>
-
-      <!-- Global chat -->
-      <section class="page">
-        <div class="card">
-          <div class="row" style="align-items: center">
-            <strong>Global Chat</strong>
-            <div class="grow"></div>
-            <span class="small muted">Logged-in users only</span>
-          </div>
-          <div id="chatBox" class="chatlist"></div>
-          <div class="row" style="gap: 6px; margin-top: 6px">
-            <input
-              id="chatInput"
-              class="input"
-              placeholder="Message…"
-              disabled
-            />
-            <button id="chatSend" class="btn" disabled>Send</button>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <!-- Details Modal -->
-    <dialog id="detailsModal" class="ol-modal card">
-      <div id="detailsBody"></div>
-      <div
-        class="row"
-        style="justify-content: flex-end; gap: 6px; margin-top: 10px"
-      >
-        <button id="closeDetails" class="btn">Close</button>
-      </div>
-    </dialog>
-
-    <!-- New Course Modal -->
-    <dialog id="courseModal" class="ol-modal card">
-      <form id="courseForm" method="dialog" class="stack">
-        <div class="h4">New Course</div>
-        <label>Title</label><input class="input" name="title" required />
-        <label>Category</label><input class="input" name="category" />
-        <label>Level</label>
-        <select class="input" name="level">
-          <option>Beginner</option>
-          <option>Intermediate</option>
-          <option>Advanced</option>
+  <!-- Main -->
+  <main id="main">
+    <!-- Catalog (default visible) -->
+    <section id="page-catalog" class="page visible">
+      <div class="toolbar row wrap">
+        <select id="filterCategory" class="input" style="min-width:180px">
+          <option value="">All Categories</option>
         </select>
-        <div class="grid two">
-          <div>
-            <label>Price</label
-            ><input class="input" name="price" type="number" step="1" />
-          </div>
-          <div>
-            <label>Rating</label
-            ><input class="input" name="rating" type="number" step="0.1" />
-          </div>
-        </div>
-        <div class="grid three">
-          <div>
-            <label>Hours</label
-            ><input class="input" name="hours" type="number" />
-          </div>
-          <div>
-            <label>Credits</label
-            ><input class="input" name="credits" type="number" />
-          </div>
-          <div><label>Image URL</label><input class="input" name="img" /></div>
-        </div>
-        <label>Description</label
-        ><textarea class="input" name="description"></textarea>
-        <label>Benefits (one per line)</label
-        ><textarea class="input" name="benefits"></textarea>
-        <div class="row" style="justify-content: flex-end; gap: 6px">
-          <button id="courseCancel" class="btn">Cancel</button>
-          <button class="btn primary" type="submit">Save</button>
-        </div>
-      </form>
-      <button id="courseClose" class="btn" style="margin-top: 8px">
-        Close
-      </button>
-    </dialog>
-
-    <!-- Admin View Modal -->
-    <dialog id="adminViewModal" class="ol-modal card">
-      <div class="row" style="align-items: center">
-        <strong id="avmTitle">Course</strong>
+        <select id="filterLevel" class="input">
+          <option value="">All levels</option>
+          <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+        </select>
+        <select id="sortBy" class="input">
+          <option value="">Sort</option>
+          <option value="title-asc">Title ↑</option>
+          <option value="title-desc">Title ↓</option>
+          <option value="price-asc">Price ↑</option>
+          <option value="price-desc">Price ↓</option>
+        </select>
         <div class="grow"></div>
-        <button id="avmClose" class="btn">Close</button>
+        <button id="btn-new-course" class="btn" data-requires-auth>New Course</button>
       </div>
-      <div id="avmBody" style="margin: 0.5rem 0"></div>
-      <div class="row" style="justify-content: flex-end; gap: 6px">
-        <button id="avmEdit" class="btn">Edit</button>
-        <button id="avmDelete" class="btn">Delete</button>
-      </div>
-    </dialog>
+      <div id="courseGrid" class="grid"></div>
+    </section>
 
-    <!-- Profile Edit Modal -->
-    <dialog id="profileEditModal" class="ol-modal card">
-      <form id="profileForm" class="stack" method="dialog">
-        <div class="h4">Edit Profile</div>
-        <label>Name</label><input class="input" name="displayName" />
-        <label>Photo URL</label><input class="input" name="photoURL" />
-        <label>Bio</label><textarea class="input" name="bio"></textarea>
-        <label>Skills</label><input class="input" name="skills" />
-        <label>Links</label><input class="input" name="links" />
-        <label>Social</label><input class="input" name="social" />
-        <div class="row" style="justify-content: flex-end; gap: 6px">
-          <button id="cancelProfile" class="btn">Cancel</button>
-          <button class="btn primary" type="submit">Save</button>
+    <!-- Other pages (empty shells first; JS fills later) -->
+    <section id="page-mylearning" class="page">
+      <div id="myCourses" class="grid"></div>
+      <div id="reader" class="card hidden">
+        <div class="row"><button id="rdBack" class="btn">← Back</button><div class="grow"></div><div id="rdMeta" class="small muted"></div></div>
+        <div class="row" style="align-items:center;margin:.5rem 0">
+          <strong id="rdTitle">1. LESSON</strong><div class="grow"></div><span id="rdPageInfo" class="small muted">1 / 5</span>
         </div>
-      </form>
-      <button id="closeProfileModal" class="btn" style="margin-top: 8px">
-        Close
-      </button>
-    </dialog>
-
-    <!-- Announcement Modal -->
-    <dialog id="postModal" class="ol-modal card">
-      <div class="modal-title h4">New Announcement</div>
-      <form id="postForm" class="stack" method="dialog">
-        <label>Title</label><input id="pmTitle" class="input" required />
-        <label>Body</label
-        ><textarea id="pmBody" class="input" required></textarea>
-        <div class="row" style="justify-content: flex-end; gap: 6px">
-          <button id="cancelPost" class="btn">Cancel</button>
-          <button class="btn primary" type="submit">Post</button>
+        <div class="progress"><div id="rdProgress"></div></div>
+        <div id="rdPage" class="reader-page"></div>
+        <div class="row" style="justify-content:space-between;margin-top:.75rem">
+          <div class="row" style="gap:6px">
+            <button id="rdBookmark" class="btn">Bookmark</button>
+            <button id="rdNote" class="btn">Add Note</button>
+          </div>
+          <div class="row" style="gap:6px">
+            <button id="rdPrev" class="btn">Prev</button>
+            <button id="rdNext" class="btn primary">Next</button>
+          </div>
         </div>
-      </form>
-      <button id="closePostModal" class="btn" style="margin-top: 8px">
-        Close
-      </button>
-    </dialog>
-
-    <!-- Certificate Modal -->
-    <dialog id="certModal" class="ol-modal card wide">
-      <div id="certBody"></div>
-      <div
-        class="row"
-        style="justify-content: flex-end; gap: 6px; margin-top: 10px"
-      >
-        <button id="certPrint" class="btn">Print</button>
-        <button id="certClose" class="btn">Close</button>
+        <div class="card" style="margin-top:12px">
+          <div class="row"><strong>Course Chat</strong><div class="grow"></div><span id="chatRoomLabel" class="small muted">room: —</span></div>
+          <div id="ccList" class="chatlist"></div>
+          <div class="row" style="gap:6px;margin-top:6px">
+            <input id="ccInput" class="input" placeholder="Message…" disabled/>
+            <button id="ccSend" class="btn" disabled>Send</button>
+          </div>
+        </div>
       </div>
-    </dialog>
+    </section>
 
-    <!-- Toast (created by JS if missing) -->
-    <div id="toast"></div>
+    <section id="page-dashboard" class="page"><div id="annList" class="stack"></div></section>
+    <section id="page-gradebook" class="page">
+      <div class="card">
+        <table class="ol-table" id="gbTable">
+          <thead><tr><th>Student</th><th>Course</th><th>Score</th><th>Credits</th><th>Progress</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+    <section id="page-admin" class="page">
+      <div class="row wrap" style="gap:8px;margin-bottom:.5rem">
+        <button id="btn-export" class="btn">Export My Courses</button>
+        <button id="btn-import" class="btn">Import</button>
+        <input id="importFile" type="file" accept="application/json" hidden/>
+      </div>
+      <div class="card">
+        <table class="ol-table" id="adminTable"><thead>
+          <tr><th>Title</th><th>Category</th><th>Level</th><th>Rating</th><th>Hours</th><th>Price</th><th></th></tr>
+        </thead><tbody></tbody></table>
+      </div>
+    </section>
+    <section id="page-profile" class="page"><div class="row" style="justify-content:flex-end;margin-bottom:.5rem">
+      <button id="btn-edit-profile" class="btn">Edit Profile</button></div><div id="profilePanel" class="card"></div></section>
+  </main>
 
-    <!-- Firebase + App -->
-    <script type="module" src="./firebase.js"></script>
-    <script type="module" src="./app.js"></script>
-  </body>
+  <!-- Modals (minimal set; can add others later) -->
+  <dialog id="detailsModal" class="ol-modal card"><div id="detailsBody"></div><div class="row" style="justify-content:flex-end;gap:6px;margin-top:10px"><button id="closeDetails" class="btn">Close</button></div></dialog>
+  <dialog id="courseModal" class="ol-modal card"><form id="courseForm" method="dialog" class="stack">
+    <div class="h4">New Course</div>
+    <label>Title</label><input class="input" name="title" required/>
+    <label>Category</label><input class="input" name="category"/>
+    <label>Level</label><select class="input" name="level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
+    <div class="grid three">
+      <div><label>Price</label><input class="input" name="price" type="number"/></div>
+      <div><label>Rating</label><input class="input" name="rating" type="number" step="0.1"/></div>
+      <div><label>Image URL</label><input class="input" name="img"/></div>
+    </div>
+    <div class="grid two">
+      <div><label>Hours</label><input class="input" name="hours" type="number"/></div>
+      <div><label>Credits</label><input class="input" name="credits" type="number"/></div>
+    </div>
+    <label>Description</label><textarea class="input" name="description"></textarea>
+    <label>Benefits (one per line)</label><textarea class="input" name="benefits"></textarea>
+    <div class="row" style="justify-content:flex-end;gap:6px"><button id="courseCancel" class="btn">Cancel</button><button class="btn primary" type="submit">Save</button></div>
+  </form><button id="courseClose" class="btn" style="margin-top:8px">Close</button></dialog>
+
+  <dialog id="profileEditModal" class="ol-modal card"><form id="profileForm" class="stack" method="dialog">
+    <div class="h4">Edit Profile</div>
+    <label>Name</label><input class="input" name="displayName"/>
+    <label>Photo URL</label><input class="input" name="photoURL"/>
+    <label>Bio</label><textarea class="input" name="bio"></textarea>
+    <label>Skills</label><input class="input" name="skills"/>
+    <label>Links</label><input class="input" name="links"/>
+    <label>Social</label><input class="input" name="social"/>
+    <div class="row" style="justify-content:flex-end;gap:6px"><button id="cancelProfile" class="btn">Cancel</button><button class="btn primary" type="submit">Save</button></div>
+  </form><button id="closeProfileModal" class="btn" style="margin-top:8px">Close</button></dialog>
+
+  <div id="toast"></div>
+
+  <script type="module" src="/firebase.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
 </html>

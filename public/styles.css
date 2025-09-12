@@ -1,177 +1,83 @@
-/* (Part 1/2) — Variables, Layout, Cards, Buttons, Inputs */
-/* styles.css (Part 1/2) — Core theme + layout */
-
 :root{
   --bg:#0b0f17; --fg:#eaf1ff; --card:#111827; --muted:#9fb0c3; --border:#1f2a3b;
   --btnBg:#0f172a; --btnFg:#eaf1ff; --btnPrimaryBg:#2563eb; --btnPrimaryFg:#fff;
-  --fontSize:16px; --radius:12px; --pad:12px;
-  --topbar-offset:56px;
+  --fontSize:16px; --radius:12px; --pad:12px; --topbar-offset:56px;
 }
-
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0; background:var(--bg); color:var(--fg);
-  font:400 var(--fontSize)/1.5 ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;
-  display:flex;
-}
+*{box-sizing:border-box} html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 var(--fontSize)/1.5 ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;display:flex}
 
 /* Sidebar */
-#sidebar{
-  width:64px; background:color-mix(in oklab,var(--card) 92%, black 8%);
-  border-right:1px solid var(--border);
-  padding:10px; position:sticky; top:0; height:100vh; overflow:auto;
-}
-#sidebar .brand{font-weight:800; font-size:14px; margin-bottom:10px; opacity:.9}
-.sidebar-expanded #sidebar{ width:220px; }
-#sidebar .navbtn{
-  display:block; width:100%; text-align:left; padding:8px 10px; margin:6px 0;
-  border:1px solid transparent; border-radius:10px; background:transparent; color:var(--fg);
-  cursor:pointer;
-}
-#sidebar .navbtn.active{ background:var(--card); border-color:var(--border) }
-#sidebar .sidebar-foot{ margin-top:12px; border-top:1px dashed var(--border); padding-top:10px }
+#sidebar{width:64px;background:color-mix(in oklab,var(--card) 92%, black 8%);border-right:1px solid var(--border);padding:10px;position:sticky;top:0;height:100vh;overflow:auto}
+.sidebar-expanded #sidebar{width:220px}
+#sidebar .brand{font-weight:800;font-size:14px;margin-bottom:10px;opacity:.9}
+#sidebar .navbtn{display:block;width:100%;text-align:left;padding:8px 10px;margin:6px 0;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--fg);cursor:pointer}
+#sidebar .navbtn.active{background:var(--card);border-color:var(--border)}
+#sidebar .sidebar-foot{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
 
 /* Topbar */
-#topbar{
-  position:sticky; top:0; left:0; right:0; z-index:50;
-  display:flex; gap:8px; align-items:center;
-  padding:8px 12px; background:color-mix(in oklab, var(--bg) 86%, black 14%);
-  border-bottom:1px solid var(--border);
-}
-#btn-burger{ display:none; }
+#topbar{position:sticky;top:0;left:0;right:0;z-index:50;display:flex;gap:8px;align-items:center;padding:8px 12px;background:color-mix(in oklab,var(--bg) 86%, black 14%);border-bottom:1px solid var(--border)}
+#btn-burger{display:none}
 .grow{flex:1}
 
-/* Main area */
-#main{ flex:1; padding:16px; margin-top:0; }
-.page{ display:none; }
-.page.visible{ display:block; }
+/* Main */
+#main{flex:1;padding:16px}
+.page{display:none}
+.page.visible{display:block}
 
-/* Grids & stacks */
-.grid{ display:grid; gap:12px; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); }
-.grid.two{ grid-template-columns: repeat(2,minmax(0,1fr)); gap:10px }
-.grid.three{ grid-template-columns: repeat(3,minmax(0,1fr)); gap:10px }
-.stack{ display:flex; flex-direction:column; gap:8px }
-.row{ display:flex; align-items:center; gap:8px; }
-.wrap{ flex-wrap:wrap }
+/* Layout utils */
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.grid.two{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid.three{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.stack{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:8px}
+.wrap{flex-wrap:wrap}
 
-/* Cards & elements */
-.card{
-  background:var(--card); border:1px solid var(--border);
-  border-radius:var(--radius); padding:var(--pad);
-}
-.card.wide{ max-width:920px }
-.small{ font-size:.9em }
-.muted{ color:var(--muted) }
+/* Cards/inputs/buttons */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:var(--pad)}
+.small{font-size:.9em}.muted{color:var(--muted)}
+.btn{background:var(--btnBg);color:var(--btnFg);border:1px solid var(--border);padding:8px 12px;border-radius:10px;cursor:pointer}
+.btn.primary{background:var(--btnPrimaryBg);color:var(--btnPrimaryFg);border-color:transparent}
+.btn.small{padding:6px 10px;font-size:.9em}
+.btn[disabled]{opacity:.6;cursor:not-allowed}
+.input{width:100%;background:color-mix(in oklab,var(--card) 92%, white 8%);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:8px 10px}
+textarea.input{min-height:90px;resize:vertical}
 
-/* Buttons & inputs */
-.btn{
-  background:var(--btnBg); color:var(--btnFg); border:1px solid var(--border);
-  padding:8px 12px; border-radius:10px; cursor:pointer;
-}
-.btn.primary{ background:var(--btnPrimaryBg); color:var(--btnPrimaryFg); border-color:transparent }
-.btn.small{ padding:6px 10px; font-size:.9em }
-.btn[disabled]{ opacity:.6; cursor:not-allowed }
+/* Course card */
+.course-cover{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px}
 
-.input{
-  width:100%; background:color-mix(in oklab,var(--card) 92%, white 8%);
-  color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:8px 10px;
-}
-textarea.input{ min-height:90px; resize:vertical }
-
-/* Course card specifics */
-.course-cover{ width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:10px }
-.course .course-body{ margin-top:8px }
-
-/* Progress bar */
-.progress{ height:8px; background:color-mix(in oklab,var(--bg) 80%, white 20%); border-radius:999px; overflow:hidden }
-#rdProgress{ height:100%; width:0%; background:var(--btnPrimaryBg); }
-
-/* Reader page */
-.reader-page{ padding:8px 0 }
+/* Reader */
+.progress{height:8px;background:color-mix(in oklab,var(--bg) 80%, white 20%);border-radius:999px;overflow:hidden}
+#rdProgress{height:100%;width:0%;background:var(--btnPrimaryBg)}
+.reader-page{padding:8px 0}
 
 /* Table */
-.ol-table{ width:100%; border-collapse:collapse }
-.ol-table th,.ol-table td{ border-bottom:1px solid var(--border); padding:8px; text-align:left }
-.ol-table thead th{ color:var(--muted); font-weight:600 }
+.ol-table{width:100%;border-collapse:collapse}
+.ol-table th,.ol-table td{border-bottom:1px solid var(--border);padding:8px;text-align:left}
+.ol-table thead th{color:var(--muted);font-weight:600}
 
 /* Chat */
-.chatlist{
-  max-height:240px; overflow:auto; background:color-mix(in oklab,var(--card) 90%, white 10%);
-  border:1px solid var(--border); border-radius:10px; padding:8px; margin-top:6px;
-}
-.chatlist .msg{ margin:6px 0 }
-.chatlist .msg b{ margin-right:6px }
+.chatlist{max-height:240px;overflow:auto;background:color-mix(in oklab,var(--card) 90%, white 10%);border:1px solid var(--border);border-radius:10px;padding:8px;margin-top:6px}
+.chatlist .msg{margin:6px 0}.chatlist .msg b{margin-right:6px}
 
-/* Dialog / modal */
-.ol-modal{ border:none; padding:0; background:transparent; }
-.ol-modal::backdrop{ background:rgba(0,0,0,.5) }
-.ol-modal.card{ max-width:720px }
-.h4{ font-size:1.15rem; font-weight:800 }
+/* Modal */
+.ol-modal{border:none;padding:0;background:transparent}
+.ol-modal::backdrop{background:rgba(0,0,0,.5)}
+.h4{font-size:1.15rem;font-weight:800}
 
 /* Toast */
-#toast{
-  position:fixed; left:50%; transform:translateX(-50%) translateY(20px);
-  bottom:10px; background:var(--card); color:var(--fg); padding:8px 12px;
-  border:1px solid var(--border); border-radius:10px; opacity:0; transition:.2s; pointer-events:none; z-index:1000;
-}
-#toast.show{ opacity:1; transform:translateX(-50%) translateY(0) }
+#toast{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);bottom:10px;background:var(--card);color:var(--fg);padding:8px 12px;border:1px solid var(--border);border-radius:10px;opacity:0;transition:.2s;pointer-events:none;z-index:1000}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* Gated UI hint */
-.gated{ filter:saturate(.6) opacity(.9) }
-
-/* (Part 2/2) — Certificates, Confetti, Sidebar Drawer, Responsive */
-/* styles.css (Part 2/2) — Certificates, effects, responsive */
-
-/* Certificate */
-.cert-doc{
-  background:#fff; color:#111; border-radius:14px; padding:18px; 
-  border:4px double #bbb; text-align:center;
-}
-.cert-head{ font-size:18px; letter-spacing:.08em; text-transform:uppercase; color:#333 }
-.cert-sub{ margin-top:4px; color:#666 }
-.cert-name{ font-size:28px; font-weight:800; margin:8px 0 }
-.cert-course{ font-size:20px; font-weight:700; margin:6px 0 }
-.cert-meta{ color:#555; margin-top:6px }
-.cert-signs{ display:flex; gap:24px; justify-content:center; margin-top:14px }
-.cert-seal{
-  width:72px; height:72px; border-radius:50%;
-  background:radial-gradient(circle at 30% 30%, #f00, #a00); box-shadow:0 0 0 4px #800 inset;
-}
-.qr{ width:90px; height:90px; border:1px solid #ddd; background:#fff; }
-
-/* Confetti (CSS-only placeholder) */
-.confetti{
-  position:absolute; inset:0; pointer-events:none;
-  background:
-    radial-gradient(circle, rgba(255,255,255,.9) 0 2px, transparent 3px) 10% 20%/8px 8px,
-    radial-gradient(circle, rgba(255,0,128,.9) 0 2px, transparent 3px) 40% 40%/8px 8px,
-    radial-gradient(circle, rgba(0,200,255,.9) 0 2px, transparent 3px) 70% 30%/8px 8px,
-    radial-gradient(circle, rgba(255,200,0,.9) 0 2px, transparent 3px) 20% 70%/8px 8px,
-    radial-gradient(circle, rgba(120,255,120,.9) 0 2px, transparent 3px) 80% 60%/8px 8px;
-  animation: confetti-fall 1.2s linear forwards;
-}
-@keyframes confetti-fall{
-  from{ transform:translateY(-10%) }
-  to{ transform:translateY(10%) opacity(.6) }
-}
-
-/* Sidebar drawer (touch/iPad) */
-#sidebar.show{ transform:translateX(0) }
+/* Drawer for iPad/touch */
+#sidebar.show{transform:translateX(0)}
 @media (max-width:1024px), (hover:none), (pointer:coarse){
-  body{ overflow-x:hidden }
-  #sidebar{
-    position:fixed; left:0; top:0; bottom:0; z-index:60; transform:translateX(-110%);
-    transition:transform .2s ease;
-  }
-  #sidebar.show{ transform:translateX(0) }
-  .sidebar-expanded #sidebar{ width:220px } /* when expanded flag set */
-  #btn-burger{ display:inline-flex; }
-  #main{ padding:14px; }
+  body{overflow-x:hidden}
+  #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:60;transform:translateX(-110%);transition:transform .2s ease}
+  #sidebar.show{transform:translateX(0)}
+  .sidebar-expanded #sidebar{width:220px}
+  #btn-burger{display:inline-flex}
+  #main{padding:14px}
 }
-
-/* Inputs/announcements adapt to theme by vars (no hard colors) */
-.stack .card, .toolbar, #annList .card{ background:var(--card); border-color:var(--border); }
 
 /* Utility */
-.hidden{ display:none !important }
+.hidden{display:none !important}
