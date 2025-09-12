@@ -144,6 +144,11 @@ function normalizeQuiz(raw) {
   return null;
 }
 
+// ===== Quiz config (add this near the top) =====
+const QUIZ_PASS = 0.70;        // 0.70 = 70% pass (လိုသလို 0.75 သို့ပြန်ခဲ့ရင် အလွယ်)
+const QUIZ_SAMPLE_SIZE = 6;    // bank ကနေ စမ်းမေးမယ့် အရေအတွက် (bank ထဲက မလုံလောက်ရင် အလောက်အလျားပဲယူမယ်)
+const QUIZ_RANDOMIZE = true;   // true = ကြိမ်ကို ကြိမ် အမေးခွန်း random
+
 /* ---------- cloud enroll sync (Firestore) ---------- */
 const enrollDocRef = () => {
   const uid = auth?.currentUser?.uid || (getUser()?.email || "").toLowerCase();
@@ -326,15 +331,38 @@ if ("ResizeObserver" in window) {
 }
 
 /* ---------- router + search ---------- */
-function showPage(id) {
+function showPage(id, push = true) {
   $$(".page").forEach((p) => p.classList.remove("visible"));
   $("#page-" + id)?.classList.add("visible");
-  $$("#sidebar .navbtn").forEach((b)=> b.classList.toggle("active", b.dataset.page === id));
+
+  // highlight nav
+  $$("#sidebar .navbtn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.page === id)
+  );
+
   if (id === "mylearning") renderMyLearning();
-  if (id === "gradebook")  renderGradebook();
-  if (id === "admin")      renderAdminTable();
-  if (id === "dashboard")  renderAnnouncements();
+  if (id === "gradebook") renderGradebook();
+  if (id === "admin") renderAdminTable();
+  if (id === "dashboard") renderAnnouncements();
+
+  // 🔑 update browser history (default true)
+  if (push) {
+    history.pushState({ page: id }, "", "#" + id);
+  }
 }
+
+// handle browser back/forward
+window.addEventListener("popstate", (e) => {
+  const id = e.state?.page || location.hash.replace("#", "") || "catalog";
+  showPage(id, false); // ⚠️ push=false မဟုတ်ရင် infinite loop ဖြစ်မယ်
+});
+
+// on first load → hash check
+document.addEventListener("DOMContentLoaded", () => {
+  const initial = location.hash.replace("#", "") || "catalog";
+  showPage(initial, false);
+});
+
 function initSearch() {
   const input = $("#topSearch");
   const apply = () => {
@@ -699,89 +727,111 @@ let RD = { cid:null, pages:[], i:0, credits:0 };
 let LAST_QUIZ_SCORE = 0;
 let PROJECT_UPLOADED = false;
 
-function renderQuiz(p) {
-  const src = p.quiz?.questions || [];
-  // randomize questions/choices if enabled
-  const q = JSON.parse(JSON.stringify(src));
-  if (p.quiz?.randomize) shuffle(q);
-  q.forEach(it => { if (p.quiz?.shuffleChoices && Array.isArray(it.choices)) shuffle(it.choices); });
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } return arr; }
 
+function renderQuiz(p) {
+  // --- draw questions from bank ---
+  const bank = Array.isArray(p.quiz?.questions) ? p.quiz.questions.slice() : [];
+  const picked = QUIZ_RANDOMIZE ? shuffle(bank).slice(0, QUIZ_SAMPLE_SIZE || bank.length) : bank.slice();
+  const q = picked;  // ⬅️ ရှိသမျှ references ‘q’ ကို ဒီ picked ကို သုံးမယ်
+
+  // UI build (အကယ်၍ လက်ရှိ code အများစုက 그대로ပဲသုံးနိုင်တယ်)
   const wrap = document.createElement("div");
   wrap.innerHTML = `<h3>Quiz</h3>`;
+
   const list = document.createElement("ol");
   list.style.lineHeight = "1.7";
   q.forEach((it, i) => {
-    const li = document.createElement("li"); li.style.margin = "8px 0";
+    const li = document.createElement("li");
+    li.style.margin = "8px 0";
     li.insertAdjacentHTML("beforeend", `<div>${esc(it.q)}</div>`);
     if (it.type === "single") {
-      (it.choices || []).forEach((c, j) => {
-        li.insertAdjacentHTML("beforeend", `<label style="display:block;margin-left:.5rem">
-            <input type="radio" name="q${i}" value="${j}"> ${esc(c)}
-          </label>`);
+      (it.choices || it.a || []).forEach((c, j) => {
+        li.insertAdjacentHTML("beforeend",
+          `<label style="display:block;margin-left:.5rem">
+             <input type="radio" name="q${i}" value="${j}"> ${esc(c)}
+           </label>`);
       });
     } else if (it.type === "multiple") {
-      (it.choices || []).forEach((c, j) => {
-        li.insertAdjacentHTML("beforeend", `<label style="display:block;margin-left:.5rem">
-            <input type="checkbox" name="q${i}" value="${j}"> ${esc(c)}
-          </label>`);
+      (it.choices || it.a || []).forEach((c, j) => {
+        li.insertAdjacentHTML("beforeend",
+          `<label style="display:block;margin-left:.5rem">
+             <input type="checkbox" name="q${i}" value="${j}"> ${esc(c)}
+           </label>`);
       });
     } else {
-      li.insertAdjacentHTML("beforeend", `<input class="input" name="q${i}" placeholder="Your answer" style="margin-left:.5rem">`);
+      li.insertAdjacentHTML("beforeend",
+        `<input class="input" name="q${i}" placeholder="Your answer" style="margin-left:.5rem">`);
     }
     list.appendChild(li);
   });
 
   const controls = document.createElement("div");
-  controls.className = "row"; controls.style.cssText = "gap:8px;margin-top:8px";
-  controls.innerHTML = `<button class="btn" id="qCheck">Check</button><span class="small muted" id="qMsg"></span>`;
-
-  wrap.appendChild(list); wrap.appendChild(controls);
-  $("#rdPage").innerHTML = ""; $("#rdPage").appendChild(wrap);
+  controls.className = "row";
+  controls.style.cssText = "gap:8px;margin-top:8px";
+  controls.innerHTML = `
+    <button class="btn" id="qCheck">Check</button>
+    <button class="btn" id="qRetake" style="display:none">Retake</button>
+    <span class="small muted" id="qMsg"></span>`;
+  wrap.appendChild(list);
+  wrap.appendChild(controls);
+  $("#rdPage").innerHTML = "";
+  $("#rdPage").appendChild(wrap);
 
   const isLastPage = () => RD.i === RD.pages.length - 1;
 
   $("#qCheck").onclick = () => {
     let correct = 0;
+
     q.forEach((it, i) => {
+      const choices = it.choices || it.a || [];
       if (it.type === "single") {
         const picked = document.querySelector(`input[name="q${i}"]:checked`);
         const val = picked ? Number(picked.value) : -1;
-        if (val === it.correct) correct++;
+        const ans = typeof it.correct === "number" ? it.correct : Number(it.correct ?? -1);
+        if (val === ans) correct++;
       } else if (it.type === "multiple") {
-        const picks = Array.from(document.querySelectorAll(`input[name="q${i}"]:checked`)).map((x)=>Number(x.value));
-        const want = Array.from(it.correct || []);
-        picks.sort(); want.sort();
-        const ok = picks.length === want.length && picks.every((v, idx)=> v === want[idx]);
+        const picks = Array.from(document.querySelectorAll(`input[name="q${i}"]:checked`)).map(x => Number(x.value)).sort();
+        const want = Array.isArray(it.correct) ? it.correct.slice().sort() : [];
+        const ok = picks.length === want.length && picks.every((v, idx) => v === want[idx]);
         if (ok) correct++;
       } else {
         const input = document.querySelector(`input[name="q${i}"]`);
-  const ans = (input?.value || "").trim().toLowerCase();
-
-  // support both "answer" (string) and "answers" (array)
-  const accepts = []
-    .concat(it.answers || [])
-    .concat(it.answer ? [it.answer] : [])
-    .map(s => String(s).trim().toLowerCase());
-
-  if (accepts.length && accepts.includes(ans)) correct++;
-}
+        const ans = (input?.value || "").trim().toLowerCase();
+        const accepts = Array.isArray(it.a) ? it.a : [it.a];
+        const norm = (s) => String(s ?? "").trim().toLowerCase();
+        if (accepts.some(x => norm(x) === ans)) correct++;
+      }
     });
 
     const score = correct / (q.length || 1);
     LAST_QUIZ_SCORE = score;
-    setPassedQuiz(RD.cid, RD.i, score);                 // ✅ remember pass state
-    $("#qMsg").textContent = `Score: ${Math.round(score*100)}% (${correct}/${q.length})`;
-    if (score >= 0.85) launchFireworks();
+    $("#qMsg").textContent = `Score: ${Math.round(score * 100)}% (${correct}/${q.length})`;
 
-    if (isLastPage()) {
-      if (score >= 0.75) { markCourseComplete(RD.cid, score); showCongrats(); }
-      else toast("At least 75% required to finish — try again");
+    if (score >= QUIZ_PASS) {
+      if (score >= 0.85) launchFireworks();
+      if (isLastPage()) {
+        markCourseComplete(RD.cid, score);
+        showCongrats();
+      } else {
+        toast("Great! You unlocked the next lesson 🎉");
+      }
+      // pass ဖြစ်သွားရင် Retake မလိုတော့
+      $("#qRetake").style.display = "none";
     } else {
-      if (score >= 0.75) toast("Great! You unlocked the next lesson 🎉");
-      else toast("At least 75% required — try again");
+      toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% — try again`);
+      // Retake button ပြ
+      $("#qRetake").style.display = "";
     }
 
-    $("#rdFinish")?.toggleAttribute("disabled", LAST_QUIZ_SCORE < 0.75);
+    // Finish button gating (if you already add it later)
+    $("#rdFinish")?.toggleAttribute("disabled", score < QUIZ_PASS);
+  };
+
+  // Retake → random အသစ်ဖြစ်အောင် စေတာင်လော့
+  $("#qRetake").onclick = () => {
+    LAST_QUIZ_SCORE = 0;
+    renderQuiz(p); // redraw (randomize again)
   };
 }
 
@@ -835,9 +885,9 @@ function renderPage() {
 
     const btn = $("#rdFinish");
     const canFinishNow =
-      (p.type === "quiz"    && (hasPassedQuiz(RD.cid, RD.i) || LAST_QUIZ_SCORE >= 0.75)) ||
-      (p.type === "project" && PROJECT_UPLOADED) ||
-      (p.type !== "quiz"    && p.type !== "project");
+  (p.type === "quiz"    && LAST_QUIZ_SCORE >= QUIZ_PASS) ||
+  (p.type === "project" && PROJECT_UPLOADED) ||
+  (p.type !== "quiz" && p.type !== "project");
 
     btn.disabled = !canFinishNow;
     btn.onclick = () => {

@@ -5,7 +5,7 @@
     {
       "type": "single",
       "q": "HTML stands for?",
-      "choices": [
+      "a": [
         "Hyper Text Markup Language",
         "Home Tool Markup Language",
         "Hyperlinks and Text Management Language"
@@ -15,13 +15,38 @@
     {
       "type": "multiple",
       "q": "Which are semantic HTML elements?",
-      "choices": ["<div>", "<header>", "<section>", "<span>"],
+      "a": ["<div>", "<header>", "<section>", "<span>"],
       "correct": [1, 2]
+    },
+    { "type": "short", "q": "Which HTML tag displays an image?", "a": "img" },
+    {
+      "type": "single",
+      "q": "Which tag defines the document title?",
+      "a": ["<meta>", "<title>", "<head>"],
+      "correct": 1
+    },
+    {
+      "type": "single",
+      "q": "Which attribute links a CSS file?",
+      "a": ["rel", "src", "href"],
+      "correct": 2
     },
     {
       "type": "short",
-      "q": "Which HTML tag is used to display an image?",
-      "answer": "img"
+      "q": "Block-level container often used for layout?",
+      "a": ["div"]
+    },
+    {
+      "type": "single",
+      "q": "Correct DOCTYPE for HTML5?",
+      "a": ["<!DOCTYPE html5>", "<!DOCTYPE html>", "<!HTML5>"],
+      "correct": 1
+    },
+    {
+      "type": "multiple",
+      "q": "Which are form controls?",
+      "a": ["<input>", "<button>", "<link>", "<select>"],
+      "correct": [0, 1, 3]
     }
   ]
 }
