@@ -102,6 +102,48 @@ const setPassedQuiz = (cid, idx, score) => {
   setQuizState(s);
 };
 
+// Add once (near top-level) to mute noisy Firestore channel terminate logs
+(function muteFirestoreTerminate400() {
+  const origError = console.error;
+  const origWarn  = console.warn;
+  const noisy = /google\.firestore\.v1\.Firestore\/Write\/channel.*TYPE=terminate/i;
+  console.error = function (...args) {
+    if (args.some(a => typeof a === "string" && noisy.test(a))) return;
+    origError.apply(console, args);
+  };
+  console.warn = function (...args) {
+    if (args.some(a => typeof a === "string" && noisy.test(a))) return;
+    origWarn.apply(console, args);
+  };
+})();
+
+// --- Add near top (after helpers) ---
+function normalizeQuiz(raw) {
+  // already in {questions:[...]} form
+  if (raw && raw.questions) return raw;
+
+  // your current files are arrays: [{ type, q, a, correct }]
+  if (Array.isArray(raw)) {
+    return {
+      randomize: true,
+      shuffleChoices: true,
+      questions: raw.map(x => {
+        const isStrAnswer = typeof x.a === "string";
+        return {
+          type: x.type || "single",
+          q: x.q || "",
+          choices: Array.isArray(x.a) ? x.a : (x.choices || []),
+          correct: x.correct,
+          // unify short-answer key name
+          answers: isStrAnswer ? [String(x.a).trim()] : (x.answers || []),
+          answer: isStrAnswer ? String(x.a).trim() : (x.answer || null)
+        };
+      })
+    };
+  }
+  return null;
+}
+
 /* ---------- cloud enroll sync (Firestore) ---------- */
 const enrollDocRef = () => {
   const uid = auth?.currentUser?.uid || (getUser()?.email || "").toLowerCase();
@@ -713,10 +755,16 @@ function renderQuiz(p) {
         if (ok) correct++;
       } else {
         const input = document.querySelector(`input[name="q${i}"]`);
-        const ans = (input?.value || "").trim().toLowerCase();
-        const accepts = (it.answers || []).map((s)=> String(s).trim().toLowerCase());
-        if (accepts.includes(ans)) correct++;
-      }
+  const ans = (input?.value || "").trim().toLowerCase();
+
+  // support both "answer" (string) and "answers" (array)
+  const accepts = []
+    .concat(it.answers || [])
+    .concat(it.answer ? [it.answer] : [])
+    .map(s => String(s).trim().toLowerCase());
+
+  if (accepts.length && accepts.includes(ans)) correct++;
+}
     });
 
     const score = correct / (q.length || 1);
@@ -830,9 +878,19 @@ function showCongrats() {
 }
 
 function renderMyLearning() {
-  const grid = $("#myCourses"); if (!grid) return;
-  const set = getEnrolls(); const completed = getCompleted();
-  const list = (ALL.length ? ALL : getCourses()).filter((c)=> set.has(c.id));
+  const grid = $("#myCourses");
+  if (!grid) return;
+
+  // If reader is already open, keep cards hidden
+  if (!$("#reader")?.classList.contains("hidden")) {
+    grid.style.display = "none";
+  } else {
+    grid.style.display = ""; // visible when reader is not open
+  }
+
+  const set = getEnrolls();
+  const completed = getCompleted();
+  const list = (ALL.length ? ALL : getCourses()).filter((c) => set.has(c.id));
 
   grid.innerHTML = list.map((c)=>{
     const isDone = completed.has(c.id);
@@ -895,78 +953,102 @@ async function tryFetch(path) {
   try { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) return null; return await r.json(); } catch { return null; }
 }
 
+// Replace your buildPagesForCourse() with this version
 async function buildPagesForCourse(c) {
   if (!DATA_BASE) await resolveDataBase();
   const base = DATA_BASE || "/data";
-  const dir  = courseDir(c.id);           // <-- use alias-safe dir
+
+  // 🧭 alias/dir mapping (handle typos)
+  const DIR_ALIAS = {
+    "js-essentials": "js-ennentials", // your folder name
+    "pali-basics": "pali-basics",   // your folder name
+    "web-foundations": "web-foundations", // your folder name
+  };
+  const dir = DIR_ALIAS[c.id] || c.id;
 
   const meta = await tryFetch(`${base}/courses/${dir}/meta.json`);
 
-  // quizzes: quiz1.json, quiz2.json, ...
+  // collect quizzes: quiz1.json, quiz2.json...
   const quizFiles = [];
   for (let i = 1; i <= 20; i++) {
-    const q = await tryFetch(`${base}/courses/${dir}/quiz${i}.json`);
-    if (!q) break;
-    quizFiles.push(q);
+    const raw = await tryFetch(`${base}/courses/${dir}/quiz${i}.json`);
+    if (!raw) break;
+    const q = normalizeQuiz(raw);
+    if (q) quizFiles.push(q);
   }
   if (quizFiles.length === 0) {
-    const q = await tryFetch(`${base}/courses/${dir}/quiz.json`);
+    const raw = await tryFetch(`${base}/courses/${dir}/quiz.json`);
+    const q = normalizeQuiz(raw);
     if (q) quizFiles.push(q);
   }
 
   const pages = [];
 
-  // modules → lessons (accept .html OR .json content files)
+  // meta.modules[*].lessons[*]
   if (meta?.modules?.length) {
     for (const m of meta.modules) {
       for (const l of (m.lessons || [])) {
         if (l.type === "html" && l.src) {
-          const url = `${base}/courses/${dir}/${l.src}`;
-          if (/\.(json)$/i.test(l.src)) {
-            // support JSON lesson like css-course.json / html-course.json / js-course.json
-            const obj = await tryFetch(url);
-            const html = obj?.html || "";     // expect { "html": "<h3>...</h3>..." }
-            if (html) pages.push({ type:"reading", html });
-          } else {
-            const html = await fetch(url, { cache:"no-cache" }).then(r=>r.text()).catch(()=> "");
-            if (html) pages.push({ type:"reading", html });
-          }
+          const html = await fetch(`${base}/courses/${dir}/${l.src}`, { cache: "no-cache" })
+            .then(r => r.text()).catch(()=>"");
+          pages.push({ type: "reading", html });
         } else if (l.type === "video" && l.poster) {
-          pages.push({ type:"lesson", html:`<h3>${esc(l.title||"Video")}</h3><video controls style="width:100%;border-radius:10px" poster="${esc(l.poster)}"></video>`});
+          pages.push({
+            type: "lesson",
+            html: `<h3>${esc(l.title||"Video")}</h3><video controls style="width:100%;border-radius:10px" poster="${esc(l.poster)}"></video>`
+          });
         } else if (l.type === "project") {
-          pages.push({ type:"project", html:`<h3>Mini Project</h3><input type="file"><p class="small muted">Upload your work.</p>`});
+          pages.push({
+            type: "project",
+            html: `<h3>Mini Project</h3><input type="file"><p class="small muted">Upload your work.</p>`
+          });
         } else if (l.type === "quiz" && l.src) {
-          const q = await tryFetch(`${base}/courses/${dir}/${l.src}`);
-          if (q) pages.push({ type:"quiz", quiz:q });
+          const raw = await tryFetch(`${base}/courses/${dir}/${l.src}`);
+          const q = normalizeQuiz(raw);
+          if (q) pages.push({ type: "quiz", quiz: q });
         }
       }
     }
   }
 
-  // append quiz*.json series if any
-  for (const q of quizFiles) pages.push({ type:"quiz", quiz:q });
+  // append quizzes discovered by series
+  for (const q of quizFiles) pages.push({ type: "quiz", quiz: q });
 
-  if (!pages.length) {
-    console.warn("No pages found for course:", c.id, "at dir:", dir);
-    return SAMPLE_PAGES(c.title);
-  }
+  if (!pages.length) return SAMPLE_PAGES(c.title);
   return pages;
 }
 
+// Replace your openReader() with this version
 async function openReader(cid) {
-  const c = ALL.find(x=>x.id===cid) || getCourses().find(x=>x.id===cid);
+  const c = ALL.find(x => x.id === cid) || getCourses().find(x => x.id === cid);
   if (!c) return toast("Course not found");
 
+  // show skeleton
+  const myWrap = $("#myCourses");
+  if (myWrap) myWrap.innerHTML = `<div class="muted">Loading course…</div>`;
+
   const pages = await buildPagesForCourse(c);
-  RD = { cid:c.id, pages, i:0, credits:c.credits || 3 };
 
-  // ✅ show ONLY the reader page
-  showPage("reader");                 // <-- add this line
+  RD = { cid: c.id, pages, i: 0, credits: c.credits || 3 };
+
+  // show only the reader UI
   $("#reader")?.classList.remove("hidden");
-  $("#rdMeta").textContent = `Credits: ${RD.credits}`;
-  LAST_QUIZ_SCORE = 0; PROJECT_UPLOADED = false;
-  renderPage();
+  // hide the cards panel if you want a clean view
+  const cardsSection = $("#myCourses");
+  if (cardsSection) cardsSection.style.display = "none";
 
+  // (optional) ensure we're on the same page container
+  showPage("mylearning"); // keep URL/nav consistent
+
+  $("#rdMeta").textContent = `Credits: ${RD.credits}`;
+  try {
+    renderPage();
+  } catch (e) {
+    console.error("renderPage failed", e);
+    $("#rdPage").innerHTML = `<div class="muted">Failed to render this lesson.</div>`;
+  }
+
+  // per-course chat
   if (window._ccOff) { try { window._ccOff(); } catch {} window._ccOff = null; }
   const off = wireCourseChatRealtime(c.id);
   if (typeof off === "function") window._ccOff = off;
