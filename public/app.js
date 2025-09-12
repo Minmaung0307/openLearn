@@ -727,8 +727,6 @@ let RD = { cid:null, pages:[], i:0, credits:0 };
 let LAST_QUIZ_SCORE = 0;
 let PROJECT_UPLOADED = false;
 
-function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } return arr; }
-
 function renderQuiz(p) {
   // --- draw questions from bank ---
   const bank = Array.isArray(p.quiz?.questions) ? p.quiz.questions.slice() : [];
