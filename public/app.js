@@ -730,57 +730,6 @@ function handleEnroll(id) {
   openPay(c); // ✅ show checkout modal and render PayPal buttons
 }
 
-async function openPay(course) {
-  $("#payTitle").textContent = `Checkout · ${course.title} ($${course.price})`;
-  const modal = $("#payModal");
-  const paypalWrap = $("#paypal-container");
-  const note = $("#paypalNote");
-  if (paypalWrap) paypalWrap.innerHTML = ""; // reset
-
-  // Try to render PayPal if SDK is present (or was injected by HTML)
-  const renderButtons = () => {
-    if (!window.paypal || !paypalWrap) return false;
-    window.paypal.Buttons({
-      createOrder: (_, actions) => actions.order.create({
-        purchase_units: [{ amount: { value: String(course.price || 0) } }]
-      }),
-      onApprove: async (_, actions) => {
-        try { await actions.order.capture(); } catch {}
-        toast("Payment successful");
-        markEnrolled(course.id);
-        modal?.close();
-      },
-      onError: () => toast("PayPal error")
-    }).render(paypalWrap);
-    return true;
-  };
-
-  // 1) If already loaded, render now
-  let ok = renderButtons();
-
-  // 2) If not loaded but you exported ensurePayPal(), try lazy load
-  if (!ok && typeof ensurePayPal === "function") {
-    try {
-      await ensurePayPal();
-      ok = renderButtons();
-    } catch {}
-  }
-
-  // 3) Fallback note
-  if (!ok && note) {
-    note.textContent = "PayPal SDK not loaded — use MMK demo below.";
-  }
-
-  // MMK demo button
-  $("#mmkPaid")?.addEventListener("click", () => {
-    toast("Payment marked (MMK demo)");
-    markEnrolled(course.id);
-    modal?.close();
-  }, { once: true });
-
-  modal?.showModal();
-}
-
 let _paypalButtons = null;
 async function renderButtonsUSD(priceUSD, onApproved) {
   // Ensure the SDK exists (don’t load twice)
@@ -848,31 +797,25 @@ async function openPay(course) {
   const dlg = document.getElementById("payModal");
   if (!dlg) return;
 
-  // show modal first (user gesture already happened when clicking Enroll)
   dlg.showModal();
 
-  // wire close once
   const closeBtn = document.getElementById("closePay");
   if (closeBtn && !closeBtn._wired) {
     closeBtn._wired = true;
     closeBtn.addEventListener("click", closePayModal);
   }
-  // allow Esc / backdrop
   dlg.addEventListener("cancel", (e) => {
-    e.preventDefault(); // keep consistent close path
+    e.preventDefault();
     closePayModal();
   }, { once: true });
 
-  // render buttons for this course price
   const price = Number(course.price || 0) || 1;
   await renderButtonsUSD(price, () => {
     toast("Payment successful 🎉");
-    // mark enrolled and close
     markEnrolled(course.id);
     closePayModal();
   });
 
-  // MMK “I Paid” button
   const mmkBtn = document.getElementById("mmkPaid");
   if (mmkBtn && !mmkBtn._wired) {
     mmkBtn._wired = true;
@@ -883,6 +826,97 @@ async function openPay(course) {
     });
   }
 }
+
+// async function openPay(course) {
+//   const dlg = document.getElementById("payModal");
+//   if (!dlg) return;
+
+//   // show modal first (user gesture already happened when clicking Enroll)
+//   dlg.showModal();
+
+//   // wire close once
+//   const closeBtn = document.getElementById("closePay");
+//   if (closeBtn && !closeBtn._wired) {
+//     closeBtn._wired = true;
+//     closeBtn.addEventListener("click", closePayModal);
+//   }
+//   // allow Esc / backdrop
+//   dlg.addEventListener("cancel", (e) => {
+//     e.preventDefault(); // keep consistent close path
+//     closePayModal();
+//   }, { once: true });
+
+//   // render buttons for this course price
+//   const price = Number(course.price || 0) || 1;
+//   await renderButtonsUSD(price, () => {
+//     toast("Payment successful 🎉");
+//     // mark enrolled and close
+//     markEnrolled(course.id);
+//     closePayModal();
+//   });
+
+//   // MMK “I Paid” button
+//   const mmkBtn = document.getElementById("mmkPaid");
+//   if (mmkBtn && !mmkBtn._wired) {
+//     mmkBtn._wired = true;
+//     mmkBtn.addEventListener("click", () => {
+//       toast("Payment recorded (MMK)");
+//       markEnrolled(course.id);
+//       closePayModal();
+//     });
+//   }
+// }
+
+// async function openPay(course) {
+//   $("#payTitle").textContent = `Checkout · ${course.title} ($${course.price})`;
+//   const modal = $("#payModal");
+//   const paypalWrap = $("#paypal-container");
+//   const note = $("#paypalNote");
+//   if (paypalWrap) paypalWrap.innerHTML = ""; // reset
+
+//   // Try to render PayPal if SDK is present (or was injected by HTML)
+//   const renderButtons = () => {
+//     if (!window.paypal || !paypalWrap) return false;
+//     window.paypal.Buttons({
+//       createOrder: (_, actions) => actions.order.create({
+//         purchase_units: [{ amount: { value: String(course.price || 0) } }]
+//       }),
+//       onApprove: async (_, actions) => {
+//         try { await actions.order.capture(); } catch {}
+//         toast("Payment successful");
+//         markEnrolled(course.id);
+//         modal?.close();
+//       },
+//       onError: () => toast("PayPal error")
+//     }).render(paypalWrap);
+//     return true;
+//   };
+
+//   // 1) If already loaded, render now
+//   let ok = renderButtons();
+
+//   // 2) If not loaded but you exported ensurePayPal(), try lazy load
+//   if (!ok && typeof ensurePayPal === "function") {
+//     try {
+//       await ensurePayPal();
+//       ok = renderButtons();
+//     } catch {}
+//   }
+
+//   // 3) Fallback note
+//   if (!ok && note) {
+//     note.textContent = "PayPal SDK not loaded — use MMK demo below.";
+//   }
+
+//   // MMK demo button
+//   $("#mmkPaid")?.addEventListener("click", () => {
+//     toast("Payment marked (MMK demo)");
+//     markEnrolled(course.id);
+//     modal?.close();
+//   }, { once: true });
+
+//   modal?.showModal();
+// }
 
 /* ---------- details (catalog + meta merge) ---------- */
 async function openDetails(id) {
