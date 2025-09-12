@@ -411,20 +411,24 @@ function renderCatalog() {
           <div class="row" style="justify-content:flex-end; gap:8px">
             <button class="btn" data-details="${c.id}">Details</button>
             <button class="btn primary" data-enroll="${c.id}">${
-              enrolled ? "Enrolled" : "Enroll"
-            }</button>
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
           </div>
         </div>
       </div>`;
     })
     .join("");
 
-  grid.querySelectorAll("[data-enroll]").forEach(
-    (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
-  );
-  grid.querySelectorAll("[data-details]").forEach(
-    (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
-  );
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
 }
 
 // default filter dropdown before data arrives
@@ -717,13 +721,64 @@ function markEnrolled(id) {
   renderMyLearning();
   showPage("mylearning");
 }
-function handleEnroll(id) {
-  const c =
-    ALL.find((x) => x.id === id) || getCourses().find((x) => x.id === id);
+// replace your current handleEnroll with:
+async function handleEnroll(id) {
+  const c = ALL.find(x => x.id === id) || getCourses().find(x => x.id === id);
   if (!c) return toast("Course not found");
-  if ((c.price || 0) <= 0) return markEnrolled(id);
-  toast("Demo checkout — marking as enrolled");
-  markEnrolled(id);
+  if ((c.price || 0) <= 0) return markEnrolled(id); // free → direct enroll
+  // paid → open checkout modal
+  openPay(c);
+}
+
+async function openPay(course) {
+  $("#payTitle").textContent = `Checkout · ${course.title} ($${course.price})`;
+  const modal = $("#payModal");
+  const paypalWrap = $("#paypal-container");
+  const note = $("#paypalNote");
+  if (paypalWrap) paypalWrap.innerHTML = ""; // reset
+
+  // Try to render PayPal if SDK is present (or was injected by HTML)
+  const renderButtons = () => {
+    if (!window.paypal || !paypalWrap) return false;
+    window.paypal.Buttons({
+      createOrder: (_, actions) => actions.order.create({
+        purchase_units: [{ amount: { value: String(course.price || 0) } }]
+      }),
+      onApprove: async (_, actions) => {
+        try { await actions.order.capture(); } catch {}
+        toast("Payment successful");
+        markEnrolled(course.id);
+        modal?.close();
+      },
+      onError: () => toast("PayPal error")
+    }).render(paypalWrap);
+    return true;
+  };
+
+  // 1) If already loaded, render now
+  let ok = renderButtons();
+
+  // 2) If not loaded but you exported ensurePayPal(), try lazy load
+  if (!ok && typeof ensurePayPal === "function") {
+    try {
+      await ensurePayPal();
+      ok = renderButtons();
+    } catch {}
+  }
+
+  // 3) Fallback note
+  if (!ok && note) {
+    note.textContent = "PayPal SDK not loaded — use MMK demo below.";
+  }
+
+  // MMK demo button
+  $("#mmkPaid")?.addEventListener("click", () => {
+    toast("Payment marked (MMK demo)");
+    markEnrolled(course.id);
+    modal?.close();
+  }, { once: true });
+
+  modal?.showModal();
 }
 
 /* ---------- details (catalog + meta merge) ---------- */
@@ -811,16 +866,16 @@ async function openDetails(id) {
         <div class="row" style="justify-content:flex-end; gap:8px; margin-top:.6rem">
           <button class="btn" data-details-close>Close</button>
           <button class="btn primary" data-details-enroll="${merged.id}">${
-            (merged.price || 0) > 0 ? "Buy • $" + merged.price : "Enroll Free"
-          }</button>
+    (merged.price || 0) > 0 ? "Buy • $" + merged.price : "Enroll Free"
+  }</button>
         </div>
       </div>
     </div>`;
   const dlg = $("#detailsModal");
   dlg?.showModal();
-  body.querySelector("[data-details-close]")?.addEventListener("click", () =>
-    dlg?.close()
-  );
+  body
+    .querySelector("[data-details-close]")
+    ?.addEventListener("click", () => dlg?.close());
   body
     .querySelector("[data-details-enroll]")
     ?.addEventListener("click", (e) => {
@@ -949,7 +1004,9 @@ function renderProfilePanel() {
             ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
             : ""
         }
-        ${p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""}
+        ${
+          p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""
+        }
         ${
           p.social
             ? `<div class="small muted">Social: ${esc(p.social)}</div>`
@@ -1046,10 +1103,30 @@ const SAMPLE_PAGES = (title) => [
     type: "quiz",
     quiz: {
       questions: [
-        { type: "single", q: "2 + 2 = ?", choices: ["3", "4", "5"], correct: 1 },
-        { type: "single", q: "JS array method to add at end?", choices: ["push","shift","map"], correct: 0 },
-        { type: "single", q: "typeof null = ?", choices: ["'object'","'null'","'undefined'"], correct: 0 },
-        { type: "single", q: "CSS for color?", choices: ["color","fill","paint"], correct: 0 },
+        {
+          type: "single",
+          q: "2 + 2 = ?",
+          choices: ["3", "4", "5"],
+          correct: 1,
+        },
+        {
+          type: "single",
+          q: "JS array method to add at end?",
+          choices: ["push", "shift", "map"],
+          correct: 0,
+        },
+        {
+          type: "single",
+          q: "typeof null = ?",
+          choices: ["'object'", "'null'", "'undefined'"],
+          correct: 0,
+        },
+        {
+          type: "single",
+          q: "CSS for color?",
+          choices: ["color", "fill", "paint"],
+          correct: 0,
+        },
       ],
     },
   },
@@ -1059,7 +1136,9 @@ const SAMPLE_PAGES = (title) => [
   },
 ];
 let RD = { cid: null, pages: [], i: 0, credits: 0 };
+
 let LAST_QUIZ_SCORE = 0;
+let PROJECT_UPLOADED = false;
 
 function renderQuiz(p) {
   const q = p.quiz?.questions || [];
@@ -1136,8 +1215,9 @@ function renderQuiz(p) {
       } else {
         const input = document.querySelector(`input[name="q${i}"]`);
         const ans = (input?.value || "").trim().toLowerCase();
-        const accepts = (it.answers || [])
-          .map((s) => String(s).trim().toLowerCase());
+        const accepts = (it.answers || []).map((s) =>
+          String(s).trim().toLowerCase()
+        );
         if (accepts.includes(ans)) correct++;
       }
     });
@@ -1165,7 +1245,6 @@ function renderQuiz(p) {
 }
 
 function renderPage() {
-  const p = RD.pages[RD.i];
   if (!p) return;
   $("#rdTitle").textContent = `${RD.i + 1}. ${String(
     p.type || "PAGE"
@@ -1173,33 +1252,59 @@ function renderPage() {
   $("#rdPageInfo").textContent = `${RD.i + 1} / ${RD.pages.length}`;
   $("#rdProgress").style.width =
     Math.round(((RD.i + 1) / RD.pages.length) * 100) + "%";
+  const p = RD.pages[RD.i];
 
-  if (p.type === "quiz" && p.quiz) {
+  // project page wiring
+  if (p.type === "project") {
+    PROJECT_UPLOADED = false; // reset each time we land here
+    $("#rdPage").innerHTML =
+      p.html || `<h3>Mini Project</h3><input id="projFile" type="file">`;
+    const f = $("#rdPage input[type='file']");
+    if (f) {
+      f.addEventListener("change", () => {
+        if (f.files && f.files.length) {
+          PROJECT_UPLOADED = true;
+          toast("Upload successful ✔️");
+        }
+      });
+    }
+  } else if (p.type === "quiz" && p.quiz) {
     renderQuiz(p);
   } else {
     $("#rdPage").innerHTML = p.html || "";
   }
 
-  const btnNext = $("#rdNext");
-  if (btnNext) {
-    btnNext.onclick = () => {
+  // mark complete when on very last page AND it's not a quiz
+  const onLast = RD.i === RD.pages.length - 1;
+  if (onLast && p.type !== "quiz") {
+    markCourseComplete(RD.cid, LAST_QUIZ_SCORE || null);
+    setTimeout(() => showCongrats(), 80);
+  }
+
+  // --- Next/Prev handlers (the important guards) ---
+  const btnPrev = $("#rdPrev"),
+    btnNext = $("#rdNext");
+  btnPrev &&
+    (btnPrev.onclick = () => {
+      RD.i = Math.max(0, RD.i - 1);
+      renderPage();
+    });
+  btnNext &&
+    (btnNext.onclick = () => {
       const cur = RD.pages[RD.i];
+      // block leaving a quiz page until ≥75%
       if (cur?.type === "quiz" && LAST_QUIZ_SCORE < 0.75) {
         toast("Need ≥ 75% to continue");
         return;
       }
+      // block leaving a project page until a file is uploaded
+      if (cur?.type === "project" && !PROJECT_UPLOADED) {
+        toast("Please upload your project file first");
+        return;
+      }
       RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
       renderPage();
-    };
-  }
-
-  const btnPrev = $("#rdPrev");
-  if (btnPrev) {
-    btnPrev.onclick = () => {
-      RD.i = Math.max(0, RD.i - 1);
-      renderPage();
-    };
-  }
+    });
 
   const btnBack = $("#rdBack"),
     btnBm = $("#rdBookmark"),
@@ -1249,7 +1354,8 @@ function showCongrats() {
   $("#cgCert").onclick = () => {
     dlg.close();
     const c =
-      ALL.find((x) => x.id === RD.cid) || getCourses().find((x) => x.id === RD.cid);
+      ALL.find((x) => x.id === RD.cid) ||
+      getCourses().find((x) => x.id === RD.cid);
     if (c) showCertificate(c);
   };
 }
@@ -1320,7 +1426,9 @@ function showCertificate(course) {
       <div class="cert-name">${esc(name)}</div>
       <div class="cert-sub">has successfully completed</div>
       <div class="cert-course">${esc(course.title)}</div>
-      <div class="cert-meta">Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}</div>
+      <div class="cert-meta">Credits: ${
+        course.credits || 3
+      } • Score: ${scoreTxt} • Date: ${today}</div>
       <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
         <div class="cert-seal" title="Official Seal"></div>
         <img class="qr" alt="Verify" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=OPENLEARN-${encodeURIComponent(
@@ -1346,20 +1454,76 @@ function showCertificate(course) {
 $("#certClose")?.addEventListener("click", () => $("#certModal")?.close());
 $("#certPrint")?.addEventListener("click", () => window.print());
 
+async function tryFetch(path) {
+  try {
+    const r = await fetch(path, { cache: "no-cache" });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+async function buildPagesForCourse(c) {
+  // 1) Try meta.json for html/structure (optional)
+  if (!DATA_BASE) await resolveDataBase();
+  const base = DATA_BASE || "/data";
+  const meta = await tryFetch(`${base}/courses/${c.id}/meta.json`);
+
+  // 2) Collect quizzes
+  // prefer explicit quiz1.json, quiz2.json, … if present
+  const quizFiles = [];
+  for (let i = 1; i <= 20; i++) {
+    const q = await tryFetch(`${base}/courses/${c.id}/quiz${i}.json`);
+    if (!q) break;
+    quizFiles.push(q);
+  }
+  // fallback to a single quiz.json
+  if (quizFiles.length === 0) {
+    const q = await tryFetch(`${base}/courses/${c.id}/quiz.json`);
+    if (q) quizFiles.push(q);
+  }
+
+  // 3) Build pages:
+  const pages = [];
+
+  // meta.modules[*].lessons[*] → html pages (optional)
+  if (meta?.modules?.length) {
+    for (const m of meta.modules) {
+      for (const l of (m.lessons || [])) {
+        if (l.type === "html" && l.src) {
+          const html = await fetch(`${base}/courses/${c.id}/${l.src}`, { cache: "no-cache" }).then(r => r.text()).catch(()=>"");
+          pages.push({ type: "reading", html });
+        } else if (l.type === "video" && l.poster) {
+          pages.push({ type: "lesson", html: `<h3>${esc(l.title||"Video")}</h3><video controls style="width:100%;border-radius:10px" poster="${esc(l.poster)}"></video>`});
+        } else if (l.type === "project") {
+          pages.push({ type: "project", html: `<h3>Mini Project</h3><input type="file"><p class="small muted">Upload your work.</p>`});
+        } else if (l.type === "quiz" && l.src) {
+          const q = await tryFetch(`${base}/courses/${c.id}/${l.src}`);
+          if (q) pages.push({ type: "quiz", quiz: q });
+        }
+      }
+    }
+  }
+
+  // Append quizzes from quiz*.json series (if not already included)
+  for (const q of quizFiles) {
+    pages.push({ type: "quiz", quiz: q });
+  }
+
+  // Final fallback if nothing found
+  if (!pages.length) return SAMPLE_PAGES(c.title);
+
+  return pages;
+}
+
 async function openReader(cid) {
-  const c =
-    ALL.find((x) => x.id === cid) || getCourses().find((x) => x.id === cid);
+  const c = ALL.find(x => x.id === cid) || getCourses().find(x => x.id === cid);
   if (!c) return toast("Course not found");
 
-  const pages = SAMPLE_PAGES(c.title);
-  const credits = c.credits || 3;
-
-  RD = { cid: c.id, pages, i: 0, credits };
-
-  $("#myCourses") && ($("#myCourses").innerHTML = "");
+  // 🔽 use course-specific pages if available
+  const pages = await buildPagesForCourse(c);
+  RD = { cid: c.id, pages, i: 0, credits: c.credits || 3 };
   $("#reader")?.classList.remove("hidden");
-  $("#rdMeta") && ($("#rdMeta").textContent = `Credits: ${RD.credits}`);
-
+  $("#rdMeta").textContent = `Credits: ${RD.credits}`;
   renderPage();
 
   // per-course chat rewire
@@ -1592,12 +1756,8 @@ $("#btn-new-post")?.addEventListener("click", () => {
   $("#postModal .modal-title").textContent = "New Announcement";
   $("#postModal")?.showModal();
 });
-$("#closePostModal")?.addEventListener("click", () =>
-  $("#postModal")?.close()
-);
-$("#cancelPost")?.addEventListener("click", () =>
-  $("#postModal")?.close()
-);
+$("#closePostModal")?.addEventListener("click", () => $("#postModal")?.close());
+$("#cancelPost")?.addEventListener("click", () => $("#postModal")?.close());
 $("#postForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
   const t = $("#pmTitle")?.value.trim();
