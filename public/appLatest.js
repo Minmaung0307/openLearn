@@ -1,5 +1,5 @@
 /* =========================================================
-   OpenLearn · app.js (Final)
+   OpenLearn · app.js (Clean, Finals removed)
    Part 1/5 — Imports, helpers, theme, state, roles
    ========================================================= */
 import {
@@ -10,14 +10,14 @@ import {
   createUserWithEmailAndPassword,
   signOut,
 
-  // RTDB (for chats; course progress may be added later)
+  // RTDB
   getDatabase,
   ref,
   push,
   onChildAdded,
-  set,
-  get,
-  child,
+  set,        // ✅ add
+  get,        // ✅ add
+  child       // ✅ (လိုရင်)
 } from "./firebase.js";
 
 /* ---------- tiny DOM helpers ---------- */
@@ -162,6 +162,8 @@ const PALETTES = {
     btnFg: "#4a001f",
     btnPrimaryBg: "#e75480",
     btnPrimaryFg: "#fff",
+    pillAnn: "#f6dbe4",
+  pillAnnTxt: "#4a001f"
   },
   ocean: {
     bg: "#f0f8fa",
@@ -199,8 +201,10 @@ function applyPalette(name = "slate") {
     btnFg: "--btnFg",
     btnPrimaryBg: "--btnPrimaryBg",
     btnPrimaryFg: "--btnPrimaryFg",
+    pillAnn: "--pill-ann", 
+    pillAnnTxt: "--pill-ann-txt"
   };
-  Object.entries(map).forEach(([k, v]) => r.style.setProperty(v, p[k]));
+  Object.entries(map).forEach(([k, v]) => p[k] && r.style.setProperty(v, p[k]));
   const rgb = (hex) => {
     const h = hex.replace("#", "");
     return h.length === 3
@@ -213,9 +217,6 @@ function applyPalette(name = "slate") {
   r.style.setProperty("--fg-r", rr);
   r.style.setProperty("--fg-g", gg);
   r.style.setProperty("--fg-b", bb);
-
-  // ✅ also update announcement/search areas that used inline backgrounds
-  document.querySelectorAll(".card, .input, .btn").forEach(() => {}); // (styles come from CSS vars)
 }
 function applyFont(px = 16) {
   document.documentElement.style.setProperty("--fontSize", px + "px");
@@ -274,7 +275,7 @@ async function resolveDataBase() {
       }
     } catch {}
   }
-  DATA_BASE = null; // seed
+  DATA_BASE = null; // use seed
 }
 async function fetchJSON(path) {
   const r = await fetch(path, { cache: "no-cache" });
@@ -411,20 +412,24 @@ function renderCatalog() {
           <div class="row" style="justify-content:flex-end; gap:8px">
             <button class="btn" data-details="${c.id}">Details</button>
             <button class="btn primary" data-enroll="${c.id}">${
-              enrolled ? "Enrolled" : "Enroll"
-            }</button>
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
           </div>
         </div>
       </div>`;
     })
     .join("");
 
-  grid.querySelectorAll("[data-enroll]").forEach(
-    (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
-  );
-  grid.querySelectorAll("[data-details]").forEach(
-    (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
-  );
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
 }
 
 // default filter dropdown before data arrives
@@ -438,48 +443,34 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById(id)?.addEventListener("change", renderCatalog)
 );
 
-/* ---------- sidebar + topbar offset (iPad/touch-friendly) ---------- */
+/* ---------- sidebar + topbar offset (fixed) ---------- */
 function initSidebar() {
-  const sb = $("#sidebar"),
-    burger = $("#btn-burger");
+  const sb = $("#sidebar"), burger = $("#btn-burger");
+  const mqTouch = matchMedia("(hover: none), (pointer: coarse)");
+  const isTouchLike = () => mqTouch.matches || matchMedia("(max-width:1024px)").matches;
 
-  const mqNarrow = matchMedia("(max-width:1024px)");
-  const mqNoHover = matchMedia("(hover: none)");
-  const mqCoarse = matchMedia("(pointer: coarse)");
-  const isTouchLike = () =>
-    mqNarrow.matches || mqNoHover.matches || mqCoarse.matches;
+  const setExpandedFlag = (on) => document.body.classList.toggle("sidebar-expanded", !!on);
 
-  const setBurger = () => {
-    if (burger) burger.style.display = isTouchLike() ? "" : "none";
-  };
-  setBurger();
-  addEventListener("resize", setBurger);
+  const setBurger = () => { if (burger) burger.style.display = isTouchLike() ? "" : "none"; };
+  setBurger(); addEventListener("resize", setBurger);
 
-  const setExpandedFlag = (on) =>
-    document.body.classList.toggle("sidebar-expanded", !!on);
-
-  // tap blank area to expand/collapse on touch devices
+  // 🔁 First tap on nav = expand (if collapsed); second tap = navigate
   sb?.addEventListener("click", (e) => {
     const navBtn = e.target.closest(".navbtn");
-    if (navBtn) return; // handled below
-    if (isTouchLike()) {
-      const on = !document.body.classList.contains("sidebar-expanded");
-      setExpandedFlag(on);
+    if (!navBtn) return;
+
+    const expanded = document.body.classList.contains("sidebar-expanded") || sb.classList.contains("show");
+    if (isTouchLike() && !expanded) {
+      // first tap expands only
+      e.preventDefault();
+      e.stopPropagation();
+      sb.classList.add("show");
+      setExpandedFlag(true);
+      return;
     }
-  });
 
-  // burger drawer
-  burger?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    sb?.classList.toggle("show");
-    setExpandedFlag(sb?.classList.contains("show"));
-  });
-
-  // navigation
-  sb?.addEventListener("click", (e) => {
-    const b = e.target.closest(".navbtn");
-    if (!b) return;
-    showPage(b.dataset.page);
+    // already expanded → navigate
+    showPage(navBtn.dataset.page);
     if (isTouchLike()) {
       sb.classList.remove("show");
       setExpandedFlag(false);
@@ -487,7 +478,14 @@ function initSidebar() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
-  // dismiss drawer by clicking outside
+  // burger for drawer
+  burger?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    sb?.classList.toggle("show");
+    setExpandedFlag(sb?.classList.contains("show"));
+  });
+
+  // tap outside closes
   document.addEventListener("click", (e) => {
     if (!isTouchLike()) return;
     if (!sb?.classList.contains("show")) return;
@@ -497,6 +495,112 @@ function initSidebar() {
     }
   });
 }
+// function initSidebar() {
+//   const sb = $("#sidebar"),
+//     burger = $("#btn-burger");
+
+//   // ✅ Tablet/iPad ကိုပါ ချဲ့သတ်ရုံနဲ့ mobile-like အလုပ်လုပ်စေမယ်
+//   const mqNarrow = matchMedia("(max-width:1024px)");
+//   const mqNoHover = matchMedia("(hover: none)");
+//   const mqCoarse = matchMedia("(pointer: coarse)");
+//   const isTouchLike = () =>
+//     mqNarrow.matches || mqNoHover.matches || mqCoarse.matches;
+
+//   const setBurger = () => {
+//     if (burger) burger.style.display = isTouchLike() ? "" : "none";
+//   };
+//   setBurger();
+//   addEventListener("resize", setBurger);
+
+//   const setExpandedFlag = (on) =>
+//     document.body.classList.toggle("sidebar-expanded", !!on);
+
+//   // ✅ hover မရှိတဲ့ deviceတွေ (iPad) အတွက် — sidebar ကို tap (blank area) လုပ်ရင် expand/collapse
+//   sb?.addEventListener("click", (e) => {
+//     const navBtn = e.target.closest(".navbtn");
+//     if (navBtn) return; // nav click ကို အောက်မှာ handle ပြန်လုပ်မယ်
+//     if (isTouchLike()) {
+//       const on = !document.body.classList.contains("sidebar-expanded");
+//       setExpandedFlag(on);
+//     }
+//   });
+
+//   // ✅ burger drawer (<=1024px or touch-like) toggle
+//   burger?.addEventListener("click", (e) => {
+//     e.stopPropagation();
+//     sb?.classList.toggle("show");
+//     setExpandedFlag(sb?.classList.contains("show"));
+//   });
+
+//   // ✅ Navigation
+//   sb?.addEventListener("click", (e) => {
+//     const b = e.target.closest(".navbtn");
+//     if (!b) return;
+//     showPage(b.dataset.page);
+
+//     // touch-like device တွေမှာ page ပြောင်းရင် drawer ပိတ်ပေးမယ်
+//     if (isTouchLike()) {
+//       sb.classList.remove("show");
+//       setExpandedFlag(false);
+//     }
+//     window.scrollTo({ top: 0, behavior: "smooth" });
+//   });
+
+//   // ✅ drawer နဲ့အပြင်ကနေ တစ်ချက်တည်းပိတ်ပေးမယ် (touch-like)
+//   document.addEventListener("click", (e) => {
+//     if (!isTouchLike()) return;
+//     if (!sb?.classList.contains("show")) return;
+//     if (!e.target.closest("#sidebar") && e.target !== burger) {
+//       sb.classList.remove("show");
+//       setExpandedFlag(false);
+//     }
+//   });
+// }
+// function initSidebar() {
+//   const sb = $("#sidebar"),
+//     burger = $("#btn-burger");
+//   const isMobile = () => matchMedia("(max-width:1024px)").matches;
+
+//   const setBurger = () => {
+//     if (burger) burger.style.display = isMobile() ? "" : "none";
+//   };
+//   setBurger();
+//   addEventListener("resize", setBurger);
+
+//   const setExpandedFlag = (on) =>
+//     document.body.classList.toggle("sidebar-expanded", !!on);
+
+//   sb?.addEventListener("mouseenter", () => {
+//     if (!isMobile()) setExpandedFlag(true);
+//   });
+//   sb?.addEventListener("mouseleave", () => {
+//     if (!isMobile()) setExpandedFlag(false);
+//   });
+
+//   burger?.addEventListener("click", (e) => {
+//     e.stopPropagation();
+//     sb?.classList.toggle("show");
+//     setExpandedFlag(sb?.classList.contains("show"));
+//   });
+//   sb?.addEventListener("click", (e) => {
+//     const b = e.target.closest(".navbtn");
+//     if (!b) return;
+//     showPage(b.dataset.page);
+//     if (isMobile()) {
+//       sb.classList.remove("show");
+//       setExpandedFlag(false);
+//     }
+//     window.scrollTo({ top: 0, behavior: "smooth" });
+//   });
+//   document.addEventListener("click", (e) => {
+//     if (!isMobile()) return;
+//     if (!sb?.classList.contains("show")) return;
+//     if (!e.target.closest("#sidebar") && e.target !== burger) {
+//       sb.classList.remove("show");
+//       setExpandedFlag(false);
+//     }
+//   });
+// }
 
 /* keep --topbar-offset accurate */
 function setTopbarOffset() {
@@ -551,7 +655,7 @@ function initSearch() {
 }
 
 /* =========================================================
-   Part 3/5 — Auth, catalog actions, details, profile, reader/quiz gating
+   Part 3/5 — Auth, catalog actions, details, profile, reader
    ========================================================= */
 
 /* ---------- auth modal ---------- */
@@ -598,8 +702,11 @@ function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
   $("#btn-login") && ($("#btn-login").style.display = on ? "none" : "");
   $("#btn-logout") && ($("#btn-logout").style.display = on ? "" : "none");
+
+  // NEW: flip body flags so CSS can react
   document.body.classList.toggle("logged", !!on);
   document.body.classList.toggle("anon", !on);
+
   renderProfilePanel?.();
 }
 function initAuthModal() {
@@ -666,8 +773,13 @@ function initAuthModal() {
       modal.close();
       gateChatUI();
       toast("Welcome back");
-    } catch {
-      toast("Login failed");
+    } catch (err) {
+      console.error("Login error:", err);
+      const msg =
+        err?.code === "auth/invalid-credential"
+          ? "Invalid email/password"
+          : err?.message || "Login failed";
+      toast(msg);
     }
   });
 
@@ -811,16 +923,16 @@ async function openDetails(id) {
         <div class="row" style="justify-content:flex-end; gap:8px; margin-top:.6rem">
           <button class="btn" data-details-close>Close</button>
           <button class="btn primary" data-details-enroll="${merged.id}">${
-            (merged.price || 0) > 0 ? "Buy • $" + merged.price : "Enroll Free"
-          }</button>
+    (merged.price || 0) > 0 ? "Buy • $" + merged.price : "Enroll Free"
+  }</button>
         </div>
       </div>
     </div>`;
   const dlg = $("#detailsModal");
   dlg?.showModal();
-  body.querySelector("[data-details-close]")?.addEventListener("click", () =>
-    dlg?.close()
-  );
+  body
+    .querySelector("[data-details-close]")
+    ?.addEventListener("click", () => dlg?.close());
   body
     .querySelector("[data-details-enroll]")
     ?.addEventListener("click", (e) => {
@@ -832,13 +944,14 @@ $("#closeDetails")?.addEventListener("click", () =>
   $("#detailsModal")?.close()
 );
 
-/* ---------- New Course modal ---------- */
+// --- New Course modal: open / close / save ---
 const courseForm = $("#courseForm");
 const courseModal = $("#courseModal");
 
 $("#btn-new-course")?.addEventListener("click", () => {
   if (!courseForm) return;
   courseForm.reset();
+  // sensible defaults
   courseForm.level.value = "Beginner";
   courseForm.price.value = 0;
   courseForm.rating.value = 4.6;
@@ -850,9 +963,11 @@ $("#btn-new-course")?.addEventListener("click", () => {
     "Hands-on projects\nDownloadable resources\nCertificate";
   courseModal?.showModal();
 });
+
 $("#courseClose")?.addEventListener("click", () => courseModal?.close());
 $("#courseCancel")?.addEventListener("click", () => courseModal?.close());
 
+// helper: make id from title
 function slugify(s) {
   return (
     String(s || "")
@@ -862,6 +977,7 @@ function slugify(s) {
       .slice(0, 60) || "c_" + Math.random().toString(36).slice(2, 9)
   );
 }
+
 courseForm?.addEventListener("submit", (e) => {
   e.preventDefault();
   const f = e.currentTarget;
@@ -886,6 +1002,7 @@ courseForm?.addEventListener("submit", (e) => {
     source: "user",
   };
 
+  // upsert into local storage
   const arr = getCourses();
   const i = arr.findIndex((c) => c.id === course.id);
   if (i >= 0) arr[i] = course;
@@ -899,26 +1016,7 @@ courseForm?.addEventListener("submit", (e) => {
   courseModal?.close();
 });
 
-/* ---------- Transcript v2 + Profile panel ---------- */
-const getCompletedRaw = () => _read("ol_completed_v2", []); // [{id, ts, score}]
-const setCompletedRaw = (arr) => _write("ol_completed_v2", arr || []);
-const hasCompleted = (id) => getCompletedRaw().some((x) => x.id === id);
-const getCompleted = () => new Set(getCompletedRaw().map((x) => x.id));
-
-function markCourseComplete(id, score = null) {
-  const arr = getCompletedRaw();
-  if (!arr.some((x) => x.id === id)) {
-    arr.push({
-      id,
-      ts: Date.now(),
-      score: typeof score === "number" ? score : null,
-    });
-    setCompletedRaw(arr);
-  }
-  renderProfilePanel?.();
-  renderMyLearning?.();
-}
-
+/* ---------- Profile panel (safe no-op if element missing) ---------- */
 function renderProfilePanel() {
   const box = $("#profilePanel");
   if (!box) return;
@@ -949,7 +1047,9 @@ function renderProfilePanel() {
             ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
             : ""
         }
-        ${p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""}
+        ${
+          p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""
+        }
         ${
           p.social
             ? `<div class="small muted">Social: ${esc(p.social)}</div>`
@@ -985,13 +1085,42 @@ function renderProfilePanel() {
       </div>
     </div>`;
 }
+// function renderProfilePanel() {
+//   const box = $("#profilePanel");
+//   if (!box) return;
+//   const p = getProfile();
+//   const name = p.displayName || getUser()?.email || "Guest";
+//   const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
+//   const skills = (p.skills || "").toString();
 
-/* ---------- Profile Edit modal wiring ---------- */
+//   box.innerHTML = `
+//     <div class="row" style="gap:12px;align-items:flex-start">
+//       <img src="${esc(avatar)}" alt="" style="width:72px;height:72px;border-radius:50%">
+//       <div class="grow">
+//         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
+//         ${
+//           p.bio
+//             ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
+//             : ""
+//         }
+//         ${skills ? `<div class="small muted">Skills: ${esc(skills)}</div>` : ""}
+//         ${p.links ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""}
+//         ${
+//           p.social
+//             ? `<div class="small muted">Social: ${esc(p.social)}</div>`
+//             : ""
+//         }
+//       </div>
+//     </div>`;
+// }
+
+// --- Profile Edit modal wiring ---
 $("#btn-edit-profile")?.addEventListener("click", () => {
   const m = $("#profileEditModal");
   const f = $("#profileForm");
   const p = getProfile();
 
+  // prefill
   if (f) {
     f.displayName.value = p.displayName || "";
     f.photoURL.value = p.photoURL || "";
@@ -1002,12 +1131,15 @@ $("#btn-edit-profile")?.addEventListener("click", () => {
   }
   m?.showModal();
 });
+
+// close buttons
 $("#closeProfileModal")?.addEventListener("click", () =>
   $("#profileEditModal")?.close()
 );
 $("#cancelProfile")?.addEventListener("click", () =>
   $("#profileEditModal")?.close()
 );
+
 $("#profileForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
   const f = e.currentTarget;
@@ -1026,39 +1158,233 @@ $("#profileForm")?.addEventListener("submit", (e) => {
 });
 
 /* ---------- My Learning / Reader ---------- */
-const SAMPLE_PAGES = (title) => [
-  {
-    type: "lesson",
-    html: `<h3>${esc(
-      title
-    )} — Welcome</h3><p>Intro video:</p><video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v1/800/320"></video>`,
-  },
-  {
-    type: "reading",
-    html: `<h3>Chapter 1</h3><p>Reading with image & audio:</p><img style="width:100%;border-radius:10px" src="https://picsum.photos/seed/p1/800/360"><audio controls style="width:100%"></audio>`,
-  },
-  {
-    type: "exercise",
-    html: `<h3>Practice</h3><ol><li>Upload a file</li><li>Short answer</li></ol><input class="input" placeholder="Your answer">`,
-  },
-  // QUIZ page (when not using external quiz.json)
-  {
-    type: "quiz",
-    quiz: {
-      questions: [
-        { type: "single", q: "2 + 2 = ?", choices: ["3", "4", "5"], correct: 1 },
-        { type: "single", q: "JS array method to add at end?", choices: ["push","shift","map"], correct: 0 },
-        { type: "single", q: "typeof null = ?", choices: ["'object'","'null'","'undefined'"], correct: 0 },
-        { type: "single", q: "CSS for color?", choices: ["color","fill","paint"], correct: 0 },
-      ],
-    },
-  },
-  {
-    type: "project",
-    html: `<h3>Mini Project</h3><input type="file"><p class="small muted">Upload your work (demo).</p>`,
-  },
-];
-let RD = { cid: null, pages: [], i: 0, credits: 0 };
+// const SAMPLE_PAGES = (title) => [
+//   {
+//     type: "lesson",
+//     html: `<h3>${esc(
+//       title
+//     )} — Welcome</h3><p>Intro video:</p><video controls style="width:100%;border-radius:10px" poster="https://picsum.photos/seed/v1/800/320"></video>`,
+//   },
+//   {
+//     type: "reading",
+//     html: `<h3>Chapter 1</h3><p>Reading with image & audio:</p><img style="width:100%;border-radius:10px" src="https://picsum.photos/seed/p1/800/360"><audio controls style="width:100%"></audio>`,
+//   },
+//   {
+//     type: "exercise",
+//     html: `<h3>Practice</h3><ol><li>Upload a file</li><li>Short answer</li></ol><input class="input" placeholder="Your answer">`,
+//   },
+//   // Quiz page with metadata
+//   {
+//     type: "quiz",
+//     quiz: {
+//       questions: [
+//         { q: "2 + 2 = ?", choices: ["3", "4", "5"], answer: 1 },
+//         {
+//           q: "JS array method to add at end?",
+//           choices: ["push", "shift", "map"],
+//           answer: 0,
+//         },
+//         {
+//           q: "typeof null = ?",
+//           choices: ["'object'", "'null'", "'undefined'"],
+//           answer: 0,
+//         },
+//         { q: "CSS for color?", choices: ["color", "fill", "paint"], answer: 0 },
+//       ],
+//     },
+//   },
+//   // {
+//   //   type: "quiz",
+//   //   html: `<h3>Quiz 1</h3><p>Q1) Short answer</p><input id="q1" class="input" placeholder="Your answer"><div style="margin-top:8px"><button class="btn" id="qSubmit">Submit</button> <span id="qMsg" class="small muted"></span></div>`,
+//   // },
+//   {
+//     type: "project",
+//     html: `<h3>Mini Project</h3><input type="file"><p class="small muted">Upload your work (demo).</p>`,
+//   },
+// ];
+// --- helpers (file read) ---
+async function fetchTextSafe(url) {
+  try {
+    const r = await fetch(url, { cache: "no-cache" });
+    if (!r.ok) return null;
+    return await r.text();
+  } catch { return null; }
+}
+async function fetchJsonSafe(url) {
+  try {
+    const r = await fetch(url, { cache: "no-cache" });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+// --- normalize quiz json to unified shape ---
+function normalizeQuizArray(arr) {
+  // input item shapes we support:
+  // {type:"single", q, a:[...], correct:index}
+  // {type:"multiple", q, a:[...], correct:[indexes]}
+  // {type:"short", q, a: "answer" | ["a1","a2"]}
+  return (arr || []).map(item => {
+    const type = (item.type || "single").toLowerCase();
+    if (type === "short") {
+      const answers = Array.isArray(item.a) ? item.a : [item.a];
+      return { type: "short", q: item.q, answers };
+    }
+    if (type === "multiple") {
+      return { type: "multiple", q: item.q, choices: item.a || [], correct: new Set(item.correct || []) };
+    }
+    // default single
+    return { type: "single", q: item.q, choices: item.a || [], correct: Number(item.correct ?? -1) };
+  });
+}
+
+// --- build pages from meta + files ---
+async function buildCoursePages(courseId, fallbackTitle = "") {
+  await resolveDataBase();
+  const base = DATA_BASE ? `${DATA_BASE}/courses/${courseId}` : null;
+
+  // if no data folder, fallback to sample
+  if (!base) {
+    return [
+      { type: "lesson", html: `<h3>${esc(fallbackTitle)} — Welcome</h3><p>Demo page.</p>` }
+    ];
+  }
+
+  const meta = await fetchJsonSafe(`${base}/meta.json`);
+  if (!meta) {
+    return [
+      { type: "lesson", html: `<h3>${esc(fallbackTitle)}</h3><p>No meta.json found.</p>` }
+    ];
+  }
+
+  const pages = [];
+  const modules = Array.isArray(meta.modules) ? meta.modules : [];
+
+  for (const mod of modules) {
+    const lessons = Array.isArray(mod.lessons) ? mod.lessons : [];
+    // lesson files -> html pages
+    for (const ls of lessons) {
+      const file = ls.file || "";
+      const html = file ? await fetchTextSafe(`${base}/${file}`) : "";
+      pages.push({
+        type: "lesson",
+        html: html || `<h3>${esc(ls.title || "Lesson")}</h3><p class="muted">(${esc(file || "no file")})</p>`
+      });
+    }
+    // quiz file -> quiz page
+    if (mod.quiz) {
+      const qjson = await fetchJsonSafe(`${base}/${mod.quiz}`);
+      const questions = normalizeQuizArray(qjson || []);
+      pages.push({ type: "quiz", quiz: { questions } });
+    }
+  }
+
+  // safety: at least 1 page
+  if (!pages.length) {
+    pages.push({ type: "lesson", html: `<h3>${esc(meta.title || fallbackTitle)}</h3><p>No lessons.</p>` });
+  }
+  return pages;
+}
+
+  const isLastPage = () => RD.i === RD.pages.length - 1;
+
+function renderPage() {
+  const p = RD.pages[RD.i];
+  if (!p) return;
+
+  // ✅ add these
+  const btnNext = $("#rdNext");
+  const btnPrev = $("#rdPrev");
+
+  $("#rdTitle").textContent = `${RD.i + 1}. ${String(
+    p.type || "PAGE"
+  ).toUpperCase()}`;
+  $("#rdPageInfo").textContent = `${RD.i + 1} / ${RD.pages.length}`;
+  $("#rdProgress").style.width =
+    Math.round(((RD.i + 1) / RD.pages.length) * 100) + "%";
+
+  if (p.type === "quiz" && p.quiz) {
+    renderQuiz(p);
+  } else {
+    $("#rdPage").innerHTML = p.html || "";
+  }
+
+  // // Last page → complete
+  // if (RD.i === RD.pages.length - 1) {
+  //   // mark complete with last quiz score if any
+  //   markCourseComplete(RD.cid, LAST_QUIZ_SCORE || null);
+  //   setTimeout(() => showCongrats(), 80);
+  // }
+
+  btnNext.onclick = () => {
+  const p = RD.pages[RD.i];
+  // quiz ဖြစ်ရင် 75% မရသေးခင် forward မခွင့်
+  if (p?.type === "quiz" && LAST_QUIZ_SCORE < 0.75) {
+    toast("Need ≥ 75% to continue");
+    return;
+  }
+  RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+  renderPage();
+};
+
+  const btn = $("#qSubmit"),
+    msg = $("#qMsg");
+  if (btn) btn.onclick = () => (msg ? (msg.textContent = "Submitted ✔️") : 0);
+}
+
+// let LAST_QUIZ_SCORE = 0;
+
+// function renderQuiz(p) {
+//   const q = p.quiz?.questions || [];
+//   const wrap = document.createElement("div");
+//   wrap.innerHTML = `<h3>Quiz</h3>
+//     <ol style="line-height:1.7">
+//       ${q
+//         .map(
+//           (it, i) => `
+//         <li style="margin:8px 0">
+//           <div>${esc(it.q)}</div>
+//           ${it.choices
+//             .map(
+//               (c, j) => `
+//             <label style="display:block;margin-left:.5rem">
+//               <input type="radio" name="q${i}" value="${j}"> ${esc(c)}
+//             </label>`
+//             )
+//             .join("")}
+//         </li>`
+//         )
+//         .join("")}
+//     </ol>
+//     <div class="row" style="gap:8px;margin-top:8px">
+//       <button class="btn" id="qCheck">Check</button>
+//       <span class="small muted" id="qMsg"></span>
+//     </div>`;
+//   $("#rdPage").innerHTML = "";
+//   $("#rdPage").appendChild(wrap);
+
+//   $("#qCheck").onclick = () => {
+//     const answers = q.map((_, i) => {
+//       const picked = document.querySelector(`input[name="q${i}"]:checked`);
+//       return picked ? Number(picked.value) : -1;
+//     });
+//     let correct = 0;
+//     answers.forEach((a, i) => {
+//       if (a === q[i].answer) correct++;
+//     });
+//     const score = correct / (q.length || 1);
+//     LAST_QUIZ_SCORE = score;
+//     const msg = $("#qMsg");
+//     if (msg)
+//       msg.textContent = `Score: ${Math.round(score * 100)}% (${correct}/${
+//         q.length
+//       })`;
+
+//     if (score >= 0.85) launchFireworks();
+//     if (score >= 0.75) toast("Great! You unlocked the next lesson 🎉");
+//     else toast("At least 75% required — try again");
+//   };
+// }
 let LAST_QUIZ_SCORE = 0;
 
 function renderQuiz(p) {
@@ -1075,27 +1401,21 @@ function renderQuiz(p) {
 
     if (it.type === "single") {
       (it.choices || []).forEach((c, j) => {
-        li.insertAdjacentHTML(
-          "beforeend",
+        li.insertAdjacentHTML("beforeend",
           `<label style="display:block;margin-left:.5rem">
             <input type="radio" name="q${i}" value="${j}"> ${esc(c)}
-           </label>`
-        );
+           </label>`);
       });
     } else if (it.type === "multiple") {
       (it.choices || []).forEach((c, j) => {
-        li.insertAdjacentHTML(
-          "beforeend",
+        li.insertAdjacentHTML("beforeend",
           `<label style="display:block;margin-left:.5rem">
             <input type="checkbox" name="q${i}" value="${j}"> ${esc(c)}
-           </label>`
-        );
+           </label>`);
       });
-    } else {
-      li.insertAdjacentHTML(
-        "beforeend",
-        `<input class="input" name="q${i}" placeholder="Your answer" style="margin-left:.5rem">`
-      );
+    } else { // short
+      li.insertAdjacentHTML("beforeend",
+        `<input class="input" name="q${i}" placeholder="Your answer" style="margin-left:.5rem">`);
     }
 
     list.appendChild(li);
@@ -1112,8 +1432,6 @@ function renderQuiz(p) {
   $("#rdPage").innerHTML = "";
   $("#rdPage").appendChild(wrap);
 
-  const isLastPage = () => RD.i === RD.pages.length - 1;
-
   $("#qCheck").onclick = () => {
     let correct = 0;
 
@@ -1123,142 +1441,48 @@ function renderQuiz(p) {
         const val = picked ? Number(picked.value) : -1;
         if (val === it.correct) correct++;
       } else if (it.type === "multiple") {
-        const picks = Array.from(
-          document.querySelectorAll(`input[name="q${i}"]:checked`)
-        ).map((x) => Number(x.value));
-        const want = Array.from(it.correct || []);
-        picks.sort();
-        want.sort();
-        const ok =
-          picks.length === want.length &&
-          picks.every((v, idx) => v === want[idx]);
+        const picks = Array.from(document.querySelectorAll(`input[name="q${i}"]:checked`))
+          .map(x => Number(x.value));
+        const want = Array.from(it.correct);
+        picks.sort(); want.sort();
+        const ok = picks.length === want.length && picks.every((v, idx) => v === want[idx]);
         if (ok) correct++;
       } else {
         const input = document.querySelector(`input[name="q${i}"]`);
         const ans = (input?.value || "").trim().toLowerCase();
-        const accepts = (it.answers || [])
-          .map((s) => String(s).trim().toLowerCase());
+        const accepts = (it.answers || []).map(s => String(s).trim().toLowerCase());
         if (accepts.includes(ans)) correct++;
       }
     });
 
     const score = correct / (q.length || 1);
     LAST_QUIZ_SCORE = score;
-    $("#qMsg").textContent = `Score: ${Math.round(score * 100)}% (${correct}/${
-      q.length
-    })`;
+    $("#qMsg").textContent = `Score: ${Math.round(score*100)}% (${correct}/${q.length})`;
 
     if (score >= 0.85) launchFireworks();
 
     if (isLastPage()) {
       if (score >= 0.75) {
-        markCourseComplete(RD.cid, score);
-        showCongrats();
+        markCourseComplete(RD.cid, score);    // ✅ only now
+        showCongrats();                       // ✅ open the dialog with “View Certificate”
       } else {
         toast("At least 75% required to finish — try again");
       }
     } else {
+      // middle quizzes
       if (score >= 0.75) toast("Great! You unlocked the next lesson 🎉");
       else toast("At least 75% required — try again");
     }
   };
 }
 
-function renderPage() {
-  const p = RD.pages[RD.i];
-  if (!p) return;
-  $("#rdTitle").textContent = `${RD.i + 1}. ${String(
-    p.type || "PAGE"
-  ).toUpperCase()}`;
-  $("#rdPageInfo").textContent = `${RD.i + 1} / ${RD.pages.length}`;
-  $("#rdProgress").style.width =
-    Math.round(((RD.i + 1) / RD.pages.length) * 100) + "%";
-
-  if (p.type === "quiz" && p.quiz) {
-    renderQuiz(p);
-  } else {
-    $("#rdPage").innerHTML = p.html || "";
-  }
-
-  const btnNext = $("#rdNext");
-  if (btnNext) {
-    btnNext.onclick = () => {
-      const cur = RD.pages[RD.i];
-      if (cur?.type === "quiz" && LAST_QUIZ_SCORE < 0.75) {
-        toast("Need ≥ 75% to continue");
-        return;
-      }
-      RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
-      renderPage();
-    };
-  }
-
-  const btnPrev = $("#rdPrev");
-  if (btnPrev) {
-    btnPrev.onclick = () => {
-      RD.i = Math.max(0, RD.i - 1);
-      renderPage();
-    };
-  }
-
-  const btnBack = $("#rdBack"),
-    btnBm = $("#rdBookmark"),
-    btnNote = $("#rdNote");
-  if (btnBack)
-    btnBack.onclick = () => {
-      $("#reader")?.classList.add("hidden");
-      renderMyLearning();
-    };
-  if (btnBm) btnBm.onclick = () => toast("Bookmarked (demo)");
-  if (btnNote)
-    btnNote.onclick = () => {
-      const t = prompt("Note");
-      if (!t) return;
-      toast("Note saved");
-    };
-}
-
-function launchFireworks() {
-  const burst = document.createElement("div");
-  burst.style.position = "fixed";
-  burst.style.left = 0;
-  burst.style.top = 0;
-  burst.style.right = 0;
-  burst.style.bottom = 0;
-  burst.style.pointerEvents = "none";
-  burst.style.zIndex = 2000;
-  burst.innerHTML = `<div class="confetti"></div>`;
-  document.body.appendChild(burst);
-  setTimeout(() => burst.remove(), 1200);
-}
-function showCongrats() {
-  const dlg = document.createElement("dialog");
-  dlg.className = "ol-modal card";
-  dlg.innerHTML = `
-    <div style="text-align:center;padding:10px">
-      <div style="font-size:22px;font-weight:800">🎓 Congratulations!</div>
-      <p class="muted">You’ve completed this course. Great work!</p>
-      <div class="row" style="justify-content:center;gap:8px;margin-top:8px">
-        <button class="btn" id="cgClose">Close</button>
-        <button class="btn primary" id="cgCert">View Certificate</button>
-      </div>
-    </div>`;
-  document.body.appendChild(dlg);
-  dlg.showModal();
-  $("#cgClose").onclick = () => dlg.close();
-  $("#cgCert").onclick = () => {
-    dlg.close();
-    const c =
-      ALL.find((x) => x.id === RD.cid) || getCourses().find((x) => x.id === RD.cid);
-    if (c) showCertificate(c);
-  };
-}
+let RD = { cid: null, pages: [], i: 0, credits: 0 };
 
 function renderMyLearning() {
   const grid = $("#myCourses");
   if (!grid) return;
   const set = getEnrolls();
-  const completed = getCompleted();
+  const completed = new Set(getCompletedRaw().map((x) => x.id));
   const list = (ALL.length ? ALL : getCourses()).filter((c) => set.has(c.id));
 
   grid.innerHTML =
@@ -1320,7 +1544,9 @@ function showCertificate(course) {
       <div class="cert-name">${esc(name)}</div>
       <div class="cert-sub">has successfully completed</div>
       <div class="cert-course">${esc(course.title)}</div>
-      <div class="cert-meta">Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}</div>
+      <div class="cert-meta">Credits: ${
+        course.credits || 3
+      } • Score: ${scoreTxt} • Date: ${today}</div>
       <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
         <div class="cert-seal" title="Official Seal"></div>
         <img class="qr" alt="Verify" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=OPENLEARN-${encodeURIComponent(
@@ -1339,22 +1565,143 @@ function showCertificate(course) {
   $("#certModal")?.showModal();
 
   $("#certTranscript")?.addEventListener("click", () => {
+    // simply switch to Profile page where transcript is shown
     showPage("profile");
     $("#certModal")?.close();
   });
 }
 $("#certClose")?.addEventListener("click", () => $("#certModal")?.close());
 $("#certPrint")?.addEventListener("click", () => window.print());
+// function renderMyLearning() {
+//   const grid = $("#myCourses");
+//   if (!grid) return;
+//   const set = getEnrolls();
+//   const list = (ALL.length ? ALL : getCourses()).filter((c) => set.has(c.id));
+//   grid.innerHTML =
+//     list
+//       .map((c) => {
+//         const r = Number(c.rating || 4.6);
+//         return `<div class="card course" data-id="${c.id}">
+//       <img class="course-cover" src="${esc(
+//         c.image || `https://picsum.photos/seed/${c.id}/640/360`
+//       )}" alt="">
+//       <div class="course-body">
+//         <strong>${esc(c.title)}</strong>
+//         <div class="small muted">${esc(c.category || "")} • ${esc(
+//           c.level || ""
+//         )} • ★ ${r.toFixed(1)} • ${
+//           (c.price || 0) > 0 ? "$" + c.price : "Free"
+//         }</div>
+//         <div class="muted">${esc(c.summary || "")}</div>
+//         <div class="row" style="justify-content:flex-end"><button class="btn" data-read="${
+//           c.id
+//         }">Continue</button></div>
+//       </div>
+//     </div>`;
+//       })
+//       .join("") ||
+//     `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
+//   grid.querySelectorAll("[data-read]").forEach(
+//     (b) => (b.onclick = () => openReader(b.getAttribute("data-read")))
+//   );
+// }
 
+// ---- Completed courses (keep ts/score) ----
+const getCompletedRaw = () => _read("ol_completed_v2", []); // [{id, ts, score}]
+const setCompletedRaw = (arr) => _write("ol_completed_v2", arr || []);
+const hasCompleted = (id) => getCompletedRaw().some((x) => x.id === id);
+
+function markCourseComplete(id, score = null) {
+  const arr = getCompletedRaw();
+  if (!arr.some((x) => x.id === id)) {
+    arr.push({
+      id,
+      ts: Date.now(),
+      score: typeof score === "number" ? score : null,
+    });
+    setCompletedRaw(arr);
+  }
+  // 🔁 Refresh transcript immediately
+  renderProfilePanel?.();
+  renderMyLearning?.();
+}
+
+// ✅ v2 အပေါ် map လုပ်ထားတဲ့ helper
+const getCompleted = () => new Set(getCompletedRaw().map(x => x.id));
+
+// async function openReader(cid) {
+//   const c =
+//     ALL.find((x) => x.id === cid) || getCourses().find((x) => x.id === cid);
+//   if (!c) return toast("Course not found");
+
+//   // (simple) demo pages
+//   const pages = SAMPLE_PAGES(c.title);
+//   const credits = c.credits || 3;
+
+//   RD = { cid: c.id, pages, i: 0, credits };
+
+//   $("#myCourses") && ($("#myCourses").innerHTML = "");
+//   $("#reader")?.classList.remove("hidden");
+//   $("#rdMeta") && ($("#rdMeta").textContent = `Credits: ${RD.credits}`);
+
+//   renderPage();
+
+//   const btnBack = $("#rdBack"),
+//     btnPrev = $("#rdPrev"),
+//     btnNext = $("#rdNext"),
+//     btnBm = $("#rdBookmark"),
+//     btnNote = $("#rdNote");
+//   if (btnBack)
+//     btnBack.onclick = () => {
+//       $("#reader")?.classList.add("hidden");
+//       renderMyLearning();
+//     };
+//   if (btnPrev)
+//     btnPrev.onclick = () => {
+//       RD.i = Math.max(0, RD.i - 1);
+//       renderPage();
+//     };
+//   // after: const btnBack = $("#rdBack"), btnPrev = $("#rdPrev"), btnNext = $("#rdNext"), ...
+// if (btnNext) {
+//   btnNext.onclick = () => {
+//     const p = RD.pages[RD.i];
+//     // quiz page ဖြစ်ရင် ≥75% မရခင် पुढेမသွားစေ
+//     if (p?.type === "quiz" && p.quiz) {
+//       if (LAST_QUIZ_SCORE < 0.75) {
+//         toast("Need ≥ 75% to continue");
+//         return;
+//       }
+//     }
+//     RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+//     renderPage();
+//   };
+// }
+
+//   if (btnBm) btnBm.onclick = () => toast("Bookmarked (demo)");
+//   if (btnNote)
+//     btnNote.onclick = () => {
+//       const t = prompt("Note");
+//       if (!t) return;
+//       toast("Note saved");
+//     };
+
+//   // per-course chat
+//   if (window._ccOff) {
+//     try {
+//       window._ccOff();
+//     } catch {}
+//     window._ccOff = null;
+//   }
+//   const off = wireCourseChatRealtime(c.id);
+//   if (typeof off === "function") window._ccOff = off;
+// }
 async function openReader(cid) {
-  const c =
-    ALL.find((x) => x.id === cid) || getCourses().find((x) => x.id === cid);
+  const c = ALL.find(x => x.id === cid) || getCourses().find(x => x.id === cid);
   if (!c) return toast("Course not found");
 
-  const pages = SAMPLE_PAGES(c.title);
-  const credits = c.credits || 3;
-
-  RD = { cid: c.id, pages, i: 0, credits };
+  // 🔄 build pages from /data/courses/<id>/...
+  const pages = await buildCoursePages(c.id, c.title);
+  RD = { cid: c.id, pages, i: 0, credits: c.credits || 3 };
 
   $("#myCourses") && ($("#myCourses").innerHTML = "");
   $("#reader")?.classList.remove("hidden");
@@ -1362,19 +1709,72 @@ async function openReader(cid) {
 
   renderPage();
 
-  // per-course chat rewire
-  if (window._ccOff) {
-    try {
-      window._ccOff();
-    } catch {}
-    window._ccOff = null;
-  }
+  const btnBack = $("#rdBack"),
+        btnPrev = $("#rdPrev"),
+        btnNext = $("#rdNext"),
+        btnBm   = $("#rdBookmark"),
+        btnNote = $("#rdNote");
+
+  if (btnBack) btnBack.onclick = () => { $("#reader")?.classList.add("hidden"); renderMyLearning(); };
+  if (btnPrev) btnPrev.onclick = () => { RD.i = Math.max(0, RD.i - 1); renderPage(); };
+  if (btnNext) btnNext.onclick = () => {
+    const p = RD.pages[RD.i];
+    if (p?.type === "quiz" && LAST_QUIZ_SCORE < 0.75) {
+      toast("Need ≥ 75% to continue");
+      return;
+    }
+    RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+    renderPage();
+  };
+  if (btnBm) btnBm.onclick = () => toast("Bookmarked (demo)");
+  if (btnNote) btnNote.onclick = () => { const t = prompt("Note"); if (t) toast("Note saved"); };
+
+  // per-course chat wire (unchanged)
+  if (window._ccOff) { try { window._ccOff(); } catch {} window._ccOff = null; }
   const off = wireCourseChatRealtime(c.id);
   if (typeof off === "function") window._ccOff = off;
 }
 
+function launchFireworks() {
+  // super-lightweight confetti via CSS
+  const burst = document.createElement("div");
+  burst.style.position = "fixed";
+  burst.style.left = 0;
+  burst.style.top = 0;
+  burst.style.right = 0;
+  burst.style.bottom = 0;
+  burst.style.pointerEvents = "none";
+  burst.style.zIndex = 2000;
+  burst.innerHTML = `<div class="confetti"></div>`;
+  document.body.appendChild(burst);
+  setTimeout(() => burst.remove(), 1200);
+}
+function showCongrats() {
+  const dlg = document.createElement("dialog");
+  dlg.className = "ol-modal card";
+  dlg.innerHTML = `
+    <div style="text-align:center;padding:10px">
+      <div style="font-size:22px;font-weight:800">🎓 Congratulations!</div>
+      <p class="muted">You’ve completed this course. Great work!</p>
+      <div class="row" style="justify-content:center;gap:8px;margin-top:8px">
+        <button class="btn" id="cgClose">Close</button>
+        <button class="btn primary" id="cgCert">View Certificate</button>
+      </div>
+    </div>`;
+  document.body.appendChild(dlg);
+  dlg.showModal();
+  $("#cgClose").onclick = () => dlg.close();
+  $("#cgCert").onclick = () => {
+    dlg.close();
+    const c =
+      ALL.find((x) => x.id === RD.cid) ||
+      getCourses().find((x) => x.id === RD.cid);
+    if (c) showCertificate(c);
+  };
+}
+
 /* =========================================================
-   Part 4/5 — Gradebook, Admin, Import/Export, Announcements, Chat
+   Part 4/5 — Gradebook, Admin, Announcements, Import/Export, Chat
    ========================================================= */
 
 /* ---------- Gradebook ---------- */
@@ -1592,12 +1992,8 @@ $("#btn-new-post")?.addEventListener("click", () => {
   $("#postModal .modal-title").textContent = "New Announcement";
   $("#postModal")?.showModal();
 });
-$("#closePostModal")?.addEventListener("click", () =>
-  $("#postModal")?.close()
-);
-$("#cancelPost")?.addEventListener("click", () =>
-  $("#postModal")?.close()
-);
+$("#closePostModal")?.addEventListener("click", () => $("#postModal")?.close());
+$("#cancelPost")?.addEventListener("click", () => $("#postModal")?.close());
 $("#postForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
   const t = $("#pmTitle")?.value.trim();
@@ -1854,7 +2250,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Remove Finals from UI if present (robust no-op if missing)
   stripFinalsUI();
 
-  // defensive: keep auth-required items clickable (CSS gates by JS)
+  // keep auth-required items clickable (defensive)
   document.querySelectorAll("[data-requires-auth]").forEach((el) => {
     el.style.pointerEvents = "auto";
   });
@@ -1862,9 +2258,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 /* ---------- Finals Removal Shim ---------- */
 function stripFinalsUI() {
+  // Top pill
   $("#btn-top-final")?.remove();
+  // Sidebar nav item
   $$(`#sidebar .navbtn[data-page="finals"]`).forEach((b) => b.remove());
+  // Finals page/section + modal
   $("#page-finals")?.remove();
   $("#finalModal")?.remove();
+  // Any stray click handlers (defensive)
   document.querySelectorAll('[data-page="finals"]').forEach((n) => n.remove());
 }

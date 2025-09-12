@@ -42,6 +42,8 @@ import {
   push,
   onChildAdded,
   set,
+  get, 
+  child,
   remove,
   // Optional client-side filtering (if your app.js uses it):
   query as rtdbQuery,
@@ -69,7 +71,15 @@ try { auth.useDeviceLanguage(); } catch {}
 export const db = getFirestore(app);
 
 /* RTDB (exported for optional chat) */
-export { getDatabase, ref, push, onChildAdded, set, remove,
+export { 
+  getDatabase, 
+  ref, 
+  push, 
+  onChildAdded, 
+  set, 
+  get, 
+  child, 
+  remove,
   // Optional client-side filtering:
   rtdbQuery,
   orderByChild,
