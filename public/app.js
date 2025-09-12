@@ -727,6 +727,27 @@ let RD = { cid:null, pages:[], i:0, credits:0 };
 let LAST_QUIZ_SCORE = 0;
 let PROJECT_UPLOADED = false;
 
+// --- Reader close helper (hide reader, show My Learning) ---
+function closeReader() {
+  // reader hide
+  const r = $("#reader");
+  if (r) r.classList.add("hidden");
+
+  // show My Learning grid back
+  const grid = $("#myCourses");
+  if (grid) grid.style.display = "";
+
+  // reset runtime flags
+  LAST_QUIZ_SCORE = 0;
+  PROJECT_UPLOADED = false;
+
+  // go back to My Learning page UI
+  showPage("mylearning");
+
+  // if we came here via history.pushState, let browser back-button work naturally
+  // (don't push another history entry on close)
+}
+
 function renderQuiz(p) {
   // --- draw questions from bank ---
   const bank = Array.isArray(p.quiz?.questions) ? p.quiz.questions.slice() : [];
@@ -1071,33 +1092,45 @@ async function openReader(cid) {
   const c = ALL.find(x => x.id === cid) || getCourses().find(x => x.id === cid);
   if (!c) return toast("Course not found");
 
-  // show skeleton
-  const myWrap = $("#myCourses");
-  if (myWrap) myWrap.innerHTML = `<div class="muted">Loading course…</div>`;
-
+  // 🔽 use course-specific pages if available
   const pages = await buildPagesForCourse(c);
-
   RD = { cid: c.id, pages, i: 0, credits: c.credits || 3 };
 
-  // show only the reader UI
+  // show reader
   $("#reader")?.classList.remove("hidden");
-  // hide the cards panel if you want a clean view
-  const cardsSection = $("#myCourses");
-  if (cardsSection) cardsSection.style.display = "none";
-
-  // (optional) ensure we're on the same page container
-  showPage("mylearning"); // keep URL/nav consistent
-
   $("#rdMeta").textContent = `Credits: ${RD.credits}`;
-  try {
-    renderPage();
-  } catch (e) {
-    console.error("renderPage failed", e);
-    $("#rdPage").innerHTML = `<div class="muted">Failed to render this lesson.</div>`;
+  renderPage();
+
+  // ✅ Hide My Learning cards while the reader is open
+  const grid = $("#myCourses");
+  if (grid) grid.style.display = "none";
+
+  // ✅ Wire Back button in the reader header (once)
+  const backBtn = $("#rdBack");
+  if (backBtn && !backBtn._wired) {
+    backBtn._wired = true;
+    backBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      // prefer native back if this view was pushed into history
+      if (history.state && history.state.ol === "reader") {
+        history.back();
+      } else {
+        closeReader();
+      }
+    });
   }
 
-  // per-course chat
-  if (window._ccOff) { try { window._ccOff(); } catch {} window._ccOff = null; }
+  // ✅ push history state so browser ← works
+  // avoid pushing twice for the same course
+  if (!(history.state && history.state.ol === "reader" && history.state.cid === cid)) {
+    history.pushState({ ol: "reader", cid }, "", `#reader-${cid}`);
+  }
+
+  // per-course chat rewire (as before)
+  if (window._ccOff) {
+    try { window._ccOff(); } catch {}
+    window._ccOff = null;
+  }
   const off = wireCourseChatRealtime(c.id);
   if (typeof off === "function") window._ccOff = off;
 }
@@ -1393,8 +1426,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Gate chat inputs and keep in sync
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
-    onAuthStateChanged(auth, async () => { gateChatUI(); await syncEnrollsBothWays(); }); // ✅ keep enrolls in sync
-  }
+  onAuthStateChanged(auth, async () => {
+    gateChatUI();
+    if (typeof syncEnrollsBothWays === "function") {
+      await syncEnrollsBothWays();
+    }
+  });
+}
 
   // UI
   initSidebar(); initSearch(); initChatRealtime();
@@ -1412,6 +1450,35 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // defensive: keep auth-required items clickable (CSS gates by JS)
   document.querySelectorAll("[data-requires-auth]").forEach((el)=>{ el.style.pointerEvents = "auto"; });
+
+  // Enable browser back to close reader -> My Learning
+// Enable browser back to close reader -> My Learning
+if (!window._olPopstateWired) {
+  window._olPopstateWired = true;
+  addEventListener("popstate", (e) => {
+    const readerEl = $("#reader");
+    const readerOpen = readerEl && !readerEl.classList.contains("hidden");
+    const st = e.state;
+
+    // 1) Reader ဖွင့်ထားပြီး reader state က မဟုတ်တော့ရင် -> close
+    if (readerOpen && (!st || st.ol !== "reader")) {
+      closeReader();
+      return;
+    }
+
+    // 2) Reader မဖွင့်ထားသေးပဲ state က reader ဖြစ်ရင် -> open (တခါတည်း)
+    if (!readerOpen && st && st.ol === "reader" && st.cid) {
+      // openReader() ထဲမှာ pushState guard ရှိရမယ် (ရွှေ့ထားပေးခဲ့တာ)
+      openReader(st.cid);
+      return;
+    }
+
+    // 3) State က ဘာမှ မဟုတ် (root) & reader မဖွင့် -> My Learning ကို ensure
+    if (!st && !readerOpen) {
+      showPage("mylearning");
+    }
+  });
+}
 });
 
 /* ---------- Finals Removal Shim ---------- */
