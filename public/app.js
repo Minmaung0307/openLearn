@@ -136,7 +136,9 @@ async function syncEnrollsBothWays(){
    ========================================================= */
 
 /* ---------- data base resolver ---------- */
-const DATA_BASE_CANDIDATES = ["/data", "./data", "data"];
+const DATA_BASE_CANDIDATES = ["/data", "./data", "/public/data", "data"];
+const COURSE_DIR_ALIAS = { "js-essentials": "js-ennentials" };
+const courseDir = (id) => COURSE_DIR_ALIAS[id] || id;
 let DATA_BASE = null;
 
 async function resolveDataBase() {
@@ -896,46 +898,70 @@ async function tryFetch(path) {
 async function buildPagesForCourse(c) {
   if (!DATA_BASE) await resolveDataBase();
   const base = DATA_BASE || "/data";
-  const meta = await tryFetch(`${base}/courses/${c.id}/meta.json`);
+  const dir  = courseDir(c.id);           // <-- use alias-safe dir
 
+  const meta = await tryFetch(`${base}/courses/${dir}/meta.json`);
+
+  // quizzes: quiz1.json, quiz2.json, ...
   const quizFiles = [];
-  for (let i=1; i<=20; i++) {
-    const q = await tryFetch(`${base}/courses/${c.id}/quiz${i}.json`);
-    if (!q) break; quizFiles.push(q);
+  for (let i = 1; i <= 20; i++) {
+    const q = await tryFetch(`${base}/courses/${dir}/quiz${i}.json`);
+    if (!q) break;
+    quizFiles.push(q);
   }
   if (quizFiles.length === 0) {
-    const q = await tryFetch(`${base}/courses/${c.id}/quiz.json`);
+    const q = await tryFetch(`${base}/courses/${dir}/quiz.json`);
     if (q) quizFiles.push(q);
   }
 
   const pages = [];
+
+  // modules → lessons (accept .html OR .json content files)
   if (meta?.modules?.length) {
     for (const m of meta.modules) {
       for (const l of (m.lessons || [])) {
         if (l.type === "html" && l.src) {
-          const html = await fetch(`${base}/courses/${c.id}/${l.src}`, { cache:"no-cache" }).then(r=>r.text()).catch(()=>"");
-          pages.push({ type:"reading", html });
+          const url = `${base}/courses/${dir}/${l.src}`;
+          if (/\.(json)$/i.test(l.src)) {
+            // support JSON lesson like css-course.json / html-course.json / js-course.json
+            const obj = await tryFetch(url);
+            const html = obj?.html || "";     // expect { "html": "<h3>...</h3>..." }
+            if (html) pages.push({ type:"reading", html });
+          } else {
+            const html = await fetch(url, { cache:"no-cache" }).then(r=>r.text()).catch(()=> "");
+            if (html) pages.push({ type:"reading", html });
+          }
         } else if (l.type === "video" && l.poster) {
           pages.push({ type:"lesson", html:`<h3>${esc(l.title||"Video")}</h3><video controls style="width:100%;border-radius:10px" poster="${esc(l.poster)}"></video>`});
         } else if (l.type === "project") {
           pages.push({ type:"project", html:`<h3>Mini Project</h3><input type="file"><p class="small muted">Upload your work.</p>`});
         } else if (l.type === "quiz" && l.src) {
-          const q = await tryFetch(`${base}/courses/${c.id}/${l.src}`);
+          const q = await tryFetch(`${base}/courses/${dir}/${l.src}`);
           if (q) pages.push({ type:"quiz", quiz:q });
         }
       }
     }
   }
+
+  // append quiz*.json series if any
   for (const q of quizFiles) pages.push({ type:"quiz", quiz:q });
-  if (!pages.length) return SAMPLE_PAGES(c.title);
+
+  if (!pages.length) {
+    console.warn("No pages found for course:", c.id, "at dir:", dir);
+    return SAMPLE_PAGES(c.title);
+  }
   return pages;
 }
 
 async function openReader(cid) {
   const c = ALL.find(x=>x.id===cid) || getCourses().find(x=>x.id===cid);
   if (!c) return toast("Course not found");
+
   const pages = await buildPagesForCourse(c);
   RD = { cid:c.id, pages, i:0, credits:c.credits || 3 };
+
+  // ✅ show ONLY the reader page
+  showPage("reader");                 // <-- add this line
   $("#reader")?.classList.remove("hidden");
   $("#rdMeta").textContent = `Credits: ${RD.credits}`;
   LAST_QUIZ_SCORE = 0; PROJECT_UPLOADED = false;

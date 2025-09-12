@@ -1,4 +1,7 @@
-[
+{
+  "randomize": true,
+  "shuffleChoices": true,
+  "questions": [
   {
     "type": "single",
     "q": "Which keyword declares a constant in JS?",
@@ -17,3 +20,4 @@
     "a": "object"
   }
 ]
+}

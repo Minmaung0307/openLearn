@@ -1,4 +1,7 @@
-[
+{
+  "randomize": true,
+  "shuffleChoices": true,
+  "questions": [
   { "type": "mcq",
     "q": "Which method converts a JSON string to an object?",
     "options": ["JSON.toObject()", "JSON.parse()", "Object.fromJSON()", "parse.json()"],
@@ -18,3 +21,4 @@
     "correct": 1
   }
 ]
+}
