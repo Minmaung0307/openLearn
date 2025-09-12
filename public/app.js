@@ -1245,20 +1245,19 @@ function renderQuiz(p) {
 }
 
 function renderPage() {
+  const p = RD.pages[RD.i];
   if (!p) return;
-  $("#rdTitle").textContent = `${RD.i + 1}. ${String(
-    p.type || "PAGE"
-  ).toUpperCase()}`;
+
+  $("#rdTitle").textContent = `${RD.i + 1}. ${(p.type || "PAGE").toUpperCase()}`;
   $("#rdPageInfo").textContent = `${RD.i + 1} / ${RD.pages.length}`;
   $("#rdProgress").style.width =
     Math.round(((RD.i + 1) / RD.pages.length) * 100) + "%";
-  const p = RD.pages[RD.i];
 
-  // project page wiring
-  if (p.type === "project") {
-    PROJECT_UPLOADED = false; // reset each time we land here
-    $("#rdPage").innerHTML =
-      p.html || `<h3>Mini Project</h3><input id="projFile" type="file">`;
+  if (p.type === "quiz" && p.quiz) {
+    renderQuiz(p);
+  } else if (p.type === "project") {
+    PROJECT_UPLOADED = false;
+    $("#rdPage").innerHTML = p.html || `<h3>Mini Project</h3><input id="projFile" type="file">`;
     const f = $("#rdPage input[type='file']");
     if (f) {
       f.addEventListener("change", () => {
@@ -1268,59 +1267,35 @@ function renderPage() {
         }
       });
     }
-  } else if (p.type === "quiz" && p.quiz) {
-    renderQuiz(p);
   } else {
     $("#rdPage").innerHTML = p.html || "";
   }
 
-  // mark complete when on very last page AND it's not a quiz
-  const onLast = RD.i === RD.pages.length - 1;
-  if (onLast && p.type !== "quiz") {
+  // mark complete when on last page and not quiz
+  if (RD.i === RD.pages.length - 1 && p.type !== "quiz") {
     markCourseComplete(RD.cid, LAST_QUIZ_SCORE || null);
     setTimeout(() => showCongrats(), 80);
   }
 
-  // --- Next/Prev handlers (the important guards) ---
-  const btnPrev = $("#rdPrev"),
-    btnNext = $("#rdNext");
-  btnPrev &&
-    (btnPrev.onclick = () => {
-      RD.i = Math.max(0, RD.i - 1);
-      renderPage();
-    });
-  btnNext &&
-    (btnNext.onclick = () => {
-      const cur = RD.pages[RD.i];
-      // block leaving a quiz page until ≥75%
-      if (cur?.type === "quiz" && LAST_QUIZ_SCORE < 0.75) {
-        toast("Need ≥ 75% to continue");
-        return;
-      }
-      // block leaving a project page until a file is uploaded
-      if (cur?.type === "project" && !PROJECT_UPLOADED) {
-        toast("Please upload your project file first");
-        return;
-      }
-      RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
-      renderPage();
-    });
-
-  const btnBack = $("#rdBack"),
-    btnBm = $("#rdBookmark"),
-    btnNote = $("#rdNote");
-  if (btnBack)
-    btnBack.onclick = () => {
-      $("#reader")?.classList.add("hidden");
-      renderMyLearning();
-    };
-  if (btnBm) btnBm.onclick = () => toast("Bookmarked (demo)");
-  if (btnNote)
-    btnNote.onclick = () => {
-      const t = prompt("Note");
-      if (!t) return;
-      toast("Note saved");
-    };
+  // --- Navigation ---
+  const btnPrev = $("#rdPrev"), btnNext = $("#rdNext");
+  if (btnPrev) btnPrev.onclick = () => {
+    RD.i = Math.max(0, RD.i - 1);
+    renderPage();
+  };
+  if (btnNext) btnNext.onclick = () => {
+    // ဒီမှာ const p ထပ်မသုံးပါ ❌
+    if (p?.type === "quiz" && LAST_QUIZ_SCORE < 0.75) {
+      toast("Need ≥ 75% to continue");
+      return;
+    }
+    if (p?.type === "project" && !PROJECT_UPLOADED) {
+      toast("Please upload your project file first");
+      return;
+    }
+    RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+    renderPage();
+  };
 }
 
 function launchFireworks() {
