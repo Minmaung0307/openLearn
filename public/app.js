@@ -117,6 +117,59 @@ const setPassedQuiz = (cid, idx, score) => {
   };
 })();
 
+// ---- Certificate registry (local + optional cloud) ----
+const CERTS_KEY = "ol_certs_v1"; // { "<uid>|<courseId>": { id, issuedAt, name, photo, score } }
+const getCerts = () => _read(CERTS_KEY, {});
+const setCerts = (o) => _write(CERTS_KEY, o);
+
+function currentUidKey() {
+  const uid = auth?.currentUser?.uid || "";
+  const email = (getUser()?.email || "").toLowerCase();
+  return uid || email || "anon";
+}
+function certKey(courseId) { return currentUidKey() + "|" + courseId; }
+
+// simple hash for ID (no crypto dependency)
+function hashId(s){
+  let h = 0;
+  for (let i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) | 0; }
+  return ("00000000" + (h >>> 0).toString(16)).slice(-8);
+}
+
+function ensureCertIssued(course, profile, score){
+  const key = certKey(course.id);
+  const all = getCerts();
+  if (all[key]) return all[key]; // already issued
+
+  const seed = [currentUidKey(), course.id, Date.now()].join("|");
+  const id = "OL-" + hashId(seed).toUpperCase();
+  const rec = {
+    id,
+    courseId: course.id,
+    issuedAt: Date.now(),
+    name:  profile.displayName || getUser()?.email || "Student",
+    photo: profile.photoURL || "",
+    score: (typeof score === "number") ? score : null,
+  };
+
+  all[key] = rec;
+  setCerts(all);
+
+  // Optional: save to Firestore /certs (fire-and-forget; no await here)
+  try {
+    if (db && auth?.currentUser) {
+      const ref = doc(db, "certs", `${currentUidKey()}_${course.id}`);
+      setDoc(ref, rec, { merge: true }).catch(()=>{});
+    }
+  } catch {}
+
+  return rec;
+}
+
+function getIssuedCert(courseId){
+  return getCerts()[certKey(courseId)] || null;
+}
+
 // --- Add near top (after helpers) ---
 function normalizeQuiz(raw) {
   // already in {questions:[...]} form
@@ -678,8 +731,18 @@ function renderProfilePanel() {
 
   const completed = getCompletedRaw();
   const dic = new Map((ALL.length ? ALL : getCourses()).map(c => [c.id, c]));
-  const items = completed.map(x => ({ meta: x, course: dic.get(x.id) }))
-                        .filter(x => x.course);
+  const items = completed
+  .map(x => ({ meta:x, course: dic.get(x.id), cert: getIssuedCert(x.id) }))
+  .filter(x => x.course && x.cert); // ✅ only those with issued cert
+
+const certRows = items.map(({ course }) => `
+  <tr>
+    <td>${esc(course.title)}</td>
+    <td style="text-align:right">
+      <button class="btn small" data-cert-view="${esc(course.id)}">View</button>
+      <button class="btn small" data-cert-dl="${esc(course.id)}">Download PDF</button>
+    </td>
+  </tr>`).join("");
 
   // Transcript table
   const transcriptHtml = items.length
@@ -1007,6 +1070,12 @@ function launchFireworks() {
   setTimeout(() => burst.remove(), 1200);
 }
 function showCongrats() {
+    // ✅ once-only: issue certificate when course completed
+  const course = ALL.find(x => x.id === RD.cid) || getCourses().find(x => x.id === RD.cid);
+  if (course) {
+    const prof = getProfile();
+    ensureCertIssued(course, prof, LAST_QUIZ_SCORE || null);
+  }
   const dlg = document.createElement("dialog");
   dlg.className = "ol-modal card";
   dlg.innerHTML = `
@@ -1044,143 +1113,139 @@ function renderMyLearning() {
   const list = (ALL.length ? ALL : getCourses()).filter((c) => set.has(c.id));
 
   grid.innerHTML = list.map((c)=>{
-    const isDone = completed.has(c.id);
-    const r = Number(c.rating || 4.6);
+    const isDone  = completed.has(c.id);
+    const issued  = !!getIssuedCert(c.id); // ✅ now used
     return `<div class="card course" data-id="${c.id}">
-      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
-      <div class="course-body">
-        <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)}</div>
-        <div class="muted">${esc(c.summary || "")}</div>
-        <div class="row" style="justify-content:flex-end; gap:8px">
-          <button class="btn" data-read="${c.id}">Continue</button>
-          <button class="btn" data-cert="${c.id}" ${isDone ? "" : "disabled"}>Certificate</button>
-        </div>
+      ...
+      <div class="row" style="justify-content:flex-end; gap:8px">
+        <button class="btn" data-read="${c.id}">Continue</button>
+        <button class="btn" data-cert="${c.id}" ${issued ? "" : "disabled"}>Certificate</button>
       </div>
     </div>`;
   }).join("") || `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
 
-  grid.querySelectorAll("[data-read]").forEach((b)=> b.onclick = ()=> openReader(b.getAttribute("data-read")));
   grid.querySelectorAll("[data-cert]").forEach((b)=> b.onclick = ()=>{
     const id = b.getAttribute("data-cert");
-    if (!getCompleted().has(id)) return toast("Finish the course to unlock certificate");
+    const rec = getIssuedCert(id);               // ✅ only view if already issued
+    if (!rec) return toast("Certificate not issued yet");
     const c = ALL.find((x)=>x.id===id) || getCourses().find((x)=>x.id===id);
-    if (c) showCertificate(c);
+    if (c) showCertificate(c);                   // show existing cert (no new issue)
   });
 }
 
-function renderCertificate(course) {
-  const prof = getProfile() || {};
-  const fbUser = auth?.currentUser || null;
+function renderCertificate(course, cert) {
+  const p = getProfile();
+  const name = cert?.name || p.displayName || getUser()?.email || "Student";
+  const avatar = cert?.photo || p.photoURL || "/assets/default-avatar.png";
+  const dateTxt = new Date(cert?.issuedAt || Date.now()).toLocaleDateString();
+  const scoreTxt = typeof cert?.score === "number" ? `${Math.round(cert.score*100)}%` : "—";
+  const certId = cert?.id || "PENDING";
 
-  const name =
-    (prof.displayName && prof.displayName.trim()) ||
-    (fbUser?.displayName && fbUser.displayName.trim()) ||
-    (getUser()?.email) ||
-    "Student";
-
-  const avatar =
-    (prof.photoURL && prof.photoURL.trim()) ||
-    (fbUser?.photoURL && fbUser.photoURL.trim()) ||
-    "/assets/default-avatar.png";
-
-  const today = new Date().toLocaleDateString();
-  const completed = getCompletedRaw().find(x => x.id === course.id);
-  const scoreTxt = completed?.score != null
-    ? `${Math.round(completed.score * 100)}%`
-    : "—";
+  // printable verification text (you can host /verify?cid=xxx later)
+  const verifyUrl = `https://openlearn.example/verify?cid=${encodeURIComponent(certId)}`;
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(verifyUrl)}`;
 
   return `
     <div class="cert-doc">
-      <!-- Logo -->
       <img src="/assets/logo.png" class="cert-logo" alt="OpenLearn Logo">
 
-      <!-- Headers -->
       <div class="cert-head">OpenLearn Institute</div>
       <div class="cert-sub">Certificate of Completion</div>
 
-      <!-- Student Photo + Name -->
       <img src="${esc(avatar)}" class="cert-photo" alt="Student Photo">
       <div class="cert-name">${esc(name)}</div>
       <div class="cert-sub">has successfully completed</div>
 
-      <!-- Course -->
       <div class="cert-course">${esc(course.title)}</div>
 
-      <!-- Meta -->
       <div class="cert-meta">
-        Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}
+        Certificate No.: <b>${esc(certId)}</b> • Credits: ${course.credits || 3} • Score: ${scoreTxt} • Issued: ${dateTxt}
       </div>
 
-      <!-- Signatures -->
+      <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
+        <img class="qr" alt="Verify" src="${qr}">
+      </div>
+
       <div class="cert-signs">
         <div class="sig">
-          <img src="/assets/sign-registrar.png" class="sig-img" alt="Registrar Signature">
-          <div>Registrar</div>
+          <img src="/assets/sign-registrar.png" class="sig-img" alt="">
+          <div class="sig">Registrar</div>
         </div>
         <div class="sig">
-          <img src="/assets/sign-dean.png" class="sig-img" alt="Dean of Studies Signature">
-          <div>Dean of Studies</div>
+          <img src="/assets/sign-dean.png" class="sig-img" alt="">
+          <div class="sig">Dean of Studies</div>
         </div>
       </div>
+
+      <!-- 🔒 anti-forgery footer (print-only hints below) -->
+      <div class="cert-forgery small">
+        Printed: <span class="prt-date"></span> • Timezone: <span class="prt-tz"></span> • UA: <span class="prt-ua"></span>
+      </div>
+    </div>
+
+    <!-- controls (won’t appear in print) -->
+    <div class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
+      <button class="btn" id="certPrint">Print / Save PDF</button>
+      <button class="btn" id="certClose">Close</button>
     </div>
   `;
 }
 
+document.addEventListener("DOMContentLoaded", ()=>{
+  const stamp = () => {
+    const elD = document.querySelector(".cert-forgery .prt-date");
+    const elT = document.querySelector(".cert-forgery .prt-tz");
+    const elU = document.querySelector(".cert-forgery .prt-ua");
+    if (elD) elD.textContent = new Date().toLocaleString();
+    if (elT) elT.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || "—";
+    if (elU) elU.textContent = navigator.userAgent;
+  };
+  stamp();
+  window.addEventListener("beforeprint", stamp);
+});
+
 function showCertificate(course) {
-  // HTML (cert-doc only) — buttons are outside cert-doc (print မထွက်အောင်)
-  $("#certBody").innerHTML = renderCertificate(course);
-  document.body.classList.add("cert-open");     // lock background, full-viewport
+  const prof = getProfile();
+  // ✅ Issue once, reuse later
+  const completed = getCompletedRaw().find(x => x.id === course.id);
+  const score = completed?.score ?? null;
+  const cert = ensureCertIssued(course, prof, score);
+
+  // Build cert HTML (now includes number + footer)
+  const rec = getIssuedCert(course.id);     // ✅ view existing cert only
+  if (!rec) { toast("Certificate not issued yet"); return; }
+  $("#certBody").innerHTML = renderCertificate(course); // can also render with rec data if needed
+  $("#certModal")?.showModal();
+  $("#certPrint")?.onclick = () => window.print();
+  $("#certClose")?.onclick = () => $("#certModal")?.close();
+
   const dlg = $("#certModal");
   dlg?.showModal();
 
-  // --- Fit certificate to viewport (no scroll) ---
-  const designW = 1123, designH = 794;  // must match .cert-doc size
-  const docEl = $("#certBody .cert-doc");
+  // (re)wire safely every time
+  const printBtn = $("#certPrint");
+  const closeBtn = $("#certClose");
 
-  function fitCert() {
-    if (!docEl) return;
-    const vw = window.innerWidth, vh = window.innerHeight;
-    // leave a little breathing space (padding)
-    const pad = 24;
-    const scale = Math.min((vw - pad) / designW, (vh - pad - 56) / designH); // 56≈button row
-    docEl.style.setProperty("--certScale", Math.max(0.1, Math.min(scale, 1)));
-  }
+  // remove stale handlers
+  printBtn?.replaceWith(printBtn.cloneNode(true));
+  closeBtn?.replaceWith(closeBtn.cloneNode(true));
 
-  fitCert();
-  // re-fit on resize/orientation
-  const _refit = () => fitCert();
-  window.addEventListener("resize", _refit);
-  window.addEventListener("orientationchange", _refit);
-  dlg._unfit = () => {
-    window.removeEventListener("resize", _refit);
-    window.removeEventListener("orientationchange", _refit);
+  // reselect after replace
+  const _print = $("#certPrint");
+  const _close = $("#certClose");
+
+  _print?.addEventListener("click", () => window.print());
+  _close?.addEventListener("click", () => dlg?.close());
+
+  // prevent page getting “stuck” after cancel print
+  let printing = false;
+  window.onbeforeprint = () => { printing = true; document.body.classList.add("printing"); };
+  window.onafterprint  = () => {
+    printing = false;
+    document.body.classList.remove("printing");
+    // make sure dialog is still interactive
+    dlg?.removeAttribute("open"); dlg?.showModal?.();
   };
-
-  // Modal ပြ (သင့်ရဲ့ certModal ကို ပြန်သုံး)
-  $("#certModal")?.showModal();
-
-  // Actions
-  // Print
-  $("#certPrint")?.addEventListener("click", () => window.print(), { once: true });
-
-  // Close
- $("#certClose")?.addEventListener("click", () => {
-    dlg?.close();
-    document.body.classList.remove("cert-open"); // unlock background
-  }, { once: true });
-
-  // Transcript (optional)
-  $("#certTranscript")?.addEventListener("click", () => {
-    showPage("profile");
-    $("#certModal")?.close();
-  }, { once: true });
-
-//   const printBtn = $("#certPrint");
-// if (printBtn && !printBtn._wired) {
-//   printBtn._wired = true;
-//   printBtn.addEventListener("click", () => window.print(), { once: true });
-// }
 }
 
 // function showCertificate(course) {

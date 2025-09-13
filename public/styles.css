@@ -807,7 +807,8 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 #certModal {
   /* dialog ကို viewport အပြည့် */
   inset: 0 !important;
-  width: 100vw !important;
+  width: min(95vw, 1200px);
+  /* width: 100vw !important; */
   height: 100vh !important;
   max-width: none !important;
   max-height: none !important;
@@ -825,22 +826,33 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
   display: grid;
   place-items: center;        /* center child */
   overflow: hidden;           /* ❗ no inner scroll */
+  max-height: calc(90vh - 60px);
 }
 
 /* A4 landscape canvas (design size ~1123×794 @96dpi) */
 .cert-doc {
   position: relative;
-  width: 1123px;
-  height: 794px;
+  width: 100%;
+  aspect-ratio: 297 / 210;      /* A4 landscape canvas proportion */
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 12px;
   box-shadow: 0 8px 40px rgba(0,0,0,.22);
+  padding: 24px 28px;
   overflow: hidden;
 
   /* 🚀 scale-to-fit viewport so no scrollbars */
   transform: scale(var(--certScale, 1));
   transform-origin: center center;
+}
+
+/* anti-forgery footer inside certificate */
+.cert-forgery {
+  position: absolute;
+  left: 14px; right: 14px; bottom: 10px;
+  color: #666;
+  font-size: 10px;
+  text-align: center;
 }
 
 /* brand/logo + photo + name layout */
@@ -900,44 +912,35 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 @page { size: A4 landscape; margin: 8mm; }
 
 @media print {
-  html, body { height: auto !important; }
+  body * { visibility: hidden !important; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-  /* Show only the cert modal contents */
+  /* show only certificate content */
   body > :not(#certModal) { display: none !important; }
-  #certModal { 
-    position: static !important;
-    inset: auto !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: 0 !important;
-    width: auto !important;
-    height: auto !important;
-  }
+  #certModal, #certBody, .cert-doc, .cert-doc * { visibility: visible !important; }
   #certModal::backdrop { display: none !important; }
 
-  /* Buttons/controls off */
-  #certModal .btn,
-  #certModal .row,
-  .no-print, .cert-actions { display: none !important; }
+  #certModal {
+    position: static !important; inset: auto !important;
+    padding: 0 !important; margin: 0 !important; border: 0 !important;
+    width: auto !important; height: auto !important;
+  }
 
-  /* Fit exactly in the usable A4 area (landscape) to avoid page 2 */
+  #certBody { display: block; overflow: visible !important; }
+
   .cert-doc {
     box-sizing: border-box;
-    width: calc(297mm - 16mm);   /* 297 - (8mm*2) */
-    height: calc(210mm - 16mm);  /* 210 - (8mm*2) */
+    width: calc(297mm - 16mm);    /* page width minus margins */
+    height: calc(210mm - 16mm);   /* page height minus margins */
     margin: 0 auto !important;
-    padding: 6mm;                /* inner breathing room */
+    padding: 6mm;                 /* inner padding inside usable area */
     background: #fff !important;
     border: none !important;
     box-shadow: none !important;
-    overflow: hidden !important; /* prevent spill → no blank page 2 */
-    page-break-inside: avoid;
-    break-inside: avoid;
+    overflow: hidden !important;
+    page-break-inside: avoid; break-inside: avoid;
   }
 
-  .cert-logo, .cert-photo, .cert-seal, .sig-img {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
+  /* hide controls */
+  #certModal .no-print, #certModal .btn, #certModal .row { display: none !important; }
 }
