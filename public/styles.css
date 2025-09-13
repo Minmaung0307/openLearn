@@ -753,22 +753,46 @@ textarea::placeholder {
   width: 1000px;                    /* desktop preview size */
   margin: 0 auto;
 }
-.cert-head { font-size:22px; font-weight:800; text-align:center; }
-.cert-sub  { text-align:center; color:#666; margin:4px 0; }
-.cert-name { font-size:28px; font-weight:700; text-align:center; margin:8px 0; }
-.cert-course { font-size:20px; font-weight:700; text-align:center; margin:6px 0; }
-.cert-meta { text-align:center; color:#555; }
+.cert-head { font-size:26px; font-weight:800; text-align:center; margin-top: 46px; color:#222;}
+.cert-sub  { text-align:center; color:#555; margin:4px 0 10px; }
+.cert-name {
+  text-align: center;
+  font-size: 28px;
+  font-weight: 800;
+  margin: 8px 0 4px;
+  color: #222;
+}
+.cert-course {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 6px 0 2px;
+  color: #222;
+}
+.cert-meta { text-align: center; color: #555; margin-top: 6px; }
 .cert-seal { width: 90px; height: 90px; border-radius: 50%;
   background: linear-gradient(135deg,#8c7851,#a88b63); }
-.cert-photo { width:100px; height:100px; border-radius:50%; object-fit:cover;
-  border:2px solid #ccc; background:#f6f6f6; margin: 10px auto; display:block; }
-.cert-signs { display:flex; justify-content:space-between; gap:24px; margin-top: 40px; padding: 0 40px; }
-.cert-signs .sig { text-align:center; flex:1; }
-.sig-img { width: 120px; height:auto; object-fit:contain; }
-.cert-logo { width: 80px; position: absolute; top: 20px; left: 20px; }
-.sig {
-  font-size: 12px;
+.cert-photo {
+  display: block;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #eee;
+  margin: 14px auto 8px;        /* centered under headers */
+  background: #f6f6f6;
 }
+.cert-signs {
+  position: absolute;
+  left: 60px; right: 60px; bottom: 46px;
+  display: flex; gap: 24px; justify-content: space-between;
+}
+.cert-signs .sig { text-align:center; flex:1; }
+.sig-img { width: 120px; height: auto; object-fit: contain; }
+.cert-logo { width: 84px; height: auto; position: absolute; top: 22px; left: 20px; }
+.sig { text-align: center; flex: 1; font-size: 12px; color:#444; }
+/* screen view မှာ modal အောက်က ခလုတ် row ကို အပေါ်ယံချည်းပဲပြ (print မှာတှာ် hidden already) */
+/* Controls row in modal (screen only; print မှာ already hidden) */
+#certModal .row { width: min(1123px, 96vw); margin: 10px auto 0; }
 
 /* Announcements card items already use .card */
 /* If inner text looked too pale, ensure: */
@@ -776,55 +800,119 @@ textarea::placeholder {
 #annList .muted { color: var(--muted); }
 
 /* hide controls when printing */
-/* ==== PRINT: Certificate only ==== */
+
+/* ===== Certificate: FULL VIEW (screen) ===== */
+body.cert-open { overflow: hidden; }               /* background scroll lock */
+
+#certModal {
+  /* dialog ကို viewport အပြည့် */
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: #0b0f17;        /* dark canvas behind cert */
+  display: grid;
+  place-items: center;        /* center the cert */
+  overflow: hidden;           /* ❗ no scrollbars in modal */
+}
+
+#certBody {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;        /* center child */
+  overflow: hidden;           /* ❗ no inner scroll */
+}
+
+/* A4 landscape canvas (design size ~1123×794 @96dpi) */
+.cert-doc {
+  position: relative;
+  width: 1123px;
+  height: 794px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.22);
+  overflow: hidden;
+
+  /* 🚀 scale-to-fit viewport so no scrollbars */
+  transform: scale(var(--certScale, 1));
+  transform-origin: center center;
+}
+
+/* brand/logo + photo + name layout */
+.cert-logo {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  width: 84px;
+  height: auto;
+}
+
+.cert-head { font-size: 26px; font-weight: 800; text-align: center; margin-top: 46px; color:#222; }
+.cert-sub  { text-align: center; color:#555; margin: 4px 0 10px; }
+
+.cert-photo {
+  display: block;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #eee;
+  margin: 14px auto 8px;        /* centered under headers */
+  background: #f6f6f6;
+}
+
+.cert-name {
+  text-align: center;
+  font-size: 28px;
+  font-weight: 800;
+  margin: 8px 0 4px;
+  color: #222;
+}
+
+.cert-course {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 6px 0 2px;
+  color: #222;
+}
+
+.cert-meta { text-align: center; color: #555; margin-top: 6px; }
+
+.cert-signs {
+  position: absolute;
+  left: 60px; right: 60px; bottom: 46px;
+  display: flex; gap: 24px; justify-content: space-between;
+}
+
+.sig { text-align: center; flex: 1; font-size: 12px; color:#444; }
+.sig-img { width: 120px; height: auto; object-fit: contain; }
+
+/* Controls row in modal (screen only; print မှာ already hidden) */
+#certModal .row { width: min(1123px, 96vw); margin: 10px auto 0; }
+
+/* ===== PRINT: certificate only, full page ===== */
 @page { size: A4 landscape; margin: 10mm; }
-
 @media print {
-  /* မလိုတဲ့အရာတွေ မြင်မမြင် */
-  body * { visibility: none !important; }
-  #certModal, #certModal * {
-    /* display: block !important; */
-    visibility: visible !important;
-  }
-  /* certificate ကိုပဲ ထုတ် */
-  /* #certModal, #certBody, .cert-doc, .cert-doc * { 
-    visibility: visible !important; 
-  } */
-  /* modal backdrop မထုတ် */
+  /* show only the certificate */
+  body * { visibility: hidden !important; }
+  #certModal, #certBody, .cert-doc, .cert-doc * { visibility: visible !important; }
   #certModal::backdrop { display: none !important; }
-  /* modal ကို static လုပ်ပြီး စာမျက်နှာအလယ်တည် */
-  #certModal {
-    position: fixed;
-    inset: 0;
-    transform: none;
-    display: grid !important;
-    place-items: center !important;
-    border: none !important;
-    padding: 0 !important;
-    background: transparent !important;
-    width: auto; height: auto;
-  }
-  /* Fit cert to printable area */
+  #certModal { position: static; inset: auto; width: auto; height: auto; background: none; }
+  #certBody   { display: block; overflow: visible; }
   .cert-doc {
-    width: 270mm;                    /* fit inside A4 landscape 297mm with margins */
-    max-width: 270mm;
-    height: auto;
     margin: 0 auto !important;
-    border: none !important;
     box-shadow: none !important;
+    border: none !important;
+    transform: none !important;            /* ❗ reset scale for print */
+    width: 277mm;                          /* A4 landscape inner width */
+    height: 190mm;                         /* keep margins; or omit and let content flow */
     page-break-inside: avoid;
   }
-  /* #certModal .cert-doc {
-    margin: auto;
-    page-break-inside: avoid;
-  } */
-  /* buttons hide in print */
-  /* #certModal button {
-    display: none !important;
-  } */
-  /* Remove any modal action rows / buttons */
-  .no-print, #certModal button, .btn, .ol-modal .row { display: none !important; }
-
-  /* Safety: hide common app sections if dialog remains in DOM flow */
-  #topbar, #sidebar, #main, #reader, #courseChat, #annList, #adminTable { display: none !important; }
+  /* hide buttons/rows */
+  #certModal .row, .btn, .no-print, .cert-actions { display: none !important; }
 }

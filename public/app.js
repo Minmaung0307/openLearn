@@ -1070,39 +1070,56 @@ function renderMyLearning() {
 }
 
 function renderCertificate(course) {
-  const p = getProfile();
-  const name = p.displayName || getUser()?.email || "Student";
-  const avatar = p.photoURL || "/assets/default-avatar.png";
-  const today = new Date().toLocaleDateString();
+  const prof = getProfile() || {};
+  const fbUser = auth?.currentUser || null;
 
+  const name =
+    (prof.displayName && prof.displayName.trim()) ||
+    (fbUser?.displayName && fbUser.displayName.trim()) ||
+    (getUser()?.email) ||
+    "Student";
+
+  const avatar =
+    (prof.photoURL && prof.photoURL.trim()) ||
+    (fbUser?.photoURL && fbUser.photoURL.trim()) ||
+    "/assets/default-avatar.png";
+
+  const today = new Date().toLocaleDateString();
   const completed = getCompletedRaw().find(x => x.id === course.id);
-  const scoreTxt = completed?.score != null ? `${Math.round(completed.score * 100)}%` : "—";
+  const scoreTxt = completed?.score != null
+    ? `${Math.round(completed.score * 100)}%`
+    : "—";
 
   return `
     <div class="cert-doc">
+      <!-- Logo -->
       <img src="/assets/logo.png" class="cert-logo" alt="OpenLearn Logo">
 
+      <!-- Headers -->
       <div class="cert-head">OpenLearn Institute</div>
       <div class="cert-sub">Certificate of Completion</div>
 
+      <!-- Student Photo + Name -->
       <img src="${esc(avatar)}" class="cert-photo" alt="Student Photo">
-
       <div class="cert-name">${esc(name)}</div>
       <div class="cert-sub">has successfully completed</div>
 
+      <!-- Course -->
       <div class="cert-course">${esc(course.title)}</div>
 
+      <!-- Meta -->
       <div class="cert-meta">
         Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}
       </div>
 
+      <!-- Signatures -->
       <div class="cert-signs">
         <div class="sig">
-          <img src="/assets/sign-registrar.png" class="sig-img" alt="">
+          <img src="/assets/sign-registrar.png" class="sig-img" alt="Registrar Signature">
           <div>Registrar</div>
         </div>
         <div class="sig">
-          <img src="/assets/sign-dean.png" class="sig-img" alt="">
+          <img src="/assets/sign-dean.png" class="sig-img" alt="Dean of Studies Signature">
           <div>Dean of Studies</div>
         </div>
       </div>
@@ -1113,6 +1130,32 @@ function renderCertificate(course) {
 function showCertificate(course) {
   // HTML (cert-doc only) — buttons are outside cert-doc (print မထွက်အောင်)
   $("#certBody").innerHTML = renderCertificate(course);
+  document.body.classList.add("cert-open");     // lock background, full-viewport
+  const dlg = $("#certModal");
+  dlg?.showModal();
+
+  // --- Fit certificate to viewport (no scroll) ---
+  const designW = 1123, designH = 794;  // must match .cert-doc size
+  const docEl = $("#certBody .cert-doc");
+
+  function fitCert() {
+    if (!docEl) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    // leave a little breathing space (padding)
+    const pad = 24;
+    const scale = Math.min((vw - pad) / designW, (vh - pad - 56) / designH); // 56≈button row
+    docEl.style.setProperty("--certScale", Math.max(0.1, Math.min(scale, 1)));
+  }
+
+  fitCert();
+  // re-fit on resize/orientation
+  const _refit = () => fitCert();
+  window.addEventListener("resize", _refit);
+  window.addEventListener("orientationchange", _refit);
+  dlg._unfit = () => {
+    window.removeEventListener("resize", _refit);
+    window.removeEventListener("orientationchange", _refit);
+  };
 
   // Modal ပြ (သင့်ရဲ့ certModal ကို ပြန်သုံး)
   $("#certModal")?.showModal();
@@ -1122,7 +1165,10 @@ function showCertificate(course) {
   $("#certPrint")?.addEventListener("click", () => window.print(), { once: true });
 
   // Close
-  $("#certClose")?.addEventListener("click", () => $("#certModal")?.close(), { once: true });
+ $("#certClose")?.addEventListener("click", () => {
+    dlg?.close();
+    document.body.classList.remove("cert-open"); // unlock background
+  }, { once: true });
 
   // Transcript (optional)
   $("#certTranscript")?.addEventListener("click", () => {
