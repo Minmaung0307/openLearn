@@ -1120,10 +1120,7 @@ function showCongrats() {
 }
 
 function renderMyLearning() {
-    // before writing innerHTML
-const oldGrid = $("#myCourses");
-const newGrid = oldGrid.cloneNode(false);
-oldGrid.parentNode.replaceChild(newGrid, oldGrid);
+    const grid = $("#myCourses");   // <-- ဒီလို define လုပ်ဖို့လို
   if (!grid) return;
 
   // Hide cards while reader open
@@ -1143,7 +1140,7 @@ oldGrid.parentNode.replaceChild(newGrid, oldGrid);
   }
 
   // --- renderMyLearning() မထဲက buttons template ကို ဒီလို ပြောင်း --- 
-newGrid.innerHTML = list.map((c)=>{
+grid.innerHTML = list.map((c)=>{
   const isDone  = completed.has(c.id);
   const issued  = !!getIssuedCert(c.id);
   const label   = isDone ? "Review" : "Continue";     // ← အဓိက
@@ -1162,12 +1159,12 @@ newGrid.innerHTML = list.map((c)=>{
 }).join("");
 
   // wire buttons (this was missing → caused “can’t click”)
-  newGrid.querySelectorAll("[data-read]").forEach((b)=> b.onclick = ()=>{
+  grid.querySelectorAll("[data-read]").forEach((b)=> b.onclick = ()=>{
     const id = b.getAttribute("data-read");
     openReader(id);
   });
 
-  newGrid.querySelectorAll("[data-cert]").forEach((b)=> b.onclick = ()=>{
+  grid.querySelectorAll("[data-cert]").forEach((b)=> b.onclick = ()=>{
     const id = b.getAttribute("data-cert");
     const rec = getIssuedCert(id);
     if (!rec) return toast("Certificate not issued yet");
