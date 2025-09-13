@@ -1065,35 +1065,94 @@ function renderMyLearning() {
 }
 
 function showCertificate(course) {
-  const name = getProfile().displayName || getUser()?.email || "Student";
+  const prof = getProfile();
+  const name = prof.displayName || getUser()?.email || "Student";
+  const photo = prof.photoURL || ""; // ရှိရင် ဓာတ်ပုံပြ
   const today = new Date().toLocaleDateString();
-  const completed = getCompletedRaw().find((x)=>x.id===course.id);
+  const completed = getCompletedRaw().find(x => x.id === course.id);
   const scoreTxt = completed?.score != null ? `${Math.round(completed.score*100)}%` : "—";
+
+  // localStorage မှ စာရေးသူလက်မှတ် image URL တွေ (ရှိ/မရှိ)
+  const sig = _read("ol_signatures", { registrar: "", dean: "" });
+
   $("#certBody").innerHTML = `
     <div class="cert-doc">
       <div class="cert-head">OpenLearn Institute</div>
       <div class="cert-sub">Certificate of Completion</div>
+
       <div class="cert-name">${esc(name)}</div>
       <div class="cert-sub">has successfully completed</div>
       <div class="cert-course">${esc(course.title)}</div>
-      <div class="cert-meta">Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}</div>
-      <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
-        <div class="cert-seal" title="Official Seal"></div>
-        <img class="qr" alt="Verify" src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=OPENLEARN-${encodeURIComponent(course.id)}">
+      <div class="cert-meta">
+        Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}
       </div>
+
+      <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
+        ${
+          photo 
+          ? `<img class="cert-photo" alt="Student" src="${esc(photo)}">`
+          : `<div class="cert-seal" title="Official Seal"></div>`
+        }
+        <img class="qr" alt="Verify" 
+             src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=OPENLEARN-${encodeURIComponent(course.id)}">
+      </div>
+
       <div class="cert-signs">
-        <div class="sig"><div style="height:24px"></div><div>______________________</div><div>Registrar</div></div>
-        <div class="sig"><div style="height:24px"></div><div>______________________</div><div>Dean of Studies</div></div>
+        <div class="sig">
+          <div style="height:24px"></div>
+          ${
+            sig.registrar 
+              ? `<img class="sig-img" alt="Registrar" src="${esc(sig.registrar)}">`
+              : `<div>______________________</div>`
+          }
+          <div>Registrar</div>
+        </div>
+        <div class="sig">
+          <div style="height:24px"></div>
+          ${
+            sig.dean 
+              ? `<img class="sig-img" alt="Dean of Studies" src="${esc(sig.dean)}">`
+              : `<div>______________________</div>`
+          }
+          <div>Dean of Studies</div>
+        </div>
       </div>
     </div>
-    <div class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
-      <button class="btn" id="certTranscript" type="button">Open Transcript</button>
-    </div>`;
+
+    <!-- Controls (no-print) -->
+    <div class="row cert-actions no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
+      <input id="certName" class="input" placeholder="Student name" value="${esc(name)}" style="max-width:220px">
+      <input id="certPhoto" class="input" placeholder="Photo URL (optional)" value="${esc(photo)}" style="max-width:280px">
+      <input id="sigRegistrar" class="input" placeholder="Registrar signature URL" value="${esc(sig.registrar)}" style="max-width:280px">
+      <input id="sigDean" class="input" placeholder="Dean signature URL" value="${esc(sig.dean)}" style="max-width:280px">
+      <button class="btn" id="certApply">Apply</button>
+      <button class="btn" id="certPrint">Print</button>
+      <button class="btn" id="certClose2">Close</button>
+    </div>
+  `;
   $("#certModal")?.showModal();
-  $("#certTranscript")?.addEventListener("click", ()=>{ showPage("profile"); $("#certModal")?.close(); });
+
+  // controls
+  $("#certApply")?.addEventListener("click", () => {
+    const newName = $("#certName")?.value.trim();
+    const newPhoto = $("#certPhoto")?.value.trim();
+    const newSig = {
+      registrar: $("#sigRegistrar")?.value.trim() || "",
+      dean: $("#sigDean")?.value.trim() || ""
+    };
+    // profile name/photo ကို သိမ်း (အမြဲအသုံးဝင်)
+    const p = getProfile();
+    setProfile({ ...p, displayName: newName || p.displayName, photoURL: newPhoto || p.photoURL });
+    _write("ol_signatures", newSig);
+    // UI refresh
+    showCertificate(course);
+  });
+
+  $("#certPrint")?.addEventListener("click", () => window.print());
+  $("#certClose2")?.addEventListener("click", () => $("#certModal")?.close());
 }
-$("#certClose")?.addEventListener("click", ()=> $("#certModal")?.close());
-$("#certPrint")?.addEventListener("click", ()=> window.print());
+// $("#certClose")?.addEventListener("click", ()=> $("#certModal")?.close());
+// $("#certPrint")?.addEventListener("click", ()=> window.print());
 
 async function tryFetch(path) {
   try { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) return null; return await r.json(); } catch { return null; }

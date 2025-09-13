@@ -749,35 +749,17 @@ textarea::placeholder {
   grid-column: 1 / -1 !important;
 }
 
-.cert-doc {
-  font-family: "Times New Roman", Georgia, serif;
-  background: #fff;
-  color: #222;
-  border: 2px solid #d9d7cf;
-  padding: 24px;
-  border-radius: 12px;
-}
-.cert-head {
-  text-align:center; margin-bottom:6px;
-  font-weight:700; font-size:20px; letter-spacing:.5px;
-}
-.cert-sub { text-align:center; color:#666; margin-bottom:4px; }
-.cert-name {
-  text-align:center; font-size:28px; font-weight:800; margin:6px 0;
-}
-.cert-course { text-align:center; font-size:18px; font-weight:700; }
-.cert-meta { text-align:center; color:#666; margin-top:6px; }
-.cert-signs {
-  display:flex; gap:18px; justify-content:space-between; margin-top:14px;
-}
-.cert-signs .sig {
-  flex:1; text-align:center; font-size:12px; color:#555;
-}
-.cert-seal {
-  width:78px; height:78px; border-radius:50%;
-  background: radial-gradient(#caa, #900); opacity:.85; margin:0 auto;
-  border: 4px double #722;
-}
+.cert-doc { background:#fff; border:1px solid #ddd; padding:24px; border-radius:12px; box-shadow:0 6px 30px rgba(0,0,0,.08); }
+.cert-head { font-size:22px; font-weight:800; text-align:center; }
+.cert-sub  { text-align:center; color:#666; margin:4px 0; }
+.cert-name { font-size:28px; font-weight:700; text-align:center; margin:8px 0; }
+.cert-course { font-size:20px; font-weight:700; text-align:center; margin:6px 0; }
+.cert-meta { text-align:center; color:#555; }
+.cert-seal { width:90px; height:90px; border-radius:50%; background: linear-gradient(135deg,#8c7851,#a88b63); }
+.cert-photo { width:90px; height:90px; border-radius:50%; object-fit:cover; border:2px solid #ccc; background:#f6f6f6; }
+.cert-signs { display:flex; justify-content:space-between; gap:24px; margin-top:16px; }
+.cert-signs .sig { text-align:center; flex:1; }
+.sig-img { height:40px; object-fit:contain; }
 
 /* Announcements card items already use .card */
 /* If inner text looked too pale, ensure: */
@@ -785,32 +767,27 @@ textarea::placeholder {
 #annList .muted { color: var(--muted); }
 
 /* hide controls when printing */
-/* ---- Print-only tuning for Certificate ---- */
+/* ==== PRINT: Certificate only ==== */
+@page { size: A4 landscape; margin: 12mm; }
+
 @media print {
-  /* UI တွေကို ပိတ် */
-  #topbar, #sidebar, .btn, #certPrint, #certClose, #certTranscript { 
-    display: none !important; 
+  /* မလိုတဲ့အရာတွေ မြင်မမြင် */
+  body * { visibility: hidden !important; }
+  /* certificate ကိုပဲ ထုတ် */
+  #certModal, #certBody, .cert-doc, .cert-doc * { 
+    visibility: visible !important; 
   }
-  dialog::backdrop { display: none !important; }
-
-  /* စာရွက်အလယ်ထား + shadow/border မပါ */
-  #certBody {
-    display: block !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    /* 
-    Screen view ကိုလည်း အလယ်တည့်
-    display: flex; 
-  justify-content: center;  */
-  }
+  /* modal backdrop မထုတ် */
+  #certModal::backdrop { display: none !important; }
+  /* modal ကို static လုပ်ပြီး စာမျက်နှာအလယ်တည် */
+  #certModal { position: static !important; inset: auto !important; }
   .cert-doc {
-    margin: 0 auto !important;
-    box-shadow: none !important;
+    width: 1000px;       /* A4 landscape အကုန်မဖြုတ်ရင် 900–1100px ကြား */
+    margin: 0 auto;      /* အလယ်တည် */
+    box-shadow: none !important; 
     border: none !important;
-    page-break-inside: avoid !important;
-    transform: none !important;
+    background: white !important;
   }
-
-  /* အရွယ် (A4) နဲ့ margin */
-  @page { size: A4; margin: 12mm; }
+  /* print မထုတ်လိုတဲ့ ခလုတ်/အလားအလာတွေ */
+  .no-print, .cert-actions, .btn, .ol-modal .row { display: none !important; }
 }
