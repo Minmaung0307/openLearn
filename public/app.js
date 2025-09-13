@@ -155,20 +155,17 @@ function ensureCertIssued(course, profile, score){
   all[key] = rec;
   setCerts(all);
 
-  // Optional: save to Firestore /certs (fire-and-forget; no await here)
+  // Optional: save to Firestore /certs (fire-and-forget)
   try {
     if (db && auth?.currentUser) {
-      const ref = doc(db, "certs", `${currentUidKey()}_${course.id}`);
-      setDoc(ref, rec, { merge: true }).catch(()=>{});
+      const cref = doc(db, "certs", `${currentUidKey()}_${course.id}`);
+      setDoc(cref, rec, { merge: true }).catch(()=>{});
     }
   } catch {}
 
   return rec;
 }
-
-function getIssuedCert(courseId){
-  return getCerts()[certKey(courseId)] || null;
-}
+function getIssuedCert(courseId){ return getCerts()[certKey(courseId)] || null; }
 
 // --- Add near top (after helpers) ---
 function normalizeQuiz(raw) {
@@ -213,10 +210,11 @@ async function loadEnrollsCloud(){
   try { const snap = await getDoc(ref); return snap.exists() ? new Set(snap.data().courses || []) : new Set(); }
   catch { return null; }
 }
+
+// ---- Firestore check (fixed) ----
 function hasFirestore() {
-  // firebase.js ထဲက export ထဲမှာ getFirestore / db ရှိမရှိ စစ်
-//   return (typeof getFirestore === "function") && !!window.db;
-return !!db;   // db is imported from ./firebase.js
+  // We only care that 'db' exists (already imported from ./firebase.js)
+  return !!db;
 }
 
 async function saveEnrollsCloud(set) {
@@ -868,7 +866,7 @@ let RD = { cid:null, pages:[], i:0, credits:0 };
 let LAST_QUIZ_SCORE = 0;
 let PROJECT_UPLOADED = false;
 
-// --- Reader close helper (hide reader, show My Learning) ---
+// --- Reader close helper (unchanged except ensuring grid shows) ---
 function closeReader() {
   const r = document.getElementById("reader");
   if (r) r.classList.add("hidden");
@@ -879,18 +877,18 @@ function closeReader() {
   showPage("mylearning", false);
 }
 
+// --- normalizeQuiz unchanged ---
+
 function renderQuiz(p) {
-  // --- draw questions from bank ---
   const bank = Array.isArray(p.quiz?.questions) ? p.quiz.questions.slice() : [];
   const picked = QUIZ_RANDOMIZE ? shuffle(bank).slice(0, QUIZ_SAMPLE_SIZE || bank.length) : bank.slice();
-  const q = picked;  // ⬅️ ရှိသမျှ references ‘q’ ကို ဒီ picked ကို သုံးမယ်
+  const q = picked;
 
-  // UI build (အကယ်၍ လက်ရှိ code အများစုက 그대로ပဲသုံးနိုင်တယ်)
   const wrap = document.createElement("div");
   wrap.innerHTML = `<h3>Quiz</h3>`;
-
   const list = document.createElement("ol");
   list.style.lineHeight = "1.7";
+
   q.forEach((it, i) => {
     const li = document.createElement("li");
     li.style.margin = "8px 0";
@@ -934,7 +932,6 @@ function renderQuiz(p) {
     let correct = 0;
 
     q.forEach((it, i) => {
-      const choices = it.choices || it.a || [];
       if (it.type === "single") {
         const picked = document.querySelector(`input[name="q${i}"]:checked`);
         const val = picked ? Number(picked.value) : -1;
@@ -947,11 +944,11 @@ function renderQuiz(p) {
         if (ok) correct++;
       } else {
         const input = document.querySelector(`input[name="q${i}"]`);
-  const ans = (input?.value || "").trim().toLowerCase();
-  const accepts = Array.isArray(it.answers) ? it.answers : (it.answer ? [it.answer] : []);
-  const norm = (s) => String(s ?? "").trim().toLowerCase();
-  if (accepts.some(x => norm(x) === ans)) correct++;
-}
+        const ans = (input?.value || "").trim().toLowerCase();
+        const accepts = Array.isArray(it.answers) ? it.answers : (it.answer ? [it.answer] : []);
+        const norm = (s) => String(s ?? "").trim().toLowerCase();
+        if (accepts.some(x => norm(x) === ans)) correct++;
+      }
     });
 
     const score = correct / (q.length || 1);
@@ -959,7 +956,7 @@ function renderQuiz(p) {
     $("#qMsg").textContent = `Score: ${Math.round(score * 100)}% (${correct}/${q.length})`;
 
     if (score >= QUIZ_PASS) {
-        setPassedQuiz(RD.cid, RD.i, score);   // ✅ record pass
+      setPassedQuiz(RD.cid, RD.i, score);
       if (score >= 0.85) launchFireworks();
       if (isLastPage()) {
         markCourseComplete(RD.cid, score);
@@ -967,19 +964,15 @@ function renderQuiz(p) {
       } else {
         toast("Great! You unlocked the next lesson 🎉");
       }
-      // pass ဖြစ်သွားရင် Retake မလိုတော့
       $("#qRetake").style.display = "none";
     } else {
       toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% — try again`);
-      // Retake button ပြ
       $("#qRetake").style.display = "";
     }
 
-    // Finish button gating (if you already add it later)
     $("#rdFinish")?.toggleAttribute("disabled", score < QUIZ_PASS);
   };
 
-  // Retake → random အသစ်ဖြစ်အောင် စေတာင်လော့
   $("#qRetake").onclick = () => {
     LAST_QUIZ_SCORE = 0;
     renderQuiz(p); // redraw (randomize again)
@@ -1059,8 +1052,9 @@ function launchFireworks() {
   burst.innerHTML = `<div class="confetti"></div>`; document.body.appendChild(burst);
   setTimeout(() => burst.remove(), 1200);
 }
+
 function showCongrats() {
-    // ✅ once-only: issue certificate when course completed
+  // issue cert once when course completed
   const course = ALL.find(x => x.id === RD.cid) || getCourses().find(x => x.id === RD.cid);
   if (course) {
     const prof = getProfile();
@@ -1091,41 +1085,52 @@ function renderMyLearning() {
   const grid = $("#myCourses");
   if (!grid) return;
 
-  // If reader is already open, keep cards hidden
+  // Hide cards while reader open
   if (!$("#reader")?.classList.contains("hidden")) {
     grid.style.display = "none";
   } else {
-    grid.style.display = ""; // visible when reader is not open
+    grid.style.display = "";
   }
 
   const set = getEnrolls();
   const completed = getCompleted();
   const list = (ALL.length ? ALL : getCourses()).filter(c => set.has(c.id));
-if (!list.length) {
-  // helper msg
-  document.getElementById("myCourses").innerHTML =
-    `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
-  return;
-}
+
+  if (!list.length) {
+    grid.innerHTML = `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
+    return;
+  }
 
   grid.innerHTML = list.map((c)=>{
     const isDone  = completed.has(c.id);
-    const issued  = !!getIssuedCert(c.id); // ✅ now used
+    const issued  = !!getIssuedCert(c.id);
+    const r = Number(c.rating || 4.6);
     return `<div class="card course" data-id="${c.id}">
-      ...
-      <div class="row" style="justify-content:flex-end; gap:8px">
-        <button class="btn" data-read="${c.id}">Continue</button>
-        <button class="btn" data-cert="${c.id}" ${issued ? "" : "disabled"}>Certificate</button>
+      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+      <div class="course-body">
+        <strong>${esc(c.title)}</strong>
+        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)}</div>
+        <div class="muted">${esc(c.summary || "")}</div>
+        <div class="row" style="justify-content:flex-end; gap:8px">
+          <button class="btn" data-read="${c.id}">${isDone ? "Review" : "Continue"}</button>
+          <button class="btn" data-cert="${c.id}" ${issued ? "" : "disabled"}>Certificate</button>
+        </div>
       </div>
     </div>`;
-  }).join("") || `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
+  }).join("");
+
+  // wire buttons (this was missing → caused “can’t click”)
+  grid.querySelectorAll("[data-read]").forEach((b)=> b.onclick = ()=>{
+    const id = b.getAttribute("data-read");
+    openReader(id);
+  });
 
   grid.querySelectorAll("[data-cert]").forEach((b)=> b.onclick = ()=>{
     const id = b.getAttribute("data-cert");
-    const rec = getIssuedCert(id);               // ✅ only view if already issued
+    const rec = getIssuedCert(id);
     if (!rec) return toast("Certificate not issued yet");
-    const c = ALL.find((x)=>x.id===id) || getCourses().find((x)=>x.id===id);
-    if (c) showCertificate(c);                   // show existing cert (no new issue)
+    const c = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
+    if (c) showCertificate(c); // view only; won’t issue new
   });
 }
 
@@ -1137,7 +1142,6 @@ function renderCertificate(course, cert) {
   const scoreTxt = typeof cert?.score === "number" ? `${Math.round(cert.score*100)}%` : "—";
   const certId = cert?.id || "PENDING";
 
-  // printable verification text (you can host /verify?cid=xxx later)
   const verifyUrl = `https://openlearn.example/verify?cid=${encodeURIComponent(certId)}`;
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(verifyUrl)}`;
 
@@ -1165,21 +1169,19 @@ function renderCertificate(course, cert) {
       <div class="cert-signs">
         <div class="sig">
           <img src="/assets/sign-registrar.png" class="sig-img" alt="">
-          <div class="sig">Registrar</div>
+          <div>Registrar</div>
         </div>
         <div class="sig">
           <img src="/assets/sign-dean.png" class="sig-img" alt="">
-          <div class="sig">Dean of Studies</div>
+          <div>Dean of Studies</div>
         </div>
       </div>
 
-      <!-- 🔒 anti-forgery footer (print-only hints below) -->
       <div class="cert-forgery small">
         Printed: <span class="prt-date"></span> • Timezone: <span class="prt-tz"></span> • UA: <span class="prt-ua"></span>
       </div>
     </div>
 
-    <!-- controls (won’t appear in print) -->
     <div class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
       <button class="btn" id="certPrint">Print / Save PDF</button>
       <button class="btn" id="certClose">Close</button>
@@ -1187,6 +1189,7 @@ function renderCertificate(course, cert) {
   `;
 }
 
+// stamp forgery footer
 document.addEventListener("DOMContentLoaded", ()=>{
   const stamp = () => {
     const elD = document.querySelector(".cert-forgery .prt-date");
@@ -1200,7 +1203,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   window.addEventListener("beforeprint", stamp);
 });
 
-// ===== UI hard reset when things get stuck (modal/backdrop/printing) =====
+// Hard reset for stuck UI after print/backdrop
 function hardCloseCert() {
   try { window.onbeforeprint = null; window.onafterprint = null; } catch {}
   document.body.classList.remove("printing");
@@ -1208,13 +1211,11 @@ function hardCloseCert() {
   const dlg = document.getElementById("certModal");
   if (dlg && typeof dlg.close === "function") dlg.close();
 
-  // Close reader and bring back My Learning grid
   const r = document.getElementById("reader");
   if (r) r.classList.add("hidden");
   const grid = document.getElementById("myCourses");
   if (grid) grid.style.display = "";
 
-  // Go back to My Learning page (no extra history entry)
   showPage("mylearning", false);
 }
 
@@ -1229,14 +1230,14 @@ function showCertificate(course, opts = { issueIfMissing: true }) {
   }
   if (!rec) { toast("Certificate not issued yet"); return; }
 
-  // Render the doc (include number/name/photo from rec)
+  // Render
   document.getElementById("certBody").innerHTML = renderCertificate(course, rec);
 
   const dlg = document.getElementById("certModal");
   if (!dlg) return;
   dlg.showModal();
 
-  // reset handlers (avoid duplicates)
+  // reset handlers
   const oldPrint = document.getElementById("certPrint");
   const oldClose = document.getElementById("certClose");
   if (oldPrint) oldPrint.replaceWith(oldPrint.cloneNode(true));
@@ -1244,107 +1245,14 @@ function showCertificate(course, opts = { issueIfMissing: true }) {
   const printBtn = document.getElementById("certPrint");
   const closeBtn = document.getElementById("certClose");
 
-  // wire fresh
   printBtn?.addEventListener("click", () => window.print());
   closeBtn?.addEventListener("click", () => hardCloseCert());
 
-  // close on ESC/backdrop
   dlg.addEventListener("cancel", (e) => { e.preventDefault(); hardCloseCert(); }, { once:true });
 
-  // print lifecycle — always restore UI
   window.onbeforeprint = () => document.body.classList.add("printing");
   window.onafterprint  = () => hardCloseCert();
 }
-
-// function showCertificate(course) {
-//   const prof = getProfile();
-//   const name = prof.displayName || getUser()?.email || "Student";
-//   const photo = prof.photoURL || ""; // ရှိရင် ဓာတ်ပုံပြ
-//   const today = new Date().toLocaleDateString();
-//   const completed = getCompletedRaw().find(x => x.id === course.id);
-//   const scoreTxt = completed?.score != null ? `${Math.round(completed.score*100)}%` : "—";
-
-//   // localStorage မှ စာရေးသူလက်မှတ် image URL တွေ (ရှိ/မရှိ)
-//   const sig = _read("ol_signatures", { registrar: "", dean: "" });
-
-//   $("#certBody").innerHTML = `
-//     <div class="cert-doc">
-//       <div class="cert-head">OpenLearn Institute</div>
-//       <div class="cert-sub">Certificate of Completion</div>
-
-//       <div class="cert-name">${esc(name)}</div>
-//       <div class="cert-sub">has successfully completed</div>
-//       <div class="cert-course">${esc(course.title)}</div>
-//       <div class="cert-meta">
-//         Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}
-//       </div>
-
-//       <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
-//         ${
-//           photo 
-//           ? `<img class="cert-photo" alt="Student" src="${esc(photo)}">`
-//           : `<div class="cert-seal" title="Official Seal"></div>`
-//         }
-//         <img class="qr" alt="Verify" 
-//              src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=OPENLEARN-${encodeURIComponent(course.id)}">
-//       </div>
-
-//       <div class="cert-signs">
-//         <div class="sig">
-//           <div style="height:24px"></div>
-//           ${
-//             sig.registrar 
-//               ? `<img class="sig-img" alt="Registrar" src="${esc(sig.registrar)}">`
-//               : `<div>______________________</div>`
-//           }
-//           <div>Registrar</div>
-//         </div>
-//         <div class="sig">
-//           <div style="height:24px"></div>
-//           ${
-//             sig.dean 
-//               ? `<img class="sig-img" alt="Dean of Studies" src="${esc(sig.dean)}">`
-//               : `<div>______________________</div>`
-//           }
-//           <div>Dean of Studies</div>
-//         </div>
-//       </div>
-//     </div>
-
-//     <!-- Controls (no-print) -->
-//     <div class="row cert-actions no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
-//       <input id="certName" class="input" placeholder="Student name" value="${esc(name)}" style="max-width:220px">
-//       <input id="certPhoto" class="input" placeholder="Photo URL (optional)" value="${esc(photo)}" style="max-width:280px">
-//       <input id="sigRegistrar" class="input" placeholder="Registrar signature URL" value="${esc(sig.registrar)}" style="max-width:280px">
-//       <input id="sigDean" class="input" placeholder="Dean signature URL" value="${esc(sig.dean)}" style="max-width:280px">
-//       <button class="btn" id="certApply">Apply</button>
-//       <button class="btn" id="certPrint">Print</button>
-//       <button class="btn" id="certClose2">Close</button>
-//     </div>
-//   `;
-//   $("#certModal")?.showModal();
-
-//   // controls
-//   $("#certApply")?.addEventListener("click", () => {
-//     const newName = $("#certName")?.value.trim();
-//     const newPhoto = $("#certPhoto")?.value.trim();
-//     const newSig = {
-//       registrar: $("#sigRegistrar")?.value.trim() || "",
-//       dean: $("#sigDean")?.value.trim() || ""
-//     };
-//     // profile name/photo ကို သိမ်း (အမြဲအသုံးဝင်)
-//     const p = getProfile();
-//     setProfile({ ...p, displayName: newName || p.displayName, photoURL: newPhoto || p.photoURL });
-//     _write("ol_signatures", newSig);
-//     // UI refresh
-//     showCertificate(course);
-//   });
-
-// //   $("#certPrint")?.addEventListener("click", () => window.print());
-// //   $("#certClose2")?.addEventListener("click", () => $("#certModal")?.close());
-// }
-// $("#certClose")?.addEventListener("click", ()=> $("#certModal")?.close());
-// $("#certPrint")?.addEventListener("click", ()=> window.print());
 
 async function tryFetch(path) {
   try { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) return null; return await r.json(); } catch { return null; }
