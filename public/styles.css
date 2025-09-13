@@ -896,19 +896,16 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 #certModal .row { width: min(1123px, 96vw); margin: 10px auto 0; }
 
 /* ===== PRINT: certificate only, full page ===== */
+/* ==== CERT PRINT — A4 landscape, single page, slight margins ==== */
 @page { size: A4 landscape; margin: 8mm; }
+
 @media print {
-  /* show only the certificate */
-  body * { visibility: hidden !important; }
-  /* Dialog/backdrop side-effects မဖြစ်အောင် */
+  html, body { height: auto !important; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-  /* ✅ အခြား content တွေကို ပြီးပြတ်ပေး (layout space မကျန်အောင် display:none သုံး) */
+  /* Show only the cert modal contents */
   body > :not(#certModal) { display: none !important; }
-  #certModal, #certBody, .cert-doc, .cert-doc * { visibility: visible !important; }
-  #certModal::backdrop { display: none !important; }
-  /* modal ကို page layout ထဲမှာ static လုပ် */
-  #certModal {
+  #certModal { 
     position: static !important;
     inset: auto !important;
     padding: 0 !important;
@@ -917,25 +914,28 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
     width: auto !important;
     height: auto !important;
   }
-  #certBody   { display: block; overflow: visible; }
-  /* ✅ Certificate ကို A4 usable area ထဲမှာ တိတိကျကျ စာရွက်တစ်ရွက်ပဲ ထုတ် */
+  #certModal::backdrop { display: none !important; }
+
+  /* Buttons/controls off */
+  #certModal .btn,
+  #certModal .row,
+  .no-print, .cert-actions { display: none !important; }
+
+  /* Fit exactly in the usable A4 area (landscape) to avoid page 2 */
   .cert-doc {
     box-sizing: border-box;
-    /* A4 landscape usable area = 297×210 − (8mm × 2) margins */
-    width: calc(297mm - 16mm);
-    height: calc(210mm - 16mm);
+    width: calc(297mm - 16mm);   /* 297 - (8mm*2) */
+    height: calc(210mm - 16mm);  /* 210 - (8mm*2) */
     margin: 0 auto !important;
-    padding: 6mm;               /* အတွင်း padding (box-sizing:border-box ကြောင့် usable အတွင်းမှာပဲ) */
+    padding: 6mm;                /* inner breathing room */
     background: #fff !important;
     border: none !important;
     box-shadow: none !important;
-    overflow: hidden !important;/* 🔑 overflow ကြောင့် 2nd page မရောက်အောင် */
+    overflow: hidden !important; /* prevent spill → no blank page 2 */
     page-break-inside: avoid;
     break-inside: avoid;
   }
-  /* hide buttons/rows */
-  #certModal .row, .btn, .no-print, .cert-actions { display: none !important; }
-  /* Logo/Photo စသည့် image တွေ ပြာညိုမသွားအောင် */
+
   .cert-logo, .cert-photo, .cert-seal, .sig-img {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;

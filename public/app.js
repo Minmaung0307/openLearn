@@ -1175,6 +1175,12 @@ function showCertificate(course) {
     showPage("profile");
     $("#certModal")?.close();
   }, { once: true });
+
+//   const printBtn = $("#certPrint");
+// if (printBtn && !printBtn._wired) {
+//   printBtn._wired = true;
+//   printBtn.addEventListener("click", () => window.print(), { once: true });
+// }
 }
 
 // function showCertificate(course) {
@@ -1264,8 +1270,8 @@ function showCertificate(course) {
 // //   $("#certPrint")?.addEventListener("click", () => window.print());
 // //   $("#certClose2")?.addEventListener("click", () => $("#certModal")?.close());
 // }
-$("#certClose")?.addEventListener("click", ()=> $("#certModal")?.close());
-$("#certPrint")?.addEventListener("click", ()=> window.print());
+// $("#certClose")?.addEventListener("click", ()=> $("#certModal")?.close());
+// $("#certPrint")?.addEventListener("click", ()=> window.print());
 
 async function tryFetch(path) {
   try { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) return null; return await r.json(); } catch { return null; }
