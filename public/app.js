@@ -231,7 +231,8 @@ async function saveEnrollsCloud(set) {
   if (!hasFirestore()) {
     // console.warn("Firestore not available → using local enrolls only");
     renderCatalog(); 
-    renderMyLearning?.();
+    // renderMyLearning?.();
+    window.renderMyLearning?.();
     return;
   }
   const ref = enrollDocRef();
@@ -247,7 +248,7 @@ async function syncEnrollsBothWays() {
   if (!hasFirestore()) {
     console.warn("Firestore not available → using local enrolls only");
     renderCatalog();
-    renderMyLearning?.();
+window.renderMyLearning?.();
     return;
   }
 
@@ -588,7 +589,11 @@ function initAuthModal() {
 function markEnrolled(id) {
   const s = getEnrolls(); s.add(id); setEnrolls(s);
   saveEnrollsCloud(s); // fire-and-forget cloud update
-  toast("Enrolled"); renderCatalog(); renderMyLearning(); showPage("mylearning");
+//   toast("Enrolled"); renderCatalog(); renderMyLearning(); showPage("mylearning");
+toast("Enrolled");
+renderCatalog();
+window.renderMyLearning?.();
+showPage("mylearning");
 }
 function handleEnroll(id) {
   const c = ALL.find(x=>x.id===id) || getCourses().find(x=>x.id===id);
@@ -854,16 +859,22 @@ function renderProfilePanel() {
   const name   = p.displayName || getUser()?.email || "Guest";
   const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
 
-  const completed = getCompletedRaw();                       // ← all completed
+//   const completed = getCompletedRaw();                       // ← all completed
   const dic = new Map((ALL.length ? ALL : getCourses()).map(c => [c.id, c]));
 
-  const transcriptItems = getCompletedRaw().map(x => {
-  const c = dic.get(x.id);
-  return { meta:x, course:c, title: c?.title || x.id };
-});
+//   const transcriptItems = getCompletedRaw().map(x => {
+//   const c = dic.get(x.id);
+//   return { meta:x, course:c, title: c?.title || x.id };
+// });
+const transcriptItems = getCompletedRaw()
+   .map(x => {
+     const c = dic.get(x.id);
+     return { meta:x, course:c, title: c?.title || x.id };
+   })
+   .filter(x => x.course); // ✅ guard
 
   const certItems = transcriptItems
-    .map(x => ({ ...x, cert: getIssuedCert(x.course.id) }))
+   .map(x => ({ ...x, cert: getIssuedCert(x.course?.id) }))
     .filter(x => x.cert);                                    // only those issued
 
   const transcriptHtml = transcriptItems.length ? `
@@ -1231,9 +1242,9 @@ function renderMyLearning() {
   // --- renderMyLearning() မထဲက buttons template ကို ဒီလို ပြောင်း --- 
 grid.innerHTML = list.map((c)=>{
   const isDone  = completed.has(c.id);
-  const issued  = !!getIssuedCert(c.id);
-//   const label   = isDone ? "Review" : "Continue";     // ← အဓိက
-const label = completed.has(c.id) ? "Review" : "Continue";
+ const issued  = !!getIssuedCert(c.id);
+ const label   = isDone ? "Review" : "Continue";
+
   return `<div class="card course" data-id="${c.id}">
     <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
     <div class="course-body">
@@ -1814,14 +1825,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof syncEnrollsBothWays === "function") {
     //   await syncEnrollsBothWays();
     //   await syncProgressBothWays();   // ⬅️ add this
-    await syncEnrollsBothWays();
-    await syncProgressBothWays();
-    await migrateProgressKey();
-    await syncEnrollsBothWays();
-    await syncProgressBothWays();
-      window.renderMyLearning?.();
+await migrateProgressKey();
+   await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
+    window.renderMyLearning?.();
     window.renderProfilePanel?.();
     window.renderGradebook?.();
+      window.renderMyLearning?.();
     }
   });
 }
@@ -1900,9 +1909,15 @@ addEventListener("pageshow", () => document.body.classList.remove("printing"));
 
 /* ---------- Finals Removal Shim ---------- */
 function stripFinalsUI() {
-  $("#btn-top-final")?.remove();
-  $$(`#sidebar .navbtn[data-page="finals"]`).forEach((b)=> b.remove());
-  $("#page-finals")?.remove();
-  $("#finalModal")?.remove();
-  document.querySelectorAll('[data-page="finals"]').forEach((n)=> n.remove());
+  document.querySelectorAll(`
+    #btn-top-final,
+    #finalModal,
+    #page-finals,
+    [data-page="finals"],
+    a[href="#finals"],
+    button[data-page="finals"]
+  `).forEach(n => n?.remove());
+  const s = document.createElement('style');
+  s.textContent = `.navbtn[data-page="finals"]{display:none!important}`;
+  document.head.appendChild(s);
 }
