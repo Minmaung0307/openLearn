@@ -100,6 +100,7 @@ const setPassedQuiz = (cid, idx, score) => {
   const prev = s[k]?.best || 0;
   s[k] = { best: Math.max(prev, score), passed: score >= 0.75 };
   setQuizState(s);
+  saveProgressCloud({ quiz: getQuizState(), ts: Date.now() });
 };
 
 // Add once (near top-level) to mute noisy Firestore channel terminate logs
@@ -162,6 +163,8 @@ function ensureCertIssued(course, profile, score){
       setDoc(cref, rec, { merge: true }).catch(()=>{});
     }
   } catch {}
+
+  saveProgressCloud({ certs: getCerts(), ts: Date.now() });
 
   return rec;
 }
@@ -703,11 +706,65 @@ $("#closeDetails")?.addEventListener("click", ()=> $("#detailsModal")?.close());
 /* =========================================================
    Part 4/6 — Profile, transcript, reader + quiz gating
    ========================================================= */
+function progressDocRef(){
+  const uid = auth?.currentUser?.uid || (getUser()?.email || "").toLowerCase();
+  return (uid && db) ? doc(db, "progress", uid) : null;
+}
+
+async function loadProgressCloud(){
+  const ref = progressDocRef(); if(!ref) return null;
+  try { const snap = await getDoc(ref); return snap.exists() ? snap.data() : null; }
+  catch { return null; }
+}
+async function saveProgressCloud(patch){
+  const ref = progressDocRef(); if(!ref) return;
+  try { await setDoc(ref, patch, { merge: true }); } catch {}
+}
+
+async function syncProgressBothWays(){
+  const cloud = await loadProgressCloud();
+
+  // local
+  const L_completed = getCompletedRaw();              // [{id,ts,score}]
+  const L_quiz      = getQuizState();                 // {"cid:idx":{best,passed}}
+  const L_certs     = getCerts();                     // {"uid|courseId":{...}}
+
+  if (!cloud) {
+    await saveProgressCloud({ completed: L_completed, quiz: L_quiz, certs: L_certs, ts: Date.now() });
+    return;
+  }
+
+  // merge completed by latest ts
+  const mapC = new Map();
+  [...cloud.completed||[], ...L_completed].forEach(x=>{
+    const prev = mapC.get(x.id);
+    if (!prev || (x.ts||0) > (prev.ts||0)) mapC.set(x.id, x);
+  });
+  const M_completed = Array.from(mapC.values());
+
+  // merge quiz: keep higher best + OR of passed
+  const keys = new Set([...(Object.keys(cloud.quiz||{})), ...(Object.keys(L_quiz))]);
+  const M_quiz = {};
+  keys.forEach(k=>{
+    const a = (cloud.quiz||{})[k] || {};
+    const b = L_quiz[k] || {};
+    M_quiz[k] = { best: Math.max(a.best||0, b.best||0), passed: !!(a.passed || b.passed) };
+  });
+
+  // merge certs: prefer cloud (already verified) then local
+  const M_certs = { ...(cloud.certs||{}), ...L_certs };
+
+  // write back both sides
+  setCompletedRaw(M_completed);
+  setQuizState(M_quiz);
+  setCerts(M_certs);
+  await saveProgressCloud({ completed: M_completed, quiz: M_quiz, certs: M_certs, ts: Date.now() });
+}
 
 /* ---------- Transcript v2 + Profile panel ---------- */
 const getCompletedRaw = () => _read("ol_completed_v2", []); // [{id, ts, score}]
 const setCompletedRaw = (arr) => _write("ol_completed_v2", arr || []);
-const hasCompleted    = (id) => getCompletedRaw().some((x) => x.id === id);
+// const hasCompleted    = (id) => getCompletedRaw().some((x) => x.id === id);
 const getCompleted    = () => new Set(getCompletedRaw().map((x) => x.id));
 
 function markCourseComplete(id, score = null) {
@@ -717,6 +774,7 @@ function markCourseComplete(id, score = null) {
     setCompletedRaw(arr);
   }
   renderProfilePanel?.(); renderMyLearning?.();
+  saveProgressCloud({ completed: getCompletedRaw(), ts: Date.now() });
 }
 
 function renderProfilePanel() {
@@ -729,26 +787,27 @@ function renderProfilePanel() {
   const completed = getCompletedRaw();                       // ← all completed
   const dic = new Map((ALL.length ? ALL : getCourses()).map(c => [c.id, c]));
 
-  const transcriptItems = completed
-    .map(x => ({ meta:x, course: dic.get(x.id) }))
-    .filter(x => x.course);
+  const transcriptItems = getCompletedRaw().map(x => {
+  const c = dic.get(x.id);
+  return { meta:x, course:c, title: c?.title || x.id };
+});
 
   const certItems = transcriptItems
     .map(x => ({ ...x, cert: getIssuedCert(x.course.id) }))
     .filter(x => x.cert);                                    // only those issued
 
   const transcriptHtml = transcriptItems.length ? `
-    <table class="ol-table small" style="margin-top:.35rem">
-      <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
-      <tbody>
-        ${transcriptItems.map(({course, meta}) => `
-          <tr>
-            <td>${esc(course.title)}</td>
-            <td>${new Date(meta.ts).toLocaleDateString()}</td>
-            <td>${meta.score != null ? Math.round(meta.score*100) + "%" : "—"}</td>
-          </tr>`).join("")}
-      </tbody>
-    </table>` : `<div class="small muted">No completed courses yet.</div>`;
+  <table class="ol-table small" style="margin-top:.35rem">
+    <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
+    <tbody>
+      ${transcriptItems.map(r => `
+        <tr>
+          <td>${esc(r.title)}</td>
+          <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
+          <td>${r.meta.score != null ? Math.round(r.meta.score*100) + "%" : "—"}</td>
+        </tr>`).join("")}
+    </tbody>
+  </table>` : `<div class="small muted">No completed courses yet.</div>`;
 
   const certSection = certItems.length ? `
     <div style="margin-top:14px">
@@ -1061,7 +1120,10 @@ function showCongrats() {
 }
 
 function renderMyLearning() {
-  const grid = $("#myCourses");
+    // before writing innerHTML
+const oldGrid = $("#myCourses");
+const newGrid = oldGrid.cloneNode(false);
+oldGrid.parentNode.replaceChild(newGrid, oldGrid);
   if (!grid) return;
 
   // Hide cards while reader open
@@ -1081,7 +1143,7 @@ function renderMyLearning() {
   }
 
   // --- renderMyLearning() မထဲက buttons template ကို ဒီလို ပြောင်း --- 
-grid.innerHTML = list.map((c)=>{
+newGrid.innerHTML = list.map((c)=>{
   const isDone  = completed.has(c.id);
   const issued  = !!getIssuedCert(c.id);
   const label   = isDone ? "Review" : "Continue";     // ← အဓိက
@@ -1100,12 +1162,12 @@ grid.innerHTML = list.map((c)=>{
 }).join("");
 
   // wire buttons (this was missing → caused “can’t click”)
-  grid.querySelectorAll("[data-read]").forEach((b)=> b.onclick = ()=>{
+  newGrid.querySelectorAll("[data-read]").forEach((b)=> b.onclick = ()=>{
     const id = b.getAttribute("data-read");
     openReader(id);
   });
 
-  grid.querySelectorAll("[data-cert]").forEach((b)=> b.onclick = ()=>{
+  newGrid.querySelectorAll("[data-cert]").forEach((b)=> b.onclick = ()=>{
     const id = b.getAttribute("data-cert");
     const rec = getIssuedCert(id);
     if (!rec) return toast("Certificate not issued yet");
@@ -1653,6 +1715,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     gateChatUI();
     if (typeof syncEnrollsBothWays === "function") {
       await syncEnrollsBothWays();
+      await syncProgressBothWays();   // ⬅️ add this
     }
   });
 }
@@ -1663,6 +1726,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Data
   await loadCatalog().catch(()=>{});
   ALL = getCourses();
+  // ⬇️ user ရှိပြီး firestore သုံးစွဲနိုင်ရင် ချက်ချင်း sync
+if (getUser() && !!db) {
+  await syncProgressBothWays().catch(()=>{});
+}
   renderCatalog(); renderAdminTable(); renderProfilePanel?.(); renderAnnouncements();
 
   // One-time import/export wiring
@@ -1714,6 +1781,12 @@ setTimeout(() => {
     hardCloseCert();
   }
 }, 0);
+
+// ✅ Route leaves → always close cert
+  addEventListener("hashchange", () => hardCloseCert());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") hardCloseCert();
+  });
 });
 
 /* ---------- Finals Removal Shim ---------- */

@@ -26,6 +26,7 @@
   --pill-ann: #1f2a44;
   --pill-ann-txt: #d6dcff;
   /* ❌ finals pill removed */
+  scrollbar-gutter: stable both-edges;
 }
 
 /* Reset / base */
@@ -44,9 +45,10 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
     Helvetica, Arial, Noto Sans, sans-serif;
   -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
 }
 
-html, body { height: 100%; background: var(--bg); }
+html, body { height: 100%; background: var(--bg); margin: 0; }
 
 /* Helpers */
 .hidden,
@@ -273,9 +275,12 @@ body.sidebar-expanded #sidebar .navbtn span {
   padding-top: var(--topbar-offset);
 }
 #main {
+  box-sizing: border-box;
+  width: 100%;
   position: relative;
   min-height: 100vh;
-  padding: 0;
+  background: var(--bg);
+  padding: calc(var(--topbar-offset, 0px) + 16px) 16px 68px 16px;
   z-index: 1;
   /* padding-left: calc(var(--sidebar-w) + 8px);
   padding-right: 16px;
@@ -292,6 +297,8 @@ body.sidebar-expanded #main {
   margin: 0 auto;
   max-width: 1200px;
   padding-bottom: 24px;
+  background: var(--bg);
+  min-height: calc(100vh - var(--topbar-offset, 0px) - 68px);
 }
 .page.visible {
   padding: 16px;
@@ -805,6 +812,7 @@ textarea::placeholder {
 .sig-img { width: 120px; height: auto; object-fit: contain; }
 /* Logo */
 .cert-logo {
+  margin-top: 4mm;
   width: 90px;
   position: absolute;
   top: 25px;       /* ပိုနည်းခဲ့ရင် logo ပြတ်သွားမယ် */
@@ -918,6 +926,7 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 
 /* Signatures section */
 .cert-signs {
+  margin-bottom: 6mm;
   display: flex;
   justify-content: space-between;
   gap: 40px;
@@ -935,7 +944,7 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 /* ==== CERT PRINT — A4 landscape, single page, slight margins ==== */
 /* A4 landscape + ကွာဟချက် 12mm (အပေါ်အောက်နှစ်ဖက်ပေါင်း 24mm) */
 /* A4 landscape + safe margins */
-@page { size: A4 landscape; margin: 10mm; } /* များလွန်းရင် 8mm အထိလျှော့နိုင် */
+@page { size: A4 landscape; margin: 14mm; } /* များလွန်းရင် 8mm အထိလျှော့နိုင် */
 
 @media print {
   body * { visibility: hidden !important; }
@@ -955,7 +964,8 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
     width: calc(297mm - 20mm);
     height: calc(210mm - 20mm);
     margin: 0 auto !important;
-    padding: 8mm 10mm 12mm;  /* top/side/bottom → bottom နည်းနည်းများ */
+    transform: none !important;
+    padding: 10mm 12mm 8mm;  /* top/side/bottom → bottom နည်းနည်းများ */
     background:#fff !important;
     box-shadow:none !important;
     overflow:hidden !important;
