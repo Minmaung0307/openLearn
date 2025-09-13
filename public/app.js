@@ -1204,59 +1204,78 @@ document.addEventListener("DOMContentLoaded", ()=>{
 });
 
 // Hard reset for stuck UI after print/backdrop
+// ===== UI hard reset when things get stuck (modal/backdrop/printing) =====
 function hardCloseCert() {
+  // 1) print lifecycle handlers + state
   try { window.onbeforeprint = null; window.onafterprint = null; } catch {}
   document.body.classList.remove("printing");
 
+  // 2) close dialog safely
   const dlg = document.getElementById("certModal");
-  if (dlg && typeof dlg.close === "function") dlg.close();
+  if (dlg) {
+    try { dlg.close(); } catch {}
+    dlg.removeAttribute("open");           // some browsers need this
+  }
 
+  // 3) purge dialog contents to avoid “ghost” buttons under page
+  const bodyEl = document.getElementById("certBody");
+  if (bodyEl) bodyEl.innerHTML = "";
+
+  // 4) restore My Learning grid visibility
   const r = document.getElementById("reader");
   if (r) r.classList.add("hidden");
   const grid = document.getElementById("myCourses");
   if (grid) grid.style.display = "";
 
+  // 5) ensure we’re back on My Learning without pushing new history
   showPage("mylearning", false);
 }
 
 function showCertificate(course, opts = { issueIfMissing: true }) {
+  const dlg = document.getElementById("certModal");
+  const bodyEl = document.getElementById("certBody");
+  if (!dlg || !bodyEl) return;
+
+  // guard: certBody သည် dialog အတွင်းမှာပဲ ရှိရမယ်
+  if (!bodyEl.closest("#certModal")) {
+    console.warn("certBody is not inside certModal — abort rendering.");
+    return;
+  }
+
+  // 1) record/find existing certificate (issue once)
   const prof = getProfile();
   const completed = getCompletedRaw().find(x => x.id === course.id);
   const score = completed?.score ?? null;
 
   let rec = getIssuedCert(course.id);
-  if (!rec && opts.issueIfMissing) {
-    rec = ensureCertIssued(course, prof, score);
-  }
+  if (!rec && opts.issueIfMissing) rec = ensureCertIssued(course, prof, score);
   if (!rec) { toast("Certificate not issued yet"); return; }
 
-  // Render
-  document.getElementById("certBody").innerHTML = renderCertificate(course, rec);
+  // 2) render fresh HTML
+  bodyEl.innerHTML = renderCertificate(course, rec);
 
-  const dlg = document.getElementById("certModal");
-  if (!dlg) return;
-  dlg.showModal();
+  // 3) open the dialog
+  if (!dlg.open) dlg.showModal();
 
-  // reset handlers
+  // 4) de-duplicate handlers
   const oldPrint = document.getElementById("certPrint");
   const oldClose = document.getElementById("certClose");
   if (oldPrint) oldPrint.replaceWith(oldPrint.cloneNode(true));
   if (oldClose) oldClose.replaceWith(oldClose.cloneNode(true));
+
   const printBtn = document.getElementById("certPrint");
   const closeBtn = document.getElementById("certClose");
 
+  // 5) wire fresh handlers
   printBtn?.addEventListener("click", () => window.print());
   closeBtn?.addEventListener("click", () => hardCloseCert());
 
-  dlg.addEventListener("cancel", (e) => { e.preventDefault(); hardCloseCert(); }, { once:true });
+  // ESC/backdrop => close once
+  dlg.addEventListener("cancel", (e) => { e.preventDefault(); hardCloseCert(); }, { once: true });
 
+  // 6) print lifecycle — always restore UI no matter what
   window.onbeforeprint = () => document.body.classList.add("printing");
   window.onafterprint  = () => hardCloseCert();
-
-  // stray controls (page body) ရှိနေချိန် cleanup
-document.querySelectorAll("#certPrint, #certClose").forEach(n => {
-  if (!n.closest("#certModal")) n.remove();
-});
 }
 
 async function tryFetch(path) {

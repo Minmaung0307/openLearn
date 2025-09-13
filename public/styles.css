@@ -929,40 +929,58 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 
 /* ===== PRINT: certificate only, full page ===== */
 /* ==== CERT PRINT — A4 landscape, single page, slight margins ==== */
-@page { size: A4 landscape; margin: 8mm; }
+/* A4 landscape + ကွာဟချက် 12mm (အပေါ်အောက်နှစ်ဖက်ပေါင်း 24mm) */
+@page { size: A4 landscape; margin: 12mm; }
 
 @media print {
+  /* အခြား layout တွေကို ပိတ်ပြီး certificate တစ်ခုတည်း ထုတ် */
   body * { visibility: hidden !important; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-  /* show only certificate content */
+  /* dialog/backdrop side effects ရှင်း */
   body > :not(#certModal) { display: none !important; }
   #certModal, #certBody, .cert-doc, .cert-doc * { visibility: visible !important; }
-  #certModal::backdrop { display: none !important; }
+  #certModal { position: static !important; inset: auto !important; padding: 0 !important; margin: 0 !important; border: 0 !important; }
+  #certBody { display: block !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; }
 
-  #certModal {
-    position: static !important; inset: auto !important;
-    padding: 0 !important; margin: 0 !important; border: 0 !important;
-    width: auto !important; height: auto !important;
-  }
-
-  #certBody { display: block; overflow: visible !important; }
-
+  /* ===== Certificate frame ကို စာရွက် usable area ထဲတိတိကျကျ ===== */
   .cert-doc {
     box-sizing: border-box;
-    width: calc(297mm - 16mm);    /* page width minus margins */
-    height: calc(210mm - 16mm);   /* page height minus margins */
+    /* A4 landscape usable area = 297×210 − margins(12mm×2) */
+    width:  calc(297mm - 24mm);
+    height: calc(210mm - 24mm);
     margin: 0 auto !important;
-    padding: 6mm;                 /* inner padding inside usable area */
+
+    /* 🔑 အပေါ်/အောက် padding ကို လုံလောက်အောင် — logo/title မကပ်, signatures မပြတ် */
+    padding: 14mm 16mm 16mm;   /* top / sides / bottom */
+
     background: #fff !important;
     border: none !important;
     box-shadow: none !important;
-    overflow: hidden !important;
-    page-break-inside: avoid; break-inside: avoid;
+    overflow: hidden !important;   /* 2nd page မထွက်အောင် */
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
-  /* hide controls */
-  #certModal .no-print, #certModal .btn, #certModal .row { display: none !important; }
+  /* 🔧 View မှာ absolute ဖြစ်ထားတဲ့ logo ကို Print မှာ static လုပ် → clipping မဖြစ် */
+  .cert-logo {
+    position: static !important;
+    width: 24mm !important;
+    height: auto !important;
+    margin: 0 0 4mm 0 !important;  /* logo အောက်မှာ အနည်းငယ် အကွာရ */
+  }
+
+  /* Title ကို print မှာ ထပ်တိုး spacing */
+  .cert-head { margin-top: 0 !important; }
+  .cert-name { margin: 4mm 0 2mm !important; }
+
+  /* Signatures ကို အောက်ဘောင်မကပ်အောင် spacing ပေး + page-break မဖြစ် */
+  .cert-signs {
+    margin-top: 8mm !important;
+    gap: 12mm !important;
+  }
+  .cert-signs .sig { break-inside: avoid; }
+  .sig-img { max-height: 20mm !important; }
 }
 
 /* certificate dialog မဖွင့်ခင်에는 controls မပေါ်အောင် */
