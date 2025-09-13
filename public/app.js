@@ -160,22 +160,46 @@ async function loadEnrollsCloud(){
   try { const snap = await getDoc(ref); return snap.exists() ? new Set(snap.data().courses || []) : new Set(); }
   catch { return null; }
 }
-async function saveEnrollsCloud(set){
-  const ref = enrollDocRef(); if(!ref) return;
-  try { await setDoc(ref, { courses: Array.from(set), ts: Date.now() }, { merge: true }); }
-  catch {}
+function hasFirestore() {
+  // firebase.js ထဲက export ထဲမှာ getFirestore / db ရှိမရှိ စစ်
+  return (typeof getFirestore === "function") && !!window.db;
 }
-async function syncEnrollsBothWays(){
-  const local = getEnrolls();
-  const cloud = await loadEnrollsCloud();
-  if (cloud) {
-    const merged = new Set([...local, ...cloud]);
-    setEnrolls(merged);
-    await saveEnrollsCloud(merged);
-  } else {
-    await saveEnrollsCloud(local);
+
+async function saveEnrollsCloud(set) {
+  if (!hasFirestore()) return;   // ❌ Firestore မရှိရင် လုံးဝ skip
+  const ref = enrollDocRef();
+  if (!ref) return;
+  try {
+    await setDoc(ref, { courses: Array.from(set), ts: Date.now() }, { merge: true });
+  } catch (e) {
+    console.warn("saveEnrollsCloud failed:", e.message || e);
   }
-  renderCatalog(); renderMyLearning?.();
+}
+
+async function syncEnrollsBothWays() {
+  if (!hasFirestore()) {
+    console.warn("Firestore not available → using local enrolls only");
+    renderCatalog();
+    renderMyLearning?.();
+    return;
+  }
+
+  try {
+    const local = getEnrolls();
+    const cloud = await loadEnrollsCloud();
+    if (cloud) {
+      const merged = new Set([...local, ...cloud]);
+      setEnrolls(merged);
+      await saveEnrollsCloud(merged);
+    } else {
+      await saveEnrollsCloud(local);
+    }
+  } catch (e) {
+    console.warn("syncEnrollsBothWays failed:", e.message || e);
+  }
+
+  renderCatalog();
+  renderMyLearning?.();
 }
 
 /* =========================================================
@@ -1009,7 +1033,7 @@ function showCertificate(course) {
         <div class="sig"><div style="height:24px"></div><div>______________________</div><div>Dean of Studies</div></div>
       </div>
     </div>
-    <div class="row" style="justify-content:flex-end; gap:8px; margin-top:10px">
+    <div class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
       <button class="btn" id="certTranscript" type="button">Open Transcript</button>
     </div>`;
   $("#certModal")?.showModal();

@@ -783,3 +783,16 @@ textarea::placeholder {
 /* If inner text looked too pale, ensure: */
 #annList .card { background: var(--card); color: var(--fg); border-color: var(--border); }
 #annList .muted { color: var(--muted); }
+
+/* hide controls when printing */
+@media print {
+  .no-print, .no-print * { display: none !important; }
+  /* show only the certificate document cleanly */
+  #certBody { padding: 0 !important; }
+  #certBody .cert-doc {
+    box-shadow: none !important;
+    border: none !important;
+  }
+  /* dialog backdrops don’t print anyway, but make sure layout is normal */
+  .ol-modal { position: static !important; inset: auto !important; }
+}
