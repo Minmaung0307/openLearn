@@ -1814,11 +1814,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof syncEnrollsBothWays === "function") {
     //   await syncEnrollsBothWays();
     //   await syncProgressBothWays();   // ⬅️ add this
+    await syncEnrollsBothWays();
+    await syncProgressBothWays();
     await migrateProgressKey();
     await syncEnrollsBothWays();
     await syncProgressBothWays();
       window.renderMyLearning?.();
     window.renderProfilePanel?.();
+    window.renderGradebook?.();
     }
   });
 }
