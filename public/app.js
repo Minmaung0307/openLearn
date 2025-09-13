@@ -39,6 +39,13 @@ const toast = (m, ms = 2200) => {
 const _read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || JSON.stringify(d)); } catch { return d; } };
 const _write = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
+/* ---------- Firefox safe stubs ---------- */
+window.renderProfilePanel  ||= () => {};
+window.renderMyLearning    ||= () => {};
+window.renderGradebook     ||= () => {};
+window.renderAdminTable    ||= () => {};
+window.renderAnnouncements ||= () => {};
+
 /* ---------- responsive theme / font ---------- */
 const PALETTES = { /* ... (unchanged palettes) ... */ 
   slate:{bg:"#0b0f17",fg:"#eaf1ff",card:"#111827",muted:"#9fb0c3",border:"#1f2a3b",btnBg:"#0f172a",btnFg:"#eaf1ff",btnPrimaryBg:"#2563eb",btnPrimaryFg:"#fff"},
@@ -424,10 +431,10 @@ function showPage(id, push = true) {
     b.classList.toggle("active", b.dataset.page === id)
   );
 
-  if (id === "mylearning") renderMyLearning();
-  if (id === "gradebook") renderGradebook();
-  if (id === "admin") renderAdminTable();
-  if (id === "dashboard") renderAnnouncements();
+  if (id === "mylearning") window.renderMyLearning?.();
+if (id === "gradebook")  window.renderGradebook?.();
+if (id === "admin")      window.renderAdminTable?.();
+if (id === "dashboard")  window.renderAnnouncements?.();
 
   // 🔑 update browser history (default true)
   if (push) {
@@ -507,7 +514,8 @@ function setLogged(on, email) {
   $("#btn-logout") && ($("#btn-logout").style.display = on ? "" : "none");
   document.body.classList.toggle("logged", !!on);
   document.body.classList.toggle("anon", !on);
-  renderProfilePanel?.();
+//   renderProfilePanel?.();
+window.renderProfilePanel?.();
 }
 function initAuthModal() {
   ensureAuthModalMarkup();
@@ -856,6 +864,7 @@ function renderProfilePanel() {
     });
   });
 }
+window.renderProfilePanel = renderProfilePanel;
 
 /* ---------- Profile Edit modal wiring ---------- */
 $("#btn-edit-profile")?.addEventListener("click", () => {
@@ -1190,6 +1199,7 @@ grid.innerHTML = list.map((c)=>{
     if (c) showCertificate(c); // view only; won’t issue new
   });
 }
+window.renderMyLearning = renderMyLearning;
 
 function renderCertificate(course, cert) {
   const p = getProfile();
@@ -1460,6 +1470,7 @@ function renderGradebook() {
       <td>${esc(r.progress)}</td>
     </tr>`).join("") : "<tr><td colspan='5' class='muted'>No data</td></tr>";
 }
+window.renderGradebook = renderGradebook;
 
 /* ---------- Admin (table + drill-down modal) ---------- */
 function renderAdminTable() {
@@ -1519,6 +1530,7 @@ function renderAdminTable() {
   });
   $("#avmClose")?.addEventListener("click", ()=> $("#adminViewModal")?.close());
 }
+window.renderAdminTable = renderAdminTable;
 
 /* ---------- Import / Export ---------- */
 function wireAdminImportExportOnce() {
@@ -1561,6 +1573,8 @@ function renderAnnouncements() {
     </div>`).join("") || `<div class="muted">No announcements yet.</div>`;
   wireAnnouncementEditButtons();
 }
+window.renderAnnouncements = renderAnnouncements;
+
 function wireAnnouncementEditButtons() {
   const box = $("#annList"); if (!box) return;
   box.querySelectorAll("[data-edit]").forEach((btn)=> btn.onclick = () => {
@@ -1745,7 +1759,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 if (getUser() && !!db) {
   await syncProgressBothWays().catch(()=>{});
 }
-  renderCatalog(); renderAdminTable(); renderProfilePanel?.(); renderAnnouncements();
+  renderCatalog();
+window.renderAdminTable?.();
+window.renderProfilePanel?.();
+window.renderAnnouncements?.();
 
   // One-time import/export wiring
   wireAdminImportExportOnce();
