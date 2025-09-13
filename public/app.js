@@ -1148,11 +1148,11 @@ function showCertificate(course) {
     showCertificate(course);
   });
 
-  $("#certPrint")?.addEventListener("click", () => window.print());
-  $("#certClose2")?.addEventListener("click", () => $("#certModal")?.close());
+//   $("#certPrint")?.addEventListener("click", () => window.print());
+//   $("#certClose2")?.addEventListener("click", () => $("#certModal")?.close());
 }
-// $("#certClose")?.addEventListener("click", ()=> $("#certModal")?.close());
-// $("#certPrint")?.addEventListener("click", ()=> window.print());
+$("#certClose")?.addEventListener("click", ()=> $("#certModal")?.close());
+$("#certPrint")?.addEventListener("click", ()=> window.print());
 
 async function tryFetch(path) {
   try { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) return null; return await r.json(); } catch { return null; }
