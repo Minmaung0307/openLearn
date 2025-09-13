@@ -1092,12 +1092,16 @@ function launchFireworks() {
 }
 
 function showCongrats() {
-  // issue cert once when course completed
+  // ✅ previous printing/modal/backdrop state မကျန်အောင်
+  hardCloseCert();
+
+  // ✅ issue cert (once)
   const course = ALL.find(x => x.id === RD.cid) || getCourses().find(x => x.id === RD.cid);
   if (course) {
     const prof = getProfile();
     ensureCertIssued(course, prof, LAST_QUIZ_SCORE || null);
   }
+
   const dlg = document.createElement("dialog");
   dlg.className = "ol-modal card";
   dlg.innerHTML = `
@@ -1111,12 +1115,26 @@ function showCongrats() {
     </div>`;
   document.body.appendChild(dlg);
   dlg.showModal();
-  $("#cgClose").onclick = () => dlg.close();
-  $("#cgCert").onclick = () => {
-    dlg.close();
-    const c = ALL.find((x)=>x.id===RD.cid) || getCourses().find((x)=>x.id===RD.cid);
-    if (c) showCertificate(c);
-  };
+
+  // ✅ once-only, safe wiring
+  dlg.querySelector("#cgClose")?.addEventListener("click", () => { dlg.close(); dlg.remove(); }, { once:true });
+
+  dlg.querySelector("#cgCert")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    dlg.close(); dlg.remove();
+    // printing class / stale handlers မကျန်အောင်
+    document.body.classList.remove("printing");
+    window.onbeforeprint = null;
+    window.onafterprint  = null;
+    // dialog ပိတ်ပြီး DOM settle သင့်—microtask နဲ့ဖွင့်
+    queueMicrotask(() => {
+      const c = course || (ALL.find(x => x.id === RD.cid) || getCourses().find(x => x.id === RD.cid));
+      if (c) showCertificate(c, { issueIfMissing:false });
+    });
+  }, { once:true });
+
+  // ESC ပိတ်နိုင်အောင်
+  dlg.addEventListener("cancel", (e)=>{ e.preventDefault(); dlg.close(); dlg.remove(); }, { once:true });
 }
 
 function renderMyLearning() {
@@ -1738,10 +1756,9 @@ if (getUser() && !!db) {
   // defensive: keep auth-required items clickable (CSS gates by JS)
   document.querySelectorAll("[data-requires-auth]").forEach((el)=>{ el.style.pointerEvents = "auto"; });
 
-  document.querySelectorAll('#certPrint, #certClose').forEach(el=>{
-  const inDialog = !!el.closest('#certModal');
-  if (!inDialog) el.remove();
-});
+  document.querySelectorAll('#certPrint, #certClose').forEach(el => {
+    if (!el.closest('#certModal')) el.remove();
+  });
 
   // Enable browser back to close reader -> My Learning
 // Enable browser back to close reader -> My Learning
@@ -1779,11 +1796,12 @@ setTimeout(() => {
   }
 }, 0);
 
-// ✅ Route leaves → always close cert
-  addEventListener("hashchange", () => hardCloseCert());
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") hardCloseCert();
-  });
+// Boot block အဆုံးတွင် ထည့်ပါ (သင့်ကုဒ်ထဲ add လုပ်ထားတာကို keep)
+addEventListener("hashchange", () => hardCloseCert());
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") hardCloseCert();
+});
+addEventListener("pageshow", () => document.body.classList.remove("printing"));
 });
 
 /* ---------- Finals Removal Shim ---------- */

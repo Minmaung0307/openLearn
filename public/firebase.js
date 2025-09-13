@@ -3,6 +3,13 @@
    <script src="/config.js"></script>
    <script type="module" src="/firebase.js"></script>
 */
+// ---- Put this at TOP of firebase.js, BEFORE initializing Firebase ----
+(function muteFirestoreTerminate400(){
+  const noisy = /google\.firestore\.v1\.Firestore\/(Write|Listen)\/channel.*TYPE=terminate/i;
+  const origE = console.error, origW = console.warn;
+  console.error = function(...args){ if(args.some(a=> typeof a==="string" && noisy.test(a))) return; origE.apply(console,args); };
+  console.warn  = function(...args){ if(args.some(a=> typeof a==="string" && noisy.test(a))) return; origW.apply(console,args); };
+})();
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -14,7 +21,8 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   updateProfile,
-  signOut
+  signOut,
+  useDeviceLanguage,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
@@ -65,7 +73,7 @@ export const app = initializeApp(cfg);
 export const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence).catch(() => {});
 // (Optional) nicer emails for some locales
-try { auth.useDeviceLanguage(); } catch {}
+try { useDeviceLanguage(auth); } catch {}
 
 /* Firestore */
 export const db = getFirestore(app);
