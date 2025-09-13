@@ -744,15 +744,21 @@ textarea::placeholder {
 }
 
 .cert-doc {
-  position: relative;               /* for absolute logo/seal/photo */
+  box-sizing: border-box;
+  width: 100%;             /* dialog အကျယ်ထဲကို အပြည့် */
+  max-width: 1000px;       /* print အတွက် control (A4 landscape ~ 1000px) */
+  height: auto;            /* fixed height မသုံးပါ */
+  min-height: 650px;       /* အနည်းဆုံး အမြင့် */
+  margin: 0 auto;
+  padding: 30px 40px 80px; /* ပေါ်30px / ညာ40px / အောက်80px => logo/title မပြတ်, signatures margin ရ */
   background: #fff;
   border: 1px solid #ddd;
-  padding: 24px 32px 28px;
   border-radius: 12px;
   box-shadow: 0 6px 30px rgba(0,0,0,.08);
-  width: 1000px;                    /* desktop preview size */
-  margin: 0 auto;
+  position: relative;      /* logo absolute positioning သုံးမယ်ဆိုရင်လိုတယ် */
+  overflow: hidden;        /* scroll မဖြစ်အောင် */
 }
+
 .cert-head { font-size:26px; font-weight:800; text-align:center; margin-top: 46px; color:#222;}
 .cert-sub  { text-align:center; color:#555; margin:4px 0 10px; }
 .cert-name {
@@ -787,8 +793,19 @@ textarea::placeholder {
   display: flex; gap: 24px; justify-content: space-between;
 }
 .cert-signs .sig { text-align:center; flex:1; }
+.cert-signs .sig-label {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #444;
+}
 .sig-img { width: 120px; height: auto; object-fit: contain; }
-.cert-logo { width: 84px; height: auto; position: absolute; top: 22px; left: 20px; }
+/* Logo */
+.cert-logo {
+  width: 90px;
+  position: absolute;
+  top: 25px;       /* ပိုနည်းခဲ့ရင် logo ပြတ်သွားမယ် */
+  left: 25px;
+}
 .sig { text-align: center; flex: 1; font-size: 12px; color:#444; }
 /* screen view မှာ modal အောက်က ခလုတ် row ကို အပေါ်ယံချည်းပဲပြ (print မှာတှာ် hidden already) */
 /* Controls row in modal (screen only; print မှာ already hidden) */
@@ -864,7 +881,7 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
   height: auto;
 }
 
-.cert-head { font-size: 26px; font-weight: 800; text-align: center; margin-top: 46px; color:#222; }
+.cert-head { font-size: 26px; font-weight: 800; text-align: center; margin-top: 60px; color:#222; }
 .cert-sub  { text-align: center; color:#555; margin: 4px 0 10px; }
 
 .cert-photo {
@@ -881,7 +898,7 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
   text-align: center;
   font-size: 28px;
   font-weight: 800;
-  margin: 8px 0 4px;
+  margin: 16px 0 4px;
   color: #222;
 }
 
@@ -895,10 +912,13 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 
 .cert-meta { text-align: center; color: #555; margin-top: 6px; }
 
+/* Signatures section */
 .cert-signs {
-  position: absolute;
-  left: 60px; right: 60px; bottom: 46px;
-  display: flex; gap: 24px; justify-content: space-between;
+  display: flex;
+  justify-content: space-between;
+  gap: 40px;
+  margin-top: 60px;     /* body ကနေနည်းငယ် အထက်တင်ထား */
+  padding: 0 40px;
 }
 
 .sig { text-align: center; flex: 1; font-size: 12px; color:#444; }
