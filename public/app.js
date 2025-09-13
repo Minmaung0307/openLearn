@@ -870,23 +870,13 @@ let PROJECT_UPLOADED = false;
 
 // --- Reader close helper (hide reader, show My Learning) ---
 function closeReader() {
-  // reader hide
-  const r = $("#reader");
+  const r = document.getElementById("reader");
   if (r) r.classList.add("hidden");
-
-  // show My Learning grid back
-  const grid = $("#myCourses");
+  const grid = document.getElementById("myCourses");
   if (grid) grid.style.display = "";
-
-  // reset runtime flags
   LAST_QUIZ_SCORE = 0;
   PROJECT_UPLOADED = false;
-
-  // go back to My Learning page UI
-  showPage("mylearning");
-
-  // if we came here via history.pushState, let browser back-button work naturally
-  // (don't push another history entry on close)
+  showPage("mylearning", false);
 }
 
 function renderQuiz(p) {
@@ -1110,7 +1100,13 @@ function renderMyLearning() {
 
   const set = getEnrolls();
   const completed = getCompleted();
-  const list = (ALL.length ? ALL : getCourses()).filter((c) => set.has(c.id));
+  const list = (ALL.length ? ALL : getCourses()).filter(c => set.has(c.id));
+if (!list.length) {
+  // helper msg
+  document.getElementById("myCourses").innerHTML =
+    `<div class="muted">No enrollments yet. Enroll from Courses.</div>`;
+  return;
+}
 
   grid.innerHTML = list.map((c)=>{
     const isDone  = completed.has(c.id);
@@ -1204,43 +1200,60 @@ document.addEventListener("DOMContentLoaded", ()=>{
   window.addEventListener("beforeprint", stamp);
 });
 
+// ===== UI hard reset when things get stuck (modal/backdrop/printing) =====
+function hardCloseCert() {
+  try { window.onbeforeprint = null; window.onafterprint = null; } catch {}
+  document.body.classList.remove("printing");
+
+  const dlg = document.getElementById("certModal");
+  if (dlg && typeof dlg.close === "function") dlg.close();
+
+  // Close reader and bring back My Learning grid
+  const r = document.getElementById("reader");
+  if (r) r.classList.add("hidden");
+  const grid = document.getElementById("myCourses");
+  if (grid) grid.style.display = "";
+
+  // Go back to My Learning page (no extra history entry)
+  showPage("mylearning", false);
+}
+
 function showCertificate(course, opts = { issueIfMissing: true }) {
   const prof = getProfile();
   const completed = getCompletedRaw().find(x => x.id === course.id);
   const score = completed?.score ?? null;
 
-  // Issue once (only if allowed by caller) — otherwise just view existing
   let rec = getIssuedCert(course.id);
   if (!rec && opts.issueIfMissing) {
-    rec = ensureCertIssued(course, prof, score); // once-only: ensure… returns existing if already issued
+    rec = ensureCertIssued(course, prof, score);
   }
   if (!rec) { toast("Certificate not issued yet"); return; }
 
-  // Render with record data (number/name/photo/score/date…)
-  $("#certBody").innerHTML = renderCertificate(course, rec);
+  // Render the doc (include number/name/photo from rec)
+  document.getElementById("certBody").innerHTML = renderCertificate(course, rec);
 
-  // Open modal once (no double showModal)
-  const dlg = $("#certModal");
-  dlg?.showModal();
+  const dlg = document.getElementById("certModal");
+  if (!dlg) return;
+  dlg.showModal();
 
-  // --- (re)wire actions safely ---
-  const printBtn = $("#certPrint");
-  const closeBtn = $("#certClose");
+  // reset handlers (avoid duplicates)
+  const oldPrint = document.getElementById("certPrint");
+  const oldClose = document.getElementById("certClose");
+  if (oldPrint) oldPrint.replaceWith(oldPrint.cloneNode(true));
+  if (oldClose) oldClose.replaceWith(oldClose.cloneNode(true));
+  const printBtn = document.getElementById("certPrint");
+  const closeBtn = document.getElementById("certClose");
 
-  // clear previous listeners
-  if (printBtn) { printBtn.replaceWith(printBtn.cloneNode(true)); }
-  if (closeBtn) { closeBtn.replaceWith(closeBtn.cloneNode(true)); }
+  // wire fresh
+  printBtn?.addEventListener("click", () => window.print());
+  closeBtn?.addEventListener("click", () => hardCloseCert());
 
-  // reselect fresh buttons
-  const _print = $("#certPrint");
-  const _close = $("#certClose");
+  // close on ESC/backdrop
+  dlg.addEventListener("cancel", (e) => { e.preventDefault(); hardCloseCert(); }, { once:true });
 
-  _print?.addEventListener("click", () => window.print());
-  _close?.addEventListener("click", () => dlg?.close());
-
-  // Avoid “stuck” UI after canceling print: just remove any “printing” flags if set
+  // print lifecycle — always restore UI
   window.onbeforeprint = () => document.body.classList.add("printing");
-  window.onafterprint  = () => document.body.classList.remove("printing");
+  window.onafterprint  = () => hardCloseCert();
 }
 
 // function showCertificate(course) {
@@ -1417,8 +1430,8 @@ async function openReader(cid) {
   renderPage();
 
   // ✅ Hide My Learning cards while the reader is open
-  const grid = $("#myCourses");
-  if (grid) grid.style.display = "none";
+  const grid = document.getElementById("myCourses");
+if (grid) grid.style.display = "none";
 
   // ✅ Wire Back button in the reader header (once)
   const backBtn = $("#rdBack");
@@ -1794,6 +1807,13 @@ if (!window._olPopstateWired) {
     }
   });
 }
+// ---- Watchdog: if we ever reload while a dialog stayed open/printing, recover
+setTimeout(() => {
+  const certOpen = document.getElementById("certModal")?.open;
+  if (certOpen || document.body.classList.contains("printing")) {
+    hardCloseCert();
+  }
+}, 0);
 });
 
 /* ---------- Finals Removal Shim ---------- */
