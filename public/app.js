@@ -714,9 +714,71 @@ $("#closeDetails")?.addEventListener("click", ()=> $("#detailsModal")?.close());
 /* =========================================================
    Part 4/6 — Profile, transcript, reader + quiz gating
    ========================================================= */
+// Pick a single, stable id to use everywhere
+function canonicalUserId() {
+  const uid = auth?.currentUser?.uid || "";
+  const email = (getUser()?.email || "").toLowerCase();
+  // prefer uid if present, else email
+  return uid || email || "";
+}
+
+function progressDocRefFor(id) {
+  return (id && db) ? doc(db, "progress", id) : null;
+}
+
 function progressDocRef(){
-  const uid = auth?.currentUser?.uid || (getUser()?.email || "").toLowerCase();
-  return (uid && db) ? doc(db, "progress", uid) : null;
+  const id = canonicalUserId();
+  return progressDocRefFor(id);
+}
+
+// Migrate once: if we have both <email> and <uid>, merge into <uid>
+async function migrateProgressKey() {
+  const uid = auth?.currentUser?.uid || "";
+  const email = (getUser()?.email || "").toLowerCase();
+  if (!db || !uid || !email || uid === email) return;
+
+  const refEmail = progressDocRefFor(email);
+  const refUid   = progressDocRefFor(uid);
+
+  try {
+    const [snapEmail, snapUid] = await Promise.all([getDoc(refEmail), getDoc(refUid)]);
+    if (!snapEmail.exists()) return;            // nothing under email → done
+
+    const dataE = snapEmail.data() || {};
+    const dataU = snapUid.exists() ? (snapUid.data() || {}) : {};
+
+    // merge strategy: completed by latest ts, quiz keep higher best/OR passed, certs prefer uid then email
+    const L_completed = dataE.completed || [];
+    const R_completed = dataU.completed || [];
+    const mapC = new Map();
+    [...L_completed, ...R_completed].forEach(x=>{
+      const prev = mapC.get(x.id);
+      if (!prev || (x.ts||0) > (prev.ts||0)) mapC.set(x.id, x);
+    });
+    const mergedCompleted = Array.from(mapC.values());
+
+    const keys = new Set([...Object.keys(dataE.quiz||{}), ...Object.keys(dataU.quiz||{})]);
+    const mergedQuiz = {};
+    keys.forEach(k=>{
+      const a = (dataE.quiz||{})[k] || {};
+      const b = (dataU.quiz||{})[k] || {};
+      mergedQuiz[k] = { best: Math.max(a.best||0, b.best||0), passed: !!(a.passed || b.passed) };
+    });
+
+    const mergedCerts = { ...(dataE.certs||{}), ...(dataU.certs||{}) };
+
+    await setDoc(refUid, { 
+      completed: mergedCompleted,
+      quiz: mergedQuiz,
+      certs: mergedCerts,
+      ts: Date.now()
+    }, { merge:true });
+
+    // (optional) You can keep email doc or clean it up later.
+    // await deleteDoc(refEmail);
+  } catch (e) {
+    console.warn("migrateProgressKey failed:", e?.message || e);
+  }
 }
 
 async function loadProgressCloud(){
@@ -1738,7 +1800,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAuthModal();
   const u = getUser(); setLogged(!!u, u?.email);
   if (u) {
-  try { await syncProgressBothWays(); } catch {}
+  try {
+    await migrateProgressKey();
+    await syncProgressBothWays();
+  } catch {}
 }
 
   // Gate chat inputs and keep in sync
@@ -1747,8 +1812,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   onAuthStateChanged(auth, async () => {
     gateChatUI();
     if (typeof syncEnrollsBothWays === "function") {
-      await syncEnrollsBothWays();
-      await syncProgressBothWays();   // ⬅️ add this
+    //   await syncEnrollsBothWays();
+    //   await syncProgressBothWays();   // ⬅️ add this
+    await migrateProgressKey();
+    await syncEnrollsBothWays();
+    await syncProgressBothWays();
       window.renderMyLearning?.();
     window.renderProfilePanel?.();
     }
