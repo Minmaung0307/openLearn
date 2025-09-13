@@ -166,7 +166,12 @@ function hasFirestore() {
 }
 
 async function saveEnrollsCloud(set) {
-  if (!hasFirestore()) return;   // ❌ Firestore မရှိရင် လုံးဝ skip
+  if (!hasFirestore()) {
+    // console.warn("Firestore not available → using local enrolls only");
+    renderCatalog(); 
+    renderMyLearning?.();
+    return;
+  }
   const ref = enrollDocRef();
   if (!ref) return;
   try {
@@ -663,15 +668,56 @@ function markCourseComplete(id, score = null) {
 }
 
 function renderProfilePanel() {
-  const box = $("#profilePanel"); if (!box) return;
+  const box = $("#profilePanel"); 
+  if (!box) return;
+
   const p = getProfile();
   const name = p.displayName || getUser()?.email || "Guest";
   const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
 
   const completed = getCompletedRaw();
-  const dic = new Map((ALL.length ? ALL : getCourses()).map((c)=>[c.id,c]));
-  const items = completed.map((x)=>({ meta:x, course: dic.get(x.id) })).filter((x)=>x.course);
+  const dic = new Map((ALL.length ? ALL : getCourses()).map(c => [c.id, c]));
+  const items = completed.map(x => ({ meta: x, course: dic.get(x.id) }))
+                        .filter(x => x.course);
 
+  // Transcript table
+  const transcriptHtml = items.length
+    ? `<table class="ol-table small" style="margin-top:.35rem">
+         <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
+         <tbody>
+           ${items.map(({course, meta}) => `
+             <tr>
+               <td>${esc(course.title)}</td>
+               <td>${new Date(meta.ts).toLocaleDateString()}</td>
+               <td>${meta.score != null ? Math.round(meta.score * 100) + "%" : "—"}</td>
+             </tr>`).join("")}
+         </tbody>
+       </table>`
+    : `<div class="small muted">No completed courses yet.</div>`;
+
+  // Certificates table
+  const certSection = items.length
+    ? `<div style="margin-top:14px">
+         <b class="small">Certificates</b>
+         <table class="ol-table small" style="margin-top:.35rem">
+           <thead>
+             <tr><th>Course</th><th style="text-align:right">Actions</th></tr>
+           </thead>
+           <tbody>
+             ${items.map(({course}) => `
+               <tr>
+                 <td>${esc(course.title)}</td>
+                 <td style="text-align:right">
+                   <button class="btn small" data-cert-view="${esc(course.id)}">View</button>
+                   <button class="btn small" data-cert-dl="${esc(course.id)}">Download PDF</button>
+                 </td>
+               </tr>`).join("")}
+           </tbody>
+         </table>
+       </div>`
+    : "";
+
+  // ✅ Build once
   box.innerHTML = `
     <div class="row" style="gap:12px;align-items:flex-start">
       <img src="${esc(avatar)}" alt="" style="width:72px;height:72px;border-radius:50%">
@@ -684,24 +730,31 @@ function renderProfilePanel() {
 
         <div style="margin-top:10px">
           <b class="small">Transcript</b>
-          ${
-            items.length
-            ? `<table class="ol-table small" style="margin-top:.35rem">
-                <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
-                <tbody>
-                  ${items.map(({course,meta})=>`
-                    <tr>
-                      <td>${esc(course.title)}</td>
-                      <td>${new Date(meta.ts).toLocaleDateString()}</td>
-                      <td>${meta.score != null ? Math.round(meta.score*100)+"%" : "—"}</td>
-                    </tr>`).join("")}
-                </tbody>
-               </table>`
-            : `<div class="small muted">No completed courses yet.</div>`
-          }
+          ${transcriptHtml}
         </div>
+
+        ${certSection}
       </div>
-    </div>`;
+    </div>
+  `;
+
+  // 🔌 Wire actions after innerHTML set
+  box.querySelectorAll("[data-cert-view]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-cert-view");
+      const c = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
+      if (c) showCertificate(c);
+    });
+  });
+  box.querySelectorAll("[data-cert-dl]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-cert-dl");
+      const c = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
+      if (!c) return;
+      showCertificate(c);
+      setTimeout(() => window.print(), 200); // print dialog
+    });
+  });
 }
 
 /* ---------- Profile Edit modal wiring ---------- */

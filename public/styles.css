@@ -785,14 +785,32 @@ textarea::placeholder {
 #annList .muted { color: var(--muted); }
 
 /* hide controls when printing */
+/* ---- Print-only tuning for Certificate ---- */
 @media print {
-  .no-print, .no-print * { display: none !important; }
-  /* show only the certificate document cleanly */
-  #certBody { padding: 0 !important; }
-  #certBody .cert-doc {
+  /* UI တွေကို ပိတ် */
+  #topbar, #sidebar, .btn, #certPrint, #certClose, #certTranscript { 
+    display: none !important; 
+  }
+  dialog::backdrop { display: none !important; }
+
+  /* စာရွက်အလယ်ထား + shadow/border မပါ */
+  #certBody {
+    display: block !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    /* 
+    Screen view ကိုလည်း အလယ်တည့်
+    display: flex; 
+  justify-content: center;  */
+  }
+  .cert-doc {
+    margin: 0 auto !important;
     box-shadow: none !important;
     border: none !important;
+    page-break-inside: avoid !important;
+    transform: none !important;
   }
-  /* dialog backdrops don’t print anyway, but make sure layout is normal */
-  .ol-modal { position: static !important; inset: auto !important; }
+
+  /* အရွယ် (A4) နဲ့ margin */
+  @page { size: A4; margin: 12mm; }
 }
