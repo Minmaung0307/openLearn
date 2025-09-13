@@ -720,66 +720,54 @@ function markCourseComplete(id, score = null) {
 }
 
 function renderProfilePanel() {
-  const box = $("#profilePanel"); 
-  if (!box) return;
+  const box = $("#profilePanel"); if (!box) return;
 
   const p = getProfile();
-  const name = p.displayName || getUser()?.email || "Guest";
+  const name   = p.displayName || getUser()?.email || "Guest";
   const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
 
-  const completed = getCompletedRaw();
+  const completed = getCompletedRaw();                       // ← all completed
   const dic = new Map((ALL.length ? ALL : getCourses()).map(c => [c.id, c]));
-  const items = completed
-  .map(x => ({ meta:x, course: dic.get(x.id), cert: getIssuedCert(x.id) }))
-  .filter(x => x.course && x.cert); // ✅ only those with issued cert
 
-const certRows = items.map(({ course }) => `
-  <tr>
-    <td>${esc(course.title)}</td>
-    <td style="text-align:right">
-      <button class="btn small" data-cert-view="${esc(course.id)}">View</button>
-      <button class="btn small" data-cert-dl="${esc(course.id)}">Download PDF</button>
-    </td>
-  </tr>`).join("");
+  const transcriptItems = completed
+    .map(x => ({ meta:x, course: dic.get(x.id) }))
+    .filter(x => x.course);
 
-  // Transcript table
-  const transcriptHtml = items.length
-    ? `<table class="ol-table small" style="margin-top:.35rem">
-         <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
-         <tbody>
-           ${items.map(({course, meta}) => `
-             <tr>
-               <td>${esc(course.title)}</td>
-               <td>${new Date(meta.ts).toLocaleDateString()}</td>
-               <td>${meta.score != null ? Math.round(meta.score * 100) + "%" : "—"}</td>
-             </tr>`).join("")}
-         </tbody>
-       </table>`
-    : `<div class="small muted">No completed courses yet.</div>`;
+  const certItems = transcriptItems
+    .map(x => ({ ...x, cert: getIssuedCert(x.course.id) }))
+    .filter(x => x.cert);                                    // only those issued
 
-  // Certificates table
-  const certSection = items.length
-    ? `<div style="margin-top:14px">
-         <b class="small">Certificates</b>
-         <table class="ol-table small" style="margin-top:.35rem">
-           <thead>
-             <tr><th>Course</th><th style="text-align:right">Actions</th></tr>
-           </thead>
-           <tbody>
-             ${items.map(({course}) => `
-               <tr>
-                 <td>${esc(course.title)}</td>
-                 <td style="text-align:right">
-                   <button class="btn small" data-cert-view="${esc(course.id)}">View</button>
-                   <button class="btn small" data-cert-dl="${esc(course.id)}">Download PDF</button>
-                 </td>
-               </tr>`).join("")}
-           </tbody>
-         </table>
-       </div>`
-    : "";
+  const transcriptHtml = transcriptItems.length ? `
+    <table class="ol-table small" style="margin-top:.35rem">
+      <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
+      <tbody>
+        ${transcriptItems.map(({course, meta}) => `
+          <tr>
+            <td>${esc(course.title)}</td>
+            <td>${new Date(meta.ts).toLocaleDateString()}</td>
+            <td>${meta.score != null ? Math.round(meta.score*100) + "%" : "—"}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table>` : `<div class="small muted">No completed courses yet.</div>`;
 
-  // ✅ Build once
+  const certSection = certItems.length ? `
+    <div style="margin-top:14px">
+      <b class="small">Certificates</b>
+      <table class="ol-table small" style="margin-top:.35rem">
+        <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
+        <tbody>
+          ${certItems.map(({course}) => `
+            <tr>
+              <td>${esc(course.title)}</td>
+              <td style="text-align:right">
+                <button class="btn small" data-cert-view="${esc(course.id)}">View</button>
+                <button class="btn small" data-cert-dl="${esc(course.id)}">Download PDF</button>
+              </td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>` : "";
+
   box.innerHTML = `
     <div class="row" style="gap:12px;align-items:flex-start">
       <img src="${esc(avatar)}" alt="" style="width:72px;height:72px;border-radius:50%">
@@ -787,34 +775,25 @@ const certRows = items.map(({ course }) => `
         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
         ${p.bio ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>` : ""}
         ${p.skills ? `<div class="small muted">Skills: ${esc(p.skills)}</div>` : ""}
-        ${p.links  ? `<div class="small muted">Links: ${esc(p.links)}</div>` : ""}
-        ${p.social ? `<div class="small muted">Social: ${esc(p.social)}</div>` : ""}
-
-        <div style="margin-top:10px">
-          <b class="small">Transcript</b>
-          ${transcriptHtml}
-        </div>
-
+        <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
         ${certSection}
       </div>
-    </div>
-  `;
+    </div>`;
 
-  // 🔌 Wire actions after innerHTML set
-  box.querySelectorAll("[data-cert-view]").forEach(btn => {
-    btn.addEventListener("click", () => {
+  box.querySelectorAll("[data-cert-view]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
       const id = btn.getAttribute("data-cert-view");
-      const c = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
-      if (c) showCertificate(c);
+      const c  = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
+      if (c) showCertificate(c, { issueIfMissing:false });
     });
   });
-  box.querySelectorAll("[data-cert-dl]").forEach(btn => {
-    btn.addEventListener("click", () => {
+  box.querySelectorAll("[data-cert-dl]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
       const id = btn.getAttribute("data-cert-dl");
-      const c = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
+      const c  = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
       if (!c) return;
-      showCertificate(c);
-      setTimeout(() => window.print(), 200); // print dialog
+      showCertificate(c, { issueIfMissing:false });
+      setTimeout(()=>window.print(), 200);
     });
   });
 }
@@ -1101,23 +1080,24 @@ function renderMyLearning() {
     return;
   }
 
-  grid.innerHTML = list.map((c)=>{
-    const isDone  = completed.has(c.id);
-    const issued  = !!getIssuedCert(c.id);
-    const r = Number(c.rating || 4.6);
-    return `<div class="card course" data-id="${c.id}">
-      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
-      <div class="course-body">
-        <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${r.toFixed(1)}</div>
-        <div class="muted">${esc(c.summary || "")}</div>
-        <div class="row" style="justify-content:flex-end; gap:8px">
-          <button class="btn" data-read="${c.id}">${isDone ? "Review" : "Continue"}</button>
-          <button class="btn" data-cert="${c.id}" ${issued ? "" : "disabled"}>Certificate</button>
-        </div>
+  // --- renderMyLearning() မထဲက buttons template ကို ဒီလို ပြောင်း --- 
+grid.innerHTML = list.map((c)=>{
+  const isDone  = completed.has(c.id);
+  const issued  = !!getIssuedCert(c.id);
+  const label   = isDone ? "Review" : "Continue";     // ← အဓိက
+  return `<div class="card course" data-id="${c.id}">
+    <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+    <div class="course-body">
+      <strong>${esc(c.title)}</strong>
+      <div class="small muted">${esc(c.category||"")} • ${esc(c.level||"")} • ★ ${Number(c.rating||4.6).toFixed(1)}</div>
+      <div class="muted">${esc(c.summary || "")}</div>
+      <div class="row" style="justify-content:flex-end; gap:8px">
+        <button class="btn" data-read="${c.id}">${label}</button>
+        <button class="btn" data-cert="${c.id}" ${issued ? "" : "disabled"}>Certificate</button>
       </div>
-    </div>`;
-  }).join("");
+    </div>
+  </div>`;
+}).join("");
 
   // wire buttons (this was missing → caused “can’t click”)
   grid.querySelectorAll("[data-read]").forEach((b)=> b.onclick = ()=>{
@@ -1206,74 +1186,52 @@ document.addEventListener("DOMContentLoaded", ()=>{
 // Hard reset for stuck UI after print/backdrop
 // ===== UI hard reset when things get stuck (modal/backdrop/printing) =====
 function hardCloseCert() {
-  // 1) print lifecycle handlers + state
   try { window.onbeforeprint = null; window.onafterprint = null; } catch {}
   document.body.classList.remove("printing");
 
-  // 2) close dialog safely
   const dlg = document.getElementById("certModal");
   if (dlg) {
     try { dlg.close(); } catch {}
-    dlg.removeAttribute("open");           // some browsers need this
+    dlg.removeAttribute("open");
+    // 🔑 previous content + handlers reset
+    const body = document.getElementById("certBody");
+    if (body) body.innerHTML = "";
   }
 
-  // 3) purge dialog contents to avoid “ghost” buttons under page
-  const bodyEl = document.getElementById("certBody");
-  if (bodyEl) bodyEl.innerHTML = "";
-
-  // 4) restore My Learning grid visibility
+  // Reader/cards ပြန်ပေါ်
   const r = document.getElementById("reader");
   if (r) r.classList.add("hidden");
   const grid = document.getElementById("myCourses");
   if (grid) grid.style.display = "";
 
-  // 5) ensure we’re back on My Learning without pushing new history
   showPage("mylearning", false);
 }
 
 function showCertificate(course, opts = { issueIfMissing: true }) {
-  const dlg = document.getElementById("certModal");
-  const bodyEl = document.getElementById("certBody");
-  if (!dlg || !bodyEl) return;
-
-  // guard: certBody သည် dialog အတွင်းမှာပဲ ရှိရမယ်
-  if (!bodyEl.closest("#certModal")) {
-    console.warn("certBody is not inside certModal — abort rendering.");
-    return;
-  }
-
-  // 1) record/find existing certificate (issue once)
   const prof = getProfile();
   const completed = getCompletedRaw().find(x => x.id === course.id);
   const score = completed?.score ?? null;
 
   let rec = getIssuedCert(course.id);
   if (!rec && opts.issueIfMissing) rec = ensureCertIssued(course, prof, score);
-  if (!rec) { toast("Certificate not issued yet"); return; }
+  if (!rec) return toast("Certificate not issued yet");
 
-  // 2) render fresh HTML
-  bodyEl.innerHTML = renderCertificate(course, rec);
+  const dlg  = document.getElementById("certModal");
+  const body = document.getElementById("certBody");
+  if (!dlg || !body) return;
 
-  // 3) open the dialog
-  if (!dlg.open) dlg.showModal();
+  // clear & render (avoid duplicate controls)
+  body.innerHTML = renderCertificate(course, rec);
+  dlg.showModal();
 
-  // 4) de-duplicate handlers
-  const oldPrint = document.getElementById("certPrint");
-  const oldClose = document.getElementById("certClose");
-  if (oldPrint) oldPrint.replaceWith(oldPrint.cloneNode(true));
-  if (oldClose) oldClose.replaceWith(oldClose.cloneNode(true));
+  // re-wire buttons inside the dialog only
+  const printBtn = dlg.querySelector("#certPrint");
+  const closeBtn = dlg.querySelector("#certClose");
+  printBtn?.addEventListener("click", () => window.print(), { once:true });
+  closeBtn?.addEventListener("click", () => hardCloseCert(), { once:true });
 
-  const printBtn = document.getElementById("certPrint");
-  const closeBtn = document.getElementById("certClose");
+  dlg.addEventListener("cancel", (e)=>{ e.preventDefault(); hardCloseCert(); }, { once:true });
 
-  // 5) wire fresh handlers
-  printBtn?.addEventListener("click", () => window.print());
-  closeBtn?.addEventListener("click", () => hardCloseCert());
-
-  // ESC/backdrop => close once
-  dlg.addEventListener("cancel", (e) => { e.preventDefault(); hardCloseCert(); }, { once: true });
-
-  // 6) print lifecycle — always restore UI no matter what
   window.onbeforeprint = () => document.body.classList.add("printing");
   window.onafterprint  = () => hardCloseCert();
 }
@@ -1403,22 +1361,27 @@ if (grid) grid.style.display = "none";
 function renderGradebook() {
   const tb = $("#gbTable tbody"); if (!tb) return;
   const set = getEnrolls();
-  const list = (ALL.length ? ALL : getCourses()).filter((c)=> set.has(c.id));
-  const rows = list.map((c) => ({
-    student: getUser()?.email || "you@example.com",
-    course: c.title,
-    score: 80 + Math.floor(Math.random()*20) + "%",
-    credits: c.credits || 3,
-    progress: 10 + Math.floor(Math.random()*90) + "%",
-  }));
-  tb.innerHTML = rows.map((r)=>`
+  const completedMap = new Map(getCompletedRaw().map(x => [x.id, x]));
+  const list = (ALL.length ? ALL : getCourses()).filter(c => set.has(c.id));
+
+  const rows = list.map((c) => {
+    const done = completedMap.get(c.id);
+    const score = typeof done?.score === "number" ? Math.round(done.score*100)+"%" : "—";
+    const progress = done ? "100%" : "0%";               // simple & consistent
+    return {
+      student: getUser()?.email || "you@example.com",
+      course: c.title, score, credits: c.credits || 3, progress
+    };
+  });
+
+  tb.innerHTML = rows.length ? rows.map((r)=>`
     <tr>
       <td>${esc(r.student)}</td>
       <td>${esc(r.course)}</td>
       <td>${esc(r.score)}</td>
       <td>${esc(r.credits)}</td>
       <td>${esc(r.progress)}</td>
-    </tr>`).join("") || "<tr><td colspan='5' class='muted'>No data</td></tr>";
+    </tr>`).join("") : "<tr><td colspan='5' class='muted'>No data</td></tr>";
 }
 
 /* ---------- Admin (table + drill-down modal) ---------- */
@@ -1710,6 +1673,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // defensive: keep auth-required items clickable (CSS gates by JS)
   document.querySelectorAll("[data-requires-auth]").forEach((el)=>{ el.style.pointerEvents = "auto"; });
+
+  document.querySelectorAll('#certPrint, #certClose').forEach(el=>{
+  const inDialog = !!el.closest('#certModal');
+  if (!inDialog) el.remove();
+});
 
   // Enable browser back to close reader -> My Learning
 // Enable browser back to close reader -> My Learning
