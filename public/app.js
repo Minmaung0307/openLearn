@@ -1170,7 +1170,8 @@ function renderMyLearning() {
 grid.innerHTML = list.map((c)=>{
   const isDone  = completed.has(c.id);
   const issued  = !!getIssuedCert(c.id);
-  const label   = isDone ? "Review" : "Continue";     // ← အဓိက
+//   const label   = isDone ? "Review" : "Continue";     // ← အဓိက
+const label = completed.has(c.id) ? "Review" : "Continue";
   return `<div class="card course" data-id="${c.id}">
     <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
     <div class="course-body">
@@ -1736,6 +1737,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Auth modal + restore login
   initAuthModal();
   const u = getUser(); setLogged(!!u, u?.email);
+  if (u) {
+  try { await syncProgressBothWays(); } catch {}
+}
 
   // Gate chat inputs and keep in sync
   gateChatUI();
@@ -1745,6 +1749,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof syncEnrollsBothWays === "function") {
       await syncEnrollsBothWays();
       await syncProgressBothWays();   // ⬅️ add this
+      window.renderMyLearning?.();
+    window.renderProfilePanel?.();
     }
   });
 }
