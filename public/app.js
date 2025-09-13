@@ -1204,48 +1204,43 @@ document.addEventListener("DOMContentLoaded", ()=>{
   window.addEventListener("beforeprint", stamp);
 });
 
-function showCertificate(course) {
+function showCertificate(course, opts = { issueIfMissing: true }) {
   const prof = getProfile();
-  // ✅ Issue once, reuse later
   const completed = getCompletedRaw().find(x => x.id === course.id);
   const score = completed?.score ?? null;
-  const cert = ensureCertIssued(course, prof, score);
 
-  // Build cert HTML (now includes number + footer)
-  const rec = getIssuedCert(course.id);     // ✅ view existing cert only
+  // Issue once (only if allowed by caller) — otherwise just view existing
+  let rec = getIssuedCert(course.id);
+  if (!rec && opts.issueIfMissing) {
+    rec = ensureCertIssued(course, prof, score); // once-only: ensure… returns existing if already issued
+  }
   if (!rec) { toast("Certificate not issued yet"); return; }
-  $("#certBody").innerHTML = renderCertificate(course); // can also render with rec data if needed
-  $("#certModal")?.showModal();
-  $("#certPrint")?.onclick = () => window.print();
-  $("#certClose")?.onclick = () => $("#certModal")?.close();
 
+  // Render with record data (number/name/photo/score/date…)
+  $("#certBody").innerHTML = renderCertificate(course, rec);
+
+  // Open modal once (no double showModal)
   const dlg = $("#certModal");
   dlg?.showModal();
 
-  // (re)wire safely every time
+  // --- (re)wire actions safely ---
   const printBtn = $("#certPrint");
   const closeBtn = $("#certClose");
 
-  // remove stale handlers
-  printBtn?.replaceWith(printBtn.cloneNode(true));
-  closeBtn?.replaceWith(closeBtn.cloneNode(true));
+  // clear previous listeners
+  if (printBtn) { printBtn.replaceWith(printBtn.cloneNode(true)); }
+  if (closeBtn) { closeBtn.replaceWith(closeBtn.cloneNode(true)); }
 
-  // reselect after replace
+  // reselect fresh buttons
   const _print = $("#certPrint");
   const _close = $("#certClose");
 
   _print?.addEventListener("click", () => window.print());
   _close?.addEventListener("click", () => dlg?.close());
 
-  // prevent page getting “stuck” after cancel print
-  let printing = false;
-  window.onbeforeprint = () => { printing = true; document.body.classList.add("printing"); };
-  window.onafterprint  = () => {
-    printing = false;
-    document.body.classList.remove("printing");
-    // make sure dialog is still interactive
-    dlg?.removeAttribute("open"); dlg?.showModal?.();
-  };
+  // Avoid “stuck” UI after canceling print: just remove any “printing” flags if set
+  window.onbeforeprint = () => document.body.classList.add("printing");
+  window.onafterprint  = () => document.body.classList.remove("printing");
 }
 
 // function showCertificate(course) {
