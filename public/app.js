@@ -1252,6 +1252,11 @@ function showCertificate(course, opts = { issueIfMissing: true }) {
 
   window.onbeforeprint = () => document.body.classList.add("printing");
   window.onafterprint  = () => hardCloseCert();
+
+  // stray controls (page body) ရှိနေချိန် cleanup
+document.querySelectorAll("#certPrint, #certClose").forEach(n => {
+  if (!n.closest("#certModal")) n.remove();
+});
 }
 
 async function tryFetch(path) {

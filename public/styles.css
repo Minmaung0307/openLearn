@@ -944,3 +944,11 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
   /* hide controls */
   #certModal .no-print, #certModal .btn, #certModal .row { display: none !important; }
 }
+
+/* certificate dialog မဖွင့်ခင်에는 controls မပေါ်အောင် */
+#certModal:not([open]) #certPrint,
+#certModal:not([open]) #certClose,
+#page-mylearning #certPrint,
+#page-mylearning #certClose {
+  display: none !important;
+}
