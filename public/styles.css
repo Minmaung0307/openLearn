@@ -896,7 +896,7 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 #certModal .row { width: min(1123px, 96vw); margin: 10px auto 0; }
 
 /* ===== PRINT: certificate only, full page ===== */
-@page { size: A4 landscape; margin: 10mm; }
+@page { size: A4 landscape; margin: 5mm; }
 @media print {
   /* show only the certificate */
   body * { visibility: hidden !important; }
