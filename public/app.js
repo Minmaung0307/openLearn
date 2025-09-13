@@ -162,7 +162,8 @@ async function loadEnrollsCloud(){
 }
 function hasFirestore() {
   // firebase.js ထဲက export ထဲမှာ getFirestore / db ရှိမရှိ စစ်
-  return (typeof getFirestore === "function") && !!window.db;
+//   return (typeof getFirestore === "function") && !!window.db;
+return !!db;   // db is imported from ./firebase.js
 }
 
 async function saveEnrollsCloud(set) {
@@ -893,11 +894,11 @@ function renderQuiz(p) {
         if (ok) correct++;
       } else {
         const input = document.querySelector(`input[name="q${i}"]`);
-        const ans = (input?.value || "").trim().toLowerCase();
-        const accepts = Array.isArray(it.a) ? it.a : [it.a];
-        const norm = (s) => String(s ?? "").trim().toLowerCase();
-        if (accepts.some(x => norm(x) === ans)) correct++;
-      }
+  const ans = (input?.value || "").trim().toLowerCase();
+  const accepts = Array.isArray(it.answers) ? it.answers : (it.answer ? [it.answer] : []);
+  const norm = (s) => String(s ?? "").trim().toLowerCase();
+  if (accepts.some(x => norm(x) === ans)) correct++;
+}
     });
 
     const score = correct / (q.length || 1);
@@ -905,6 +906,7 @@ function renderQuiz(p) {
     $("#qMsg").textContent = `Score: ${Math.round(score * 100)}% (${correct}/${q.length})`;
 
     if (score >= QUIZ_PASS) {
+        setPassedQuiz(RD.cid, RD.i, score);   // ✅ record pass
       if (score >= 0.85) launchFireworks();
       if (isLastPage()) {
         markCourseComplete(RD.cid, score);
@@ -960,9 +962,10 @@ function renderPage() {
   const btnPrev = $("#rdPrev"), btnNext = $("#rdNext");
   if (btnPrev) btnPrev.onclick = () => { RD.i = Math.max(0, RD.i - 1); renderPage(); };
   if (btnNext) btnNext.onclick = () => {
-    if (p?.type === "quiz" && !hasPassedQuiz(RD.cid, RD.i) && LAST_QUIZ_SCORE < 0.75) {
-      toast("Need ≥ 75% to continue"); return;
-    }
+    // Next button guard
+if (p?.type === "quiz" && !hasPassedQuiz(RD.cid, RD.i) && LAST_QUIZ_SCORE < QUIZ_PASS) {
+  toast(`Need ≥ ${Math.round(QUIZ_PASS*100)}% to continue`); return;
+}
     if (p?.type === "project" && !PROJECT_UPLOADED) {
       toast("Please upload your project file first"); return;
     }
@@ -987,8 +990,10 @@ function renderPage() {
 
     btn.disabled = !canFinishNow;
     btn.onclick = () => {
-      if (p.type === "quiz"    && !(hasPassedQuiz(RD.cid, RD.i) || LAST_QUIZ_SCORE >= 0.75)) return toast("Need ≥ 75% to finish");
-      if (p.type === "project" && !PROJECT_UPLOADED) return toast("Please upload your project first");
+      // Finish button guard
+if (p.type === "quiz" && !(hasPassedQuiz(RD.cid, RD.i) || LAST_QUIZ_SCORE >= QUIZ_PASS)) {
+  return toast(`Need ≥ ${Math.round(QUIZ_PASS*100)}% to finish`);
+}
       markCourseComplete(RD.cid, LAST_QUIZ_SCORE || null);
       showCongrats();
     };
@@ -1064,93 +1069,155 @@ function renderMyLearning() {
   });
 }
 
-function showCertificate(course) {
-  const prof = getProfile();
-  const name = prof.displayName || getUser()?.email || "Student";
-  const photo = prof.photoURL || ""; // ရှိရင် ဓာတ်ပုံပြ
+function renderCertificate(course) {
+  const p = getProfile();
+  const name = p.displayName || getUser()?.email || "Student";
+  const avatar = p.photoURL || "/assets/default-avatar.png";
   const today = new Date().toLocaleDateString();
+
   const completed = getCompletedRaw().find(x => x.id === course.id);
-  const scoreTxt = completed?.score != null ? `${Math.round(completed.score*100)}%` : "—";
+  const scoreTxt = completed?.score != null ? `${Math.round(completed.score * 100)}%` : "—";
 
-  // localStorage မှ စာရေးသူလက်မှတ် image URL တွေ (ရှိ/မရှိ)
-  const sig = _read("ol_signatures", { registrar: "", dean: "" });
-
-  $("#certBody").innerHTML = `
+  return `
     <div class="cert-doc">
+      <img src="/assets/logo.png" class="cert-logo" alt="OpenLearn Logo">
+
       <div class="cert-head">OpenLearn Institute</div>
       <div class="cert-sub">Certificate of Completion</div>
 
+      <img src="${esc(avatar)}" class="cert-photo" alt="Student Photo">
+
       <div class="cert-name">${esc(name)}</div>
       <div class="cert-sub">has successfully completed</div>
+
       <div class="cert-course">${esc(course.title)}</div>
+
       <div class="cert-meta">
         Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}
       </div>
 
-      <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
-        ${
-          photo 
-          ? `<img class="cert-photo" alt="Student" src="${esc(photo)}">`
-          : `<div class="cert-seal" title="Official Seal"></div>`
-        }
-        <img class="qr" alt="Verify" 
-             src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=OPENLEARN-${encodeURIComponent(course.id)}">
-      </div>
-
       <div class="cert-signs">
         <div class="sig">
-          <div style="height:24px"></div>
-          ${
-            sig.registrar 
-              ? `<img class="sig-img" alt="Registrar" src="${esc(sig.registrar)}">`
-              : `<div>______________________</div>`
-          }
+          <img src="/assets/sign-registrar.png" class="sig-img" alt="">
           <div>Registrar</div>
         </div>
         <div class="sig">
-          <div style="height:24px"></div>
-          ${
-            sig.dean 
-              ? `<img class="sig-img" alt="Dean of Studies" src="${esc(sig.dean)}">`
-              : `<div>______________________</div>`
-          }
+          <img src="/assets/sign-dean.png" class="sig-img" alt="">
           <div>Dean of Studies</div>
         </div>
       </div>
     </div>
-
-    <!-- Controls (no-print) -->
-    <div class="row cert-actions no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
-      <input id="certName" class="input" placeholder="Student name" value="${esc(name)}" style="max-width:220px">
-      <input id="certPhoto" class="input" placeholder="Photo URL (optional)" value="${esc(photo)}" style="max-width:280px">
-      <input id="sigRegistrar" class="input" placeholder="Registrar signature URL" value="${esc(sig.registrar)}" style="max-width:280px">
-      <input id="sigDean" class="input" placeholder="Dean signature URL" value="${esc(sig.dean)}" style="max-width:280px">
-      <button class="btn" id="certApply">Apply</button>
-      <button class="btn" id="certPrint">Print</button>
-      <button class="btn" id="certClose2">Close</button>
-    </div>
   `;
+}
+
+function showCertificate(course) {
+  // HTML (cert-doc only) — buttons are outside cert-doc (print မထွက်အောင်)
+  $("#certBody").innerHTML = renderCertificate(course);
+
+  // Modal ပြ (သင့်ရဲ့ certModal ကို ပြန်သုံး)
   $("#certModal")?.showModal();
 
-  // controls
-  $("#certApply")?.addEventListener("click", () => {
-    const newName = $("#certName")?.value.trim();
-    const newPhoto = $("#certPhoto")?.value.trim();
-    const newSig = {
-      registrar: $("#sigRegistrar")?.value.trim() || "",
-      dean: $("#sigDean")?.value.trim() || ""
-    };
-    // profile name/photo ကို သိမ်း (အမြဲအသုံးဝင်)
-    const p = getProfile();
-    setProfile({ ...p, displayName: newName || p.displayName, photoURL: newPhoto || p.photoURL });
-    _write("ol_signatures", newSig);
-    // UI refresh
-    showCertificate(course);
-  });
+  // Actions
+  // Print
+  $("#certPrint")?.addEventListener("click", () => window.print(), { once: true });
 
-//   $("#certPrint")?.addEventListener("click", () => window.print());
-//   $("#certClose2")?.addEventListener("click", () => $("#certModal")?.close());
+  // Close
+  $("#certClose")?.addEventListener("click", () => $("#certModal")?.close(), { once: true });
+
+  // Transcript (optional)
+  $("#certTranscript")?.addEventListener("click", () => {
+    showPage("profile");
+    $("#certModal")?.close();
+  }, { once: true });
 }
+
+// function showCertificate(course) {
+//   const prof = getProfile();
+//   const name = prof.displayName || getUser()?.email || "Student";
+//   const photo = prof.photoURL || ""; // ရှိရင် ဓာတ်ပုံပြ
+//   const today = new Date().toLocaleDateString();
+//   const completed = getCompletedRaw().find(x => x.id === course.id);
+//   const scoreTxt = completed?.score != null ? `${Math.round(completed.score*100)}%` : "—";
+
+//   // localStorage မှ စာရေးသူလက်မှတ် image URL တွေ (ရှိ/မရှိ)
+//   const sig = _read("ol_signatures", { registrar: "", dean: "" });
+
+//   $("#certBody").innerHTML = `
+//     <div class="cert-doc">
+//       <div class="cert-head">OpenLearn Institute</div>
+//       <div class="cert-sub">Certificate of Completion</div>
+
+//       <div class="cert-name">${esc(name)}</div>
+//       <div class="cert-sub">has successfully completed</div>
+//       <div class="cert-course">${esc(course.title)}</div>
+//       <div class="cert-meta">
+//         Credits: ${course.credits || 3} • Score: ${scoreTxt} • Date: ${today}
+//       </div>
+
+//       <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
+//         ${
+//           photo 
+//           ? `<img class="cert-photo" alt="Student" src="${esc(photo)}">`
+//           : `<div class="cert-seal" title="Official Seal"></div>`
+//         }
+//         <img class="qr" alt="Verify" 
+//              src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=OPENLEARN-${encodeURIComponent(course.id)}">
+//       </div>
+
+//       <div class="cert-signs">
+//         <div class="sig">
+//           <div style="height:24px"></div>
+//           ${
+//             sig.registrar 
+//               ? `<img class="sig-img" alt="Registrar" src="${esc(sig.registrar)}">`
+//               : `<div>______________________</div>`
+//           }
+//           <div>Registrar</div>
+//         </div>
+//         <div class="sig">
+//           <div style="height:24px"></div>
+//           ${
+//             sig.dean 
+//               ? `<img class="sig-img" alt="Dean of Studies" src="${esc(sig.dean)}">`
+//               : `<div>______________________</div>`
+//           }
+//           <div>Dean of Studies</div>
+//         </div>
+//       </div>
+//     </div>
+
+//     <!-- Controls (no-print) -->
+//     <div class="row cert-actions no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
+//       <input id="certName" class="input" placeholder="Student name" value="${esc(name)}" style="max-width:220px">
+//       <input id="certPhoto" class="input" placeholder="Photo URL (optional)" value="${esc(photo)}" style="max-width:280px">
+//       <input id="sigRegistrar" class="input" placeholder="Registrar signature URL" value="${esc(sig.registrar)}" style="max-width:280px">
+//       <input id="sigDean" class="input" placeholder="Dean signature URL" value="${esc(sig.dean)}" style="max-width:280px">
+//       <button class="btn" id="certApply">Apply</button>
+//       <button class="btn" id="certPrint">Print</button>
+//       <button class="btn" id="certClose2">Close</button>
+//     </div>
+//   `;
+//   $("#certModal")?.showModal();
+
+//   // controls
+//   $("#certApply")?.addEventListener("click", () => {
+//     const newName = $("#certName")?.value.trim();
+//     const newPhoto = $("#certPhoto")?.value.trim();
+//     const newSig = {
+//       registrar: $("#sigRegistrar")?.value.trim() || "",
+//       dean: $("#sigDean")?.value.trim() || ""
+//     };
+//     // profile name/photo ကို သိမ်း (အမြဲအသုံးဝင်)
+//     const p = getProfile();
+//     setProfile({ ...p, displayName: newName || p.displayName, photoURL: newPhoto || p.photoURL });
+//     _write("ol_signatures", newSig);
+//     // UI refresh
+//     showCertificate(course);
+//   });
+
+// //   $("#certPrint")?.addEventListener("click", () => window.print());
+// //   $("#certClose2")?.addEventListener("click", () => $("#certModal")?.close());
+// }
 $("#certClose")?.addEventListener("click", ()=> $("#certModal")?.close());
 $("#certPrint")?.addEventListener("click", ()=> window.print());
 
