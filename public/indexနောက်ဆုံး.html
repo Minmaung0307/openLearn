@@ -51,22 +51,38 @@
         </div>
 
         <!-- topbar -->
-<div class="top-right">
-  <!-- Announcements -->
-  <button id="btn-top-ann" class="icon-pill pill-ann">
-    🔔 <span class="txt">Announcements</span>
-    <span id="annCount" class="small" style="margin-left:6px;opacity:.8"></span>
-  </button>
+        <div class="top-right">
+          <!-- Announcements -->
+          <button id="btn-top-ann" class="icon-pill pill-ann">
+            🔔 <span class="txt">Announcements</span>
+            <span
+              id="annCount"
+              class="small"
+              style="margin-left: 6px; opacity: 0.8"
+            ></span>
+          </button>
 
-  <!-- Chat -->
-  <button id="btn-top-chat" class="icon-pill pill-chat">
-    💬 <span class="txt">Chat</span>
-    <span id="chatCount" class="small pill-badge" aria-label="unread chats" style="margin-left:6px;opacity:.8"></span>
-  </button>
+          <!-- Chat -->
+          <button id="btn-top-chat" class="icon-pill pill-chat">
+            💬 <span class="txt">Chat</span>
+            <span
+              id="chatCount"
+              class="small pill-badge"
+              aria-label="unread chats"
+              style="margin-left: 6px; opacity: 0.8"
+            ></span>
+          </button>
 
-  <button id="btn-login"  class="btn" type="button">Login</button>
-<button id="btn-logout" class="btn" type="button" style="display:none">Logout</button>
-</div>
+          <button id="btn-login" class="btn" type="button">Login</button>
+          <button
+            id="btn-logout"
+            class="btn"
+            type="button"
+            style="display: none"
+          >
+            Logout
+          </button>
+        </div>
       </div>
     </header>
 
@@ -131,15 +147,19 @@
           <i>⚙️</i><span>Settings</span>
         </button>
         <button
-  id="btn-side-chat"
-  class="navbtn icon-pill pill-chat"
-  data-page="livechat"
-  title="Live Chat"
-  data-requires-auth
->
-  <i>💬</i><span>Live Chat</span>
-  <span id="chatCount" class="pill-badge" aria-label="unread chats"></span>
-</button>
+          id="btn-side-chat"
+          class="navbtn icon-pill pill-chat"
+          data-page="livechat"
+          title="Live Chat"
+          data-requires-auth
+        >
+          <i>💬</i><span>Live Chat</span>
+          <span
+            id="chatCount"
+            class="pill-badge"
+            aria-label="unread chats"
+          ></span>
+        </button>
       </nav>
     </aside>
 
@@ -342,20 +362,26 @@
 
       <!-- Live Chat -->
       <section id="page-livechat" class="page">
-  <div class="card" style="max-width: 900px; margin: 0 auto;">
-    <div class="row" style="justify-content: space-between; align-items:center">
-      <h3 style="margin:0">Live Chat</h3>
-      <small class="muted">Global room</small>
-    </div>
+        <div class="card" style="max-width: 900px; margin: 0 auto">
+          <div
+            class="row"
+            style="justify-content: space-between; align-items: center"
+          >
+            <h3 style="margin: 0">Live Chat</h3>
+            <small class="muted">Global room</small>
+          </div>
 
-    <div id="chatBox" style="margin-top:10px; max-height: 360px; overflow:auto;"></div>
+          <div
+            id="chatBox"
+            style="margin-top: 10px; max-height: 360px; overflow: auto"
+          ></div>
 
-    <div class="row" style="margin-top: 10px;">
-      <input id="chatInput" class="input" placeholder="Type a message…" />
-      <button id="chatSend" class="btn primary">Send</button>
-    </div>
-  </div>
-</section>
+          <div class="row" style="margin-top: 10px">
+            <input id="chatInput" class="input" placeholder="Type a message…" />
+            <button id="chatSend" class="btn primary">Send</button>
+          </div>
+        </div>
+      </section>
     </main>
 
     <!-- MODALS -->
@@ -517,7 +543,9 @@
         <button type="button" id="btn-course-close" class="btn">Close</button>
       </div>
       <form id="courseForm" class="authpane" method="dialog">
-        <label>Title <input name="title" type="text" class="input" required /></label>
+        <label
+          >Title <input name="title" type="text" class="input" required
+        /></label>
         <label
           >Category
           <input name="category" class="input" value="General" required
@@ -572,7 +600,9 @@
           class="row"
           style="grid-column: 1/-1; justify-content: flex-end; gap: 8px"
         >
-          <button class="btn" id="btn-course-cancel" type="button">Cancel</button>
+          <button class="btn" id="btn-course-cancel" type="button">
+            Cancel
+          </button>
           <button class="btn primary" id="btn-course-save" type="submit">
             Save
           </button>
@@ -671,10 +701,15 @@
     </dialog>
     <dialog id="certModal" class="ol-modal card">
       <div id="certBody"></div>
-      <div class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
-    <button class="btn" id="certPrint" type="button">Print / Save PDF</button>
-    <button class="btn" id="certClose" type="button">Close</button>
-  </div>
+      <div
+        class="row no-print"
+        style="justify-content: flex-end; gap: 8px; margin-top: 10px"
+      >
+        <button class="btn" id="certPrint" type="button">
+          Print / Save PDF
+        </button>
+        <button class="btn" id="certClose" type="button">Close</button>
+      </div>
     </dialog>
 
     <!-- Toast -->
@@ -685,13 +720,13 @@
       window.OPENLEARN_DATA_BASE = "/data";
     </script>
     <!-- <script type="module" src="./app.js"></script> -->
-     <script>
-  window.renderProfilePanel  ||= () => {};
-  window.renderMyLearning    ||= () => {};
-  window.renderGradebook     ||= () => {};
-  window.renderAdminTable    ||= () => {};
-  window.renderAnnouncements ||= () => {};
-</script>
+    <script>
+      window.renderProfilePanel ||= () => {};
+      window.renderMyLearning ||= () => {};
+      window.renderGradebook ||= () => {};
+      window.renderAdminTable ||= () => {};
+      window.renderAnnouncements ||= () => {};
+    </script>
     <script type="module" src="./app.js?v=ff-safe-2"></script>
 
     <!-- tiny UX: mobile search toggle (no duplicate listeners) -->

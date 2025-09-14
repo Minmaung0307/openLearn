@@ -19,10 +19,10 @@
   --topbar-offset: 64px;
   --topbar-h: 56px;
 
-  --sidebar-w: 72px;        /* collapsed (icons only) */
-  --sidebar-w-exp: 220px;   /* expanded (icons + labels) */
-  --content-max: 1200px;    /* max width of inner content */
-  --gutter: 16px;           /* page side padding */
+  --sidebar-w: 72px; /* collapsed (icons only) */
+  --sidebar-w-exp: 220px; /* expanded (icons + labels) */
+  --content-max: 1200px; /* max width of inner content */
+  --gutter: 16px; /* page side padding */
 
   /* Pills */
   --pill-ann: #1f2a44;
@@ -30,9 +30,9 @@
   /* ❌ finals pill removed */
   scrollbar-gutter: stable both-edges;
 
-  --shadow-soft: 0 4px 12px rgba(0,0,0,0.15);
-  --shadow-medium: 0 6px 20px rgba(0,0,0,0.18);
-  --shadow-strong: 0 8px 30px rgba(0,0,0,0.22);
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-medium: 0 6px 20px rgba(0, 0, 0, 0.18);
+  --shadow-strong: 0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
 /* Reset / base */
@@ -54,7 +54,12 @@ body {
   overflow-x: hidden;
 }
 
-html, body { height: 100%; background: var(--bg); margin: 0; }
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  margin: 0;
+}
 
 /* Helpers */
 .hidden,
@@ -148,12 +153,12 @@ a:hover {
   justify-content: center;
 }
 #topSearch {
-    display:block;
+  display: block;
   width: min(560px, 62vw);
   height: 40px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--card);   /* was #0b1220 */
+  background: var(--card); /* was #0b1220 */
   color: var(--fg);
   padding: 0 12px;
 }
@@ -210,7 +215,7 @@ a:hover {
   border-right: 1px solid var(--border);
   overflow: auto;
   transform: translateX(-100%);
-  transition: transform .25s ease, width .2s ease;
+  transition: transform 0.25s ease, width 0.2s ease;
 }
 #sidebar.expanded {
   width: var(--sidebar-w-exp);
@@ -243,7 +248,7 @@ a:hover {
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 #sidebar .navbtn.active {
-  background: rgba(255,255,255,.08);
+  background: rgba(255, 255, 255, 0.08);
   border-color: var(--btnPrimaryBg);
 }
 #sidebar .navbtn:hover {
@@ -265,7 +270,8 @@ a:hover {
   opacity: 0;
 }
 /* show labels on hover, on drawer (.show), or when body has expanded flag */
-#sidebar:hover .navbtn span, #sidebar.show .navbtn span {
+#sidebar:hover .navbtn span,
+#sidebar.show .navbtn span {
   display: inline-block !important;
   opacity: 1 !important;
 }
@@ -273,10 +279,10 @@ a:hover {
 #sidebar.show {
   width: var(--sidebar-w-exp);
   transform: translateX(0);
-  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
-body.sidebar-expanded::after{
+body.sidebar-expanded::after {
   pointer-events: none; /* overlay တင်မလိုတော့ */
 }
 
@@ -299,7 +305,11 @@ main,
 } */
 
 /* --- FIX: Sidebar labels show/hide nicely and stay interactive --- */
-#sidebar .navbtn span { white-space: nowrap; opacity: 1; transition: opacity .12s ease; }
+#sidebar .navbtn span {
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.12s ease;
+}
 
 /* ===== MAIN ===== */
 .with-topbar {
@@ -311,8 +321,10 @@ main,
   position: relative;
   min-height: 100vh;
   background: var(--bg);
-  padding-top: calc(var(--topbar-offset) + 16px);  /* keep your extra 16px breathing room */
-  transition: margin-left .2s ease, padding .2s ease;
+  padding-top: calc(
+    var(--topbar-offset) + 16px
+  ); /* keep your extra 16px breathing room */
+  transition: margin-left 0.2s ease, padding 0.2s ease;
   max-width: none;
   z-index: 1;
   /* padding-left: calc(var(--sidebar-w) + 8px);
@@ -325,9 +337,9 @@ body.sidebar-expanded #main {
 
 /* Pages */
 .page {
-  display: none;         /* ✅ hide by default */
+  display: none; /* ✅ hide by default */
   position: relative;
-  max-width: calc(var(--content-max) + var(--gutter)*2);
+  max-width: calc(var(--content-max) + var(--gutter) * 2);
   margin: 0 auto;
   padding: 16px var(--gutter) 24px;
   /* padding-bottom: 24px; */
@@ -335,13 +347,18 @@ body.sidebar-expanded #main {
   min-height: calc(100vh - var(--topbar-offset, 0px) - 68px);
 }
 
-
 /* make sure nothing sits under the fixed sidebar accidentally */
-.page, #pages, main, #content{ position:relative; z-index:0; }
+.page,
+#pages,
+main,
+#content {
+  position: relative;
+  z-index: 0;
+}
 
 .page.visible {
   padding: 16px;
-  display: block;  /* ✅ only the active page shows */
+  display: block; /* ✅ only the active page shows */
 }
 
 /* Grids / tables */
@@ -372,11 +389,11 @@ body.sidebar-expanded #main {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px;
-  box-shadow: var(--shadow-soft);      /* 🌟 soft glow */
+  box-shadow: var(--shadow-soft); /* 🌟 soft glow */
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 .card:hover {
-  box-shadow: var(--shadow-medium);    /* lift on hover */
+  box-shadow: var(--shadow-medium); /* lift on hover */
   transform: translateY(-2px);
 }
 
@@ -533,25 +550,29 @@ body.logged [data-requires-auth] {
 }
 
 /* ≤1199px (i.e., when grid is 3/2/1): hide input, show icon */
-@media (max-width:1199px){
-  #topSearch{ display:none; }
-  .search-ico{ display:inline-grid; }
+@media (max-width: 1199px) {
+  #topSearch {
+    display: none;
+  }
+  .search-ico {
+    display: inline-grid;
+  }
 }
 
-@media (min-width:1025px){
+@media (min-width: 1025px) {
   /* sidebar always visible on desktop */
-  #sidebar{
-    transform: none !important;  /* no off-canvas */
+  #sidebar {
+    transform: none !important; /* no off-canvas */
     width: var(--sidebar-w);
     box-shadow: none;
   }
 
-  #main{
+  #main {
     margin-left: var(--sidebar-w);
-    transition: margin-left .2s ease;
+    transition: margin-left 0.2s ease;
   }
   /* when sidebar expands on hover, push content too (requires #sidebar before #main in DOM) */
-  #sidebar:hover ~ #main{
+  #sidebar:hover ~ #main {
     margin-left: var(--sidebar-w-exp);
   }
 }
@@ -560,11 +581,17 @@ body.logged [data-requires-auth] {
 @media (max-width: 1024px) {
   #sidebar {
     transform: translateX(-100%);
-    width: var(--sidebar-w-exp);      /* 220–260px drawer is fine */
+    width: var(--sidebar-w-exp); /* 220–260px drawer is fine */
   }
-  #sidebar.show { transform: translateX(0); }
-  #main { margin-left: 0; }
-  #btn-burger { display: grid; }
+  #sidebar.show {
+    transform: translateX(0);
+  }
+  #main {
+    margin-left: 0;
+  }
+  #btn-burger {
+    display: grid;
+  }
 }
 
 @media (max-width: 768px) {
@@ -645,7 +672,10 @@ dialog.ol-modal::backdrop {
   width: 100%;
   margin-top: 4px;
 }
-.auth-modern .authpane .input::placeholder { color: var(--muted); opacity: .9; }
+.auth-modern .authpane .input::placeholder {
+  color: var(--muted);
+  opacity: 0.9;
+}
 
 /* Links row: space them out, avoid "glued" look */
 .auth-links {
@@ -655,11 +685,16 @@ dialog.ol-modal::backdrop {
   gap: 12px;
   margin-top: 12px;
 }
-.auth-links.single { justify-content: flex-end; }
-.auth-links a { padding: 2px 0; }
+.auth-links.single {
+  justify-content: flex-end;
+}
+.auth-links a {
+  padding: 2px 0;
+}
 
 /* Make primary actions stand out and fill width in modals */
-.authpane .btn.wide, .authpane .btn.primary.wide {
+.authpane .btn.wide,
+.authpane .btn.primary.wide {
   width: 100%;
   margin-top: 10px;
 }
@@ -682,12 +717,18 @@ dialog.ol-modal,
   max-width: 760px;
   max-height: 80vh;
   overflow: auto;
-  box-shadow: var(--shadow-strong);    /* 🌟 floating layer */
+  box-shadow: var(--shadow-strong); /* 🌟 floating layer */
   animation: modalPop 0.25s ease;
 }
 @keyframes modalPop {
-  from { transform: scale(0.96); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 dialog::backdrop {
@@ -729,16 +770,28 @@ dialog.ol-modal textarea {
 
 #courseGrid {
   display: grid;
-  grid-template-columns:repeat(1, minmax(0,1fr));   /* 1 col default */
+  grid-template-columns: repeat(1, minmax(0, 1fr)); /* 1 col default */
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
   gap: 12px;
 }
 
-@media (min-width:600px){   #courseGrid{ grid-template-columns:repeat(2,1fr); } }
-@media (min-width:900px){   #courseGrid{ grid-template-columns:repeat(3,1fr); } }
-@media (min-width:1200px){  #courseGrid{ grid-template-columns:repeat(4,1fr); } }
+@media (min-width: 600px) {
+  #courseGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 900px) {
+  #courseGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (min-width: 1200px) {
+  #courseGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
 
 @media (max-width: 600px) {
   #courseGrid {
@@ -808,7 +861,7 @@ button:disabled {
 .input::placeholder,
 textarea::placeholder {
   color: var(--muted);
-  opacity: .85;
+  opacity: 0.85;
 }
 
 /* focus state: clearer but subtle */
@@ -834,22 +887,32 @@ textarea::placeholder {
 
 .cert-doc {
   box-sizing: border-box;
-  width: 100%;             /* dialog အကျယ်ထဲကို အပြည့် */
-  max-width: 1000px;       /* print အတွက် control (A4 landscape ~ 1000px) */
-  height: auto;            /* fixed height မသုံးပါ */
-  min-height: 650px;       /* အနည်းဆုံး အမြင့် */
+  width: 100%; /* dialog အကျယ်ထဲကို အပြည့် */
+  max-width: 1000px; /* print အတွက် control (A4 landscape ~ 1000px) */
+  height: auto; /* fixed height မသုံးပါ */
+  min-height: 650px; /* အနည်းဆုံး အမြင့် */
   margin: 0 auto;
   padding: 30px 40px 80px; /* ပေါ်30px / ညာ40px / အောက်80px => logo/title မပြတ်, signatures margin ရ */
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 12px;
-  box-shadow: var(--shadow-strong);    /* 🌟 same as modals */
-  position: relative;      /* logo absolute positioning သုံးမယ်ဆိုရင်လိုတယ် */
-  overflow: hidden;        /* scroll မဖြစ်အောင် */
+  box-shadow: var(--shadow-strong); /* 🌟 same as modals */
+  position: relative; /* logo absolute positioning သုံးမယ်ဆိုရင်လိုတယ် */
+  overflow: hidden; /* scroll မဖြစ်အောင် */
 }
 
-.cert-head { font-size:26px; font-weight:800; text-align:center; margin-top: 46px; color:#222;}
-.cert-sub  { text-align:center; color:#555; margin:4px 0 10px; }
+.cert-head {
+  font-size: 26px;
+  font-weight: 800;
+  text-align: center;
+  margin-top: 46px;
+  color: #222;
+}
+.cert-sub {
+  text-align: center;
+  color: #555;
+  margin: 4px 0 10px;
+}
 .cert-name {
   text-align: center;
   font-size: 28px;
@@ -864,52 +927,88 @@ textarea::placeholder {
   margin: 6px 0 2px;
   color: #222;
 }
-.cert-meta { text-align: center; color: #555; margin-top: 6px; }
-.cert-seal { width: 90px; height: 90px; border-radius: 50%;
-  background: linear-gradient(135deg,#8c7851,#a88b63); }
+.cert-meta {
+  text-align: center;
+  color: #555;
+  margin-top: 6px;
+}
+.cert-seal {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8c7851, #a88b63);
+}
 .cert-photo {
   display: block;
-  width: 120px; height: 120px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid #eee;
-  margin: 14px auto 8px;        /* centered under headers */
+  margin: 14px auto 8px; /* centered under headers */
   background: #f6f6f6;
 }
 .cert-signs {
   position: absolute;
-  left: 60px; right: 60px; bottom: 46px;
-  display: flex; gap: 24px; justify-content: space-between;
+  left: 60px;
+  right: 60px;
+  bottom: 46px;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
 }
-.cert-signs .sig { text-align:center; flex:1; }
+.cert-signs .sig {
+  text-align: center;
+  flex: 1;
+}
 .cert-signs .sig-label {
   margin-top: 6px;
   font-size: 12px;
   color: #444;
 }
-.sig-img { width: 120px; height: auto; object-fit: contain; }
+.sig-img {
+  width: 120px;
+  height: auto;
+  object-fit: contain;
+}
 /* Logo */
 .cert-logo {
   margin-top: 4mm;
   width: 90px;
   position: absolute;
-  top: 25px;       /* ပိုနည်းခဲ့ရင် logo ပြတ်သွားမယ် */
+  top: 25px; /* ပိုနည်းခဲ့ရင် logo ပြတ်သွားမယ် */
   left: 25px;
 }
-.sig { text-align: center; flex: 1; font-size: 12px; color:#444; }
+.sig {
+  text-align: center;
+  flex: 1;
+  font-size: 12px;
+  color: #444;
+}
 /* screen view မှာ modal အောက်က ခလုတ် row ကို အပေါ်ယံချည်းပဲပြ (print မှာတှာ် hidden already) */
 /* Controls row in modal (screen only; print မှာ already hidden) */
-#certModal .row { width: min(1123px, 96vw); margin: 10px auto 0; }
+#certModal .row {
+  width: min(1123px, 96vw);
+  margin: 10px auto 0;
+}
 
 /* Announcements card items already use .card */
 /* If inner text looked too pale, ensure: */
-#annList .card { background: var(--card); color: var(--fg); border-color: var(--border); }
-#annList .muted { color: var(--muted); }
+#annList .card {
+  background: var(--card);
+  color: var(--fg);
+  border-color: var(--border);
+}
+#annList .muted {
+  color: var(--muted);
+}
 
 /* hide controls when printing */
 
 /* ===== Certificate: FULL VIEW (screen) ===== */
-body.cert-open { overflow: hidden; }               /* background scroll lock */
+body.cert-open {
+  overflow: hidden;
+} /* background scroll lock */
 
 #certModal {
   /* dialog ကို viewport အပြည့် */
@@ -921,18 +1020,18 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
   max-height: none !important;
   padding: 0 !important;
   margin: 0 !important;
-  background: #0b0f17;        /* dark canvas behind cert */
+  background: #0b0f17; /* dark canvas behind cert */
   display: grid;
-  place-items: center;        /* center the cert */
-  overflow: hidden;           /* ❗ no scrollbars in modal */
+  place-items: center; /* center the cert */
+  overflow: hidden; /* ❗ no scrollbars in modal */
 }
 
 #certBody {
   width: 100%;
   height: 100%;
   display: grid;
-  place-items: center;        /* center child */
-  overflow: hidden;           /* ❗ no inner scroll */
+  place-items: center; /* center child */
+  overflow: hidden; /* ❗ no inner scroll */
   max-height: calc(90vh - 60px);
 }
 
@@ -940,11 +1039,11 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 .cert-doc {
   position: relative;
   width: 100%;
-  aspect-ratio: 297 / 210;      /* A4 landscape canvas proportion */
+  aspect-ratio: 297 / 210; /* A4 landscape canvas proportion */
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 12px;
-  box-shadow: 0 8px 40px rgba(0,0,0,.22);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.22);
   padding: 24px 28px;
   overflow: hidden;
 
@@ -956,7 +1055,9 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 /* anti-forgery footer inside certificate */
 .cert-forgery {
   position: absolute;
-  left: 14px; right: 14px; bottom: 10px;
+  left: 14px;
+  right: 14px;
+  bottom: 10px;
   color: #666;
   font-size: 10px;
   text-align: center;
@@ -971,16 +1072,27 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
   height: auto;
 }
 
-.cert-head { font-size: 26px; font-weight: 800; text-align: center; margin-top: 60px; color:#222; }
-.cert-sub  { text-align: center; color:#555; margin: 4px 0 10px; }
+.cert-head {
+  font-size: 26px;
+  font-weight: 800;
+  text-align: center;
+  margin-top: 60px;
+  color: #222;
+}
+.cert-sub {
+  text-align: center;
+  color: #555;
+  margin: 4px 0 10px;
+}
 
 .cert-photo {
   display: block;
-  width: 120px; height: 120px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   object-fit: cover;
   border: 3px solid #eee;
-  margin: 14px auto 8px;        /* centered under headers */
+  margin: 14px auto 8px; /* centered under headers */
   background: #f6f6f6;
 }
 
@@ -1000,7 +1112,11 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
   color: #222;
 }
 
-.cert-meta { text-align: center; color: #555; margin-top: 6px; }
+.cert-meta {
+  text-align: center;
+  color: #555;
+  margin-top: 6px;
+}
 
 /* Signatures section */
 .cert-signs {
@@ -1008,51 +1124,90 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
   display: flex;
   justify-content: space-between;
   gap: 40px;
-  margin-top: 60px;     /* body ကနေနည်းငယ် အထက်တင်ထား */
+  margin-top: 60px; /* body ကနေနည်းငယ် အထက်တင်ထား */
   padding: 0 40px;
 }
 
-.sig { text-align: center; flex: 1; font-size: 12px; color:#444; }
-.sig-img { width: 120px; height: auto; object-fit: contain; }
+.sig {
+  text-align: center;
+  flex: 1;
+  font-size: 12px;
+  color: #444;
+}
+.sig-img {
+  width: 120px;
+  height: auto;
+  object-fit: contain;
+}
 
 /* Controls row in modal (screen only; print မှာ already hidden) */
-#certModal .row { width: min(1123px, 96vw); margin: 10px auto 0; }
+#certModal .row {
+  width: min(1123px, 96vw);
+  margin: 10px auto 0;
+}
 
 /* ===== PRINT: certificate only, full page ===== */
 /* ==== CERT PRINT — A4 landscape, single page, slight margins ==== */
 /* A4 landscape + ကွာဟချက် 12mm (အပေါ်အောက်နှစ်ဖက်ပေါင်း 24mm) */
 /* A4 landscape + safe margins */
-@page { size: A4 landscape; margin: 14mm; } /* များလွန်းရင် 8mm အထိလျှော့နိုင် */
+@page {
+  size: A4 landscape;
+  margin: 14mm;
+} /* များလွန်းရင် 8mm အထိလျှော့နိုင် */
 
 @media print {
-  body * { visibility: hidden !important; }
-  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body * {
+    visibility: hidden !important;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 
   /* Only dialog contents */
-  body > :not(#certModal) { display: none !important; }
-  #certModal, #certModal * { visibility: visible !important; }
-  #certModal::backdrop { display:none !important; }
+  body > :not(#certModal) {
+    display: none !important;
+  }
+  #certModal,
+  #certModal * {
+    visibility: visible !important;
+  }
+  #certModal::backdrop {
+    display: none !important;
+  }
 
-  #certModal { position: static !important; inset:auto !important; margin:0 !important; padding:0 !important; border:0 !important; }
-  #certBody   { display:block; overflow:visible; }
+  #certModal {
+    position: static !important;
+    inset: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+  #certBody {
+    display: block;
+    overflow: visible;
+  }
 
   /* one-page fit inside usable area (297x210 − margins) */
-  .cert-doc{
-    box-sizing:border-box;
+  .cert-doc {
+    box-sizing: border-box;
     width: calc(297mm - 20mm);
     height: calc(210mm - 20mm);
     margin: 0 auto !important;
     transform: none !important;
-    padding: 10mm 12mm 8mm;  /* top/side/bottom → bottom နည်းနည်းများ */
-    background:#fff !important;
-    box-shadow:none !important;
-    overflow:hidden !important;
+    padding: 10mm 12mm 8mm; /* top/side/bottom → bottom နည်းနည်းများ */
+    background: #fff !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
     page-break-inside: avoid;
     break-inside: avoid;
   }
 
   /* hide any UI controls */
-  .no-print, .btn { display:none !important; }
+  .no-print,
+  .btn {
+    display: none !important;
+  }
 }
 
 /* certificate dialog မဖွင့်ခင်에는 controls မပေါ်အောင် */
@@ -1065,18 +1220,26 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 
 /* Buttons sit at the bottom of every course card */
 /* make each course card a vertical flex box */
-.card.course{ display:flex; flex-direction:column; }
+.card.course {
+  display: flex;
+  flex-direction: column;
+}
 
 /* body fills remaining height */
-.card.course .course-body{
-  display:flex; flex-direction:column; flex:1 1 auto;
+.card.course .course-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
 }
 
 /* push the last actions row to the bottom */
-.card.course .course-body .row:last-child{ margin-top:auto; }
+.card.course .course-body .row:last-child {
+  margin-top: auto;
+}
 
 /* Ensure all primary action buttons remain clickable */
-button, .btn {
+button,
+.btn {
   pointer-events: auto !important;
 }
 
@@ -1088,19 +1251,37 @@ button, .btn {
   opacity: 1 !important;
 }
 
-#annCount { font-size: 12px; opacity: .85; }
+#annCount {
+  font-size: 12px;
+  opacity: 0.85;
+}
 
 .pill-chat {
-    position: relative;
+  position: relative;
   background: rgba(37, 99, 235, 0.08); /* bluish hint */
   color: var(--fg);
   border: 1px solid var(--border);
 }
-#chatCount { font-size: 12px; opacity: .85; }
-.pill-badge {
-  display:none; position:absolute; top:-6px; right:-6px;
-  min-width:18px; height:18px; padding:0 5px; border-radius:999px;
-  background:#ef4444; color:#fff; font-size:12px; line-height:18px;
-  text-align:center; border:2px solid var(--card);
+#chatCount {
+  font-size: 12px;
+  opacity: 0.85;
 }
-.pill-badge.show { display: inline-block; }
+.pill-badge {
+  display: none;
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  border: 2px solid var(--card);
+}
+.pill-badge.show {
+  display: inline-block;
+}
