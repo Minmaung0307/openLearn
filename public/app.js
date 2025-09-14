@@ -640,6 +640,30 @@ function initAuthModal() {
   });
 }
 
+document.addEventListener("DOMContentLoaded", () => {
+  const btnLogin  = document.getElementById("btn-login");
+  const btnLogout = document.getElementById("btn-logout");
+  const authDlg   = document.getElementById("authModal");
+
+  // Login -> open modal
+  if (btnLogin) {
+    btnLogin.onclick = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      authDlg?.showModal();
+    };
+  }
+
+  // Logout -> firebase signOut + UI refresh
+  if (btnLogout) {
+    btnLogout.onclick = async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      try { await signOut(auth); } catch {}
+      setLogged(false);
+      toast("Logged out");
+    };
+  }
+});
+
 /* ---------- catalog actions (enroll, details, payment) ---------- */
 function markEnrolled(id) {
   const s = getEnrolls(); s.add(id); setEnrolls(s);

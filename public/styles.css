@@ -276,6 +276,10 @@ a:hover {
   box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
 
+body.sidebar-expanded::after{
+  pointer-events: none; /* overlay တင်မလိုတော့ */
+}
+
 /* Overlay scrim (optional but nice) */
 /* body.sidebar-expanded::after {
   content: "";
