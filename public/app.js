@@ -1330,10 +1330,10 @@ function renderCertificate(course, cert) {
       </div>
     </div>
 
-    // <div class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
-    //   <button class="btn" id="certPrint">Print / Save PDF</button>
-    //   <button class="btn" id="certClose">Close</button>
-    // </div>
+    <div class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
+      <button class="btn" id="certPrint">Print / Save PDF</button>
+      <button class="btn" id="certClose">Close</button>
+    </div>
   `;
 }
 
@@ -1381,14 +1381,15 @@ function cleanupStrayCertButtons() {
   });
 }
 
-function showCertificate(course, opts = { issueIfMissing: true }) {
-  cleanupStrayCertButtons(); // ← stray buttons မဖော်မိအောင် အစဲဝင် ဖယ်
+function showCertificate(course) {
+  cleanupStrayCertButtons();
+
   const prof = getProfile();
   const completed = getCompletedRaw().find(x => x.id === course.id);
   const score = completed?.score ?? null;
 
   let rec = getIssuedCert(course.id);
-  if (!rec && opts.issueIfMissing) rec = ensureCertIssued(course, prof, score);
+  if (!rec) rec = ensureCertIssued(course, prof, score);
   if (!rec) return toast("Certificate not issued yet");
 
   const dlg  = document.getElementById("certModal");
@@ -1398,20 +1399,46 @@ function showCertificate(course, opts = { issueIfMissing: true }) {
   body.innerHTML = renderCertificate(course, rec);
   dlg.showModal();
 
-  // wire just the modal's own buttons
+  // wire only the ones inside modal
   const printBtn = dlg.querySelector("#certPrint");
   const closeBtn = dlg.querySelector("#certClose");
   printBtn?.addEventListener("click", () => window.print(), { once:true });
   closeBtn?.addEventListener("click", () => hardCloseCert(), { once:true });
 
   dlg.addEventListener("cancel", (e)=>{ e.preventDefault(); hardCloseCert(); }, { once:true });
-
-  window.onbeforeprint = () => document.body.classList.add("printing");
-  window.onafterprint  = () => hardCloseCert();
-
-  // safety: one more cleanup after modal opens
-  cleanupStrayCertButtons();
 }
+
+// function showCertificate(course, opts = { issueIfMissing: true }) {
+//   cleanupStrayCertButtons(); // ← stray buttons မဖော်မိအောင် အစဲဝင် ဖယ်
+//   const prof = getProfile();
+//   const completed = getCompletedRaw().find(x => x.id === course.id);
+//   const score = completed?.score ?? null;
+
+//   let rec = getIssuedCert(course.id);
+//   if (!rec && opts.issueIfMissing) rec = ensureCertIssued(course, prof, score);
+//   if (!rec) return toast("Certificate not issued yet");
+
+//   const dlg  = document.getElementById("certModal");
+//   const body = document.getElementById("certBody");
+//   if (!dlg || !body) return;
+
+//   body.innerHTML = renderCertificate(course, rec);
+//   dlg.showModal();
+
+//   // wire just the modal's own buttons
+//   const printBtn = dlg.querySelector("#certPrint");
+//   const closeBtn = dlg.querySelector("#certClose");
+//   printBtn?.addEventListener("click", () => window.print(), { once:true });
+//   closeBtn?.addEventListener("click", () => hardCloseCert(), { once:true });
+
+//   dlg.addEventListener("cancel", (e)=>{ e.preventDefault(); hardCloseCert(); }, { once:true });
+
+//   window.onbeforeprint = () => document.body.classList.add("printing");
+//   window.onafterprint  = () => hardCloseCert();
+
+//   // safety: one more cleanup after modal opens
+//   cleanupStrayCertButtons();
+// }
 
 async function tryFetch(path) {
   try { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) return null; return await r.json(); } catch { return null; }
