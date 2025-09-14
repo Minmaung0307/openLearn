@@ -1375,7 +1375,14 @@ function hardCloseCert() {
   showPage("mylearning", false);
 }
 
+function cleanupStrayCertButtons() {
+  document.querySelectorAll('#certPrint, #certClose').forEach(el => {
+    if (!el.closest('#certModal')) el.remove();
+  });
+}
+
 function showCertificate(course, opts = { issueIfMissing: true }) {
+  cleanupStrayCertButtons(); // ← stray buttons မဖော်မိအောင် အစဲဝင် ဖယ်
   const prof = getProfile();
   const completed = getCompletedRaw().find(x => x.id === course.id);
   const score = completed?.score ?? null;
@@ -1388,11 +1395,10 @@ function showCertificate(course, opts = { issueIfMissing: true }) {
   const body = document.getElementById("certBody");
   if (!dlg || !body) return;
 
-  // clear & render (avoid duplicate controls)
   body.innerHTML = renderCertificate(course, rec);
   dlg.showModal();
 
-  // re-wire buttons inside the dialog only
+  // wire just the modal's own buttons
   const printBtn = dlg.querySelector("#certPrint");
   const closeBtn = dlg.querySelector("#certClose");
   printBtn?.addEventListener("click", () => window.print(), { once:true });
@@ -1402,6 +1408,9 @@ function showCertificate(course, opts = { issueIfMissing: true }) {
 
   window.onbeforeprint = () => document.body.classList.add("printing");
   window.onafterprint  = () => hardCloseCert();
+
+  // safety: one more cleanup after modal opens
+  cleanupStrayCertButtons();
 }
 
 async function tryFetch(path) {
@@ -1829,16 +1838,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof onAuthStateChanged === "function" && auth) {
   onAuthStateChanged(auth, async () => {
     gateChatUI();
-    if (typeof syncEnrollsBothWays === "function") {
+    try {
       await migrateProgressKey();
       await Promise.all([
-        syncEnrollsBothWays(),   // ⬅️ bring this back
+        syncEnrollsBothWays(),
         syncProgressBothWays()
       ]);
-      window.renderProfilePanel?.();
-      window.renderMyLearning?.();
-      window.renderGradebook?.();
-    }
+    } catch {}
+    // ✅ sync ပြီမှ render — Firefox “Continue only” ပြဿနာကို ဒီနေရာက ဖြေ
+    window.renderProfilePanel?.();
+    window.renderMyLearning?.();
+    window.renderGradebook?.();
   });
 }
 
@@ -1850,14 +1860,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   ALL = getCourses();
   // ⬇️ user ရှိပြီး firestore သုံးစွဲနိုင်ရင် ချက်ချင်း sync
 if (getUser() && !!db) {
-   await Promise.all([
-     syncEnrollsBothWays(),
-     syncProgressBothWays()
-   ]).catch(()=>{});
- }
+  try {
+    await Promise.all([ syncEnrollsBothWays(), syncProgressBothWays() ]);
+  } catch {}
+}
   renderCatalog();
 window.renderAdminTable?.();
 window.renderProfilePanel?.();
+window.renderMyLearning?.();
+window.renderGradebook?.();
 window.renderAnnouncements?.();
 
   // One-time import/export wiring
