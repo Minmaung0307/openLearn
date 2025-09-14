@@ -1077,7 +1077,9 @@ button, .btn {
 }
 
 /* Specific for New Course button */
-#btn-new-course {
+#btn-new-course,
+#btn-course-cancel,
+#btn-course-save {
   pointer-events: auto !important;
   opacity: 1 !important;
 }

@@ -462,13 +462,29 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  const newCourseBtn = document.getElementById("btn-new-course");
-  if (newCourseBtn) {
-    newCourseBtn.addEventListener("click", () => {
-      // open modal or form
-      document.getElementById("courseModal")?.showModal();
-    });
-  }
+  const newCourseBtn  = document.getElementById("btn-new-course");
+  const courseModal   = document.getElementById("courseModal");
+  const cancelBtn     = document.getElementById("btn-course-cancel");
+  const saveBtn       = document.getElementById("btn-course-save");
+
+  // open modal
+  newCourseBtn?.addEventListener("click", () => {
+    courseModal?.showModal();
+  });
+
+  // close modal by cancel
+  cancelBtn?.addEventListener("click", () => {
+    courseModal?.close();
+  });
+
+  // close modal on save (you can add Firestore save here later)
+  saveBtn?.addEventListener("click", (e) => {
+    e.preventDefault();  // stop auto-close if you want to validate
+    // save logic...
+    courseModal?.close();
+  });
+
+  // escape key / backdrop click auto works with <dialog>
 });
 
 function initSearch() {

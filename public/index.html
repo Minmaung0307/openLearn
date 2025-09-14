@@ -510,8 +510,8 @@
         <b class="modal-title">New Course</b>
         <button class="btn small" id="courseClose" type="button">Close</button>
       </div>
-      <form id="courseForm" class="authpane">
-        <label>Title <input name="title" class="input" required /></label>
+      <form id="courseForm" class="authpane" method="dialog">
+        <label>Title <input name="title" type="text" class="input" required /></label>
         <label
           >Category
           <input name="category" class="input" value="General" required
@@ -566,8 +566,8 @@
           class="row"
           style="grid-column: 1/-1; justify-content: flex-end; gap: 8px"
         >
-          <button class="btn" id="courseCancel" type="button">Cancel</button>
-          <button class="btn primary" id="courseSave" type="submit">
+          <button class="btn" id="btn-course-cancel" type="button">Cancel</button>
+          <button class="btn primary" id="btn-course-save" type="submit">
             Save
           </button>
         </div>
