@@ -428,8 +428,17 @@ if ("ResizeObserver" in window) {
   tb && new ResizeObserver(_runTopbarOffset).observe(tb);
 }
 
+function watchChatBoxBadge(){
+  const box = document.getElementById("chatBox");
+  if (!box) return;
+  updateChatBadgeFromDOM();            // initial
+  const mo = new MutationObserver(() => updateChatBadgeFromDOM());
+  mo.observe(box, { childList: true });
+}
+
 /* ---------- router + search ---------- */
 function showPage(id, push = true) {
+  // hide/show
   $$(".page").forEach((p) => p.classList.remove("visible"));
   $("#page-" + id)?.classList.add("visible");
 
@@ -438,15 +447,27 @@ function showPage(id, push = true) {
     b.classList.toggle("active", b.dataset.page === id)
   );
 
+  // per-page renders
   if (id === "mylearning") window.renderMyLearning?.();
-if (id === "gradebook")  window.renderGradebook?.();
-if (id === "admin")      window.renderAdminTable?.();
-if (id === "dashboard")  window.renderAnnouncements?.();
+  if (id === "gradebook")  window.renderGradebook?.();
+  if (id === "admin")      window.renderAdminTable?.();
+  if (id === "dashboard")  window.renderAnnouncements?.();
 
-  // 🔑 update browser history (default true)
-  if (push) {
-    history.pushState({ page: id }, "", "#" + id);
+  // 🔁 livechat: DOM attach အပြီး re-bind
+  if (id === "livechat") {
+    setTimeout(() => {
+      initChatRealtime();         // chatBox/chatSend wire
+      // watchChatBoxBadge();     // (optional) badge observer သုံးမယ်ဆိုရင် enable
+      watchChatBoxBadge();  // ← ဒီလို ခေါ်
+      gateChatUI();               // auth state gating
+      document.getElementById("chatInput")?.focus();
+      const box = document.getElementById("chatBox");
+      if (box) box.scrollTop = box.scrollHeight;
+    }, 0);
   }
+
+  // history
+  if (push) history.pushState({ page: id }, "", "#" + id);
 }
 
 // handle browser back/forward
@@ -1703,7 +1724,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const annBtn   = document.getElementById("btn-ann");
   const annModal = document.getElementById("annModal");
   const annClose = document.getElementById("btn-ann-close");
-  const annList  = document.getElementById("annList");
+  // const annList  = document.getElementById("annList");
 
   // click → open modal
   annBtn?.addEventListener("click", () => {
@@ -2034,6 +2055,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-top-chat")?.addEventListener("click", gotoLiveChat);
   document.getElementById("btn-side-chat")?.addEventListener("click", gotoLiveChat);
   initChatRealtime();
+  gateChatUI();
   ensureChatBadgeWatcher();   // chatBox ရှိရင် observer တင်မယ်
   updateChatBadge();
 });

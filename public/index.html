@@ -341,24 +341,21 @@
       </section>
 
       <!-- Live Chat -->
-      <section id="liveChat" class="page card">
-        <div class="card narrow">
-          <div class="row"><h3 class="h4">Live Chat</h3></div>
-          <div
-            id="chatBox"
-            aria-live="polite"
-            style="max-height: 260px; overflow: auto"
-          ></div>
-          <div class="row" style="margin-top: 8px">
-            <input
-              id="chatInput"
-              class="input grow"
-              placeholder="Type a message…"
-            />
-            <button class="btn" id="chatSend" type="button">Send</button>
-          </div>
-        </div>
-      </section>
+      <section id="page-livechat" class="page">
+  <div class="card" style="max-width: 900px; margin: 0 auto;">
+    <div class="row" style="justify-content: space-between; align-items:center">
+      <h3 style="margin:0">Live Chat</h3>
+      <small class="muted">Global room</small>
+    </div>
+
+    <div id="chatBox" style="margin-top:10px; max-height: 360px; overflow:auto;"></div>
+
+    <div class="row" style="margin-top: 10px;">
+      <input id="chatInput" class="input" placeholder="Type a message…" />
+      <button id="chatSend" class="btn primary">Send</button>
+    </div>
+  </div>
+</section>
     </main>
 
     <!-- MODALS -->
