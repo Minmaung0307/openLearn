@@ -1070,3 +1070,14 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 
 /* push the last actions row to the bottom */
 .card.course .course-body .row:last-child{ margin-top:auto; }
+
+/* Ensure all primary action buttons remain clickable */
+button, .btn {
+  pointer-events: auto !important;
+}
+
+/* Specific for New Course button */
+#btn-new-course {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}

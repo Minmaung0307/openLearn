@@ -461,6 +461,16 @@ document.addEventListener("DOMContentLoaded", () => {
   showPage(initial, false);
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+  const newCourseBtn = document.getElementById("btn-new-course");
+  if (newCourseBtn) {
+    newCourseBtn.addEventListener("click", () => {
+      // open modal or form
+      document.getElementById("courseModal")?.showModal();
+    });
+  }
+});
+
 function initSearch() {
   const input = $("#topSearch");
   const apply = () => {
