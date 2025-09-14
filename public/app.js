@@ -1873,6 +1873,7 @@ function initChatRealtime() {
         <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
         <div>${esc(m.text)}</div></div>`);
       box.scrollTop = box.scrollHeight;
+      try { updateChatBadge(); } catch {}
     });
 
     send.onclick = async () => {
@@ -1919,6 +1920,7 @@ function wireCourseChatRealtime(courseId) {
         <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
         <div>${esc(m.text)}</div></div>`);
       list.scrollTop = list.scrollHeight;
+      try { updateChatBadge(); } catch {}
     });
 
     send.onclick = async () => {
@@ -1949,30 +1951,35 @@ function wireCourseChatRealtime(courseId) {
   };
 }
 
-function updateChatBadge() {
-  const n = (getChats?.() || []).length;  // ✅ you need a getChats() that returns all chat msgs
-  const badge = document.getElementById("chatCount");
-  if (!badge) return;
-  badge.textContent = n ? `(${n})` : "";
+// --- Local helper for badge count (works even without RTDB)
+function getChats() {
+  try { return JSON.parse(localStorage.getItem("ol_chat_local") || "[]"); }
+  catch { return []; }
 }
 
+function updateChatBadge() {
+  const el = document.getElementById("chatCount");
+  if (!el) return;
+  const n = (getChats() || []).length;
+  if (n > 0) { el.textContent = n > 99 ? "99+" : String(n); el.classList.add("show"); }
+  else { el.textContent = ""; el.classList.remove("show"); }
+}
+
+// keep badge in sync when another tab writes to localStorage
+window.addEventListener("storage", (e) => {
+  if (e.key === "ol_chat_local") updateChatBadge();
+});
+
 document.addEventListener("DOMContentLoaded", () => {
-  const chatBtn = document.getElementById("btn-top-chat");
-
-  chatBtn?.addEventListener("click", () => {
-    // ✅ jump to chat section (assuming chat lives in page-dashboard or page-chat)
-    showPage("dashboard");      // or showPage("chat") if you have a dedicated page
-    const el = document.getElementById("chatBox") || document.getElementById("ccList");
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
-
-  // run once on boot
   updateChatBadge();
 
-  // wire realtime update if chat system pushes messages
-  if (typeof onChatMessage === "function") {
-    onChatMessage(() => updateChatBadge());
-  }
+  // Click → go to Live Chat area (on dashboard)
+  const chatBtn = document.getElementById("btn-top-chat");
+  chatBtn?.addEventListener("click", () => {
+    showPage("dashboard");
+    const box = document.getElementById("chatBox") || document.getElementById("ccList");
+    box?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 });
 
 /* =========================================================

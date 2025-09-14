@@ -1087,8 +1087,24 @@ button, .btn {
 #annCount { font-size: 12px; opacity: .85; }
 
 .pill-chat {
+    position: relative;
   background: rgba(37, 99, 235, 0.08); /* bluish hint */
   color: var(--fg);
   border: 1px solid var(--border);
 }
 #chatCount { font-size: 12px; opacity: .85; }
+.pill-badge {
+  display: none;
+  position: absolute;
+  top: -6px; right: -6px;
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  border: 2px solid var(--card);
+}
+.pill-badge.show { display: inline-block; }
