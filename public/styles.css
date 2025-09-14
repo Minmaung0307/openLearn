@@ -144,6 +144,7 @@ a:hover {
   justify-content: center;
 }
 #topSearch {
+    display:block;
   width: min(560px, 62vw);
   height: 40px;
   border-radius: 10px;
@@ -518,6 +519,12 @@ body.logged [data-requires-auth] {
   margin-left: 6px;
 }
 
+/* ≤1199px (i.e., when grid is 3/2/1): hide input, show icon */
+@media (max-width:1199px){
+  #topSearch{ display:none; }
+  .search-ico{ display:inline-grid; }
+}
+
 @media (min-width:1025px){
   /* sidebar always visible on desktop */
   #sidebar{
@@ -709,18 +716,9 @@ dialog.ol-modal textarea {
   gap: 12px;
 }
 
-@media (min-width:560px){   /* phones ↔ small tablets */
-  #courseGrid{ grid-template-columns:repeat(2, 1fr); }
-}
-@media (min-width:820px){   /* tablets / small laptop */
-  #courseGrid{ grid-template-columns:repeat(3, 1fr); }
-}
-@media (min-width:1120px){  /* laptop */
-  #courseGrid{ grid-template-columns:repeat(4, 1fr); }
-}
-@media (min-width:1400px){  /* wide desktop */
-  #courseGrid{ grid-template-columns:repeat(5, 1fr); }
-}
+@media (min-width:600px){   #courseGrid{ grid-template-columns:repeat(2,1fr); } }
+@media (min-width:900px){   #courseGrid{ grid-template-columns:repeat(3,1fr); } }
+@media (min-width:1200px){  #courseGrid{ grid-template-columns:repeat(4,1fr); } }
 
 @media (max-width: 600px) {
   #courseGrid {
@@ -1044,3 +1042,15 @@ body.cert-open { overflow: hidden; }               /* background scroll lock */
 #page-mylearning #certClose {
   display: none !important;
 }
+
+/* Buttons sit at the bottom of every course card */
+/* make each course card a vertical flex box */
+.card.course{ display:flex; flex-direction:column; }
+
+/* body fills remaining height */
+.card.course .course-body{
+  display:flex; flex-direction:column; flex:1 1 auto;
+}
+
+/* push the last actions row to the bottom */
+.card.course .course-body .row:last-child{ margin-top:auto; }
