@@ -131,12 +131,14 @@
           <i>⚙️</i><span>Settings</span>
         </button>
         <button
-          class="navbtn"
+        id="btn-top-chat"
+          class="navbtn icon-pill pill-chat"
           data-page="livechat"
           title="Live Chat"
           data-requires-auth
         >
           <i>💬</i><span>Live Chat</span>
+          <span id="chatCount" class="pill-badge" aria-label="unread chats"></span>
         </button>
       </nav>
     </aside>
@@ -339,7 +341,7 @@
       </section>
 
       <!-- Live Chat -->
-      <section id="page-livechat" class="page">
+      <section id="liveChat" class="page card">
         <div class="card narrow">
           <div class="row"><h3 class="h4">Live Chat</h3></div>
           <div

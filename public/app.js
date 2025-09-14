@@ -1873,7 +1873,7 @@ function initChatRealtime() {
         <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
         <div>${esc(m.text)}</div></div>`);
       box.scrollTop = box.scrollHeight;
-      try { updateChatBadge(); } catch {}
+      try { updateChatBadgeFromDOM(); } catch {}
     });
 
     send.onclick = async () => {
@@ -1920,7 +1920,7 @@ function wireCourseChatRealtime(courseId) {
         <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
         <div>${esc(m.text)}</div></div>`);
       list.scrollTop = list.scrollHeight;
-      try { updateChatBadge(); } catch {}
+      try { updateChatBadgeFromDOM(); } catch {}
     });
 
     send.onclick = async () => {
@@ -1951,35 +1951,59 @@ function wireCourseChatRealtime(courseId) {
   };
 }
 
-// --- Local helper for badge count (works even without RTDB)
-function getChats() {
-  try { return JSON.parse(localStorage.getItem("ol_chat_local") || "[]"); }
-  catch { return []; }
-}
+// --- Local fallback store key your chat uses in initChatRealtime()
+const CHAT_LOCAL_KEY = "ol_chat_local";
 
-function updateChatBadge() {
+// Count messages by reading the DOM (works for RTDB AND local fallback)
+function updateChatBadgeFromDOM(){
   const el = document.getElementById("chatCount");
   if (!el) return;
-  const n = (getChats() || []).length;
+  const n = document.querySelectorAll("#chatBox .msg").length;
   if (n > 0) { el.textContent = n > 99 ? "99+" : String(n); el.classList.add("show"); }
   else { el.textContent = ""; el.classList.remove("show"); }
 }
 
-// keep badge in sync when another tab writes to localStorage
+// Optional: read localStorage when using local-only fallback
+function updateChatBadgeFromLocal(){
+  const el = document.getElementById("chatCount");
+  if (!el) return;
+  let n = 0;
+  try { n = (JSON.parse(localStorage.getItem(CHAT_LOCAL_KEY) || "[]") || []).length; } catch {}
+  if (n > 0) { el.textContent = n > 99 ? "99+" : String(n); el.classList.add("show"); }
+  else { el.textContent = ""; el.classList.remove("show"); }
+}
+
+// Observe chatBox so badge updates whenever messages append (RTDB or local)
+function watchChatBoxBadge(){
+  const box = document.getElementById("chatBox");
+  if (!box) return;
+  updateChatBadgeFromDOM(); // initial
+  const mo = new MutationObserver(() => updateChatBadgeFromDOM());
+  mo.observe(box, { childList: true });
+}
+
+// Keep badge in sync if another tab writes local chat
 window.addEventListener("storage", (e) => {
-  if (e.key === "ol_chat_local") updateChatBadge();
+  if (e.key === CHAT_LOCAL_KEY) updateChatBadgeFromLocal();
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  updateChatBadge();
-
-  // Click → go to Live Chat area (on dashboard)
+  // 1) wire click → go to Live Chat page and scroll to the section
   const chatBtn = document.getElementById("btn-top-chat");
   chatBtn?.addEventListener("click", () => {
-    showPage("dashboard");
-    const box = document.getElementById("chatBox") || document.getElementById("ccList");
-    box?.scrollIntoView({ behavior: "smooth", block: "start" });
+    showPage("dashboard");                      // ensure correct page
+    // after page switches, scroll to the live chat section
+    setTimeout(() => {
+      const target = document.getElementById("liveChat") || document.getElementById("chatBox");
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // also focus the input for convenience
+      document.getElementById("chatInput")?.focus();
+    }, 0);
   });
+
+  // 2) start badge watchers (DOM + localStorage fallback)
+  watchChatBoxBadge();
+  updateChatBadgeFromLocal();
 });
 
 /* =========================================================
