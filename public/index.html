@@ -109,17 +109,25 @@
       </div>
     </section>
 
-    <!-- Live Chat -->
-    <section id="page-livechat" class="page">
+    <!-- ===== Live Chat Page ===== -->
+<section id="page-livechat" class="page">
+  <div class="card" style="max-width: 900px; margin: 0 auto;">
+    <div class="row" style="justify-content: space-between;">
       <h2 class="h4">Live Chat</h2>
-      <div class="card" id="globalChatCard">
-        <div id="chatBox"></div>
-        <div class="row">
-          <input id="chatInput" class="input" placeholder="Type a message..." />
-          <button id="chatSend" class="btn primary">Send</button>
-        </div>
-      </div>
-    </section>
+      <div class="muted small" id="chatRoomLabel">room: global</div>
+    </div>
+
+    <div id="chatBox"
+         style="height: 360px; overflow-y:auto; margin: 10px 0; padding:12px; border:1px solid var(--border); border-radius: 12px; background: var(--card);">
+      <!-- messages will render here -->
+    </div>
+
+    <div class="row">
+      <input id="chatInput" class="input" placeholder="Type a message…" style="flex:1;"/>
+      <button id="chatSend" class="btn primary">Send</button>
+    </div>
+  </div>
+</section>
 
     <!-- Admin -->
     <section id="page-admin" class="page">
