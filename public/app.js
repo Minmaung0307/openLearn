@@ -469,6 +469,11 @@ function showPage(id, push = true) {
   if (push) history.pushState({ page: id }, "", "#" + id);
 }
 
+// DOMContentLoaded မှာ ၁ ခါပဲ run
+document.getElementById("chatForm")?.addEventListener("submit", (e) => {
+  e.preventDefault(); // Enter နှိပ်လျှင် duplicate မဖြစ်အောင်
+});
+
 // handle browser back/forward
 window.addEventListener("popstate", (e) => {
   const id = e.state?.page || location.hash.replace("#", "") || "catalog";
@@ -1879,86 +1884,115 @@ function gateChatUI() {
 
 /* ---------- Global Live Chat (RTDB if available; local fallback) ---------- */
 // === one-time wiring guards ===
-let _chatWired = false;        // UI click handler အတွက်
-let _chatRef   = null;         // RTDB ref to detach when reinit
+// Global state (top-level)
+window.__chatInit = false;
+window.__chatRTDB = { ref: null, cb: null }; // detach အတွက်
 
 function initChatRealtime() {
-  const box   = document.getElementById("chatBox");
-  const input = document.getElementById("chatInput");
-  const send  = document.getElementById("chatSend");
-  if (!box || !send) return;
+  // DOM ရှိမှပဲ (page-livechat ထဲ)
+  const box = $("#chatBox"), input = $("#chatInput"), sendBtn = $("#chatSend");
+  if (!box || !sendBtn) return;
 
-  // 0) re-enter protection: old handlers/listeners ဖယ်
-  try { if (_chatRef && typeof off === "function") off(_chatRef); } catch {}
-  _chatRef = null;
-  send.onclick = null;                 // prevent double send
-  // (optional) UI redraw duplication မဖြစ်အောင်
-  // box.innerHTML = "";               // history ကို ပြန်တင်ချင်ရင် အောက်မှာသာ ပြန်တင်မယ်
+  // ---- Singleton Guard ----
+  if (window.__chatInit) return;
+  window.__chatInit = true;
+
+  // ---- (Optional) detach old RTDB listener (safety) ----
+  try {
+    if (window.__chatRTDB.ref && window.__chatRTDB.cb) {
+      // Firebase v9: off(ref, 'child_added', callback)
+      off(window.__chatRTDB.ref, 'child_added', window.__chatRTDB.cb);
+      window.__chatRTDB.ref = null; window.__chatRTDB.cb = null;
+    }
+  } catch {}
 
   const display = getUser()?.email || "guest";
 
+  // helper: one-shot sender (reused both modes)
+  const doSendLocal = () => {
+    const text = (input?.value || "").trim(); if (!text) return;
+    const arr = getLocalChats(); const m = { user: display, text, ts: Date.now() };
+    arr.push(m); setLocalChats(arr);
+    box.insertAdjacentHTML("beforeend",
+      `<div class="msg"><b>${esc(m.user)}</b>
+        <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+        <div>${esc(m.text)}</div></div>`);
+    box.scrollTop = box.scrollHeight;
+    input.value = "";
+    updateChatBadge();
+  };
+
+  // ---- Try RTDB mode ----
   try {
     if (!auth?.currentUser || auth.currentUser.isAnonymous) throw new Error("no-auth");
+    const rtdb = getDatabase(); const roomRef = ref(rtdb, "chats/global");
 
-    const rtdb = getDatabase();
-    const roomRef = ref(rtdb, "chats/global");
-    _chatRef = roomRef;                // keep to detach next time
-
-    onChildAdded(roomRef, (snap) => {
+    const onAdd = (snap) => {
       const m = snap.val(); if (!m) return;
+      // draw once
       box.insertAdjacentHTML("beforeend",
         `<div class="msg"><b>${esc(m.user)}</b>
           <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
           <div>${esc(m.text)}</div></div>`);
       box.scrollTop = box.scrollHeight;
 
-      // mirror to local for badge (de-dupe by signature)
+      // mirror → local (dup-check)
       const arr = getLocalChats();
       const sig = `${m.ts}|${m.user}|${m.text}`;
       if (!arr.some(x => `${x.ts}|${x.user}|${x.text}` === sig)) {
-        arr.push({ user:m.user, text:m.text, ts:m.ts }); setLocalChats(arr);
+        arr.push({ user: m.user, text: m.text, ts: m.ts });
+        setLocalChats(arr);
       }
       updateChatBadge();
-    });
-
-    send.onclick = async () => {
-      const text = (input?.value || "").trim(); if (!text) return;
-      const msg = { uid:auth.currentUser.uid, user:auth.currentUser.email || "user", text, ts:Date.now() };
-      await push(roomRef, msg);                    // ✅ push one time only
-      // mirror local so badge reacts instantly
-      const arr = getLocalChats(); arr.push({ user: msg.user, text: msg.text, ts: msg.ts });
-      setLocalChats(arr); updateChatBadge();
-      if (input) input.value = "";
     };
 
+    onChildAdded(roomRef, onAdd);
+    window.__chatRTDB = { ref: roomRef, cb: onAdd };
+
+    // overwrite old handlers (no addEventListener)
+    sendBtn.onclick = async () => {
+      const text = (input?.value || "").trim(); if (!text) return;
+      if (!auth.currentUser || auth.currentUser.isAnonymous) { toast("Please login to chat"); return; }
+      const msg = { uid:auth.currentUser.uid, user:auth.currentUser.email || "user", text, ts: Date.now() };
+      try {
+        await push(roomRef, msg);
+        // mirror to local for immediate badge
+        const arr = getLocalChats(); arr.push({ user: msg.user, text: msg.text, ts: msg.ts }); setLocalChats(arr);
+        updateChatBadge();
+        input.value = "";
+      } catch { toast("Chat failed"); }
+    };
+
+    return; // RTDB wired
   } catch {
-    // === Local fallback ===
-    const load = getLocalChats, save = setLocalChats;
-    box.innerHTML = "";                // ❗ reinit 时 double-draw မဖြစ်အောင် clear
-    load().forEach(m => {
-      box.insertAdjacentHTML("beforeend",
-        `<div class="msg"><b>${esc(m.user)}</b>
-          <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
-          <div>${esc(m.text)}</div></div>`);
-    });
-    box.scrollTop = box.scrollHeight;
-
-    send.onclick = () => {
-      const text = (input?.value || "").trim(); if (!text) return;
-      const m = { user: display, text, ts: Date.now() };
-      const arr = load(); arr.push(m); save(arr);
-      box.insertAdjacentHTML("beforeend",
-        `<div class="msg"><b>${esc(m.user)}</b>
-          <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
-          <div>${esc(m.text)}</div></div>`);
-      box.scrollTop = box.scrollHeight;
-      updateChatBadge();
-      if (input) input.value = "";
-    };
+    // fall through → local
   }
 
-  _chatWired = true;
+  // ---- Local fallback only ----
+  // first paint
+  getLocalChats().forEach((m) => {
+    box.insertAdjacentHTML("beforeend",
+      `<div class="msg"><b>${esc(m.user)}</b>
+        <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+        <div>${esc(m.text)}</div></div>`);
+  });
+  box.scrollTop = box.scrollHeight;
+
+  // overwrite old handlers (no addEventListener)
+  sendBtn.onclick = doSendLocal;
 }
+
+function onEnterLiveChatPage() {
+  initChatRealtime();   // guard ကာထားပြီးသား
+  watchChatBoxBadge?.();
+  gateChatUI();
+  document.getElementById("chatInput")?.focus();
+  const box = document.getElementById("chatBox");
+  if (box) box.scrollTop = box.scrollHeight;
+}
+
+// showPage() ထဲက route switch မှာ:
+if (id === "livechat") setTimeout(onEnterLiveChatPage, 0);
 
 // storage change from other tabs → refresh badge
 window.addEventListener("storage", (e) => {
