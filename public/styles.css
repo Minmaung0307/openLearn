@@ -530,7 +530,7 @@ body.logged [data-requires-auth] {
 }
 
 /* Responsive */
-/* @media (max-width: 1024px) {
+@media (max-width: 1024px) {
   #sidebar {
     transform: translateX(-100%);
     width: var(--sidebar-w-exp);
@@ -544,7 +544,8 @@ body.logged [data-requires-auth] {
   #btn-burger {
     display: grid;
   }
-} */
+}
+
 @media (max-width: 768px) {
   .topbar-row {
     grid-template-columns: auto 1fr auto auto;
