@@ -19,10 +19,8 @@
   --topbar-offset: 64px;
   --topbar-h: 56px;
 
-  --sidebar-w: 72px;        /* collapsed (icons only) */
-  --sidebar-w-exp: 220px;   /* expanded (icons + labels) */
-  --content-max: 1200px;    /* max width of inner content */
-  --gutter: 16px;           /* page side padding */
+  --sidebar-w: 72px;
+  --sidebar-w-exp: 220px;
 
   /* Pills */
   --pill-ann: #1f2a44;
@@ -88,12 +86,12 @@ a:hover {
 
 /* ===== TOPBAR ===== */
 #topbar {
-  /* position: fixed; */
-  position: sticky;
+  position: fixed;
+  /* position: sticky; */
   top: 0;
   left: 0;
   right: 0;
-  z-index: 1200;
+  z-index: 9999;
   /* z-index: 1200; */
   background: var(--card);
   color: var(--fg);
@@ -205,7 +203,7 @@ a:hover {
   border-right: 1px solid var(--border);
   overflow: auto;
   transform: translateX(-100%);
-  transition: transform .25s ease, width .2s ease;
+  transition: transform .25s ease, box-shadow .25s ease, width .2s ease; /* add width transition */
 }
 #sidebar.expanded {
   width: var(--sidebar-w-exp);
@@ -255,12 +253,14 @@ a:hover {
 }
 
 /* hide labels only when collapsed AND not hovered */
-#sidebar:not(.show):not(:hover) .navbtn span {
+#sidebar:not(.expanded):not(.show):not(:hover) .navbtn span {
   display: none;
   opacity: 0;
 }
 /* show labels on hover, on drawer (.show), or when body has expanded flag */
-#sidebar:hover .navbtn span, #sidebar.show .navbtn span {
+#sidebar:hover .navbtn span,
+#sidebar.show .navbtn span,
+body.sidebar-expanded #sidebar .navbtn span {
   display: inline-block !important;
   opacity: 1 !important;
 }
@@ -302,9 +302,7 @@ main,
   position: relative;
   min-height: 100vh;
   background: var(--bg);
-  padding: calc(var(--topbar-offset,56px) + 16px) var(--gutter) 68px var(--gutter);
-  transition: margin-left .2s ease, padding .2s ease;
-  max-width: none;
+  padding: calc(var(--topbar-offset, 0px) + 16px) 16px 68px 16px;
   z-index: 1;
   /* padding-left: calc(var(--sidebar-w) + 8px);
   padding-right: 16px;
@@ -318,18 +316,12 @@ body.sidebar-expanded #main {
 .page {
   display: none;         /* ✅ hide by default */
   position: relative;
-  max-width: calc(var(--content-max) + var(--gutter)*2);
   margin: 0 auto;
-  padding: 16px var(--gutter) 24px;
-  /* padding-bottom: 24px; */
+  max-width: 1200px;
+  padding-bottom: 24px;
   background: var(--bg);
   min-height: calc(100vh - var(--topbar-offset, 0px) - 68px);
 }
-
-
-/* make sure nothing sits under the fixed sidebar accidentally */
-.page, #pages, main, #content{ position:relative; z-index:0; }
-
 .page.visible {
   padding: 16px;
   display: block;  /* ✅ only the active page shows */
@@ -522,16 +514,12 @@ body.logged [data-requires-auth] {
   /* sidebar always visible on desktop */
   #sidebar{
     transform: none !important;  /* no off-canvas */
-    width: var(--sidebar-w);
     box-shadow: none;
   }
 
+  /* shift main content so it doesn’t sit under the sidebar */
   #main{
     margin-left: var(--sidebar-w);
-  }
-  /* when sidebar expands on hover, push content too (requires #sidebar before #main in DOM) */
-  #sidebar:hover ~ #main{
-    margin-left: var(--sidebar-w-exp);
   }
 }
 
@@ -542,7 +530,7 @@ body.logged [data-requires-auth] {
     width: var(--sidebar-w-exp);      /* 220–260px drawer is fine */
   }
   #sidebar.show { transform: translateX(0); }
-  #main { margin-left: 0; }
+  #main { margin-left: 0; padding-left: 16px; }
   #btn-burger { display: grid; }
 }
 
@@ -701,29 +689,9 @@ dialog.ol-modal textarea {
 
 #courseGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0,1fr));   /* desktop 5 */
-  max-width: var(--content-max);
-  margin: 0 auto;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
 }
-
-/* 4 cols */
-@media (max-width: 1400px){
-  #courseGrid{ grid-template-columns: repeat(4, minmax(0,1fr)); }
-}
-/* 3 cols */
-@media (max-width: 1120px){
-  #courseGrid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
-}
-/* 2 cols */
-@media (max-width: 820px){
-  #courseGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-/* 1 col */
-@media (max-width: 560px){
-  #courseGrid{ grid-template-columns: 1fr; }
-}
-
 @media (max-width: 600px) {
   #courseGrid {
     grid-template-columns: 1fr;
