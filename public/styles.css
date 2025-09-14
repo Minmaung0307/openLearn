@@ -29,6 +29,10 @@
   --pill-ann-txt: #d6dcff;
   /* ❌ finals pill removed */
   scrollbar-gutter: stable both-edges;
+
+  --shadow-soft: 0 4px 12px rgba(0,0,0,0.15);
+  --shadow-medium: 0 6px 20px rgba(0,0,0,0.18);
+  --shadow-strong: 0 8px 30px rgba(0,0,0,0.22);
 }
 
 /* Reset / base */
@@ -364,7 +368,12 @@ body.sidebar-expanded #main {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-soft);      /* 🌟 soft glow */
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-medium);    /* lift on hover */
+  transform: translateY(-2px);
 }
 
 /* Buttons / inputs */
@@ -669,7 +678,14 @@ dialog.ol-modal,
   max-width: 760px;
   max-height: 80vh;
   overflow: auto;
+  box-shadow: var(--shadow-strong);    /* 🌟 floating layer */
+  animation: modalPop 0.25s ease;
 }
+@keyframes modalPop {
+  from { transform: scale(0.96); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.45);
 }
@@ -823,7 +839,7 @@ textarea::placeholder {
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 12px;
-  box-shadow: 0 6px 30px rgba(0,0,0,.08);
+  box-shadow: var(--shadow-strong);    /* 🌟 same as modals */
   position: relative;      /* logo absolute positioning သုံးမယ်ဆိုရင်လိုတယ် */
   overflow: hidden;        /* scroll မဖြစ်အောင် */
 }
