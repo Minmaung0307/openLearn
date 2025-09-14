@@ -1987,23 +1987,60 @@ window.addEventListener("storage", (e) => {
   if (e.key === CHAT_LOCAL_KEY) updateChatBadgeFromLocal();
 });
 
-document.addEventListener("DOMContentLoaded", () => {
-  // 1) wire click → go to Live Chat page and scroll to the section
-  const chatBtn = document.getElementById("btn-top-chat");
-  chatBtn?.addEventListener("click", () => {
-    showPage("dashboard");                      // ensure correct page
-    // after page switches, scroll to the live chat section
-    setTimeout(() => {
-      const target = document.getElementById("liveChat") || document.getElementById("chatBox");
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
-      // also focus the input for convenience
-      document.getElementById("chatInput")?.focus();
-    }, 0);
-  });
+function gotoLiveChat() {
+  // open the dashboard page first
+  showPage("dashboard", true);
 
-  // 2) start badge watchers (DOM + localStorage fallback)
-  watchChatBoxBadge();
-  updateChatBadgeFromLocal();
+  // then scroll to the Live Chat section once it's in the DOM
+  const tryScroll = () => {
+    const target =
+      document.getElementById("liveChat") ||   // preferred
+      document.getElementById("chatBox")  ||   // fallback
+      document.querySelector('[data-section="livechat"]');
+
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("chatInput")?.focus();
+    } else {
+      // wait a frame until dashboard finished rendering
+      requestAnimationFrame(tryScroll);
+    }
+  };
+  requestAnimationFrame(tryScroll);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const chatBtn = document.getElementById("btn-top-chat");
+  // when clicking the chat pill:
+chatBtn?.addEventListener("click", (e) => {
+  e.preventDefault(); e.stopPropagation();
+  // set a hint in the URL for back/forward nav
+  history.pushState({ page:"dashboard", section:"livechat" }, "", "#dashboard/livechat");
+  gotoLiveChat();
+});
+
+// handle back/forward
+window.addEventListener("popstate", (e) => {
+  const sec = e.state?.section || (location.hash.includes("livechat") ? "livechat" : "");
+  if (e.state?.page === "dashboard") {
+    showPage("dashboard", false);
+    if (sec === "livechat") {
+      requestAnimationFrame(() => gotoLiveChat());
+    }
+  }
+});
+
+  // make sure announcement wiring uses ONLY its own id
+  const annBtn = document.getElementById("btn-top-ann");
+  annBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // go to dashboard top (announcements list section)
+    showPage("dashboard", true);
+    requestAnimationFrame(() => {
+      document.getElementById("annList")?.scrollIntoView({behavior:"smooth",block:"start"});
+    });
+  });
 });
 
 /* =========================================================
