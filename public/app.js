@@ -456,14 +456,13 @@ function showPage(id, push = true) {
   // 🔁 livechat: DOM attach အပြီး re-bind
   if (id === "livechat") {
     setTimeout(() => {
-      initChatRealtime();         // chatBox/chatSend wire
-      // watchChatBoxBadge();     // (optional) badge observer သုံးမယ်ဆိုရင် enable
-      watchChatBoxBadge();  // ← ဒီလို ခေါ်
-      gateChatUI();               // auth state gating
-      document.getElementById("chatInput")?.focus();
-      const box = document.getElementById("chatBox");
-      if (box) box.scrollTop = box.scrollHeight;
-    }, 0);
+  initChatRealtime();         // chatBox/chatSend wire
+  watchChatBoxBadge();        // badge observer attach (OK)
+  gateChatUI();               // auth state gating
+  document.getElementById("chatInput")?.focus();
+  const box = document.getElementById("chatBox");
+  if (box) box.scrollTop = box.scrollHeight;
+}, 0);
   }
 
   // history
@@ -1879,66 +1878,86 @@ function gateChatUI() {
 }
 
 /* ---------- Global Live Chat (RTDB if available; local fallback) ---------- */
+// === one-time wiring guards ===
+let _chatWired = false;        // UI click handler အတွက်
+let _chatRef   = null;         // RTDB ref to detach when reinit
+
 function initChatRealtime() {
-  const box = $("#chatBox"), input = $("#chatInput"), send = $("#chatSend");
+  const box   = document.getElementById("chatBox");
+  const input = document.getElementById("chatInput");
+  const send  = document.getElementById("chatSend");
   if (!box || !send) return;
+
+  // 0) re-enter protection: old handlers/listeners ဖယ်
+  try { if (_chatRef && typeof off === "function") off(_chatRef); } catch {}
+  _chatRef = null;
+  send.onclick = null;                 // prevent double send
+  // (optional) UI redraw duplication မဖြစ်အောင်
+  // box.innerHTML = "";               // history ကို ပြန်တင်ချင်ရင် အောက်မှာသာ ပြန်တင်မယ်
+
   const display = getUser()?.email || "guest";
 
   try {
     if (!auth?.currentUser || auth.currentUser.isAnonymous) throw new Error("no-auth");
-    const rtdb = getDatabase(); const roomRef = ref(rtdb, "chats/global");
+
+    const rtdb = getDatabase();
+    const roomRef = ref(rtdb, "chats/global");
+    _chatRef = roomRef;                // keep to detach next time
 
     onChildAdded(roomRef, (snap) => {
       const m = snap.val(); if (!m) return;
-
-      // draw
-      box.insertAdjacentHTML("beforeend", `<div class="msg"><b>${esc(m.user)}</b>
-        <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
-        <div>${esc(m.text)}</div></div>`);
+      box.insertAdjacentHTML("beforeend",
+        `<div class="msg"><b>${esc(m.user)}</b>
+          <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+          <div>${esc(m.text)}</div></div>`);
       box.scrollTop = box.scrollHeight;
 
-      // 🔁 mirror to local for badge counting
+      // mirror to local for badge (de-dupe by signature)
       const arr = getLocalChats();
-  const sig = `${m.ts}|${m.user}|${m.text}`;
-  if (!arr.some(x => `${x.ts}|${x.user}|${x.text}` === sig)) {
-    arr.push({ user: m.user, text: m.text, ts: m.ts });
-    setLocalChats(arr);
-  }
-  updateChatBadge();
+      const sig = `${m.ts}|${m.user}|${m.text}`;
+      if (!arr.some(x => `${x.ts}|${x.user}|${x.text}` === sig)) {
+        arr.push({ user:m.user, text:m.text, ts:m.ts }); setLocalChats(arr);
+      }
+      updateChatBadge();
     });
 
     send.onclick = async () => {
       const text = (input?.value || "").trim(); if (!text) return;
-      if (!auth.currentUser || auth.currentUser.isAnonymous) { toast("Please login to chat"); return; }
-      try {
-        const msg = { uid:auth.currentUser.uid, user:auth.currentUser.email || "user", text, ts:Date.now() };
-  await push(roomRef, msg);
-  const arr = getLocalChats(); arr.push({ user: msg.user, text: msg.text, ts: msg.ts });
-  setLocalChats(arr);
-  updateChatBadge();
-        if (input) input.value = "";
-      } catch { toast("Chat failed"); }
+      const msg = { uid:auth.currentUser.uid, user:auth.currentUser.email || "user", text, ts:Date.now() };
+      await push(roomRef, msg);                    // ✅ push one time only
+      // mirror local so badge reacts instantly
+      const arr = getLocalChats(); arr.push({ user: msg.user, text: msg.text, ts: msg.ts });
+      setLocalChats(arr); updateChatBadge();
+      if (input) input.value = "";
     };
-    return;
-  } catch {}
 
-  // === Local-only fallback ===
-  const load = getLocalChats, save = setLocalChats;
-  const draw = (m) => {
-    box.insertAdjacentHTML("beforeend", `<div class="msg"><b>${esc(m.user)}</b>
-      <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
-      <div>${esc(m.text)}</div></div>`);
+  } catch {
+    // === Local fallback ===
+    const load = getLocalChats, save = setLocalChats;
+    box.innerHTML = "";                // ❗ reinit 时 double-draw မဖြစ်အောင် clear
+    load().forEach(m => {
+      box.insertAdjacentHTML("beforeend",
+        `<div class="msg"><b>${esc(m.user)}</b>
+          <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+          <div>${esc(m.text)}</div></div>`);
+    });
     box.scrollTop = box.scrollHeight;
-  };
 
-  let arr = load(); arr.forEach(draw);
-  send.onclick = () => {
-    const text = (input?.value || "").trim(); if (!text) return;
-    const m = { user: display, text, ts: Date.now() };
-    arr.push(m); save(arr); draw(m);
-    updateChatBadge();
-    if (input) input.value = "";
-  };
+    send.onclick = () => {
+      const text = (input?.value || "").trim(); if (!text) return;
+      const m = { user: display, text, ts: Date.now() };
+      const arr = load(); arr.push(m); save(arr);
+      box.insertAdjacentHTML("beforeend",
+        `<div class="msg"><b>${esc(m.user)}</b>
+          <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+          <div>${esc(m.text)}</div></div>`);
+      box.scrollTop = box.scrollHeight;
+      updateChatBadge();
+      if (input) input.value = "";
+    };
+  }
+
+  _chatWired = true;
 }
 
 // storage change from other tabs → refresh badge
