@@ -210,11 +210,17 @@ const QUIZ_SAMPLE_SIZE = 6;    // bank ကနေ စမ်းမေးမယ့�
 const QUIZ_RANDOMIZE = true;   // true = ကြိမ်ကို ကြိမ် အမေးခွန်း random
 
 /* ---------- cloud enroll sync (Firestore) ---------- */
+// const enrollDocRef = () => {
+//   const uid = auth?.currentUser?.uid || (getUser()?.email || "").toLowerCase();
+//   if (!uid) return null;
+//   return doc(db, "enrolls", uid);
+// };
 const enrollDocRef = () => {
-  const uid = auth?.currentUser?.uid || (getUser()?.email || "").toLowerCase();
-  if (!uid) return null;
+  const uid = auth?.currentUser?.uid || "";
+  if (!uid || !db) return null;
   return doc(db, "enrolls", uid);
 };
+
 async function loadEnrollsCloud(){
   const ref = enrollDocRef(); if(!ref) return null;
   try { const snap = await getDoc(ref); return snap.exists() ? new Set(snap.data().courses || []) : new Set(); }
@@ -1824,14 +1830,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   onAuthStateChanged(auth, async () => {
     gateChatUI();
     if (typeof syncEnrollsBothWays === "function") {
-    //   await syncEnrollsBothWays();
-    //   await syncProgressBothWays();   // ⬅️ add this
-await migrateProgressKey();
-await syncProgressBothWays();
-  //  await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
-    window.renderProfilePanel?.();
-    window.renderMyLearning?.();
-    window.renderGradebook?.();
+      await migrateProgressKey();
+      await Promise.all([
+        syncEnrollsBothWays(),   // ⬅️ bring this back
+        syncProgressBothWays()
+      ]);
+      window.renderProfilePanel?.();
+      window.renderMyLearning?.();
+      window.renderGradebook?.();
     }
   });
 }
