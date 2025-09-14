@@ -50,16 +50,23 @@
           />
         </div>
 
-        <div class="top-right">
-          <button id="btn-top-ann" class="icon-pill pill-ann">
-            🔔 <span class="txt">Announcements</span>
-          </button>
-          <!-- ❌ Removed Finals pill -->
-          <button id="btn-login" class="btn">Login</button>
-          <button id="btn-logout" class="btn" style="display: none">
-            Logout
-          </button>
-        </div>
+        <!-- topbar -->
+<div class="top-right">
+  <!-- Announcements -->
+  <button id="btn-top-ann" class="icon-pill pill-ann">
+    🔔 <span class="txt">Announcements</span>
+    <span id="annCount" class="small" style="margin-left:6px;opacity:.8"></span>
+  </button>
+  
+  <!-- Chat -->
+  <button id="btn-top-chat" class="icon-pill pill-chat">
+    💬 <span class="txt">Chat</span>
+    <span id="chatCount" class="small" style="margin-left:6px;opacity:.8"></span>
+  </button>
+
+  <button id="btn-login" class="btn">Login</button>
+  <button id="btn-logout" class="btn" style="display:none">Logout</button>
+</div>
       </div>
     </header>
 
@@ -574,7 +581,7 @@
       </form>
     </dialog>
 
-    <dialog id="postModal" class="ol-modal card">
+    <dialog id="annModal" class="ol-modal card">
       <div
         class="row"
         style="
@@ -584,11 +591,12 @@
         "
       >
         <b class="modal-title">New Announcement</b>
-        <button class="btn small" id="closePostModal" type="button">
+        <button class="btn small" id="btn-ann-close" type="button">
           Close
         </button>
       </div>
-      <form id="postForm" class="authpane">
+      <div id="annList" class="stack"></div>
+      <!-- <form id="postForm" class="authpane">
         <label>Title <input id="pmTitle" class="input" required /></label>
         <label style="grid-column: 1/-1"
           >Body
@@ -598,7 +606,7 @@
           <button class="btn" id="cancelPost" type="button">Cancel</button>
           <button class="btn primary" id="savePost" type="submit">Post</button>
         </div>
-      </form>
+      </form> -->
     </dialog>
 
     <dialog id="profileEditModal" class="ol-modal card">

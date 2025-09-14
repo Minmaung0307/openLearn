@@ -1699,10 +1699,37 @@ function wireAdminImportExportOnce() {
 }
 
 /* ---------- Announcements ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const annBtn   = document.getElementById("btn-ann");
+  const annModal = document.getElementById("annModal");
+  const annClose = document.getElementById("btn-ann-close");
+  const annList  = document.getElementById("annList");
+
+  // click → open modal
+  annBtn?.addEventListener("click", () => {
+    renderAnnouncements();
+    annModal?.showModal();
+  });
+
+  // close button
+  annClose?.addEventListener("click", () => {
+    annModal?.close();
+  });
+});
+
+// helpers already exist: getAnns(), setAnns(), toast(), esc(), $
+function updateAnnBadge() {
+  const n = (getAnns() || []).length;
+  const badge = document.getElementById("annCount");
+  if (!badge) return;
+  badge.textContent = n ? `(${n})` : "";
+}
+
 function renderAnnouncements() {
   const box = $("#annList"); if (!box) return;
   const arr = getAnns().slice().reverse();
-  box.innerHTML = arr.map((a)=>`
+
+  box.innerHTML = arr.length ? arr.map((a)=>`
     <div class="card" data-id="${a.id}">
       <div class="row" style="justify-content:space-between">
         <strong>${esc(a.title)}</strong>
@@ -1713,9 +1740,71 @@ function renderAnnouncements() {
         <button class="btn small" data-edit="${a.id}">Edit</button>
         <button class="btn small" data-del="${a.id}">Delete</button>
       </div>
-    </div>`).join("") || `<div class="muted">No announcements yet.</div>`;
-  wireAnnouncementEditButtons();
+    </div>`).join("")
+  : `<div class="muted">No announcements yet.</div>`;
+
+  // enable edit/delete
+  const boxEl = $("#annList");
+  boxEl.querySelectorAll("[data-edit]").forEach((btn)=> btn.onclick = () => {
+    const id = btn.getAttribute("data-edit");
+    const arr = getAnns(); const i = arr.findIndex((x)=>x.id===id);
+    if (i < 0) return;
+    $("#pmTitle").value = arr[i].title || "";
+    $("#pmBody").value  = arr[i].body  || "";
+    const f = $("#postForm"); f.dataset.editId = id;
+    $("#postModal .modal-title").textContent = "Edit Announcement";
+    $("#postModal")?.showModal();
+  });
+  boxEl.querySelectorAll("[data-del]").forEach((btn)=> btn.onclick = () => {
+    const id = btn.getAttribute("data-del");
+    const arr = getAnns().filter((x)=>x.id !== id);
+    setAnns(arr);
+    renderAnnouncements();
+    updateAnnBadge();
+    toast("Deleted");
+  });
+
+  updateAnnBadge();
 }
+window.renderAnnouncements = renderAnnouncements;
+
+document.addEventListener("DOMContentLoaded", () => {
+  const annBtn   = document.getElementById("btn-top-ann");   // ✅ correct ID
+  const annModal = document.getElementById("annModal");
+  const annClose = document.getElementById("btn-ann-close");
+
+  // open modal
+  annBtn?.addEventListener("click", () => {
+    renderAnnouncements();
+    annModal?.showModal();
+  });
+
+  // close modal
+  annClose?.addEventListener("click", () => annModal?.close());
+
+  // initial badge on boot
+  updateAnnBadge();
+});
+
+// composer: keep your existing post form handlers, but add badge refresh after save
+$("#postForm")?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const t = $("#pmTitle")?.value.trim(); const b = $("#pmBody")?.value.trim();
+  if (!t || !b) return toast("Fill all fields");
+  const f = $("#postForm"); const editId = f?.dataset.editId || "";
+  const arr = getAnns();
+  if (editId) {
+    const i = arr.findIndex((x)=>x.id===editId);
+    if (i>=0) { arr[i].title=t; arr[i].body=b; toast("Updated"); }
+  } else {
+    arr.push({ id:"a_"+Math.random().toString(36).slice(2,9), title:t, body:b, ts:Date.now() });
+    toast("Announcement posted");
+  }
+  setAnns(arr);
+  $("#postModal")?.close();
+  renderAnnouncements();   // refresh list if modal is open
+  updateAnnBadge();        // ✅ refresh topbar count
+});
 window.renderAnnouncements = renderAnnouncements;
 
 function wireAnnouncementEditButtons() {
@@ -1857,6 +1946,32 @@ function wireCourseChatRealtime(courseId) {
     const m = { user: display, text, ts: Date.now() }; arr.push(m); save(arr); draw(m); if (input) input.value = "";
   };
 }
+
+function updateChatBadge() {
+  const n = (getChats?.() || []).length;  // ✅ you need a getChats() that returns all chat msgs
+  const badge = document.getElementById("chatCount");
+  if (!badge) return;
+  badge.textContent = n ? `(${n})` : "";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const chatBtn = document.getElementById("btn-top-chat");
+
+  chatBtn?.addEventListener("click", () => {
+    // ✅ jump to chat section (assuming chat lives in page-dashboard or page-chat)
+    showPage("dashboard");      // or showPage("chat") if you have a dedicated page
+    const el = document.getElementById("chatBox");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  // run once on boot
+  updateChatBadge();
+
+  // wire realtime update if chat system pushes messages
+  if (typeof onChatMessage === "function") {
+    onChatMessage(() => updateChatBadge());
+  }
+});
 
 /* =========================================================
    Part 6/6 — Settings, Boot, Finals Removal Shim
