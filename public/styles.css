@@ -316,7 +316,6 @@ body.sidebar-expanded #main {
 
 /* Pages */
 .page {
-    container-type: inline-size;              /* enables @container */
   display: none;         /* ✅ hide by default */
   position: relative;
   max-width: calc(var(--content-max) + var(--gutter)*2);
