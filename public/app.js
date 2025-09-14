@@ -1987,61 +1987,94 @@ window.addEventListener("storage", (e) => {
   if (e.key === CHAT_LOCAL_KEY) updateChatBadgeFromLocal();
 });
 
+// --- 2.a Live Chat ကို ဒါကြောင့်ပဲ တိတိကျကျ ဖွင့်/scroll/focus ---
 function gotoLiveChat() {
-  // open the dashboard page first
+  // dashboard page ပြပါ
   showPage("dashboard", true);
 
-  // then scroll to the Live Chat section once it's in the DOM
+  // DOM ထဲ Live Chat block ခဏစာလှုပ်ရှားနိုင်လို့ frame-နဲ့စစ်
   const tryScroll = () => {
     const target =
-      document.getElementById("liveChat") ||   // preferred
-      document.getElementById("chatBox")  ||   // fallback
+      document.getElementById("liveChat") ||
+      document.getElementById("chatBox") ||
       document.querySelector('[data-section="livechat"]');
 
     if (target) {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
       document.getElementById("chatInput")?.focus();
     } else {
-      // wait a frame until dashboard finished rendering
       requestAnimationFrame(tryScroll);
     }
   };
   requestAnimationFrame(tryScroll);
 }
 
+// --- 2.b Topbar chat pill + Sidebar Live Chat menu ကို Live Chat သို့ပို့ ---
 document.addEventListener("DOMContentLoaded", () => {
-  const chatBtn = document.getElementById("btn-top-chat");
-  // when clicking the chat pill:
-chatBtn?.addEventListener("click", (e) => {
-  e.preventDefault(); e.stopPropagation();
-  // set a hint in the URL for back/forward nav
-  history.pushState({ page:"dashboard", section:"livechat" }, "", "#dashboard/livechat");
-  gotoLiveChat();
-});
+  // Topbar chat pill
+  document.getElementById("btn-top-chat")?.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    gotoLiveChat();
+  });
 
-// handle back/forward
-window.addEventListener("popstate", (e) => {
-  const sec = e.state?.section || (location.hash.includes("livechat") ? "livechat" : "");
-  if (e.state?.page === "dashboard") {
-    showPage("dashboard", false);
-    if (sec === "livechat") {
-      requestAnimationFrame(() => gotoLiveChat());
-    }
-  }
-});
-
-  // make sure announcement wiring uses ONLY its own id
-  const annBtn = document.getElementById("btn-top-ann");
-  annBtn?.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // go to dashboard top (announcements list section)
-    showPage("dashboard", true);
-    requestAnimationFrame(() => {
-      document.getElementById("annList")?.scrollIntoView({behavior:"smooth",block:"start"});
+  // Sidebar “Live Chat” navbtn (page id ကို livechat လို့ တွဲထားခဲ့ရင်)
+  document.querySelectorAll('.navbtn[data-page="livechat"]').forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      gotoLiveChat();
     });
   });
 });
+
+// --- 3.a Badge updater (topbar chat pill ပေါ်က count) ---
+function updateChatBadge(count) {
+  const pill = document.getElementById("btn-top-chat");
+  if (!pill) return;
+
+  let badge = pill.querySelector(".badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "badge";
+    badge.style.cssText = `
+      display:inline-flex; align-items:center; justify-content:center;
+      min-width: 18px; height: 18px; padding: 0 5px;
+      margin-left: 6px; border-radius: 999px; font-size: 12px;
+      background: #ef4444; color: #fff; line-height: 1;
+    `;
+    pill.appendChild(badge);
+  }
+  badge.textContent = count > 0 ? String(count) : "";
+  badge.style.display = count > 0 ? "inline-flex" : "none";
+}
+
+// --- 3.b initChatRealtime() ထဲမှာ badge ကို wire လုပ်ပါ ---
+(function patchChatBadge(){
+  // original initChatRealtime ကို wrap မဖြစ်ရင် ဒီလို override-safe ပြုလုပ်ပါ
+  const _init = initChatRealtime;
+  window.initChatRealtime = function(...args){
+    _init?.apply(this, args);
+
+    try {
+      // RTDB mode: onChildAdded မှာ တစ်ကြိမ်ဖို့ attach လုပ်ထားပြီးသား
+      // local fallback mode: localStorage array length ကို တင်
+      const KEY = "ol_chat_local";
+      // initial draw (local fallback)
+      const arr = JSON.parse(localStorage.getItem(KEY) || "[]");
+      updateChatBadge(Array.isArray(arr) ? arr.length : 0);
+    } catch {}
+
+    // Send button ကို click လုပ်ရင်လဲ count တိုးပြ
+    const send = document.getElementById("chatSend");
+    send?.addEventListener("click", () => {
+      try {
+        // RTDB ဖြစ်ရင် onChildAdded ကတဆင့်တိုးသွားမယ် (ဒီအောက်ကက local fallback)
+        const KEY = "ol_chat_local";
+        const arr = JSON.parse(localStorage.getItem(KEY) || "[]");
+        updateChatBadge(Array.isArray(arr) ? arr.length : 0);
+      } catch {}
+    }, { capture:false });
+  };
+})();
 
 /* =========================================================
    Part 6/6 — Settings, Boot, Finals Removal Shim
