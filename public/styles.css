@@ -19,8 +19,8 @@
   --topbar-offset: 64px;
   --topbar-h: 56px;
 
-  --sidebar-w: 72px;
-  --sidebar-w-exp: 220px;
+  --sidebar-w: 260px;
+  --sidebar-w-exp: 260px;
 
   /* Pills */
   --pill-ann: #1f2a44;
@@ -197,8 +197,7 @@ a:hover {
   bottom: 0;
   z-index: 1100;
   top: var(--topbar-offset, 56px);
-  /* width: var(--sidebar-w); */
-  width: 260px;
+  width: var(--sidebar-w);
   background: var(--card);
   color: var(--fg);
   border-right: 1px solid var(--border);
@@ -520,12 +519,17 @@ body.logged [data-requires-auth] {
   }
   body.sidebar-expanded::after { display: none; }
 
-  /* Main content ကို sidebar width ချန်ပေး */
+  /* ✅ Only #main gets the left offset */
+  #main {
+    margin-left: 260px;               /* same as #sidebar width */
+  }
+
+  /* ✅ Ensure inner containers are not offset again */
   .page,
   #pages,
   main,
   #content {
-    margin-left: 260px;           /* sidebar width နှင့်ကိုက်အောင် */
+    margin-left: 0;
   }
 }
 
@@ -533,17 +537,11 @@ body.logged [data-requires-auth] {
 @media (max-width: 1024px) {
   #sidebar {
     transform: translateX(-100%);
-    width: var(--sidebar-w-exp);
+    width: var(--sidebar-w-exp);      /* 220–260px drawer is fine */
   }
-  #sidebar.show {
-    transform: translateX(0);
-  }
-  #main {
-    padding-left: 16px;
-  }
-  #btn-burger {
-    display: grid;
-  }
+  #sidebar.show { transform: translateX(0); }
+  #main { margin-left: 0; padding-left: 16px; }
+  #btn-burger { display: grid; }
 }
 
 @media (max-width: 768px) {
