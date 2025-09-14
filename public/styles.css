@@ -27,1080 +27,253 @@
   /* Pills */
   --pill-ann: #1f2a44;
   --pill-ann-txt: #d6dcff;
-  /* ❌ finals pill removed */
   scrollbar-gutter: stable both-edges;
 
-  --shadow-soft: 0 4px 12px rgba(0,0,0,0.15);
-  --shadow-medium: 0 6px 20px rgba(0,0,0,0.18);
-  --shadow-strong: 0 8px 30px rgba(0,0,0,0.22);
+  --shadow-soft: 0 8px 24px rgba(0,0,0,0.16);
+  --shadow-medium: 0 12px 36px rgba(0,0,0,0.22);
+  --shadow-strong: 0 18px 50px rgba(0,0,0,0.28);
 }
 
 /* Reset / base */
-* {
-  box-sizing: border-box;
-}
-html {
-  font-size: var(--fontSize);
-  height: 100%;
-}
-body {
-  margin: 0;
-  height: 100%;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-    Helvetica, Arial, Noto Sans, sans-serif;
+*{ box-sizing:border-box; }
+html{ font-size:var(--fontSize); height:100%; }
+body{
+  margin:0; height:100%;
+  background:var(--bg); color:var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, sans-serif;
   -webkit-overflow-scrolling: touch;
   overflow-x: hidden;
 }
 
-html, body { height: 100%; background: var(--bg); margin: 0; }
-
 /* Helpers */
-.hidden,
-.ol-hidden {
-  display: none !important;
-}
-.muted {
-  color: var(--muted);
-}
-.row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-.stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-.grow {
-  flex: 1;
-}
-.h4 {
-  font-size: 1.1rem;
-  margin: 0;
-}
-a {
-  color: var(--btnPrimaryBg);
-  text-decoration: none;
-}
-a:hover {
-  opacity: 0.9;
-  text-decoration: underline;
-}
+.hidden, .ol-hidden{ display:none !important; }
+.muted{ color:var(--muted); }
+.row{ display:flex; align-items:center; gap:.6rem; }
+.stack{ display:flex; flex-direction:column; gap:.6rem; }
+.grow{ flex:1; }
+.h4{ font-size:1.1rem; margin:0; }
+a{ color:var(--btnPrimaryBg); text-decoration:none; }
+a:hover{ opacity:.9; text-decoration:underline; }
 
 /* ===== TOPBAR ===== */
-#topbar {
-  position: fixed;
-  /* position: sticky; */
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1200;
-  /* z-index: 1200; */
-  background: var(--card);
-  color: var(--fg);
-  border-bottom: 1px solid var(--border);
+#topbar{
+  position:fixed; top:0; left:0; right:0; z-index:1200;
+  background:var(--card); color:var(--fg);
+  border-bottom:1px solid var(--border);
   padding-top: env(safe-area-inset-top);
   backdrop-filter: saturate(120%) blur(6px);
 }
-.topbar-row {
-  display: grid;
-  grid-template-columns: auto auto 1fr auto auto;
-  gap: 12px;
-  align-items: center;
-  height: var(--topbar-h);
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 14px;
+.topbar-row{
+  display:grid; grid-template-columns:auto auto 1fr auto auto;
+  gap:12px; align-items:center;
+  height:var(--topbar-h);
+  max-width:1200px; margin:0 auto; padding:0 14px;
 }
-.logo {
-  display: flex;
-  align-items: center;
-  font-weight: 700;
-  font-size: 18px;
+.logo{ display:flex; align-items:center; font-weight:700; font-size:18px; }
+.logo::before{
+  content:""; width:32px; height:32px; margin-right:8px;
+  background:url("./icons/plant.png") center/contain no-repeat;
 }
-.logo::before {
-  content: "";
-  width: 32px;
-  height: 32px;
-  background: url("./icons/plant.png") center/contain no-repeat;
-  margin-right: 8px;
-}
-
-#btn-burger {
-  display: none;
-  width: 44px;
-  height: 40px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--fg);
-  /* display: grid; */
-  place-items: center;
+#btn-burger{
+  display:none; width:44px; height:40px; place-items:center;
+  border:1px solid var(--border); border-radius:10px;
+  background:transparent; color:var(--fg);
 }
 
 /* Search */
-#topSearchWrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+#topSearchWrap{ display:flex; align-items:center; justify-content:center; }
+#topSearch{
+  display:block;
+  width:min(560px,62vw); height:40px; border-radius:10px;
+  border:1px solid var(--border); background:var(--card); color:var(--fg);
+  padding:0 12px;
 }
-#topSearch {
-    display:block;
-  width: min(560px, 62vw);
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--card);   /* was #0b1220 */
-  color: var(--fg);
-  padding: 0 12px;
-}
-.search-ico {
-  display: none;
-  width: 44px;
-  height: 40px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--card);
-  color: var(--fg);
-  place-items: center;
-}
+.search-ico{ display:none; width:44px; height:40px; place-items:center;
+  border:1px solid var(--border); border-radius:10px; background:var(--card); color:var(--fg); }
 
 /* Pills + auth */
-.top-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.top-right{ display:flex; align-items:center; gap:8px; }
+.icon-pill{
+  display:inline-flex; align-items:center; gap:8px; height:40px; padding:0 12px;
+  border:1px solid var(--border); border-radius:999px; font-size:14px; cursor:pointer;
+  transition: transform .08s ease, background .2s ease, border-color .2s ease;
 }
-.icon-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  font-size: 14px;
-  cursor: pointer;
-  transition: transform 0.08s ease, background 0.2s ease, border-color 0.2s ease;
-}
-.icon-pill:hover {
-  transform: translateY(-1px);
-}
-.pill-ann {
-  /* was: background: var(--pill-ann); color: var(--pill-ann-txt); border-color: #334155; */
-  background: rgba(var(--fg-r), var(--fg-g), var(--fg-b), 0.08);
-  color: var(--fg);
-  border-color: var(--border);
-}
-/* ❌ .pill-final removed */
+.icon-pill:hover{ transform: translateY(-1px); }
+.pill-ann{ background:rgba(255,255,255,.06); color:var(--fg); border-color:var(--border); }
 
 /* ===== SIDEBAR ===== */
-#sidebar {
-  position: fixed;
-  left: 0;
-  bottom: 0;
-  z-index: 1100;
-  top: var(--topbar-offset);
-  width: var(--sidebar-w);
-  background: var(--card);
-  color: var(--fg);
-  border-right: 1px solid var(--border);
-  overflow: auto;
+#sidebar{
+  position:fixed; left:0; bottom:0; top:var(--topbar-offset); z-index:1100;
+  width:var(--sidebar-w);
+  background:var(--card); color:var(--fg);
+  border-right:1px solid var(--border);
+  overflow:auto;
   transform: translateX(-100%);
-  transition: transform .25s ease, width .2s ease;
+  transition: transform .25s ease, width .2s ease, box-shadow .2s ease;
 }
-#sidebar.expanded {
-  width: var(--sidebar-w-exp);
+#sidebar.expanded{ width:var(--sidebar-w-exp); }
+@media(hover:hover){
+  #sidebar:not(.show):hover{ width:var(--sidebar-w-exp); }
 }
-@media (hover: hover) {
-  #sidebar:not(.show):hover {
-    width: var(--sidebar-w-exp);
-  }
+#sidebar nav{ padding:10px 8px; display:flex; flex-direction:column; gap:8px; }
+#sidebar .navbtn{
+  display:flex; align-items:center; gap:10px; height:48px; width:100%;
+  border:1px solid var(--border); background:var(--card); color:var(--fg);
+  border-radius:12px; cursor:pointer; padding:0 12px; justify-content:left;
+  transition: background .15s ease, border-color .15s ease;
 }
-
-#sidebar nav {
-  padding: 10px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-#sidebar .navbtn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 48px;
-  width: 100%;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--fg);
-  border-radius: 12px;
-  cursor: pointer;
-  padding: 0 12px;
-  justify-content: left;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-#sidebar .navbtn.active {
-  background: rgba(255,255,255,.08);
-  border-color: var(--btnPrimaryBg);
-}
-#sidebar .navbtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-#sidebar .navbtn i {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  font-size: 22px;
-  line-height: 1;
-  margin-left: 2px;
-}
-
-/* hide labels only when collapsed AND not hovered */
-#sidebar:not(.show):not(:hover) .navbtn span {
-  display: none;
-  opacity: 0;
-}
-/* show labels on hover, on drawer (.show), or when body has expanded flag */
-#sidebar:hover .navbtn span, #sidebar.show .navbtn span {
-  display: inline-block !important;
-  opacity: 1 !important;
-}
-
-#sidebar.show {
-  width: var(--sidebar-w-exp);
-  transform: translateX(0);
-  box-shadow: 0 10px 30px rgba(0,0,0,.35);
-}
-
-body.sidebar-expanded::after{
-  pointer-events: none; /* overlay တင်မလိုတော့ */
-}
-
-/* Overlay scrim (optional but nice) */
-/* body.sidebar-expanded::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.35);
-  z-index: 1050; /* sidebar အောက်, content အပေါ်
-} */
-
-/* Main pages container သည် sidebar အောက် မဝင်အောင် */
-/* .page,
-#pages,
-main,
-#content {
-  position: relative;
-  z-index: 0;
-} */
-
-/* --- FIX: Sidebar labels show/hide nicely and stay interactive --- */
-#sidebar .navbtn span { white-space: nowrap; opacity: 1; transition: opacity .12s ease; }
+#sidebar .navbtn.active{ background:rgba(255,255,255,.08); border-color:var(--btnPrimaryBg); }
+#sidebar .navbtn:hover{ background:rgba(255,255,255,.08); }
+#sidebar .navbtn i{ width:28px; height:28px; display:grid; place-items:center; font-size:22px; line-height:1; margin-left:2px; }
+#sidebar:not(.show):not(:hover) .navbtn span{ display:none; opacity:0; }
+#sidebar:hover .navbtn span, #sidebar.show .navbtn span{ display:inline-block !important; opacity:1 !important; }
+#sidebar.show{ width:var(--sidebar-w-exp); transform:translateX(0); box-shadow:0 10px 30px rgba(0,0,0,.35); }
 
 /* ===== MAIN ===== */
-.with-topbar {
-  padding-top: var(--topbar-offset);
-}
-#main {
-  box-sizing: border-box;
-  width: 100%;
-  position: relative;
-  min-height: 100vh;
-  background: var(--bg);
-  padding-top: calc(var(--topbar-offset) + 16px);  /* keep your extra 16px breathing room */
+#main{
+  box-sizing:border-box; width:100%; position:relative; min-height:100vh; background:var(--bg);
+  padding-top: calc(var(--topbar-h) + 16px);
   transition: margin-left .2s ease, padding .2s ease;
-  max-width: none;
-  z-index: 1;
-  /* padding-left: calc(var(--sidebar-w) + 8px);
-  padding-right: 16px;
-  padding-bottom: 60px; */
+  max-width:none; z-index:1;
 }
-body.sidebar-expanded #main {
-  padding-left: calc(var(--sidebar-w-exp) + 16px);
+
+/* desktop: sidebar always visible, content offset equals collapsed width; hover expands */
+@media(min-width:1025px){
+  #sidebar{ transform:none !important; width:var(--sidebar-w); box-shadow:none; }
+  #main{ margin-left:var(--sidebar-w); }
+  #sidebar:hover ~ #main{ margin-left:var(--sidebar-w-exp); }
 }
 
 /* Pages */
-.page {
-  display: none;         /* ✅ hide by default */
-  position: relative;
+.page{
+  display:none;
+  position:relative; background:var(--bg);
   max-width: calc(var(--content-max) + var(--gutter)*2);
-  margin: 0 auto;
-  padding: 16px var(--gutter) 24px;
-  /* padding-bottom: 24px; */
-  background: var(--bg);
-  min-height: calc(100vh - var(--topbar-offset, 0px) - 68px);
+  margin:0 auto; padding:16px var(--gutter) 24px;
+  min-height: calc(100vh - var(--topbar-h) - 68px);
 }
+.page.visible{ display:block; }
 
+/* Grids 4-3-2-1 */
+.grid{ display:grid; gap:12px; grid-template-columns: repeat(4, minmax(0,1fr)); }
+@media(max-width:1200px){ .grid{ grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media(max-width:900px){  .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media(max-width:600px){  .grid{ grid-template-columns: 1fr; } }
 
-/* make sure nothing sits under the fixed sidebar accidentally */
-.page, #pages, main, #content{ position:relative; z-index:0; }
-
-.page.visible {
-  padding: 16px;
-  display: block;  /* ✅ only the active page shows */
-}
-
-/* Grids / tables */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
-}
-.ol-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.ol-table th,
-.ol-table td {
-  border-bottom: 1px solid var(--border);
-  padding: 10px 8px;
-  text-align: left;
-}
-.ol-table th {
-  color: var(--muted);
-  font-weight: 600;
-}
+/* Tables */
+.ol-table{ width:100%; border-collapse:collapse; }
+.ol-table th, .ol-table td{ border-bottom:1px solid var(--border); padding:10px 8px; text-align:left; }
+.ol-table th{ color:var(--muted); font-weight:600; }
 
 /* Cards */
-.card {
-  background: var(--card);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-  box-shadow: var(--shadow-soft);      /* 🌟 soft glow */
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+.card{
+  background:var(--card); color:var(--fg);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px;
+  box-shadow: var(--shadow-soft);
+  transition: box-shadow .2s ease, transform .2s ease;
 }
-.card:hover {
-  box-shadow: var(--shadow-medium);    /* lift on hover */
-  transform: translateY(-2px);
-}
+.card:hover{ box-shadow: var(--shadow-medium); transform: translateY(-2px); }
+
+/* Course cards: actions pinned bottom */
+.card.course{ display:flex; flex-direction:column; }
+.card.course .course-body{ flex:1; display:flex; flex-direction:column; }
+.card.course .course-body .row{ margin-top:auto; }
 
 /* Buttons / inputs */
-.btn {
-  padding: 0.55rem 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--btnBg);
-  color: var(--btnFg);
-  cursor: pointer;
-}
-.btn:hover {
-  filter: brightness(0.97);
-}
-.btn.primary {
-  background: var(--btnPrimaryBg);
-  color: var(--btnPrimaryFg);
-  border-color: transparent;
-}
-.btn.small {
-  padding: 0.35rem 0.6rem;
-  font-size: 0.9rem;
-}
-.input,
-select,
-textarea {
-  padding: 0.55rem 0.75rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--fg);
-}
-.input::placeholder,
-textarea::placeholder {
-  color: var(--muted);
-}
+.btn{ padding:.55rem .85rem; border:1px solid var(--border); border-radius:10px; background:var(--btnBg); color:var(--btnFg); cursor:pointer; }
+.btn:hover{ filter:brightness(.97); }
+.btn.primary{ background:var(--btnPrimaryBg); color:var(--btnPrimaryFg); border-color:transparent; }
+.btn.small{ padding:.35rem .6rem; font-size:.9rem; }
+.input, select, textarea{ padding:.55rem .75rem; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--fg); }
+.input::placeholder, textarea::placeholder{ color:var(--muted); }
 
-/* Course cards */
-.course-cover {
-  width: 100%;
-  height: 140px;
-  object-fit: cover;
-  border-radius: 10px;
-  background: #0c1424;
-}
-.course .course-body {
-  margin-top: 8px;
-}
+/* Course cover */
+.course-cover{ width:100%; height:140px; object-fit:cover; border-radius:10px; background:#0c1424; }
+.course .course-body{ margin-top:8px; }
 
-/* Reader */
-.progress {
-  background: #0b1020;
-  border-radius: 999px;
-  height: 6px;
-  overflow: hidden;
-}
-.progress .bar {
-  height: 6px;
-  background: #22d3ee;
-}
+/* Reader progress */
+.progress{ background:#0b1020; border-radius:999px; height:6px; overflow:hidden; }
+.progress .bar{ height:6px; background:#22d3ee; }
 
 /* Toast */
-#toast {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  background: #0c1424;
-  color: #eaf1ff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.6rem 0.9rem;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-  z-index: 2000;
+#toast{
+  position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+  background:#0c1424; color:#eaf1ff; border:1px solid var(--border);
+  border-radius:10px; padding:.6rem .9rem; opacity:0; pointer-events:none; transition:opacity .2s; z-index:2000;
 }
-#toast.show {
-  opacity: 1;
-}
+#toast.show{ opacity:1; }
 
-/* Lock / gate */
-body.locked #sidebar,
-body.locked #main,
-body.locked .top-icons,
-body.locked .icon-pill,
-body.locked .search-wrap,
-body.locked .auth-slot #btn-logout {
-  pointer-events: none;
-  filter: grayscale(40%);
-  opacity: 0.55;
-}
-
-/* --- FIX: Auth-gated elements should still be clickable to open modal --- */
-/* ---- state-based gating for auth-required controls ---- */
-/* logged out: dim visually but keep clickable (JS will open login modal) */
-body.anon [data-requires-auth] {
-  pointer-events: auto;
-  opacity: 0.55;
-  filter: grayscale(40%);
-}
-
-/* logged in: fully active */
-body.logged [data-requires-auth] {
-  pointer-events: auto;
-  opacity: 1;
-  filter: none;
-}
-
-/* (မ login ရသေးသူတွေ့တွင် [data-requires-auth] ကို click လုပ်ရင် modal ဖေါ်ချင်တယ်,
-   pointer-events: none; မသုံးပါ—visual dim ပဲထားပါ) */
-[data-requires-auth] {
-  opacity: 0.9;
-  filter: grayscale(10%);
-  pointer-events: auto; /* ✅ allow clicks — JS gate ပြောမယ် */
-}
-
-/* app-side gated state (eg. chat input only) ကိုပဲจริงๆ disable */
-.gated {
-  pointer-events: none;
-  opacity: 0.55;
-  filter: grayscale(40%);
-}
-/* 
-.gated,
-[data-requires-auth] {
-  pointer-events: none;
-  opacity: 0.55;
-  filter: grayscale(40%);
-} */
+/* Gating */
+body.anon [data-requires-auth]{ pointer-events:auto; opacity:.55; filter:grayscale(40%); }
+body.logged [data-requires-auth]{ pointer-events:auto; opacity:1; filter:none; }
+.gated{ pointer-events:none; opacity:.55; filter:grayscale(40%); }
 
 /* Chat */
-#chatBox {
-  max-height: 280px;
-  overflow-y: auto;
-  padding: 8px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 8px;
+#chatBox{
+  max-height:280px; overflow-y:auto; padding:8px;
+  background:var(--card); border:1px solid var(--border); border-radius:8px; margin-bottom:8px;
 }
-#chatBox .msg {
-  padding: 6px 8px;
-  margin-bottom: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
-}
-#chatInput {
-  flex: 1;
-}
-#chatSend {
-  margin-left: 6px;
-}
+#chatBox .msg{ padding:6px 8px; margin-bottom:6px; background:rgba(255,255,255,.05); border-radius:6px; }
+#chatInput{ flex:1; }
+#chatSend{ margin-left:6px; }
 
-/* ≤1199px (i.e., when grid is 3/2/1): hide input, show icon */
-@media (max-width:1199px){
+/* Search → icon below 1200px */
+@media(max-width:1199px){
   #topSearch{ display:none; }
   .search-ico{ display:inline-grid; }
 }
 
-@media (min-width:1025px){
-  /* sidebar always visible on desktop */
-  #sidebar{
-    transform: none !important;  /* no off-canvas */
-    width: var(--sidebar-w);
-    box-shadow: none;
-  }
-
-  #main{
-    margin-left: var(--sidebar-w);
-    transition: margin-left .2s ease;
-  }
-  /* when sidebar expands on hover, push content too (requires #sidebar before #main in DOM) */
-  #sidebar:hover ~ #main{
-    margin-left: var(--sidebar-w-exp);
-  }
+/* Tablet/mobile */
+@media(max-width:1024px){
+  #sidebar{ transform: translateX(-100%); width:var(--sidebar-w-exp); }
+  #sidebar.show{ transform:translateX(0); }
+  #main{ margin-left:0; }
+  #btn-burger{ display:grid; }
+}
+@media(max-width:768px){
+  .topbar-row{ grid-template-columns:auto 1fr auto auto; gap:8px; }
+  .logo{ font-size:16px; }
+  .grid{ grid-template-columns: 1fr !important; }
+  .course-cover{ height:150px; }
+}
+@media(max-width:520px){
+  .icon-pill .txt{ display:none; }
+}
+@media(max-width:480px){
+  .filters-wrap{ grid-template-columns:1fr; }
 }
 
-/* Responsive */
-@media (max-width: 1024px) {
-  #sidebar {
-    transform: translateX(-100%);
-    width: var(--sidebar-w-exp);      /* 220–260px drawer is fine */
-  }
-  #sidebar.show { transform: translateX(0); }
-  #main { margin-left: 0; }
-  #btn-burger { display: grid; }
+/* Modals */
+dialog.ol-modal{ border:none; padding:0; }
+dialog.ol-modal::backdrop{ background:rgba(10,14,25,.64); }
+.ol-modal.card, .auth-modern{
+  background:var(--card); color:var(--fg);
+  border:1px solid var(--border); border-radius:16px; padding:18px;
+  box-shadow: var(--shadow-strong);
+}
+.modal-title{ font-weight:700; }
+
+/* Forms in modals */
+.authpane, .modal-body form, #courseForm, #postForm, #profileForm{ display:grid; gap:10px; }
+.authpane label, #courseForm label, #postForm label, #profileForm label{
+  display:flex; flex-direction:column; gap:6px; font-weight:600; line-height:1.2; margin:6px 0;
+}
+.authpane .input, #courseForm .input, #postForm .input, #profileForm .input, #courseForm select.input{
+  width:100%; height:42px; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--card); color:var(--fg);
+}
+#courseForm textarea.input, #postForm textarea.input, #profileForm textarea.input{
+  min-height:120px; height:auto; padding:12px; resize:vertical;
+}
+.authpane .input:focus, #courseForm .input:focus, #postForm .input:focus, #profileForm .input:focus, .authpane select.input:focus{
+  outline:none; border-color: color-mix(in oklab, var(--btnPrimaryBg) 60%, var(--border));
+  box-shadow: 0 0 0 3px rgba(37,99,235,.25);
 }
 
-@media (max-width: 768px) {
-  .topbar-row {
-    grid-template-columns: auto 1fr auto auto;
-    gap: 8px;
-  }
-  .logo {
-    font-size: 16px;
-  }
-  #topSearch {
-    display: none;
-  }
-  .search-ico {
-    display: inline-grid;
-  }
-  .search-open #topSearch {
-    display: block;
-    position: fixed;
-    left: 8px;
-    right: 8px;
-    top: calc(var(--topbar-h) + 6px);
-    z-index: 60;
-    width: auto;
-  }
-  .grid {
-    grid-template-columns: 1fr !important;
-  }
-  .course-cover {
-    height: 150px;
-  }
+/* Badge */
+.badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:18px; height:18px; padding:0 5px; margin-left:6px;
+  border-radius:999px; font-size:12px; background:#ef4444; color:#fff; line-height:1;
 }
-@media (max-width: 520px) {
-  .icon-pill .txt {
-    display: none;
-  }
-}
-@media (max-width: 480px) {
-  .filters-wrap {
-    grid-template-columns: 1fr;
-  }
-  #courseGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Components & Modals */
-.filters-wrap {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 8px;
-  align-items: center;
-}
-
-dialog.ol-modal {
-  border: none;
-  padding: 0;
-}
-dialog.ol-modal::backdrop {
-  background: rgba(10, 14, 25, 0.64);
-}
-.ol-modal.card,
-.auth-modern {
-  background: var(--card);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 18px;
-}
-
-/* --- Auth modal polish: labels, inputs, link spacing --- */
-.auth-modern .authpane label {
-  display: block;
-  font-weight: 600;
-  margin: 8px 0 4px;
-}
-.auth-modern .authpane .input {
-  width: 100%;
-  margin-top: 4px;
-}
-.auth-modern .authpane .input::placeholder { color: var(--muted); opacity: .9; }
-
-/* Links row: space them out, avoid "glued" look */
-.auth-links {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
-}
-.auth-links.single { justify-content: flex-end; }
-.auth-links a { padding: 2px 0; }
-
-/* Make primary actions stand out and fill width in modals */
-.authpane .btn.wide, .authpane .btn.primary.wide {
-  width: 100%;
-  margin-top: 10px;
-}
-
-.modal-title {
-  font-weight: 700;
-}
-dialog.ol-modal,
-#authModal,
-#courseModal,
-#postModal,
-#profileEditModal,
-#detailsModal {
-  background: var(--card) !important;
-  color: var(--fg) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 16px;
-  padding: 20px 22px;
-  width: min(92vw, 760px);
-  max-width: 760px;
-  max-height: 80vh;
-  overflow: auto;
-  box-shadow: var(--shadow-strong);    /* 🌟 floating layer */
-  animation: modalPop 0.25s ease;
-}
-@keyframes modalPop {
-  from { transform: scale(0.96); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
-}
-
-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.45);
-}
-dialog::backdrop + .button-group {
-  display: none;
-}
-label {
-  color: var(--fg) !important;
-  font-weight: 600;
-}
-.authpane,
-.modal-body form,
-#courseForm,
-#postForm,
-#profileForm {
-  display: grid;
-  gap: 10px;
-}
-dialog.ol-modal textarea {
-  min-height: 120px;
-  resize: vertical;
-}
-
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
-}
-.table-responsive .ol-table {
-  min-width: 720px;
-}
-.table-responsive .ol-table thead th {
-  position: sticky;
-  top: 0;
-  background: var(--card);
-  z-index: 1;
-}
-
-#courseGrid {
-  display: grid;
-  grid-template-columns:repeat(1, minmax(0,1fr));   /* 1 col default */
-  width: 100%;
-  max-width: var(--content-max);
-  margin: 0 auto;
-  gap: 12px;
-}
-
-@media (min-width:600px){   #courseGrid{ grid-template-columns:repeat(2,1fr); } }
-@media (min-width:900px){   #courseGrid{ grid-template-columns:repeat(3,1fr); } }
-@media (min-width:1200px){  #courseGrid{ grid-template-columns:repeat(4,1fr); } }
-
-@media (max-width: 600px) {
-  #courseGrid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  .card.course {
-    border-radius: 12px;
-    margin: 0;
-  }
-  .course-body {
-    padding: 14px !important;
-  }
-}
-
-/* Keep inputs cursor correct */
-#chatInput,
-#ccInput,
-input.input,
-textarea {
-  cursor: text;
-}
-input:disabled,
-textarea:disabled,
-button:disabled {
-  cursor: not-allowed;
-}
-
-/* ---- Modal forms polish: labels + fields + placeholders ---- */
-.authpane label,
-#courseForm label,
-#postForm label,
-#profileForm label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-weight: 600;
-  line-height: 1.2;
-  margin: 6px 0;
-}
-
-.authpane input.input,
-.authpane select.input,
-.authpane textarea.input,
-#courseForm .input,
-#postForm .input,
-#profileForm .input,
-#courseForm select.input {
-  width: 100%;
-  height: 42px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--fg);
-}
-
-#courseForm textarea.input,
-#postForm textarea.input,
-#profileForm textarea.input {
-  min-height: 120px;
-  height: auto;
-  padding: 12px;
-  resize: vertical;
-}
-
-.input::placeholder,
-textarea::placeholder {
-  color: var(--muted);
-  opacity: .85;
-}
-
-/* focus state: clearer but subtle */
-.authpane .input:focus,
-#courseForm .input:focus,
-#postForm .input:focus,
-#profileForm .input:focus,
-.authpane select.input:focus {
-  outline: none;
-  border-color: color-mix(in oklab, var(--btnPrimaryBg) 60%, var(--border));
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
-}
-
-/* course form: responsive grid for neat alignment */
-#courseForm {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  align-items: start;
-}
-#courseForm label[style*="grid-column: 1/-1"] {
-  /* keep existing full-width fields full */
-  grid-column: 1 / -1 !important;
-}
-
-.cert-doc {
-  box-sizing: border-box;
-  width: 100%;             /* dialog အကျယ်ထဲကို အပြည့် */
-  max-width: 1000px;       /* print အတွက် control (A4 landscape ~ 1000px) */
-  height: auto;            /* fixed height မသုံးပါ */
-  min-height: 650px;       /* အနည်းဆုံး အမြင့် */
-  margin: 0 auto;
-  padding: 30px 40px 80px; /* ပေါ်30px / ညာ40px / အောက်80px => logo/title မပြတ်, signatures margin ရ */
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  box-shadow: var(--shadow-strong);    /* 🌟 same as modals */
-  position: relative;      /* logo absolute positioning သုံးမယ်ဆိုရင်လိုတယ် */
-  overflow: hidden;        /* scroll မဖြစ်အောင် */
-}
-
-.cert-head { font-size:26px; font-weight:800; text-align:center; margin-top: 46px; color:#222;}
-.cert-sub  { text-align:center; color:#555; margin:4px 0 10px; }
-.cert-name {
-  text-align: center;
-  font-size: 28px;
-  font-weight: 800;
-  margin: 8px 0 4px;
-  color: #222;
-}
-.cert-course {
-  text-align: center;
-  font-size: 20px;
-  font-weight: 700;
-  margin: 6px 0 2px;
-  color: #222;
-}
-.cert-meta { text-align: center; color: #555; margin-top: 6px; }
-.cert-seal { width: 90px; height: 90px; border-radius: 50%;
-  background: linear-gradient(135deg,#8c7851,#a88b63); }
-.cert-photo {
-  display: block;
-  width: 120px; height: 120px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid #eee;
-  margin: 14px auto 8px;        /* centered under headers */
-  background: #f6f6f6;
-}
-.cert-signs {
-  position: absolute;
-  left: 60px; right: 60px; bottom: 46px;
-  display: flex; gap: 24px; justify-content: space-between;
-}
-.cert-signs .sig { text-align:center; flex:1; }
-.cert-signs .sig-label {
-  margin-top: 6px;
-  font-size: 12px;
-  color: #444;
-}
-.sig-img { width: 120px; height: auto; object-fit: contain; }
-/* Logo */
-.cert-logo {
-  margin-top: 4mm;
-  width: 90px;
-  position: absolute;
-  top: 25px;       /* ပိုနည်းခဲ့ရင် logo ပြတ်သွားမယ် */
-  left: 25px;
-}
-.sig { text-align: center; flex: 1; font-size: 12px; color:#444; }
-/* screen view မှာ modal အောက်က ခလုတ် row ကို အပေါ်ယံချည်းပဲပြ (print မှာတှာ် hidden already) */
-/* Controls row in modal (screen only; print မှာ already hidden) */
-#certModal .row { width: min(1123px, 96vw); margin: 10px auto 0; }
-
-/* Announcements card items already use .card */
-/* If inner text looked too pale, ensure: */
-#annList .card { background: var(--card); color: var(--fg); border-color: var(--border); }
-#annList .muted { color: var(--muted); }
-
-/* hide controls when printing */
-
-/* ===== Certificate: FULL VIEW (screen) ===== */
-body.cert-open { overflow: hidden; }               /* background scroll lock */
-
-#certModal {
-  /* dialog ကို viewport အပြည့် */
-  inset: 0 !important;
-  width: min(95vw, 1200px);
-  /* width: 100vw !important; */
-  height: 100vh !important;
-  max-width: none !important;
-  max-height: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  background: #0b0f17;        /* dark canvas behind cert */
-  display: grid;
-  place-items: center;        /* center the cert */
-  overflow: hidden;           /* ❗ no scrollbars in modal */
-}
-
-#certBody {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;        /* center child */
-  overflow: hidden;           /* ❗ no inner scroll */
-  max-height: calc(90vh - 60px);
-}
-
-/* A4 landscape canvas (design size ~1123×794 @96dpi) */
-.cert-doc {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 297 / 210;      /* A4 landscape canvas proportion */
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  box-shadow: 0 8px 40px rgba(0,0,0,.22);
-  padding: 24px 28px;
-  overflow: hidden;
-
-  /* 🚀 scale-to-fit viewport so no scrollbars */
-  transform: scale(var(--certScale, 1));
-  transform-origin: center center;
-}
-
-/* anti-forgery footer inside certificate */
-.cert-forgery {
-  position: absolute;
-  left: 14px; right: 14px; bottom: 10px;
-  color: #666;
-  font-size: 10px;
-  text-align: center;
-}
-
-/* brand/logo + photo + name layout */
-.cert-logo {
-  position: absolute;
-  top: 22px;
-  left: 22px;
-  width: 84px;
-  height: auto;
-}
-
-.cert-head { font-size: 26px; font-weight: 800; text-align: center; margin-top: 60px; color:#222; }
-.cert-sub  { text-align: center; color:#555; margin: 4px 0 10px; }
-
-.cert-photo {
-  display: block;
-  width: 120px; height: 120px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid #eee;
-  margin: 14px auto 8px;        /* centered under headers */
-  background: #f6f6f6;
-}
-
-.cert-name {
-  text-align: center;
-  font-size: 28px;
-  font-weight: 800;
-  margin: 16px 0 4px;
-  color: #222;
-}
-
-.cert-course {
-  text-align: center;
-  font-size: 20px;
-  font-weight: 700;
-  margin: 6px 0 2px;
-  color: #222;
-}
-
-.cert-meta { text-align: center; color: #555; margin-top: 6px; }
-
-/* Signatures section */
-.cert-signs {
-  margin-bottom: 6mm;
-  display: flex;
-  justify-content: space-between;
-  gap: 40px;
-  margin-top: 60px;     /* body ကနေနည်းငယ် အထက်တင်ထား */
-  padding: 0 40px;
-}
-
-.sig { text-align: center; flex: 1; font-size: 12px; color:#444; }
-.sig-img { width: 120px; height: auto; object-fit: contain; }
-
-/* Controls row in modal (screen only; print မှာ already hidden) */
-#certModal .row { width: min(1123px, 96vw); margin: 10px auto 0; }
-
-/* ===== PRINT: certificate only, full page ===== */
-/* ==== CERT PRINT — A4 landscape, single page, slight margins ==== */
-/* A4 landscape + ကွာဟချက် 12mm (အပေါ်အောက်နှစ်ဖက်ပေါင်း 24mm) */
-/* A4 landscape + safe margins */
-@page { size: A4 landscape; margin: 14mm; } /* များလွန်းရင် 8mm အထိလျှော့နိုင် */
-
-@media print {
-  body * { visibility: hidden !important; }
-  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-  /* Only dialog contents */
-  body > :not(#certModal) { display: none !important; }
-  #certModal, #certModal * { visibility: visible !important; }
-  #certModal::backdrop { display:none !important; }
-
-  #certModal { position: static !important; inset:auto !important; margin:0 !important; padding:0 !important; border:0 !important; }
-  #certBody   { display:block; overflow:visible; }
-
-  /* one-page fit inside usable area (297x210 − margins) */
-  .cert-doc{
-    box-sizing:border-box;
-    width: calc(297mm - 20mm);
-    height: calc(210mm - 20mm);
-    margin: 0 auto !important;
-    transform: none !important;
-    padding: 10mm 12mm 8mm;  /* top/side/bottom → bottom နည်းနည်းများ */
-    background:#fff !important;
-    box-shadow:none !important;
-    overflow:hidden !important;
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  /* hide any UI controls */
-  .no-print, .btn { display:none !important; }
-}
-
-/* certificate dialog မဖွင့်ခင်에는 controls မပေါ်အောင် */
-#certModal:not([open]) #certPrint,
-#certModal:not([open]) #certClose,
-#page-mylearning #certPrint,
-#page-mylearning #certClose {
-  display: none !important;
-}
-
-/* Buttons sit at the bottom of every course card */
-/* make each course card a vertical flex box */
-.card.course{ display:flex; flex-direction:column; }
-
-/* body fills remaining height */
-.card.course .course-body{
-  display:flex; flex-direction:column; flex:1 1 auto;
-}
-
-/* push the last actions row to the bottom */
-.card.course .course-body .row:last-child{ margin-top:auto; }
-
-/* Ensure all primary action buttons remain clickable */
-button, .btn {
-  pointer-events: auto !important;
-}
-
-/* Specific for New Course button */
-#btn-new-course,
-#btn-course-cancel,
-#btn-course-save {
-  pointer-events: auto !important;
-  opacity: 1 !important;
-}
-
-#annCount { font-size: 12px; opacity: .85; }
-
-.pill-chat {
-    position: relative;
-  background: rgba(37, 99, 235, 0.08); /* bluish hint */
-  color: var(--fg);
-  border: 1px solid var(--border);
-}
-#chatCount { font-size: 12px; opacity: .85; }
-.pill-badge {
-  display:none; position:absolute; top:-6px; right:-6px;
-  min-width:18px; height:18px; padding:0 5px; border-radius:999px;
-  background:#ef4444; color:#fff; font-size:12px; line-height:18px;
-  text-align:center; border:2px solid var(--card);
-}
-.pill-badge.show { display: inline-block; }
