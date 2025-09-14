@@ -86,11 +86,13 @@ a:hover {
 
 /* ===== TOPBAR ===== */
 #topbar {
-  position: fixed;
+  /* position: fixed; */
+  position: sticky;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 9999;
+  /* z-index: 9999; */
+  z-index: 1200;
   background: var(--card);
   color: var(--fg);
   border-bottom: 1px solid var(--border);
@@ -193,14 +195,16 @@ a:hover {
   position: fixed;
   left: 0;
   bottom: 0;
-  z-index: 60;
-  top: var(--topbar-offset);
-  width: var(--sidebar-w);
+  z-index: 1100;
+  top: var(--topbar-offset, 56px);
+  /* width: var(--sidebar-w); */
+  width: 260px;
   background: var(--card);
   color: var(--fg);
   border-right: 1px solid var(--border);
-  overflow: hidden;
-  transition: width 0.18s ease;
+  overflow: auto;
+  transform: translateX(-100%);
+  transition: transform .25s ease, box-shadow .25s ease;
 }
 #sidebar.expanded {
   width: var(--sidebar-w-exp);
@@ -263,8 +267,28 @@ body.sidebar-expanded #sidebar .navbtn span {
 }
 
 #sidebar.show {
-  width: 220px;
+  /* width: 220px; */
   transform: translateX(0);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+/* Overlay scrim (optional but nice) */
+body.sidebar-expanded::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 1050; /* sidebar အောက်, content အပေါ် */
+}
+
+/* Main pages container သည် sidebar အောက် မဝင်အောင် */
+.page,
+#pages,
+main,
+#content {
+  position: relative;
+  z-index: 0;
+  /* mobile မှာ margin-left မပေး — overlay သဘော */
 }
 
 /* --- FIX: Sidebar labels show/hide nicely and stay interactive --- */
@@ -488,8 +512,25 @@ body.logged [data-requires-auth] {
   margin-left: 6px;
 }
 
+/* Desktop ≥ 1025px: sidebar ကို dock + content offset */
+@media (min-width: 1025px) {
+  #sidebar {
+    transform: none !important;   /* အမြဲ ထွက်နေလိမ့်မယ် */
+    box-shadow: none;
+  }
+  body.sidebar-expanded::after { display: none; }
+
+  /* Main content ကို sidebar width ချန်ပေး */
+  .page,
+  #pages,
+  main,
+  #content {
+    margin-left: 260px;           /* sidebar width နှင့်ကိုက်အောင် */
+  }
+}
+
 /* Responsive */
-@media (max-width: 1024px) {
+/* @media (max-width: 1024px) {
   #sidebar {
     transform: translateX(-100%);
     width: var(--sidebar-w-exp);
@@ -503,7 +544,7 @@ body.logged [data-requires-auth] {
   #btn-burger {
     display: grid;
   }
-}
+} */
 @media (max-width: 768px) {
   .topbar-row {
     grid-template-columns: auto 1fr auto auto;
