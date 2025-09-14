@@ -1330,10 +1330,10 @@ function renderCertificate(course, cert) {
       </div>
     </div>
 
-    <div class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
-      <button class="btn" id="certPrint">Print / Save PDF</button>
-      <button class="btn" id="certClose">Close</button>
-    </div>
+    // <div class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
+    //   <button class="btn" id="certPrint">Print / Save PDF</button>
+    //   <button class="btn" id="certClose">Close</button>
+    // </div>
   `;
 }
 
@@ -1406,11 +1406,11 @@ function showCertificate(course, opts = { issueIfMissing: true }) {
 
   dlg.addEventListener("cancel", (e)=>{ e.preventDefault(); hardCloseCert(); }, { once:true });
 
-  // window.onbeforeprint = () => document.body.classList.add("printing");
-  // window.onafterprint  = () => hardCloseCert();
+  window.onbeforeprint = () => document.body.classList.add("printing");
+  window.onafterprint  = () => hardCloseCert();
 
   // safety: one more cleanup after modal opens
-  // cleanupStrayCertButtons();
+  cleanupStrayCertButtons();
 }
 
 async function tryFetch(path) {
