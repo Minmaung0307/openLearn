@@ -1827,7 +1827,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     //   await syncEnrollsBothWays();
     //   await syncProgressBothWays();   // ⬅️ add this
 await migrateProgressKey();
-   await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
+await syncProgressBothWays();
+  //  await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
     window.renderProfilePanel?.();
     window.renderMyLearning?.();
     window.renderGradebook?.();
@@ -1908,6 +1909,19 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") hardCloseCert();
 });
 addEventListener("pageshow", () => document.body.classList.remove("printing"));
+});
+
+// ==== DEBUG HOOKS (put near the bottom of app.js, after the functions are defined) ====
+Object.assign(window, {
+  getCompletedRaw,      // -> view local completed array
+  setCompletedRaw,      // -> manually set
+  getCompleted,         // -> Set of completed IDs
+  markCourseComplete,   // -> mark a course done (testing)
+  syncProgressBothWays, // -> cloud <-> local sync
+  migrateProgressKey,   // -> merge email/uid progress
+  renderMyLearning,     // -> re-render cards
+  renderProfilePanel,   // -> re-render profile/transcript
+  renderGradebook       // -> re-render gradebook
 });
 
 /* ---------- Finals Removal Shim ---------- */
