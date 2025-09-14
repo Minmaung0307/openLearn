@@ -20,7 +20,7 @@
   --topbar-h: 56px;
 
   --sidebar-w: 260px;
-  --sidebar-w-exp: 260px;
+  --sidebar-w-exp: 220px;
 
   /* Pills */
   --pill-ann: #1f2a44;
@@ -86,13 +86,13 @@ a:hover {
 
 /* ===== TOPBAR ===== */
 #topbar {
-  /* position: fixed; */
-  position: sticky;
+  position: fixed;
+  /* position: sticky; */
   top: 0;
   left: 0;
   right: 0;
-  /* z-index: 9999; */
-  z-index: 1200;
+  z-index: 9999;
+  /* z-index: 1200; */
   background: var(--card);
   color: var(--fg);
   border-bottom: 1px solid var(--border);
@@ -196,7 +196,7 @@ a:hover {
   left: 0;
   bottom: 0;
   z-index: 1100;
-  top: var(--topbar-offset, 56px);
+  top: var(--topbar-offset);
   width: var(--sidebar-w);
   background: var(--card);
   color: var(--fg);
@@ -266,29 +266,28 @@ body.sidebar-expanded #sidebar .navbtn span {
 }
 
 #sidebar.show {
-  /* width: 220px; */
-  transform: translateX(0);
+  width: 220px;
+  /* transform: translateX(0); */
   box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
 
 /* Overlay scrim (optional but nice) */
-body.sidebar-expanded::after {
+/* body.sidebar-expanded::after {
   content: "";
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.35);
-  z-index: 1050; /* sidebar အောက်, content အပေါ် */
-}
+  z-index: 1050; /* sidebar အောက်, content အပေါ်
+} */
 
 /* Main pages container သည် sidebar အောက် မဝင်အောင် */
-.page,
+/* .page,
 #pages,
 main,
 #content {
   position: relative;
   z-index: 0;
-  /* mobile မှာ margin-left မပေး — overlay သဘော */
-}
+} */
 
 /* --- FIX: Sidebar labels show/hide nicely and stay interactive --- */
 #sidebar .navbtn span { white-space: nowrap; opacity: 1; transition: opacity .12s ease; }
@@ -509,28 +508,6 @@ body.logged [data-requires-auth] {
 }
 #chatSend {
   margin-left: 6px;
-}
-
-/* Desktop ≥ 1025px: sidebar ကို dock + content offset */
-@media (min-width: 1025px) {
-  #sidebar {
-    transform: none !important;   /* အမြဲ ထွက်နေလိမ့်မယ် */
-    box-shadow: none;
-  }
-  body.sidebar-expanded::after { display: none; }
-
-  /* ✅ Only #main gets the left offset */
-  #main {
-    margin-left: 260px;               /* same as #sidebar width */
-  }
-
-  /* ✅ Ensure inner containers are not offset again */
-  .page,
-  #pages,
-  main,
-  #content {
-    margin-left: 0;
-  }
 }
 
 /* Responsive */
