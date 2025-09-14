@@ -393,17 +393,20 @@ function initSidebar() {
 
   const setExpandedFlag = (on) => document.body.classList.toggle("sidebar-expanded", !!on);
 
-  sb?.addEventListener("click", (e)=>{ const navBtn = e.target.closest(".navbtn"); if (navBtn) return;
-    if (isTouchLike()) { const on = !document.body.classList.contains("sidebar-expanded"); setExpandedFlag(on); }
-  });
-
   burger?.addEventListener("click", (e)=>{ e.stopPropagation(); sb?.classList.toggle("show"); setExpandedFlag(sb?.classList.contains("show")); });
 
-  sb?.addEventListener("click", (e)=>{ const b=e.target.closest(".navbtn"); if(!b) return; showPage(b.dataset.page);
-    if (isTouchLike()) { sb.classList.remove("show"); setExpandedFlag(false); } window.scrollTo({ top:0, behavior:"smooth" });
+  // nav buttons
+  sb?.addEventListener("click", (e)=>{ 
+    const b = e.target.closest(".navbtn"); 
+    if(!b) return; 
+    showPage(b.dataset.page);
+    if (isTouchLike()) { sb.classList.remove("show"); setExpandedFlag(false); }
+    window.scrollTo({ top:0, behavior:"smooth" });
   });
 
-  document.addEventListener("click", (e)=>{ if (!isTouchLike()) return;
+  // touch overlay close
+  document.addEventListener("click", (e)=>{ 
+    if (!isTouchLike()) return;
     if (!sb?.classList.contains("show")) return;
     if (!e.target.closest("#sidebar") && e.target !== burger) { sb.classList.remove("show"); setExpandedFlag(false); }
   });
@@ -428,10 +431,18 @@ if ("ResizeObserver" in window) {
   tb && new ResizeObserver(_runTopbarOffset).observe(tb);
 }
 
+// DOM counting (works RTDB + local)
+function updateChatBadgeFromDOM(){
+  const el = document.getElementById("chatCount");
+  if (!el) return;
+  const n = document.querySelectorAll("#chatBox .msg").length;
+  el.textContent = n > 0 ? (n > 99 ? "99+" : String(n)) : "";
+  el.style.display = n > 0 ? "inline-flex" : "none";
+}
 function watchChatBoxBadge(){
   const box = document.getElementById("chatBox");
   if (!box) return;
-  updateChatBadgeFromDOM();            // initial
+  updateChatBadgeFromDOM();
   const mo = new MutationObserver(() => updateChatBadgeFromDOM());
   mo.observe(box, { childList: true });
 }
@@ -453,34 +464,29 @@ function showPage(id, push = true) {
   if (id === "admin")      window.renderAdminTable?.();
   if (id === "dashboard")  window.renderAnnouncements?.();
 
-  // 🔁 livechat: DOM attach အပြီး re-bind
+  // Live Chat → DOM attach အပြီးတခါသာ wire (onclick assign ⇒ duplicate မဖြစ်)
   if (id === "livechat") {
-    setTimeout(() => {
-  initChatRealtime();         // chatBox/chatSend wire
-  watchChatBoxBadge();        // badge observer attach (OK)
-  gateChatUI();               // auth state gating
-  document.getElementById("chatInput")?.focus();
-  const box = document.getElementById("chatBox");
-  if (box) box.scrollTop = box.scrollHeight;
-}, 0);
+    queueMicrotask(() => {
+      initChatRealtime();     // .onclick assign uses last handler only
+      watchChatBoxBadge();    // observe chatBox once-per-page view
+      gateChatUI();
+      document.getElementById("chatInput")?.focus();
+      const box = document.getElementById("chatBox");
+      if (box) box.scrollTop = box.scrollHeight;
+    });
   }
 
-  // history
+  // history (prevent loop)
   if (push) history.pushState({ page: id }, "", "#" + id);
 }
 
-// DOMContentLoaded မှာ ၁ ခါပဲ run
-document.getElementById("chatForm")?.addEventListener("submit", (e) => {
-  e.preventDefault(); // Enter နှိပ်လျှင် duplicate မဖြစ်အောင်
-});
-
-// handle browser back/forward
+// popstate
 window.addEventListener("popstate", (e) => {
   const id = e.state?.page || location.hash.replace("#", "") || "catalog";
-  showPage(id, false); // ⚠️ push=false မဟုတ်ရင် infinite loop ဖြစ်မယ်
+  showPage(id, false);
 });
 
-// on first load → hash check
+// first-load
 document.addEventListener("DOMContentLoaded", () => {
   const initial = location.hash.replace("#", "") || "catalog";
   showPage(initial, false);
@@ -489,33 +495,18 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("DOMContentLoaded", () => {
   const newCourseBtn  = document.getElementById("btn-new-course");
   const courseModal   = document.getElementById("courseModal");
-  const closeBtn    = document.getElementById("btn-course-close");
+  const closeBtn      = document.getElementById("btn-course-close");
   const cancelBtn     = document.getElementById("btn-course-cancel");
   const saveBtn       = document.getElementById("btn-course-save");
 
-  // open modal
-  newCourseBtn?.addEventListener("click", () => {
-    courseModal?.showModal();
-  });
-
-  // Close button
-  closeBtn?.addEventListener("click", () => {
-    courseModal?.close();
-  });
-
-  // Cancel button
-  cancelBtn?.addEventListener("click", () => {
-    courseModal?.close();
-  });
-
-  // Save button
+  newCourseBtn?.addEventListener("click", () => courseModal?.showModal());
+  closeBtn?.addEventListener("click", () => courseModal?.close());
+  cancelBtn?.addEventListener("click", () => courseModal?.close());
   saveBtn?.addEventListener("click", (e) => {
-    e.preventDefault();  // stop auto-close if you want to validate
-    // save logic...
+    e.preventDefault();
+    // TODO: validate + save
     courseModal?.close();
   });
-
-  // escape key / backdrop click auto works with <dialog>
 });
 
 function initSearch() {
@@ -1871,6 +1862,7 @@ $("#postForm")?.addEventListener("submit", (e) => {
 });
 
 /* ---------- Chat gating ---------- */
+/* ---------- Chat gating ---------- */
 function gateChatUI() {
   const isFb = !!auth?.currentUser && !auth.currentUser.isAnonymous;
   const isLocal = !!getUser();
@@ -1882,119 +1874,76 @@ function gateChatUI() {
   });
 }
 
+/* --- Local chat helpers (for badge/unread) --- */
+const CHAT_KEY = "ol_chat_local";
+function getLocalChats(){ try { return JSON.parse(localStorage.getItem(CHAT_KEY) || "[]"); } catch { return []; } }
+function setLocalChats(arr){ localStorage.setItem(CHAT_KEY, JSON.stringify(arr || [])); }
+
 /* ---------- Global Live Chat (RTDB if available; local fallback) ---------- */
-// === one-time wiring guards ===
-// Global state (top-level)
-window.__chatInit = false;
-window.__chatRTDB = { ref: null, cb: null }; // detach အတွက်
-
 function initChatRealtime() {
-  // DOM ရှိမှပဲ (page-livechat ထဲ)
-  const box = $("#chatBox"), input = $("#chatInput"), sendBtn = $("#chatSend");
-  if (!box || !sendBtn) return;
-
-  // ---- Singleton Guard ----
-  if (window.__chatInit) return;
-  window.__chatInit = true;
-
-  // ---- (Optional) detach old RTDB listener (safety) ----
-  try {
-    if (window.__chatRTDB.ref && window.__chatRTDB.cb) {
-      // Firebase v9: off(ref, 'child_added', callback)
-      off(window.__chatRTDB.ref, 'child_added', window.__chatRTDB.cb);
-      window.__chatRTDB.ref = null; window.__chatRTDB.cb = null;
-    }
-  } catch {}
-
+  const box = $("#chatBox"), input = $("#chatInput"), send = $("#chatSend");
+  if (!box || !send) return;
   const display = getUser()?.email || "guest";
 
-  // helper: one-shot sender (reused both modes)
-  const doSendLocal = () => {
-    const text = (input?.value || "").trim(); if (!text) return;
-    const arr = getLocalChats(); const m = { user: display, text, ts: Date.now() };
-    arr.push(m); setLocalChats(arr);
-    box.insertAdjacentHTML("beforeend",
-      `<div class="msg"><b>${esc(m.user)}</b>
-        <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
-        <div>${esc(m.text)}</div></div>`);
-    box.scrollTop = box.scrollHeight;
-    input.value = "";
-    updateChatBadge();
-  };
+  // FORM submit ကိုပိတ်ထား (Enter = single send)
+  document.getElementById("chatForm")?.addEventListener("submit", (e) => e.preventDefault(), { once:true });
 
-  // ---- Try RTDB mode ----
+  // RTDB mode
   try {
     if (!auth?.currentUser || auth.currentUser.isAnonymous) throw new Error("no-auth");
     const rtdb = getDatabase(); const roomRef = ref(rtdb, "chats/global");
 
-    const onAdd = (snap) => {
+    onChildAdded(roomRef, (snap) => {
       const m = snap.val(); if (!m) return;
-      // draw once
-      box.insertAdjacentHTML("beforeend",
-        `<div class="msg"><b>${esc(m.user)}</b>
-          <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
-          <div>${esc(m.text)}</div></div>`);
+      box.insertAdjacentHTML("beforeend", `<div class="msg"><b>${esc(m.user)}</b>
+        <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+        <div>${esc(m.text)}</div></div>`);
       box.scrollTop = box.scrollHeight;
 
-      // mirror → local (dup-check)
+      // mirror local for badge (de-dupe)
       const arr = getLocalChats();
       const sig = `${m.ts}|${m.user}|${m.text}`;
       if (!arr.some(x => `${x.ts}|${x.user}|${x.text}` === sig)) {
-        arr.push({ user: m.user, text: m.text, ts: m.ts });
-        setLocalChats(arr);
+        arr.push({ user:m.user, text:m.text, ts:m.ts }); setLocalChats(arr);
       }
       updateChatBadge();
-    };
+    });
 
-    onChildAdded(roomRef, onAdd);
-    window.__chatRTDB = { ref: roomRef, cb: onAdd };
-
-    // overwrite old handlers (no addEventListener)
-    sendBtn.onclick = async () => {
+    // ✅ assign .onclick (not addEventListener) to avoid stacking
+    send.onclick = async () => {
       const text = (input?.value || "").trim(); if (!text) return;
       if (!auth.currentUser || auth.currentUser.isAnonymous) { toast("Please login to chat"); return; }
-      const msg = { uid:auth.currentUser.uid, user:auth.currentUser.email || "user", text, ts: Date.now() };
+      const msg = { uid:auth.currentUser.uid, user:auth.currentUser.email || "user", text, ts:Date.now() };
       try {
         await push(roomRef, msg);
-        // mirror to local for immediate badge
+        // instant badge for this tab
         const arr = getLocalChats(); arr.push({ user: msg.user, text: msg.text, ts: msg.ts }); setLocalChats(arr);
         updateChatBadge();
-        input.value = "";
+        if (input) input.value = "";
       } catch { toast("Chat failed"); }
     };
+    return;
+  } catch {}
 
-    return; // RTDB wired
-  } catch {
-    // fall through → local
-  }
+  // Local fallback
+  const draw = (m) => {
+    box.insertAdjacentHTML("beforeend", `<div class="msg"><b>${esc(m.user)}</b>
+      <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+      <div>${esc(m.text)}</div></div>`);
+    box.scrollTop = box.scrollHeight;
+  };
+  let arr = getLocalChats(); box.innerHTML = ""; arr.forEach(draw);
 
-  // ---- Local fallback only ----
-  // first paint
-  getLocalChats().forEach((m) => {
-    box.insertAdjacentHTML("beforeend",
-      `<div class="msg"><b>${esc(m.user)}</b>
-        <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
-        <div>${esc(m.text)}</div></div>`);
-  });
-  box.scrollTop = box.scrollHeight;
-
-  // overwrite old handlers (no addEventListener)
-  sendBtn.onclick = doSendLocal;
+  // ✅ single handler via .onclick
+  send.onclick = () => {
+    const text = (input?.value || "").trim(); if (!text) return;
+    const m = { user: display, text, ts: Date.now() };
+    arr = getLocalChats(); arr.push(m); setLocalChats(arr);
+    draw(m); updateChatBadge(); if (input) input.value = "";
+  };
 }
 
-function onEnterLiveChatPage() {
-  initChatRealtime();   // guard ကာထားပြီးသား
-  watchChatBoxBadge?.();
-  gateChatUI();
-  document.getElementById("chatInput")?.focus();
-  const box = document.getElementById("chatBox");
-  if (box) box.scrollTop = box.scrollHeight;
-}
-
-// showPage() ထဲက route switch မှာ:
-if (id === "livechat") setTimeout(onEnterLiveChatPage, 0);
-
-// storage change from other tabs → refresh badge
+// storage from other tabs → refresh badge
 window.addEventListener("storage", (e) => {
   if (e.key === CHAT_KEY || e.key === "ol_chats_lastSeen") updateChatBadge();
 });
@@ -2015,7 +1964,6 @@ function wireCourseChatRealtime(courseId) {
         <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
         <div>${esc(m.text)}</div></div>`);
       list.scrollTop = list.scrollHeight;
-      updateChatBadge();
     });
 
     send.onclick = async () => {
@@ -2046,9 +1994,6 @@ function wireCourseChatRealtime(courseId) {
   };
 }
 
-// --- Local fallback store key your chat uses in initChatRealtime()
-const CHAT_KEY = "ol_chat_local";
-
 // ---- helpers ----
 function getLocalChats(){
   try { return JSON.parse(localStorage.getItem(CHAT_KEY) || "[]"); }
@@ -2058,30 +2003,25 @@ function setLocalChats(arr){
   localStorage.setItem(CHAT_KEY, JSON.stringify(arr || []));
 }
 
-// ---- unread badge (topbar) ----
+// unread by timestamp (local mirror)
 function updateChatBadge(){
   const pill  = document.getElementById("btn-top-chat");
+  const badge = document.getElementById("chatCount") || pill?.querySelector(".badge");
   if (!pill) return;
-
-  let badge = document.getElementById("chatCount") || pill.querySelector(".badge");
-  if (!badge) {
-    badge = document.createElement("span");
-    badge.id = "chatCount";
-    badge.className = "badge";
-    badge.style.cssText = `
-      display:inline-flex;align-items:center;justify-content:center;
-      min-width:18px;height:18px;padding:0 5px;margin-left:6px;
-      border-radius:999px;font-size:12px;background:#ef4444;color:#fff;line-height:1;
-    `;
-    pill.appendChild(badge);
-  }
 
   const lastSeen = +(localStorage.getItem("ol_chats_lastSeen") || 0);
   const arr = getLocalChats();
   const unread = arr.filter(m => +m.ts > lastSeen).length;
 
-  badge.textContent = unread ? String(unread) : "";
-  badge.style.display = unread ? "inline-flex" : "none";
+  let b = badge;
+  if (!b) {
+    b = document.createElement("span");
+    b.className = "badge"; b.id = "chatCount";
+    b.style.cssText = "display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:999px;font-size:12px;background:#ef4444;color:#fff;line-height:1;";
+    pill.appendChild(b);
+  }
+  b.textContent = unread > 0 ? String(unread) : "";
+  b.style.display = unread > 0 ? "inline-flex" : "none";
 }
 
 // safe watcher (once)
@@ -2100,16 +2040,16 @@ function ensureChatBadgeWatcher(){
 /* ---- Live Chat routing ---- */
 function gotoLiveChat(){
   showPage("livechat");
-  ensureChatBadgeWatcher();   // chatBox ရှိလာပြီဆို observer တင်
   localStorage.setItem("ol_chats_lastSeen", Date.now().toString());
   updateChatBadge();
 }
+
+// topbar/side buttons
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-top-chat")?.addEventListener("click", gotoLiveChat);
   document.getElementById("btn-side-chat")?.addEventListener("click", gotoLiveChat);
-  initChatRealtime();
-  gateChatUI();
-  ensureChatBadgeWatcher();   // chatBox ရှိရင် observer တင်မယ်
+  // announcements → dashboard only
+  document.getElementById("btn-top-ann")?.addEventListener("click", () => showPage("dashboard"));
   updateChatBadge();
 });
 
@@ -2145,106 +2085,50 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Auth modal + restore login
   initAuthModal();
   const u = getUser(); setLogged(!!u, u?.email);
-  if (u) {
-  try {
-    await migrateProgressKey();
-    await syncProgressBothWays();
-  } catch {}
-}
 
-  // Gate chat inputs and keep in sync
-  gateChatUI();
-  if (typeof onAuthStateChanged === "function" && auth) {
-  onAuthStateChanged(auth, async () => {
-    gateChatUI();
-    try {
-      await migrateProgressKey();
-      await Promise.all([
-        syncEnrollsBothWays(),
-        syncProgressBothWays()
-      ]);
-    } catch {}
-    // ✅ sync ပြီမှ render — Firefox “Continue only” ပြဿနာကို ဒီနေရာက ဖြေ
-    window.renderProfilePanel?.();
-    window.renderMyLearning?.();
-    window.renderGradebook?.();
-  });
-}
-
-  // UI
-  initSidebar(); initSearch(); initChatRealtime();
+  // Sidebar / Search
+  initSidebar(); 
+  initSearch();
 
   // Data
   await loadCatalog().catch(()=>{});
   ALL = getCourses();
-  // ⬇️ user ရှိပြီး firestore သုံးစွဲနိုင်ရင် ချက်ချင်း sync
-if (getUser() && !!db) {
-  try {
-    await Promise.all([ syncEnrollsBothWays(), syncProgressBothWays() ]);
-  } catch {}
-}
-  renderCatalog();
-window.renderAdminTable?.();
-window.renderProfilePanel?.();
-window.renderMyLearning?.();
-window.renderGradebook?.();
-window.renderAnnouncements?.();
 
-  // One-time import/export wiring
-  wireAdminImportExportOnce();
+  // Enroll sync (cloud if available)
+  try { await syncEnrollsBothWays(); } catch {}
 
-  // Remove Finals from UI if present (robust no-op if missing)
-  stripFinalsUI();
+  // Announcements first render (dashboard)
+  window.renderAnnouncements?.();
 
-  // defensive: keep auth-required items clickable (CSS gates by JS)
-  document.querySelectorAll("[data-requires-auth]").forEach((el)=>{ el.style.pointerEvents = "auto"; });
+  // Gate chat inputs
+  gateChatUI();
 
-  document.querySelectorAll('#certPrint, #certClose').forEach(el => {
-    if (!el.closest('#certModal')) el.remove();
-  });
-
-  // Enable browser back to close reader -> My Learning
-// Enable browser back to close reader -> My Learning
-if (!window._olPopstateWired) {
-  window._olPopstateWired = true;
-  addEventListener("popstate", (e) => {
-    const readerEl = $("#reader");
-    const readerOpen = readerEl && !readerEl.classList.contains("hidden");
-    const st = e.state;
-
-    // 1) Reader ဖွင့်ထားပြီး reader state က မဟုတ်တော့ရင် -> close
-    if (readerOpen && (!st || st.ol !== "reader")) {
-      closeReader();
-      return;
-    }
-
-    // 2) Reader မဖွင့်ထားသေးပဲ state က reader ဖြစ်ရင် -> open (တခါတည်း)
-    if (!readerOpen && st && st.ol === "reader" && st.cid) {
-      // openReader() ထဲမှာ pushState guard ရှိရမယ် (ရွှေ့ထားပေးခဲ့တာ)
-      openReader(st.cid);
-      return;
-    }
-
-    // 3) State က ဘာမှ မဟုတ် (root) & reader မဖွင့် -> My Learning ကို ensure
-    if (!st && !readerOpen) {
-      showPage("mylearning");
-    }
-  });
-}
-// ---- Watchdog: if we ever reload while a dialog stayed open/printing, recover
-setTimeout(() => {
-  const certOpen = document.getElementById("certModal")?.open;
-  if (certOpen || document.body.classList.contains("printing")) {
-    hardCloseCert();
+  // Auth state → rewire page bits
+  if (typeof onAuthStateChanged === "function" && auth) {
+    onAuthStateChanged(auth, async () => {
+      gateChatUI();
+      try { await syncEnrollsBothWays(); } catch {}
+      window.renderProfilePanel?.();
+      window.renderMyLearning?.();
+      window.renderGradebook?.();
+    });
   }
-}, 0);
 
-// Boot block အဆုံးတွင် ထည့်ပါ (သင့်ကုဒ်ထဲ add လုပ်ထားတာကို keep)
-addEventListener("hashchange", () => hardCloseCert());
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") hardCloseCert();
-});
-addEventListener("pageshow", () => document.body.classList.remove("printing"));
+  // If we landed on #livechat, wire chat now; else on demand via showPage("livechat")
+  if (location.hash.replace("#", "") === "livechat") {
+    queueMicrotask(() => {
+      initChatRealtime();
+      watchChatBoxBadge();
+      gateChatUI();
+    });
+  }
+
+  // Topbar offset calc
+  (function setTopbarOffset() {
+    const tb = $("#topbar"); if (!tb) return;
+    const h = Math.ceil(tb.getBoundingClientRect().height);
+    document.documentElement.style.setProperty("--topbar-offset", h + "px");
+  })();
 });
 
 // ==== DEBUG HOOKS (put near the bottom of app.js, after the functions are defined) ====
