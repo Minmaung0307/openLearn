@@ -678,7 +678,14 @@
       window.OPENLEARN_DATA_BASE = "/data";
     </script>
     <!-- <script type="module" src="./app.js"></script> -->
-    <script type="module" src="./app.js?v=2025-09-13a"></script>
+     <script>
+  window.renderProfilePanel  ||= () => {};
+  window.renderMyLearning    ||= () => {};
+  window.renderGradebook     ||= () => {};
+  window.renderAdminTable    ||= () => {};
+  window.renderAnnouncements ||= () => {};
+</script>
+    <script type="module" src="./app.js?v=ff-safe-2"></script>
 
     <!-- tiny UX: mobile search toggle (no duplicate listeners) -->
     <script>

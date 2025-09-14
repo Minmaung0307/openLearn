@@ -267,7 +267,7 @@ window.renderMyLearning?.();
   }
 
   renderCatalog();
-  renderMyLearning?.();
+  window.renderMyLearning?.();
 }
 
 /* =========================================================
@@ -849,7 +849,7 @@ function markCourseComplete(id, score = null) {
     arr.push({ id, ts: Date.now(), score: typeof score === "number" ? score : null });
     setCompletedRaw(arr);
   }
-  renderProfilePanel?.(); renderMyLearning?.();
+  window.renderProfilePanel?.(); window.renderMyLearning?.();
   saveProgressCloud({ completed: getCompletedRaw(), ts: Date.now() });
 }
 
@@ -1828,10 +1828,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     //   await syncProgressBothWays();   // ⬅️ add this
 await migrateProgressKey();
    await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
-    window.renderMyLearning?.();
     window.renderProfilePanel?.();
+    window.renderMyLearning?.();
     window.renderGradebook?.();
-      window.renderMyLearning?.();
     }
   });
 }
@@ -1844,8 +1843,11 @@ await migrateProgressKey();
   ALL = getCourses();
   // ⬇️ user ရှိပြီး firestore သုံးစွဲနိုင်ရင် ချက်ချင်း sync
 if (getUser() && !!db) {
-  await syncProgressBothWays().catch(()=>{});
-}
+   await Promise.all([
+     syncEnrollsBothWays(),
+     syncProgressBothWays()
+   ]).catch(()=>{});
+ }
   renderCatalog();
 window.renderAdminTable?.();
 window.renderProfilePanel?.();
