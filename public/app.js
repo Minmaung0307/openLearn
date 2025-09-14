@@ -1869,40 +1869,61 @@ function initChatRealtime() {
 
     onChildAdded(roomRef, (snap) => {
       const m = snap.val(); if (!m) return;
+
+      // draw
       box.insertAdjacentHTML("beforeend", `<div class="msg"><b>${esc(m.user)}</b>
         <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
         <div>${esc(m.text)}</div></div>`);
       box.scrollTop = box.scrollHeight;
-      try { updateChatBadgeFromDOM(); } catch {}
+
+      // 🔁 mirror to local for badge counting
+      const arr = getLocalChats();
+  const sig = `${m.ts}|${m.user}|${m.text}`;
+  if (!arr.some(x => `${x.ts}|${x.user}|${x.text}` === sig)) {
+    arr.push({ user: m.user, text: m.text, ts: m.ts });
+    setLocalChats(arr);
+  }
+  updateChatBadge();
     });
 
     send.onclick = async () => {
       const text = (input?.value || "").trim(); if (!text) return;
       if (!auth.currentUser || auth.currentUser.isAnonymous) { toast("Please login to chat"); return; }
       try {
-        await push(roomRef, { uid:auth.currentUser.uid, user:auth.currentUser.email || "user", text, ts:Date.now() });
+        const msg = { uid:auth.currentUser.uid, user:auth.currentUser.email || "user", text, ts:Date.now() };
+  await push(roomRef, msg);
+  const arr = getLocalChats(); arr.push({ user: msg.user, text: msg.text, ts: msg.ts });
+  setLocalChats(arr);
+  updateChatBadge();
         if (input) input.value = "";
       } catch { toast("Chat failed"); }
     };
     return;
   } catch {}
 
-  // Local-only fallback
-  const KEY = "ol_chat_local";
-  const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
-  const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
+  // === Local-only fallback ===
+  const load = getLocalChats, save = setLocalChats;
   const draw = (m) => {
     box.insertAdjacentHTML("beforeend", `<div class="msg"><b>${esc(m.user)}</b>
       <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
       <div>${esc(m.text)}</div></div>`);
     box.scrollTop = box.scrollHeight;
   };
+
   let arr = load(); arr.forEach(draw);
   send.onclick = () => {
     const text = (input?.value || "").trim(); if (!text) return;
-    const m = { user: display, text, ts: Date.now() }; arr.push(m); save(arr); draw(m); if (input) input.value = "";
+    const m = { user: display, text, ts: Date.now() };
+    arr.push(m); save(arr); draw(m);
+    updateChatBadge();
+    if (input) input.value = "";
   };
 }
+
+// storage change from other tabs → refresh badge
+window.addEventListener("storage", (e) => {
+  if (e.key === CHAT_KEY || e.key === "ol_chats_lastSeen") updateChatBadge();
+});
 
 /* ---------- Per-course chat ---------- */
 function wireCourseChatRealtime(courseId) {
@@ -1920,7 +1941,7 @@ function wireCourseChatRealtime(courseId) {
         <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
         <div>${esc(m.text)}</div></div>`);
       list.scrollTop = list.scrollHeight;
-      try { updateChatBadgeFromDOM(); } catch {}
+      updateChatBadge();
     });
 
     send.onclick = async () => {
@@ -1952,127 +1973,79 @@ function wireCourseChatRealtime(courseId) {
 }
 
 // --- Local fallback store key your chat uses in initChatRealtime()
-const CHAT_LOCAL_KEY = "ol_chat_local";
+const CHAT_KEY = "ol_chat_local";
 
-// Count messages by reading the DOM (works for RTDB AND local fallback)
-function updateChatBadgeFromDOM(){
-  const el = document.getElementById("chatCount");
-  if (!el) return;
-  const n = document.querySelectorAll("#chatBox .msg").length;
-  if (n > 0) { el.textContent = n > 99 ? "99+" : String(n); el.classList.add("show"); }
-  else { el.textContent = ""; el.classList.remove("show"); }
+// ---- helpers ----
+function getLocalChats(){
+  try { return JSON.parse(localStorage.getItem(CHAT_KEY) || "[]"); }
+  catch { return []; }
+}
+function setLocalChats(arr){
+  localStorage.setItem(CHAT_KEY, JSON.stringify(arr || []));
 }
 
-// Optional: read localStorage when using local-only fallback
-function updateChatBadgeFromLocal(){
-  const el = document.getElementById("chatCount");
-  if (!el) return;
-  let n = 0;
-  try { n = (JSON.parse(localStorage.getItem(CHAT_LOCAL_KEY) || "[]") || []).length; } catch {}
-  if (n > 0) { el.textContent = n > 99 ? "99+" : String(n); el.classList.add("show"); }
-  else { el.textContent = ""; el.classList.remove("show"); }
-}
-
-// Observe chatBox so badge updates whenever messages append (RTDB or local)
-function watchChatBoxBadge(){
-  const box = document.getElementById("chatBox");
-  if (!box) return;
-  updateChatBadgeFromDOM(); // initial
-  const mo = new MutationObserver(() => updateChatBadgeFromDOM());
-  mo.observe(box, { childList: true });
-}
-
-// Keep badge in sync if another tab writes local chat
-window.addEventListener("storage", (e) => {
-  if (e.key === CHAT_LOCAL_KEY) updateChatBadgeFromLocal();
-});
-
-// --- 2.a Live Chat ကို ဒါကြောင့်ပဲ တိတိကျကျ ဖွင့်/scroll/focus ---
-function gotoLiveChat() {
-  // dashboard page ပြပါ
-  showPage("dashboard", true);
-
-  // DOM ထဲ Live Chat block ခဏစာလှုပ်ရှားနိုင်လို့ frame-နဲ့စစ်
-  const tryScroll = () => {
-    const target =
-      document.getElementById("liveChat") ||
-      document.getElementById("chatBox") ||
-      document.querySelector('[data-section="livechat"]');
-
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      document.getElementById("chatInput")?.focus();
-    } else {
-      requestAnimationFrame(tryScroll);
-    }
-  };
-  requestAnimationFrame(tryScroll);
-}
-
-// --- 2.b Topbar chat pill + Sidebar Live Chat menu ကို Live Chat သို့ပို့ ---
-document.addEventListener("DOMContentLoaded", () => {
-  // Topbar chat pill
-  document.getElementById("btn-top-chat")?.addEventListener("click", (e) => {
-    e.preventDefault(); e.stopPropagation();
-    gotoLiveChat();
-  });
-
-  // Sidebar “Live Chat” navbtn (page id ကို livechat လို့ တွဲထားခဲ့ရင်)
-  document.querySelectorAll('.navbtn[data-page="livechat"]').forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault(); e.stopPropagation();
-      gotoLiveChat();
-    });
-  });
-});
-
-// --- 3.a Badge updater (topbar chat pill ပေါ်က count) ---
-function updateChatBadge(count) {
-  const pill = document.getElementById("btn-top-chat");
+// ---- unread badge (topbar) ----
+function updateChatBadge(){
+  const pill  = document.getElementById("btn-top-chat");
   if (!pill) return;
 
-  let badge = pill.querySelector(".badge");
+  let badge = document.getElementById("chatCount") || pill.querySelector(".badge");
   if (!badge) {
     badge = document.createElement("span");
+    badge.id = "chatCount";
     badge.className = "badge";
     badge.style.cssText = `
-      display:inline-flex; align-items:center; justify-content:center;
-      min-width: 18px; height: 18px; padding: 0 5px;
-      margin-left: 6px; border-radius: 999px; font-size: 12px;
-      background: #ef4444; color: #fff; line-height: 1;
+      display:inline-flex;align-items:center;justify-content:center;
+      min-width:18px;height:18px;padding:0 5px;margin-left:6px;
+      border-radius:999px;font-size:12px;background:#ef4444;color:#fff;line-height:1;
     `;
     pill.appendChild(badge);
   }
-  badge.textContent = count > 0 ? String(count) : "";
-  badge.style.display = count > 0 ? "inline-flex" : "none";
+
+  const lastSeen = +(localStorage.getItem("ol_chats_lastSeen") || 0);
+  const arr = getLocalChats();
+  const unread = arr.filter(m => +m.ts > lastSeen).length;
+
+  badge.textContent = unread ? String(unread) : "";
+  badge.style.display = unread ? "inline-flex" : "none";
 }
+
+// safe watcher (once)
+function ensureChatBadgeWatcher(){
+  if (window._chatBadgeWatching) return;
+  const box = document.getElementById('chatBox');
+  if (!box) return;          // page-livechat မဖွင့်သေးရင် skip
+  window._chatBadgeWatching = true;
+
+  updateChatBadge();         // initial compute
+  const mo = new MutationObserver(() => updateChatBadge());
+  mo.observe(box, { childList: true });
+}
+
+// --- 2.a Live Chat ကို ဒါကြောင့်ပဲ တိတိကျကျ ဖွင့်/scroll/focus ---
+/* ---- Live Chat routing ---- */
+function gotoLiveChat(){
+  showPage("livechat");
+  ensureChatBadgeWatcher();   // chatBox ရှိလာပြီဆို observer တင်
+  localStorage.setItem("ol_chats_lastSeen", Date.now().toString());
+  updateChatBadge();
+}
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("btn-top-chat")?.addEventListener("click", gotoLiveChat);
+  document.getElementById("btn-side-chat")?.addEventListener("click", gotoLiveChat);
+  initChatRealtime();
+  ensureChatBadgeWatcher();   // chatBox ရှိရင် observer တင်မယ်
+  updateChatBadge();
+});
 
 // --- 3.b initChatRealtime() ထဲမှာ badge ကို wire လုပ်ပါ ---
 (function patchChatBadge(){
-  // original initChatRealtime ကို wrap မဖြစ်ရင် ဒီလို override-safe ပြုလုပ်ပါ
   const _init = initChatRealtime;
   window.initChatRealtime = function(...args){
     _init?.apply(this, args);
-
-    try {
-      // RTDB mode: onChildAdded မှာ တစ်ကြိမ်ဖို့ attach လုပ်ထားပြီးသား
-      // local fallback mode: localStorage array length ကို တင်
-      const KEY = "ol_chat_local";
-      // initial draw (local fallback)
-      const arr = JSON.parse(localStorage.getItem(KEY) || "[]");
-      updateChatBadge(Array.isArray(arr) ? arr.length : 0);
-    } catch {}
-
-    // Send button ကို click လုပ်ရင်လဲ count တိုးပြ
+    updateChatBadge(); // just recompute; no args
     const send = document.getElementById("chatSend");
-    send?.addEventListener("click", () => {
-      try {
-        // RTDB ဖြစ်ရင် onChildAdded ကတဆင့်တိုးသွားမယ် (ဒီအောက်ကက local fallback)
-        const KEY = "ol_chat_local";
-        const arr = JSON.parse(localStorage.getItem(KEY) || "[]");
-        updateChatBadge(Array.isArray(arr) ? arr.length : 0);
-      } catch {}
-    }, { capture:false });
+    send?.addEventListener("click", () => { updateChatBadge(); });
   };
 })();
 
