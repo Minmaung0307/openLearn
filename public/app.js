@@ -39,12 +39,12 @@ const toast = (m, ms = 2200) => {
 const _read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || JSON.stringify(d)); } catch { return d; } };
 const _write = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
-/* ---------- Firefox safe stubs ---------- */
-window.renderProfilePanel  ||= () => {};
-window.renderMyLearning    ||= () => {};
-window.renderGradebook     ||= () => {};
-window.renderAdminTable    ||= () => {};
-window.renderAnnouncements ||= () => {};
+// ---------- HARD SAFE STUBS (must be VERY FIRST lines) ----------
+if (!('renderProfilePanel'  in window)) window.renderProfilePanel  = () => {};
+if (!('renderMyLearning'    in window)) window.renderMyLearning    = () => {};
+if (!('renderGradebook'     in window)) window.renderGradebook     = () => {};
+if (!('renderAdminTable'    in window)) window.renderAdminTable    = () => {};
+if (!('renderAnnouncements' in window)) window.renderAnnouncements = () => {};
 
 /* ---------- responsive theme / font ---------- */
 const PALETTES = { /* ... (unchanged palettes) ... */ 
@@ -516,7 +516,8 @@ function setLogged(on, email) {
   document.body.classList.toggle("logged", !!on);
   document.body.classList.toggle("anon", !on);
 //   renderProfilePanel?.();
-window.renderProfilePanel?.();
+// window.renderProfilePanel?.();
+try { window.renderProfilePanel?.(); } catch (_) {}
 }
 function initAuthModal() {
   ensureAuthModalMarkup();
