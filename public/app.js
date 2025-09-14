@@ -1719,11 +1719,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // helpers already exist: getAnns(), setAnns(), toast(), esc(), $
 function updateAnnBadge() {
-  const n = (getAnns() || []).length;
-  const badge = document.getElementById("annCount");
-  if (!badge) return;
-  badge.textContent = n ? `(${n})` : "";
+  const n = (getAnns?.() || []).length;
+  const b = document.getElementById("annCount");
+  if (b) b.textContent = n ? `(${n})` : "";
 }
+document.addEventListener("DOMContentLoaded", updateAnnBadge);
 
 function renderAnnouncements() {
   const box = $("#annList"); if (!box) return;
@@ -1775,8 +1775,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // open modal
   annBtn?.addEventListener("click", () => {
-    renderAnnouncements();
-    annModal?.showModal();
+    showPage("dashboard");
+    renderAnnouncements?.(); // refresh list just in case
+    const el = document.getElementById("annList");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
   // close modal
@@ -1960,8 +1962,8 @@ document.addEventListener("DOMContentLoaded", () => {
   chatBtn?.addEventListener("click", () => {
     // ✅ jump to chat section (assuming chat lives in page-dashboard or page-chat)
     showPage("dashboard");      // or showPage("chat") if you have a dedicated page
-    const el = document.getElementById("chatBox");
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const el = document.getElementById("chatBox") || document.getElementById("ccList");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
   // run once on boot
