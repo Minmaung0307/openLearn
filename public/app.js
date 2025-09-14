@@ -1330,7 +1330,7 @@ function renderCertificate(course, cert) {
       </div>
     </div>
 
-    <div class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
+    <div id="certActions" class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
       <button class="btn" id="certPrint">Print / Save PDF</button>
       <button class="btn" id="certClose">Close</button>
     </div>
@@ -1381,30 +1381,24 @@ function cleanupStrayCertButtons() {
   });
 }
 
-function showCertificate(course) {
-  cleanupStrayCertButtons();
-
-  const prof = getProfile();
-  const completed = getCompletedRaw().find(x => x.id === course.id);
-  const score = completed?.score ?? null;
-
-  let rec = getIssuedCert(course.id);
-  if (!rec) rec = ensureCertIssued(course, prof, score);
-  if (!rec) return toast("Certificate not issued yet");
+function showCertificate(course, opts = { issueIfMissing:true }) {
+  hardCloseCert(); // old/stale modal/backdrop cleanup
 
   const dlg  = document.getElementById("certModal");
   const body = document.getElementById("certBody");
   if (!dlg || !body) return;
 
-  body.innerHTML = renderCertificate(course, rec);
+  // ✅ buttons duplicate guard: remove any existing action bars inside the modal
+  dlg.querySelectorAll("#certActions, .row.no-print").forEach(n => n.remove());
+
+  // render once (this already includes the action bar)
+  body.innerHTML = renderCertificate(course, getIssuedCert(course.id) || ensureCertIssued(course, getProfile()));
+
   dlg.showModal();
 
-  // wire only the ones inside modal
-  const printBtn = dlg.querySelector("#certPrint");
-  const closeBtn = dlg.querySelector("#certClose");
-  printBtn?.addEventListener("click", () => window.print(), { once:true });
-  closeBtn?.addEventListener("click", () => hardCloseCert(), { once:true });
-
+  // wire only INSIDE the modal
+  dlg.querySelector("#certPrint")?.addEventListener("click", () => window.print(), { once:true });
+  dlg.querySelector("#certClose")?.addEventListener("click", () => hardCloseCert(), { once:true });
   dlg.addEventListener("cancel", (e)=>{ e.preventDefault(); hardCloseCert(); }, { once:true });
 }
 
