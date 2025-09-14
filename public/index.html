@@ -67,19 +67,13 @@
             💬 <span class="txt">Chat</span>
             <span
               id="chatCount"
-              class="small pill-badge"
-              aria-label="unread chats"
+              class="small"
               style="margin-left: 6px; opacity: 0.8"
             ></span>
           </button>
 
-          <button id="btn-login" class="btn" type="button">Login</button>
-          <button
-            id="btn-logout"
-            class="btn"
-            type="button"
-            style="display: none"
-          >
+          <button id="btn-login" class="btn">Login</button>
+          <button id="btn-logout" class="btn" style="display: none">
             Logout
           </button>
         </div>
@@ -147,18 +141,12 @@
           <i>⚙️</i><span>Settings</span>
         </button>
         <button
-          id="btn-side-chat"
-          class="navbtn icon-pill pill-chat"
+          class="navbtn"
           data-page="livechat"
           title="Live Chat"
           data-requires-auth
         >
           <i>💬</i><span>Live Chat</span>
-          <span
-            id="chatCount"
-            class="pill-badge"
-            aria-label="unread chats"
-          ></span>
         </button>
       </nav>
     </aside>
@@ -236,7 +224,7 @@
               "
               aria-live="polite"
             ></div>
-            <div id="chatForm" class="row" style="gap: 8px">
+            <div class="row" style="gap: 8px">
               <input
                 id="ccInput"
                 class="input grow"
@@ -362,23 +350,20 @@
 
       <!-- Live Chat -->
       <section id="page-livechat" class="page">
-        <div class="card" style="max-width: 900px; margin: 0 auto">
-          <div
-            class="row"
-            style="justify-content: space-between; align-items: center"
-          >
-            <h3 style="margin: 0">Live Chat</h3>
-            <small class="muted">Global room</small>
-          </div>
-
+        <div class="card narrow">
+          <div class="row"><h3 class="h4">Live Chat</h3></div>
           <div
             id="chatBox"
-            style="margin-top: 10px; max-height: 360px; overflow: auto"
+            aria-live="polite"
+            style="max-height: 260px; overflow: auto"
           ></div>
-
-          <div class="row" style="margin-top: 10px">
-            <input id="chatInput" class="input" placeholder="Type a message…" />
-            <button id="chatSend" class="btn primary">Send</button>
+          <div class="row" style="margin-top: 8px">
+            <input
+              id="chatInput"
+              class="input grow"
+              placeholder="Type a message…"
+            />
+            <button class="btn" id="chatSend" type="button">Send</button>
           </div>
         </div>
       </section>

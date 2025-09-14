@@ -282,10 +282,6 @@ a:hover {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
-body.sidebar-expanded::after {
-  pointer-events: none; /* overlay တင်မလိုတော့ */
-}
-
 /* Overlay scrim (optional but nice) */
 /* body.sidebar-expanded::after {
   content: "";
@@ -1257,7 +1253,6 @@ button,
 }
 
 .pill-chat {
-  position: relative;
   background: rgba(37, 99, 235, 0.08); /* bluish hint */
   color: var(--fg);
   border: 1px solid var(--border);
@@ -1265,23 +1260,4 @@ button,
 #chatCount {
   font-size: 12px;
   opacity: 0.85;
-}
-.pill-badge {
-  display: none;
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: #ef4444;
-  color: #fff;
-  font-size: 12px;
-  line-height: 18px;
-  text-align: center;
-  border: 2px solid var(--card);
-}
-.pill-badge.show {
-  display: inline-block;
 }
