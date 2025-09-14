@@ -19,7 +19,7 @@
   --topbar-offset: 64px;
   --topbar-h: 56px;
 
-  --sidebar-w: 260px;
+  --sidebar-w: 72px;
   --sidebar-w-exp: 220px;
 
   /* Pills */
@@ -203,7 +203,7 @@ a:hover {
   border-right: 1px solid var(--border);
   overflow: auto;
   transform: translateX(-100%);
-  transition: transform .25s ease, box-shadow .25s ease;
+  transition: transform .25s ease, box-shadow .25s ease, width .2s ease; /* add width transition */
 }
 #sidebar.expanded {
   width: var(--sidebar-w-exp);
@@ -266,8 +266,8 @@ body.sidebar-expanded #sidebar .navbtn span {
 }
 
 #sidebar.show {
-  width: 220px;
-  /* transform: translateX(0); */
+  width: var(--sidebar-w-exp);
+  transform: translateX(0);
   box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
 
@@ -508,6 +508,19 @@ body.logged [data-requires-auth] {
 }
 #chatSend {
   margin-left: 6px;
+}
+
+@media (min-width:1025px){
+  /* sidebar always visible on desktop */
+  #sidebar{
+    transform: none !important;  /* no off-canvas */
+    box-shadow: none;
+  }
+
+  /* shift main content so it doesn’t sit under the sidebar */
+  #main{
+    margin-left: var(--sidebar-w);
+  }
 }
 
 /* Responsive */
