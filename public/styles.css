@@ -316,6 +316,7 @@ body.sidebar-expanded #main {
 
 /* Pages */
 .page {
+    container-type: inline-size;              /* enables @container */
   display: none;         /* ✅ hide by default */
   position: relative;
   max-width: calc(var(--content-max) + var(--gutter)*2);
@@ -528,6 +529,7 @@ body.logged [data-requires-auth] {
 
   #main{
     margin-left: var(--sidebar-w);
+    transition: margin-left .2s ease;
   }
   /* when sidebar expands on hover, push content too (requires #sidebar before #main in DOM) */
   #sidebar:hover ~ #main{
@@ -701,7 +703,8 @@ dialog.ol-modal textarea {
 
 #courseGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0,1fr));   /* desktop 5 */
+  grid-template-columns: repeat(var(--cols, 1), minmax(0,1fr));
+  width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
   gap: 12px;
@@ -709,19 +712,19 @@ dialog.ol-modal textarea {
 
 /* 4 cols */
 @media (max-width: 1400px){
-  #courseGrid{ grid-template-columns: repeat(4, minmax(0,1fr)); }
+  #courseGrid{ #courseGrid{ --cols: 5; grid-template-columns: repeat(4, minmax(0,1fr)); }
 }
 /* 3 cols */
 @media (max-width: 1120px){
-  #courseGrid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+  #courseGrid{ #courseGrid{ --cols: 4; grid-template-columns: repeat(3, minmax(0,1fr)); }
 }
 /* 2 cols */
 @media (max-width: 820px){
-  #courseGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  #courseGrid{ #courseGrid{ --cols: 3; grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 /* 1 col */
 @media (max-width: 560px){
-  #courseGrid{ grid-template-columns: 1fr; }
+  #courseGrid{ #courseGrid{ --cols: 2; grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {
