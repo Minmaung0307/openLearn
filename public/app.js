@@ -1406,11 +1406,11 @@ function showCertificate(course, opts = { issueIfMissing: true }) {
 
   dlg.addEventListener("cancel", (e)=>{ e.preventDefault(); hardCloseCert(); }, { once:true });
 
-  window.onbeforeprint = () => document.body.classList.add("printing");
-  window.onafterprint  = () => hardCloseCert();
+  // window.onbeforeprint = () => document.body.classList.add("printing");
+  // window.onafterprint  = () => hardCloseCert();
 
   // safety: one more cleanup after modal opens
-  cleanupStrayCertButtons();
+  // cleanupStrayCertButtons();
 }
 
 async function tryFetch(path) {
