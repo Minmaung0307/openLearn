@@ -464,6 +464,7 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("DOMContentLoaded", () => {
   const newCourseBtn  = document.getElementById("btn-new-course");
   const courseModal   = document.getElementById("courseModal");
+  const closeBtn    = document.getElementById("btn-course-close");
   const cancelBtn     = document.getElementById("btn-course-cancel");
   const saveBtn       = document.getElementById("btn-course-save");
 
@@ -472,12 +473,17 @@ document.addEventListener("DOMContentLoaded", () => {
     courseModal?.showModal();
   });
 
-  // close modal by cancel
+  // Close button
+  closeBtn?.addEventListener("click", () => {
+    courseModal?.close();
+  });
+
+  // Cancel button
   cancelBtn?.addEventListener("click", () => {
     courseModal?.close();
   });
 
-  // close modal on save (you can add Firestore save here later)
+  // Save button
   saveBtn?.addEventListener("click", (e) => {
     e.preventDefault();  // stop auto-close if you want to validate
     // save logic...
