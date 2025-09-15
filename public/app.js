@@ -834,6 +834,250 @@ function initSearch() {
   });
 }
 
+// =============== Global Search ===============
+(function setupGlobalSearch() {
+  const input = document.getElementById('globalSearch');
+  const panel = document.getElementById('searchResults');
+  if (!input || !panel) return;
+
+  let INDEX = [];
+  let lastBuiltAt = 0;
+
+  const deb = (fn, ms=200) => {
+    let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); };
+  };
+
+  const norm = (s) => (s||"").toString().toLowerCase().normalize("NFKD").replace(/\s+/g,' ').trim();
+  const now = () => Date.now();
+
+  // Try reading data safely
+  const safe = (fn, fallback=[]) => {
+    try { const v = fn(); return Array.isArray(v) ? v : (v || fallback); }
+    catch (_) { return fallback; }
+  };
+
+  // Simple snippet builder
+  function mkSnippet(text, q) {
+    const t = (text || "").toString();
+    const i = t.toLowerCase().indexOf(q.toLowerCase());
+    if (i < 0) return t.slice(0, 120);
+    const start = Math.max(0, i - 40);
+    const end = Math.min(t.length, i + 80);
+    const seg = t.slice(start, end);
+    return (start>0?'…':'') + seg + (end<t.length?'…':'');
+  }
+
+  // Build an index from all modules we can access
+  function collectSearchIndex() {
+    const rows = [];
+
+    // Announcements (Dashboard)
+    const anns = safe(() => (typeof getAnns === 'function' ? getAnns() : JSON.parse(localStorage.getItem('anns')||'[]')));
+    anns.forEach(a => rows.push({
+      type: 'Announcements',
+      title: a.title || a.t || 'Untitled',
+      body: a.body || a.b || '',
+      page: 'dashboard',
+      anchor: '#annSection'
+    }));
+
+    // Courses
+    const courses = safe(() => (typeof getCourses === 'function' ? getCourses() : JSON.parse(localStorage.getItem('courses')||'[]')));
+    courses.forEach(c => rows.push({
+      type: 'Courses',
+      title: c.title || c.name || 'Untitled Course',
+      body: c.desc || c.description || '',
+      page: 'courses',
+      anchor: c.id ? `[data-course-id="${c.id}"]` : null
+    }));
+
+    // Inventory
+    const inv = safe(() => (typeof getInventory === 'function' ? getInventory() : JSON.parse(localStorage.getItem('inventory')||'[]')));
+    inv.forEach(it => rows.push({
+      type: 'Inventory',
+      title: it.name || it.sku || 'Item',
+      body: `qty:${it.qty ?? it.quantity ?? ''} | vendor:${it.vendor || ''} | note:${it.note || ''}`,
+      page: 'inventory'
+    }));
+
+    // Sushi Items / Products
+    const sushi = safe(() => (typeof getSushiItems === 'function' ? getSushiItems() : JSON.parse(localStorage.getItem('sushi')||'[]')));
+    sushi.forEach(s => rows.push({
+      type: 'Sushi Items',
+      title: s.name || s.title || 'Sushi',
+      body: `${s.ingredients || ''} ${s.instructions || ''}`,
+      page: 'sushi'
+    }));
+
+    // Vendors
+    const vendors = safe(() => (typeof getVendors === 'function' ? getVendors() : JSON.parse(localStorage.getItem('vendors')||'[]')));
+    vendors.forEach(v => rows.push({
+      type: 'Vendors',
+      title: v.name || 'Vendor',
+      body: `${v.email || ''} ${v.contact || ''} ${v.address || ''}`,
+      page: 'vendors'
+    }));
+
+    // Tasks / Kanban
+    const tasks = safe(() => (typeof getTasks === 'function' ? getTasks() : JSON.parse(localStorage.getItem('tasks')||'[]')));
+    tasks.forEach(t => rows.push({
+      type: 'Tasks',
+      title: t.title || 'Task',
+      body: `${t.desc || t.description || ''} ${t.status || ''}`,
+      page: 'tasks'
+    }));
+
+    // COGS / Reports
+    const cogs = safe(() => (typeof getCogs === 'function' ? getCogs() : JSON.parse(localStorage.getItem('cogs')||'[]')));
+    cogs.forEach(g => rows.push({
+      type: 'COGS',
+      title: g.item || g.name || 'COGS Row',
+      body: `cost:${g.cost ?? ''} price:${g.price ?? ''} note:${g.note || ''}`,
+      page: 'cogs'
+    }));
+
+    // Users / Settings
+    const users = safe(() => (typeof getUsers === 'function' ? getUsers() : JSON.parse(localStorage.getItem('users')||'[]')));
+    users.forEach(u => rows.push({
+      type: 'Users',
+      title: u.name || u.email || 'User',
+      body: `${u.role || ''} ${u.phone || ''}`,
+      page: 'settings'
+    }));
+
+    // Fallback: visible DOM chunks (lightweight)
+    try {
+      const candidates = ['#dashboard', '#courses', '#inventory', '#sushi', '#vendors', '#tasks', '#cogs', '#settings'];
+      document.querySelectorAll(candidates.join(',')).forEach(sec => {
+        const text = (sec.innerText || '').trim();
+        if (text) {
+          rows.push({
+            type: 'Page',
+            title: (sec.id || 'Section'),
+            body: text.slice(0, 2000),
+            page: sec.id || ''
+          });
+        }
+      });
+    } catch {}
+
+    INDEX = rows.map(r => ({
+      ...r,
+      _title: norm(r.title),
+      _body: norm(r.body)
+    }));
+    lastBuiltAt = now();
+  }
+
+  function ensureIndex() {
+    // Rebuild if never built or older than 15s (cheap)
+    if (!lastBuiltAt || now() - lastBuiltAt > 15000) collectSearchIndex();
+  }
+
+  function search(q) {
+    const n = norm(q);
+    if (!n) return [];
+    ensureIndex();
+    // tokens
+    const toks = n.split(' ').filter(Boolean);
+    const score = (row) => {
+      let s = 0;
+      toks.forEach(t => {
+        if (row._title.includes(t)) s += 5;
+        if (row._body.includes(t)) s += 1;
+      });
+      // small boost for certain modules
+      if (row.type === 'Announcements') s += 1;
+      if (row.type === 'Courses') s += 1;
+      return s;
+    };
+    return INDEX
+      .map(r => ({ r, s: score(r) }))
+      .filter(x => x.s > 0)
+      .sort((a,b)=> b.s - a.s)
+      .slice(0, 25)
+      .map(x => x.r);
+  }
+
+  function clearResults() {
+    panel.innerHTML = '';
+    panel.hidden = true;
+  }
+
+  function renderResults(list, q) {
+    panel.innerHTML = '';
+    if (!list.length) {
+      panel.innerHTML = `<div class="search-empty">No results for “${q}”</div>`;
+      panel.hidden = false;
+      return;
+    }
+    list.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'search-item';
+      el.innerHTML = `
+        <div class="search-type">[ ${item.type} ]</div>
+        <div>
+          <div class="search-title">${item.title}</div>
+          <div class="search-snippet">${mkSnippet(item.body, q)}</div>
+        </div>`;
+      el.addEventListener('click', () => {
+        try {
+          if (typeof showPage === 'function' && item.page) showPage(item.page);
+          // scroll to anchor if provided
+          if (item.anchor) {
+            setTimeout(() => {
+              const t = document.querySelector(item.anchor);
+              if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 50);
+          }
+        } catch {}
+        clearResults();
+        input.blur();
+      });
+      panel.appendChild(el);
+    });
+    panel.hidden = false;
+  }
+
+  const onType = deb((e) => {
+    const q = e.target.value || '';
+    if (!q.trim()) return clearResults();
+    const list = search(q);
+    renderResults(list, q.trim());
+  }, 160);
+
+  input.addEventListener('input', onType);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { clearResults(); input.blur(); }
+  });
+
+  // Click outside → close
+  document.addEventListener('click', (e) => {
+    if (!panel.hidden && !panel.contains(e.target) && e.target !== input) {
+      clearResults();
+    }
+  });
+
+  // Shortcut: press "/" to focus search (skip when typing in inputs/textareas)
+  document.addEventListener('keydown', (e) => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (e.key === '/' && tag !== 'input' && tag !== 'textarea' && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault();
+      input.focus();
+      input.select();
+    }
+  });
+
+  // Build initial index shortly after load
+  setTimeout(collectSearchIndex, 200);
+
+  // Optional: rebuild when storage changes (another tab / after edits)
+  window.addEventListener('storage', () => collectSearchIndex());
+
+  // Expose for manual rebuild after CRUD ops
+  window.rebuildGlobalSearchIndex = collectSearchIndex;
+})();
+
 /* =========================================================
    Part 3/6 — Auth, catalog actions, details
    ========================================================= */
