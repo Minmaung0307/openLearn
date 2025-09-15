@@ -15,6 +15,11 @@ import {
   ref,
   push,
   onChildAdded,
+  query,
+  orderByChild,
+  endAt,
+  get,
+  remove,
 
   // Firestore (for enroll sync)
   doc,
@@ -768,7 +773,6 @@ document.addEventListener("DOMContentLoaded", () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 });
-
 
 // handle browser back/forward
 window.addEventListener("popstate", (e) => {
@@ -2601,6 +2605,16 @@ function initChatRealtime() {
     const rtdb = getDatabase();
     const roomRef = ref(rtdb, "chats/global");
 
+    const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
+    (async () => {
+      try {
+        const cutoff = Date.now() - TEN_DAYS;
+        const oldQ = query(roomRef, orderByChild("ts"), endAt(cutoff));
+        const snap = await get(oldQ);
+        snap.forEach((child) => remove(child.ref));
+      } catch {}
+    })();
+
     onChildAdded(roomRef, (snap) => {
       const m = snap.val();
       if (!m) return;
@@ -2677,6 +2691,16 @@ function wireCourseChatRealtime(courseId) {
     const rtdb = getDatabase();
     const roomRef = ref(rtdb, `chats/${courseId}`);
 
+    const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
+    (async () => {
+      try {
+        const cutoff = Date.now() - TEN_DAYS;
+        const oldQ = query(roomRef, orderByChild("ts"), endAt(cutoff));
+        const snap = await get(oldQ);
+        snap.forEach((child) => remove(child.ref));
+      } catch {}
+    })();
+
     onChildAdded(roomRef, (snap) => {
       const m = snap.val();
       if (!m) return;
@@ -2724,7 +2748,19 @@ function wireCourseChatRealtime(courseId) {
     );
     list.scrollTop = list.scrollHeight;
   };
+
+  const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
+
   let arr = load();
+
+  // prune 10 days+
+  const cutoff = Date.now() - TEN_DAYS;
+  const pruned = arr.filter((m) => (m.ts || 0) >= cutoff);
+  if (pruned.length !== arr.length) {
+    save(pruned);
+    arr = pruned;
+  }
+
   list.innerHTML = "";
   arr.forEach(draw);
   send.onclick = () => {
