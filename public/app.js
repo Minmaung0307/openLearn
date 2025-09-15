@@ -17,7 +17,6 @@ import {
   onChildAdded,
   query,
   orderByChild,
-  endAt,
   get,
   remove,
 
@@ -2605,6 +2604,14 @@ function initChatRealtime() {
     const rtdb = getDatabase();
     const roomRef = ref(rtdb, "chats/global");
 
+    // after building roomRef
+pruneOldChatsRTDB(roomRef);
+
+// if you keep an offline fallback list:
+pruneOldChatsLocal("ol_chat_room_global");          // for global
+// or per course:
+pruneOldChatsLocal("ol_chat_room_" + courseId);
+
     const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
     (async () => {
       try {
@@ -2691,6 +2698,14 @@ function wireCourseChatRealtime(courseId) {
     const rtdb = getDatabase();
     const roomRef = ref(rtdb, `chats/${courseId}`);
 
+    // after building roomRef
+pruneOldChatsRTDB(roomRef);
+
+// if you keep an offline fallback list:
+pruneOldChatsLocal("ol_chat_room_global");          // for global
+// or per course:
+pruneOldChatsLocal("ol_chat_room_" + courseId);
+
     const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
     (async () => {
       try {
@@ -2772,6 +2787,36 @@ function wireCourseChatRealtime(courseId) {
     draw(m);
     if (input) input.value = "";
   };
+}
+
+// === Chat TTL (10 days) ===
+const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
+
+async function pruneOldChatsRTDB(roomRef) {
+  try {
+    const cutoff = Date.now() - TEN_DAYS;
+    const snap = await get(roomRef); // no endAt: fetch all, filter client-side
+    snap.forEach(child => {
+      const v = child.val && child.val();
+      const ts = v && v.ts ? Number(v.ts) : 0;
+      if (ts && ts < cutoff) {
+        try { remove(child.ref); } catch {}
+      }
+    });
+  } catch (e) {
+    console.warn("pruneOldChatsRTDB failed:", e?.message || e);
+  }
+}
+
+function pruneOldChatsLocal(key) {
+  try {
+    const cutoff = Date.now() - TEN_DAYS;
+    const arr = JSON.parse(localStorage.getItem(key) || "[]");
+    const pruned = arr.filter(m => Number(m.ts || 0) >= cutoff);
+    if (pruned.length !== arr.length) {
+      localStorage.setItem(key, JSON.stringify(pruned));
+    }
+  } catch {}
 }
 
 /* =========================================================
@@ -2901,6 +2946,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   addEventListener("pageshow", () =>
     document.body.classList.remove("printing")
   );
+});
+
+// run once on boot
+document.addEventListener("DOMContentLoaded", () => {
+  // make sure the modal & handlers exist
+  try { initAuthModal(); } catch {}
+
+  // reflect Firebase auth state → UI & local profile
+  try {
+    onAuthStateChanged(auth, (u) => {
+      if (u) {
+        setUser({ email: u.email || "", role: getUser()?.role || "student" });
+        setLogged(true, u.email || "");
+      } else {
+        setUser(null);
+        setLogged(false);
+      }
+    });
+  } catch {}
 });
 
 // ==== DEBUG HOOKS (put near the bottom of app.js, after the functions are defined) ====
