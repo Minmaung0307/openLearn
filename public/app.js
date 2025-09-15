@@ -1392,6 +1392,47 @@ async function saveProgressCloud(patch) {
   } catch {}
 }
 
+// Cloud → Local fallback
+async function getProgress(courseId) {
+  // 1) Cloud (Firestore)
+  const cloud = await loadProgressCloud(); // <- သင့် function ကိုပဲခေါ်မယ်
+  if (cloud && cloud[courseId]) return cloud[courseId];
+
+  // 2) Local fallback (ရှိပြီးသား old data အသုံးပြု)
+  try {
+    const raw = localStorage.getItem("progress");
+    if (raw) {
+      const obj = JSON.parse(raw);
+      return obj[courseId] || null;
+    }
+  } catch {}
+  return null;
+}
+
+// UI မှာ Continue/Review ပြောင်းတိုင်း ခေါ်ပေးရန်
+async function markCourseProgress(courseId, status, lesson = 0) {
+  const patch = { [courseId]: { status, lesson, ts: Date.now() } };
+  await saveProgressCloud(patch); // <- သင့် function ကိုပဲသုံးမယ် (merge:true)
+
+  // optional local backup
+  try {
+    const raw = localStorage.getItem("progress");
+    const obj = raw ? JSON.parse(raw) : {};
+    obj[courseId] = patch[courseId];
+    localStorage.setItem("progress", JSON.stringify(obj));
+  } catch {}
+}
+
+// course card/buttons ပြထားတဲ့ loop/render function အတွင်း
+(async () => {
+  const p = await getProgress(course.id);   // ← Cloud-first
+  if (p && p.status === "review") {
+    showReviewButton(course.id);
+  } else {
+    showContinueButton(course.id, p?.lesson || 0);
+  }
+})();
+
 async function syncProgressBothWays() {
   const cloud = await loadProgressCloud();
 
@@ -1622,6 +1663,29 @@ $("#profileForm")?.addEventListener("submit", (e) => {
   $("#profileEditModal")?.close();
   toast("Profile saved");
 });
+
+// ---- Reader state (for delegation) ----
+window.READER_STATE = { courseId: null, lesson: 0 };
+
+function findCourse(courseId) {
+  const list = (window.ALL && window.ALL.length) ? window.ALL : (window.getCourses?.() || []);
+  return list.find(c => c.id === courseId) || null;
+}
+
+function isLastLesson(courseId, lessonIndex) {
+  const c = findCourse(courseId);
+  const len = (c && Array.isArray(c.lessons)) ? c.lessons.length : (window.RD?.pages?.length || 0);
+  return len ? (lessonIndex >= len - 1) : false;
+}
+
+function goToLesson(courseId, nextIndex) {
+  // RD ကိုသုံး/သတ်မှတ်ထားတဲ့ renderPage() ကို အသုံးပြု
+  window.RD.i = Math.max(0, Math.min(window.RD.pages.length - 1, nextIndex));
+  renderPage();
+  // mirror to READER_STATE
+  window.READER_STATE.courseId = courseId;
+  window.READER_STATE.lesson   = window.RD.i;
+}
 
 /* ---------- My Learning / Reader ---------- */
 const SAMPLE_PAGES = (title) => [
@@ -1854,29 +1918,31 @@ function renderPage() {
   // --- Navigation ---
   const btnPrev = $("#rdPrev"),
     btnNext = $("#rdNext");
-  if (btnPrev)
-    btnPrev.onclick = () => {
-      RD.i = Math.max(0, RD.i - 1);
-      renderPage();
-    };
-  if (btnNext)
-    btnNext.onclick = () => {
-      // Next button guard
-      if (
-        p?.type === "quiz" &&
-        !hasPassedQuiz(RD.cid, RD.i) &&
-        LAST_QUIZ_SCORE < QUIZ_PASS
-      ) {
-        toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% to continue`);
-        return;
-      }
-      if (p?.type === "project" && !PROJECT_UPLOADED) {
-        toast("Please upload your project file first");
-        return;
-      }
-      RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
-      renderPage();
-    };
+    if (btnPrev) btnPrev.disabled = (RD.i <= 0);
+  if (btnNext) btnNext.disabled = (RD.i >= RD.pages.length - 1);
+  // if (btnPrev)
+  //   btnPrev.onclick = () => {
+  //     RD.i = Math.max(0, RD.i - 1);
+  //     renderPage();
+  //   };
+  // if (btnNext)
+  //   btnNext.onclick = () => {
+  //     // Next button guard
+  //     if (
+  //       p?.type === "quiz" &&
+  //       !hasPassedQuiz(RD.cid, RD.i) &&
+  //       LAST_QUIZ_SCORE < QUIZ_PASS
+  //     ) {
+  //       toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% to continue`);
+  //       return;
+  //     }
+  //     if (p?.type === "project" && !PROJECT_UPLOADED) {
+  //       toast("Please upload your project file first");
+  //       return;
+  //     }
+  //     RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+  //     renderPage();
+  //   };
 
   // --- Finish button on LAST page only ---
   const isLast = RD.i === RD.pages.length - 1;
@@ -1908,6 +1974,9 @@ function renderPage() {
       showCongrats();
     };
   }
+    // mirror RD → READER_STATE (delegation needs this)
+  window.READER_STATE.courseId = RD.cid;
+  window.READER_STATE.lesson   = RD.i;
 }
 
 function launchFireworks() {
@@ -2386,6 +2455,82 @@ async function openReader(cid) {
   const off = wireCourseChatRealtime(c.id);
   if (typeof off === "function") window._ccOff = off;
 }
+
+  // --- Event Delegation on #reader (Next/Prev/Finish/Back) ---
+  const readerHost = document.getElementById('reader');
+  if (readerHost && !readerHost._delegated) {
+    readerHost._delegated = true;
+
+    readerHost.addEventListener('click', async (e) => {
+      const t = e.target;
+      if (!t || !(t instanceof HTMLElement)) return;
+
+      // Always keep state in sync
+      window.READER_STATE.courseId = window.RD?.cid || null;
+      window.READER_STATE.lesson   = window.RD?.i ?? 0;
+
+      // ---- Prev ----
+      if (t.id === 'rdPrev') {
+        const { courseId, lesson } = window.READER_STATE;
+        if (!courseId) return;
+        goToLesson(courseId, Math.max(0, lesson - 1));
+        return;
+      }
+
+      // ---- Next ----
+      if (t.id === 'rdNext') {
+        const { courseId, lesson } = window.READER_STATE;
+        if (!courseId) return;
+
+        // gating: quiz/project guard (same rules as renderPage)
+        const p = window.RD?.pages?.[lesson];
+        if (p?.type === 'quiz' && !(window.hasPassedQuiz?.(window.RD.cid, lesson) || (window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7))) {
+          return toast(`Need ≥ ${Math.round((window.QUIZ_PASS || 0.7)*100)}% to continue`);
+        }
+        if (p?.type === 'project' && !window.PROJECT_UPLOADED) {
+          return toast("Please upload your project file first");
+        }
+
+        // mark lesson progress to Cloud (best/ passed flags are already handled in quiz)
+        try { await window.markLessonProgress?.(courseId, lesson, true, window.LAST_QUIZ_SCORE || 0); } catch {}
+
+        // move next (if last page, just stay; finishing is via Finish button)
+        goToLesson(courseId, lesson + 1);
+        window.renderMyLearning?.();
+        return;
+      }
+
+      // ---- Finish ---- (only on last page; button id = rdFinish)
+      if (t.id === 'rdFinish') {
+        const { courseId, lesson } = window.READER_STATE;
+        if (!courseId) return;
+
+        const p = window.RD?.pages?.[lesson];
+        if (p?.type === 'quiz' && !(window.hasPassedQuiz?.(window.RD.cid, lesson) || (window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7))) {
+          return toast(`Need ≥ ${Math.round((window.QUIZ_PASS || 0.7)*100)}% to finish`);
+        }
+        if (p?.type === 'project' && !window.PROJECT_UPLOADED) {
+          return toast("Please upload your project file first");
+        }
+
+        try {
+          await window.markCourseProgress?.(courseId, 'review', lesson);
+        } catch {}
+        // local completion (also issues cert via showCongrats())
+        window.markCourseComplete?.(courseId, window.LAST_QUIZ_SCORE || null);
+        window.showCongrats?.();
+        window.renderMyLearning?.();
+        return;
+      }
+
+      // ---- Back ----
+      if (t.id === 'rdBack') {
+        e.preventDefault();
+        window.closeReader?.();
+        return;
+      }
+    });
+  }
 
 /* =========================================================
    Part 5/6 — Gradebook, Admin, Import/Export, Announcements, Chat
