@@ -163,9 +163,10 @@
           <button class="btn" id="btn-add-samples" data-requires-auth>
             Add sample data
           </button>
-          <button class="btn primary" id="btn-new-course" data-requires-auth>
+          <button class="btn primary" id="btn-new-course" data-role-min="instructor" data-requires-auth>
             + New Course
           </button>
+          <section id="page-admin" class="page" data-role-min="instructor">…</section>
         </div>
         <div id="courseGrid" class="grid"></div>
       </section>
@@ -682,8 +683,8 @@
         </div>
         <div id="avmBody" class="muted" style="margin: 0.5rem 0 1rem"></div>
         <div class="row" style="gap: 8px; justify-content: flex-end">
-          <button class="btn" id="avmEdit">Edit</button>
-          <button class="btn" id="avmDelete">Delete</button>
+          <button class="btn small" id="avmEdit" data-edit="..." data-role-min="instructor">Edit</button>
+          <button class="btn small" id="avmDelete" data-del="..." data-role-min="instructor">Delete</button>
         </div>
       </div>
     </dialog>

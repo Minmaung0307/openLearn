@@ -233,6 +233,49 @@ function applyFont(px = 16) {
   document.documentElement.style.setProperty("--fontSize", px + "px");
 }
 
+/* ---------- Per-user localStorage scoping (prevents leakage across accounts) ---------- */
+const LS_BASE_KEYS = ["ol_enrolls","ol_completed_v2","ol_quiz_state","ol_certs_v1","progress"];
+function _scopeKey(base, id){ return `${base}::${id||"anon"}`; }
+function _readLS(k, d){ try{ return JSON.parse(localStorage.getItem(k) || JSON.stringify(d)); }catch{ return d; } }
+function _writeLS(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+function _snapshotBaseToScope(uidKey){
+  LS_BASE_KEYS.forEach(base=>{
+    const v = _readLS(base, null);
+    if (v!==null && v!==undefined) _writeLS(_scopeKey(base, uidKey), v);
+  });
+}
+function _restoreScopeToBase(uidKey){
+  LS_BASE_KEYS.forEach(base=>{
+    const scoped = _readLS(_scopeKey(base, uidKey), null);
+    if (scoped===null || scoped===undefined) {
+      // no prior state for this user → clear base to safe default
+      if (base==="ol_enrolls") _writeLS(base, []);
+      else if (base==="ol_completed_v2") _writeLS(base, []);
+      else if (base==="ol_quiz_state") _writeLS(base, {});
+      else if (base==="ol_certs_v1") _writeLS(base, {});
+      else if (base==="progress") _writeLS(base, {});
+    } else {
+      _writeLS(base, scoped);
+    }
+  });
+}
+
+let _ACTIVE_UID_SCOPE = null;
+function switchLocalStateForUser(newUidKey){
+  const key = newUidKey || "anon";
+  if (_ACTIVE_UID_SCOPE === key) return;
+  // Save current base → old scope
+  if (_ACTIVE_UID_SCOPE !== null) _snapshotBaseToScope(_ACTIVE_UID_SCOPE);
+  // Switch → restore new scope into base
+  _ACTIVE_UID_SCOPE = key;
+  _restoreScopeToBase(_ACTIVE_UID_SCOPE);
+  // Re-render things that read from localStorage
+  try {
+    renderCatalog(); window.renderMyLearning?.(); window.renderProfilePanel?.(); window.renderGradebook?.();
+  } catch {}
+}
+
 /* ---------- state (localStorage) ---------- */
 const getCourses = () => _read("ol_courses", []);
 const setCourses = (a) => _write("ol_courses", a || []);
@@ -1014,6 +1057,77 @@ function initSearch() {
    Part 3/6 — Auth, catalog actions, details
    ========================================================= */
 
+/* ---------- Roles: resolve from Firestore or fallback map ---------- */
+const ROLE_ORDER = ["student","ta","instructor","admin","owner"];
+const _HARDCODED_ROLE_BY_EMAIL = {
+  "minmaung0307@gmail.com": "admin",
+  // လိုသလို ထပ်ထည့်လို့ရ: "teacher@example.com": "instructor"
+};
+function roleRank(r){ const i=ROLE_ORDER.indexOf(String(r||"student").toLowerCase()); return i<0?0:i; }
+
+async function resolveUserRole(u){
+  try {
+    // u: Firebase user object
+    const uid = u?.uid || "";
+    const email = (u?.email || "").toLowerCase();
+    // 1) users/{uid} doc မှာ role ကြည့်မယ်
+    if (uid && db) {
+      const uref = doc(db, "users", uid);
+      const usnap = await getDoc(uref);
+      if (usnap.exists()) {
+        const r = (usnap.data()?.role || "").toLowerCase();
+        if (ROLE_ORDER.includes(r)) return r;
+      }
+    }
+    // 2) fallback map by email
+    if (email && _HARDCODED_ROLE_BY_EMAIL[email]) {
+      return _HARDCODED_ROLE_BY_EMAIL[email];
+    }
+  } catch {}
+  // 3) default
+  return "student";
+}
+
+/* ---------- Page-level role guard ---------- */
+const PAGE_ROLE_MIN = {
+  admin: "instructor",   // admin page requires instructor+
+  gradebook: "instructor" // gradebook requires instructor+
+  // လိုသလို ထပ်ထည့်ပါ: dashboard: "ta", etc.
+};
+
+(function patchShowPageRoleGuard(){
+  const _sp = window.showPage;
+  window.showPage = function(id, ...rest){
+    const need = PAGE_ROLE_MIN[id];
+    if (need && roleRank(getRole()) < roleRank(need)) {
+      toast(`Requires ${need}+ role`);
+      return _sp ? _sp.call(this, "catalog", ...rest) : null;
+    }
+    const r = _sp ? _sp.call(this, id, ...rest) : null;
+    // after navigation also apply element-level gates
+    enforceRoleGates?.();
+    return r;
+  };
+})();
+
+/* ---------- Element-level role gate (attach data-role-min on sensitive controls) ---------- */
+function enforceRoleGates(){
+  const r = getRole();
+  const myRank = roleRank(r);
+  document.querySelectorAll("[data-role-min]").forEach(el=>{
+    const need = (el.getAttribute("data-role-min") || "student").toLowerCase();
+    const ok = myRank >= roleRank(need);
+    el.toggleAttribute("disabled", !ok);
+    el.classList.toggle("disabled", !ok);
+    if (el.dataset.roleHide === "true") el.style.display = ok ? "" : "none";
+    if (!el._rgWired){
+      el._rgWired = true;
+      el.addEventListener("click", (e)=>{ if(!ok){ e.preventDefault(); e.stopPropagation(); toast(`Requires ${need}+`);} }, true);
+    }
+  });
+}
+document.addEventListener("DOMContentLoaded", enforceRoleGates);
+
 /* ---------- auth modal ---------- */
 function ensureAuthModalMarkup() {
   if ($("#authModal")) return;
@@ -1097,6 +1211,7 @@ function initAuthModal() {
         setLogged(false);
         gateChatUI();
         toast("Logged out");
+        switchLocalStateForUser("anon"); // isolate anon scope
       })();
     }
   });
@@ -1124,9 +1239,17 @@ function initAuthModal() {
     const pw = $("#loginPass")?.value;
     if (!em || !pw) return toast("Fill email/password");
     try {
+      // await signInWithEmailAndPassword(auth, em, pw);
+      // setUser({ email: em, role: "student" });
+      // setLogged(true, em);
       await signInWithEmailAndPassword(auth, em, pw);
-      setUser({ email: em, role: "student" });
-      setLogged(true, em);
+ // resolve role from Firestore (users/{uid}) or fallback
+ const u = auth.currentUser;
+ const role = await resolveUserRole(u);
+ setUser({ email: em, role });
+ setLogged(true, em);
+ // scope LS to this user
+ switchLocalStateForUser(currentUidKey());
       modal.close();
       gateChatUI();
       toast("Welcome back");
@@ -1142,9 +1265,15 @@ function initAuthModal() {
     const pw = $("#signupPass")?.value;
     if (!em || !pw) return toast("Fill email/password");
     try {
+      // await createUserWithEmailAndPassword(auth, em, pw);
+      // setUser({ email: em, role: "student" });
+      // setLogged(true, em);
       await createUserWithEmailAndPassword(auth, em, pw);
-      setUser({ email: em, role: "student" });
-      setLogged(true, em);
+ const u = auth.currentUser;
+ const role = await resolveUserRole(u);
+ setUser({ email: em, role });
+ setLogged(true, em);
+ switchLocalStateForUser(currentUidKey());
       modal.close();
       gateChatUI();
       toast("Account created");
@@ -3341,23 +3470,29 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch {}
 
   try {
-    onAuthStateChanged(auth, (u) => {
+    onAuthStateChanged(auth, async (u) => {
       IS_AUTHED = !!u;
       setAppLocked(!IS_AUTHED);
 
       if (u) {
         // your existing login success wiring
-        setUser?.({
-          email: u.email || "",
-          role: getUser?.()?.role || "student",
-        });
-        setLogged?.(true, u.email || "");
+        // setUser?.({
+        //   email: u.email || "",
+        //   role: getUser?.()?.role || "student",
+        // });
+        // setLogged?.(true, u.email || "");
+        const role = await resolveUserRole(u);
+   setUser?.({ email: u.email || "", role });
+   setLogged?.(true, u.email || "");
+   switchLocalStateForUser(currentUidKey());
       } else {
         setUser?.(null);
         setLogged?.(false);
+        switchLocalStateForUser("anon");
         // Optionally route to a public-safe page
         showPage?.("welcome");
       }
+      enforceRoleGates?.();
     });
   } catch (e) {
     console.warn("Auth listener error", e);
@@ -3623,14 +3758,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // reflect Firebase auth state → UI & local profile
   try {
-    onAuthStateChanged(auth, (u) => {
+    onAuthStateChanged(auth, async (u) => {
       if (u) {
-        setUser({ email: u.email || "", role: getUser()?.role || "student" });
-        setLogged(true, u.email || "");
+        // setUser({ email: u.email || "", role: getUser()?.role || "student" });
+        // setLogged(true, u.email || "");
+        const role = await resolveUserRole(u);
+   setUser({ email: u.email || "", role });
+   setLogged(true, u.email || "");
+   switchLocalStateForUser(currentUidKey());
       } else {
         setUser(null);
         setLogged(false);
+        switchLocalStateForUser("anon");
       }
+      enforceRoleGates?.();
     });
   } catch {}
 });
