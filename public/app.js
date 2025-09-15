@@ -745,6 +745,31 @@ function showPage(id, push = true) {
   }
 }
 
+function updateAnnBadge() {
+  const b = document.getElementById("annBadge");
+  if (!b) return;
+  const list = getAnns ? getAnns() : [];
+  const n = Array.isArray(list) ? list.length : 0;
+  if (n > 0) {
+    b.textContent = String(n);
+    b.style.display = "inline-flex";
+  } else {
+    b.textContent = "";
+    b.style.display = "none";
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // initial page already handled above
+  updateAnnBadge();
+
+  document.getElementById("btn-top-ann")?.addEventListener("click", () => {
+    showPage("dashboard");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+});
+
+
 // handle browser back/forward
 window.addEventListener("popstate", (e) => {
   const id = e.state?.page || location.hash.replace("#", "") || "catalog";
@@ -2477,6 +2502,7 @@ function renderAnnouncements() {
       )
       .join("") || `<div class="muted">No announcements yet.</div>`;
   wireAnnouncementEditButtons();
+  updateAnnBadge();
 }
 window.renderAnnouncements = renderAnnouncements;
 
