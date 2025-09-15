@@ -1264,3 +1264,35 @@ button,
   transform: translateY(-1px);
   margin-left: 6px;
 }
+
+/* ===== Auth Lock ===== */
+.locked-main {
+  pointer-events: none !important;
+  filter: blur(1px) saturate(0.8);
+}
+
+.disabled,
+[aria-disabled="true"] {
+  pointer-events: none !important;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* optional overlay (main မှာသာ ပြ) */
+#authGuardOverlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.15);
+  z-index: 5;
+}
+.locked-main + #authGuardOverlay { display: flex; }
+#authGuardOverlay .msg {
+  background: #fff;
+  padding: 14px 18px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.15);
+  font-weight: 600;
+}

@@ -2602,15 +2602,13 @@ function initChatRealtime() {
     if (!auth?.currentUser || auth.currentUser.isAnonymous)
       throw new Error("no-auth");
     const rtdb = getDatabase();
-    const roomRef = ref(rtdb, "chats/global");
+    const roomRef = ref(getDatabase(), "chats/global");
 
     // after building roomRef
 pruneOldChatsRTDB(roomRef);
 
 // if you keep an offline fallback list:
 pruneOldChatsLocal("ol_chat_room_global");          // for global
-// or per course:
-pruneOldChatsLocal("ol_chat_room_" + courseId);
 
     const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
     (async () => {
@@ -2696,14 +2694,13 @@ function wireCourseChatRealtime(courseId) {
     if (!auth?.currentUser || auth.currentUser.isAnonymous)
       throw new Error("no-auth");
     const rtdb = getDatabase();
-    const roomRef = ref(rtdb, `chats/${courseId}`);
+    const roomRef = ref(getDatabase(), `chats/${courseId}`);
 
     // after building roomRef
 pruneOldChatsRTDB(roomRef);
 
 // if you keep an offline fallback list:
-pruneOldChatsLocal("ol_chat_room_global");          // for global
-// or per course:
+// per course:
 pruneOldChatsLocal("ol_chat_room_" + courseId);
 
     const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
@@ -2795,7 +2792,7 @@ const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
 async function pruneOldChatsRTDB(roomRef) {
   try {
     const cutoff = Date.now() - TEN_DAYS;
-    const snap = await get(roomRef); // no endAt: fetch all, filter client-side
+    const snap = await get(roomRef); // no 'endAt' — filter client-side
     snap.forEach(child => {
       const v = child.val && child.val();
       const ts = v && v.ts ? Number(v.ts) : 0;
@@ -2818,6 +2815,111 @@ function pruneOldChatsLocal(key) {
     }
   } catch {}
 }
+
+let IS_AUTHED = false;
+
+const MAIN_CANDIDATES = ['#pages', '#main', '#appMain', 'main', '#content', '.main'];
+function findMain() {
+  return document.querySelector(MAIN_CANDIDATES.join(','));
+}
+
+// (optional) build a lightweight overlay next to main
+function ensureAuthOverlay(mainEl) {
+  if (!mainEl) return null;
+  let ov = mainEl.nextElementSibling?.id === 'authGuardOverlay'
+    ? mainEl.nextElementSibling
+    : null;
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'authGuardOverlay';
+    ov.innerHTML = `<div class="msg">Please log in to continue</div>`;
+    mainEl.insertAdjacentElement('afterend', ov);
+  }
+  return ov;
+}
+
+// Disable interactive elements (except login controls)
+const CLICKABLE_SELECTOR = `a, button, [role="button"], .nav-link, .card, .course-card, [data-action]`;
+function setClickableDisabled(root, disabled) {
+  if (!root) return;
+  root.querySelectorAll(CLICKABLE_SELECTOR).forEach(el => {
+    // skip obvious auth buttons if any
+    const id = (el.id || '').toLowerCase();
+    const ds = (el.dataset || {});
+    const isLogin = id.includes('login') || ds.auth === 'login' || ds.requiresAuth === 'false';
+    if (isLogin) return;
+
+    if (disabled) {
+      el.classList.add('disabled');
+      el.setAttribute('aria-disabled', 'true');
+      el.addEventListener('click', blockIfLocked, true);
+    } else {
+      el.classList.remove('disabled');
+      el.removeAttribute('aria-disabled');
+      el.removeEventListener('click', blockIfLocked, true);
+    }
+  });
+}
+
+function blockIfLocked(e) {
+  if (!IS_AUTHED) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof toast === 'function') toast('Please log in to continue');
+  }
+}
+
+function setAppLocked(locked) {
+  const mainEl = findMain();
+  if (!mainEl) return;
+  if (locked) {
+    mainEl.classList.add('locked-main');
+  } else {
+    mainEl.classList.remove('locked-main');
+  }
+  ensureAuthOverlay(mainEl); // create once
+  setClickableDisabled(mainEl, locked);
+}
+
+// Router guard: prevent page switch while locked
+const ALLOW_PAGES_WHEN_LOCKED = new Set(['welcome', 'login', 'about']); // adjust if needed
+const _showPage = window.showPage; // keep reference if defined earlier
+window.showPage = function(name, ...rest) {
+  if (!IS_AUTHED && !ALLOW_PAGES_WHEN_LOCKED.has(String(name || '').toLowerCase())) {
+    if (typeof toast === 'function') toast('Please log in first');
+    name = 'welcome'; // fallback to a public-safe page
+  }
+  return typeof _showPage === 'function'
+    ? _showPage.call(this, name, ...rest)
+    : null;
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  try { initAuthModal?.(); } catch {}
+
+  try {
+    onAuthStateChanged(auth, (u) => {
+      IS_AUTHED = !!u;
+      setAppLocked(!IS_AUTHED);
+
+      if (u) {
+        // your existing login success wiring
+        setUser?.({ email: u.email || "" , role: getUser?.()?.role || "student" });
+        setLogged?.(true, u.email || "");
+      } else {
+        setUser?.(null);
+        setLogged?.(false);
+        // Optionally route to a public-safe page
+        showPage?.('welcome');
+      }
+    });
+  } catch (e) {
+    console.warn('Auth listener error', e);
+    // fail-safe: lock if we can’t read auth
+    IS_AUTHED = false;
+    setAppLocked(true);
+  }
+});
 
 /* =========================================================
    Part 6/6 — Settings, Boot, Finals Removal Shim
