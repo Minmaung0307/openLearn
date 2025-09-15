@@ -1306,7 +1306,7 @@ button,
 .search-results {
   position: absolute;
   top: 100%;   /* exactly below the input */
-  left: 0;     /* align to input left */
+  left: 12.4%;     /* align to input left */
   width: 75%; /* same width as input */
   max-height: 60vh;
   overflow: auto;
