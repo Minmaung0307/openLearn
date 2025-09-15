@@ -638,6 +638,14 @@
           >Avatar URL
           <input name="photoURL" class="input" placeholder="https://..."
         /></label>
+        <label>Upload Avatar (optional)</label>
+        <input id="avatarFile" type="file" accept="image/*" class="input" />
+        <button type="button" class="btn" id="avatarUploadBtn">
+          Upload to Cloud
+        </button>
+        <small class="muted"
+          >You can either paste a URL above OR upload from your computer.</small
+        >
         <label style="grid-column: 1/-1"
           >Short Bio <textarea name="bio" class="input" rows="3"></textarea>
         </label>

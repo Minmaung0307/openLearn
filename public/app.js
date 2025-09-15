@@ -1727,6 +1727,49 @@ function renderProfilePanel() {
 }
 window.renderProfilePanel = renderProfilePanel;
 
+// ---- Avatar Upload to Firebase Storage (non-destructive) ----
+import { storage, storageRef, uploadBytes, getDownloadURL } from "./firebase.js";
+
+// helper: path-safe filename
+function _safeName(name="avatar.png"){
+  return String(name).replace(/[^a-z0-9._-]+/gi, "_").slice(0,80);
+}
+
+async function uploadAvatarFile(file){
+  if (!file) throw new Error("No file selected");
+  const userId = (auth?.currentUser?.uid || (getUser()?.email || "guest")).replace(/[^a-z0-9._-]+/gi, "_");
+  const path   = `avatars/${userId}/${Date.now()}_${_safeName(file.name)}`;
+  const ref    = storageRef(storage, path);
+  await uploadBytes(ref, file, { contentType: file.type || "image/*" });
+  return await getDownloadURL(ref);
+}
+
+(function wireAvatarUploadOnce(){
+  const fInput = document.getElementById("avatarFile");
+  const btn    = document.getElementById("avatarUploadBtn");
+  const form   = document.getElementById("profileForm");
+  const urlEl  = form?.querySelector('input[name="photoURL"]') || document.getElementById("photoURL");
+
+  if (!fInput || !btn) return;
+  if (btn._wired) return; btn._wired = true;
+
+  btn.addEventListener("click", async () => {
+    try {
+      const file = fInput.files?.[0];
+      if (!file) return toast("Select a file first");
+      // (optional) size guard ~ 3MB
+      if (file.size > 3 * 1024 * 1024) return toast("Image too large (max 3MB)");
+
+      const url = await uploadAvatarFile(file);
+      if (urlEl) urlEl.value = url;     // fill Photo URL field
+      toast("Avatar uploaded ✔️ (URL filled)");
+    } catch (e){
+      console.warn(e);
+      toast("Upload failed");
+    }
+  });
+})();
+
 /* ---------- Profile Edit modal wiring ---------- */
 $("#btn-edit-profile")?.addEventListener("click", () => {
   const m = $("#profileEditModal");
@@ -1753,7 +1796,8 @@ $("#profileForm")?.addEventListener("submit", (e) => {
   const f = e.currentTarget;
   const data = {
     displayName: f.displayName.value.trim(),
-    photoURL: resolveAssetUrl(f.photoURL.value.trim()),
+    photoURL: (typeof resolveAssetUrl === "function" ? resolveAssetUrl(f.photoURL.value.trim()) : f.photoURL.value.trim()),
+    // photoURL: resolveAssetUrl(f.photoURL.value.trim()),
     // photoURL: f.photoURL.value.trim(),
     bio: f.bio.value.trim(),
     skills: f.skills.value.trim(),
@@ -3413,6 +3457,16 @@ function renderSettingsHelp() {
       <ul class="help-list">
         <li>Topbar လိုင်မှာ အချက်အလက်အားလုံးကို ရှာနိုင်</li>
         <li>Result ကိုနှိပ်ရင် သက်ဆိုင်ရာ Page သို့ Auto-Navigate</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <b>User Role များနှင့် အခွင့်အရေးများ</b>
+      <ul class="help-list">
+        <li>Owner – အားလုံး: Settings, Admin, Import/Export, Announcements CRUD, Course CRUD, Payments test, etc.</li>
+        <li>Admin – owner နှင့် ဆင်တူ; org-level manage</li>
+        <li>Instructor – Course CRUD (သင်သင်ကြားမည့်တန်းသားများ), Announcements create/edit, Gradebook read</li>
+        <li>TA – Instructor အင်အား subset (announcements edit, grade assist)</li>
+        <li>Student – Catalog browse, enroll, reader/quiz/project, chat, profile, certificate</li>
       </ul>
     </div>
   </div>

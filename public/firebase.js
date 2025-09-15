@@ -60,6 +60,10 @@ import {
   limitToLast
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+import {
+  getStorage, ref as sRef, uploadBytes, getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
 /* ===== Config guard ===== */
 const cfg = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.firebase) || null;
 if (!cfg) {
@@ -77,6 +81,10 @@ try { useDeviceLanguage(auth); } catch {}
 
 /* Firestore */
 export const db = getFirestore(app);
+
+export const storage = getStorage(app);
+
+export { sRef as storageRef, uploadBytes, getDownloadURL };
 
 /* RTDB (exported for optional chat) */
 export { 
