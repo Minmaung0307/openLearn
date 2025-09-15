@@ -2202,45 +2202,43 @@ function renderMyLearning() {
     .join("");
 
   // wire buttons (this was missing → caused “can’t click”)
-  grid.querySelectorAll("[data-read]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-read");
-        openReader(id);
-      })
-  );
+grid.querySelectorAll("[data-read]").forEach(
+  (b) =>
+    (b.onclick = () => {
+      const id = b.getAttribute("data-read");
+      openReader(id);
+    })
+);
 
-  // --- Cloud-first label adjust (ensure 'Review' shows in all browsers) ---
-  // --- Cloud-first label adjust (ensure 'Review' shows in all browsers) ---
-  (async function updateMyLearningLabelsCloud() {
+// ★★★ ADD THIS BLOCK — Firefox timing safe label fix ★★★
+(async () => {
+  const cards = Array.from(grid.querySelectorAll(".card.course"));
+  for (const card of cards) {
+    const id = card.getAttribute("data-id");
+    if (!id) continue;
+    const btn = card.querySelector("[data-read]");
+    if (!btn) continue;
+
+    // 1) Local completed first (instant)
+    if (completed.has(id)) {
+      btn.textContent = "Review";
+      continue;
+    }
+
+    // 2) Cloud progress (fallback)
     try {
-      const cloud = await loadProgressCloud();
-      if (!cloud) return;
-
-      const completedIds = new Set((cloud.completed || []).map((x) => x.id));
-      const quizMap = cloud.quiz || {};
-
-      function hasPassedAnyQuiz(cid) {
-        const prefix = cid + ":";
-        for (const k in quizMap) {
-          if (k.startsWith(prefix) && quizMap[k]?.passed) return true;
-        }
-        return false;
-      }
-
-      const cards = Array.from(grid.querySelectorAll(".card.course"));
-      for (const card of cards) {
-        const id = card.getAttribute("data-id");
-        if (!id) continue;
-
-        // Review if: completed[] contains course OR any quiz for course is passed
-        if (completedIds.has(id) || hasPassedAnyQuiz(id)) {
-          const btn = card.querySelector("[data-read]");
-          if (btn) btn.textContent = "Review";
-        }
+      const p = await getProgress(id); // cloud → local fallback
+      // progress object ကို သင့် app မှာ ဒီလို save လုပ်တယ်:
+      // { [courseId]: { status, lesson, ts } }
+      // markCourseProgress() က status='review' ထည့်ပေးထားပြီးသား
+      // (function က အခုလည်း app.js ထဲမှာ ရှိပြီ။
+      //  [oai_citation:1‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb)  /  [oai_citation:2‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb))
+      if (p && p.status === "review") {
+        btn.textContent = "Review";
       }
     } catch {}
-  })();
+  }
+})();
 
   grid.querySelectorAll("[data-cert]").forEach(
     (b) =>
