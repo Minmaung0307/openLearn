@@ -1919,6 +1919,28 @@ async function uploadAvatarFile(file){
   });
 })();
 
+function normalizeGDriveUrl(u) {
+  if (!u) return u;
+  try {
+    const url = new URL(u, location.origin);
+
+    // already direct from googleusercontent -> 그대로 သုံး
+    if (url.hostname.includes('googleusercontent.com')) return u;
+
+    if (url.hostname === 'drive.google.com') {
+      // /file/d/<id>/view?... pattern
+      const m = url.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      let id = m ? m[1] : "";
+
+      // open?id=<id> pattern
+      if (!id) id = url.searchParams.get('id') || "";
+
+      if (id) return `https://drive.google.com/uc?export=view&id=${id}`;
+    }
+  } catch {}
+  return u;
+}
+
 /* ---------- Profile Edit modal wiring ---------- */
 $("#btn-edit-profile")?.addEventListener("click", () => {
   const m = $("#profileEditModal");
@@ -1945,7 +1967,8 @@ $("#profileForm")?.addEventListener("submit", (e) => {
   const f = e.currentTarget;
   const data = {
     displayName: f.displayName.value.trim(),
-    photoURL: (typeof resolveAssetUrl === "function" ? resolveAssetUrl(f.photoURL.value.trim()) : f.photoURL.value.trim()),
+    // photoURL: (typeof resolveAssetUrl === "function" ? resolveAssetUrl(f.photoURL.value.trim()) : f.photoURL.value.trim()),
+    photoURL: normalizeGDriveUrl(f.photoURL.value.trim()),
     // photoURL: resolveAssetUrl(f.photoURL.value.trim()),
     // photoURL: f.photoURL.value.trim(),
     bio: f.bio.value.trim(),
