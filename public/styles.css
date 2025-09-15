@@ -1298,17 +1298,22 @@ button,
 }
 
 /* === Global Search Results === */
+.search-wrap {
+  position: relative;
+  display: inline-block;
+}
+
 .search-results {
   position: absolute;
-  top: 40px;
-  right: 0;
-  width: 360px;
+  top: 100%;   /* exactly below the input */
+  left: 0;     /* align to input left */
+  width: 100%; /* same width as input */
   max-height: 60vh;
   overflow: auto;
   background: #fff;
   border: 1px solid rgba(0,0,0,.12);
-  border-radius: 12px;
-  box-shadow: 0 12px 28px rgba(0,0,0,.15);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
   z-index: 999;
 }
 
