@@ -2211,15 +2211,30 @@ function renderMyLearning() {
   );
 
   // --- Cloud-first label adjust (ensure 'Review' shows in all browsers) ---
+  // --- Cloud-first label adjust (ensure 'Review' shows in all browsers) ---
   (async function updateMyLearningLabelsCloud() {
     try {
-      // 🔁 scope to this grid only
+      const cloud = await loadProgressCloud();
+      if (!cloud) return;
+
+      const completedIds = new Set((cloud.completed || []).map((x) => x.id));
+      const quizMap = cloud.quiz || {};
+
+      function hasPassedAnyQuiz(cid) {
+        const prefix = cid + ":";
+        for (const k in quizMap) {
+          if (k.startsWith(prefix) && quizMap[k]?.passed) return true;
+        }
+        return false;
+      }
+
       const cards = Array.from(grid.querySelectorAll(".card.course"));
       for (const card of cards) {
         const id = card.getAttribute("data-id");
         if (!id) continue;
-        const p = await getProgress(id); // Cloud → Local fallback
-        if (p && p.status === "review") {
+
+        // Review if: completed[] contains course OR any quiz for course is passed
+        if (completedIds.has(id) || hasPassedAnyQuiz(id)) {
           const btn = card.querySelector("[data-read]");
           if (btn) btn.textContent = "Review";
         }
