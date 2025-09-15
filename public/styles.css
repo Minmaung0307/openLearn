@@ -1307,7 +1307,7 @@ button,
   position: absolute;
   top: 100%;   /* exactly below the input */
   left: 0;     /* align to input left */
-  width: 100%; /* same width as input */
+  width: 75%; /* same width as input */
   max-height: 60vh;
   overflow: auto;
   background: #fff;
