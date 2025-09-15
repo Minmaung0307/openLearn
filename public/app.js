@@ -360,6 +360,23 @@ function getIssuedCert(courseId) {
   return getCerts()[certKey(courseId)] || null;
 }
 
+/* --- /assets/ ပေါင်းပေးမယ့် helper --- */
+function resolveAssetUrl(u) {
+  if (!u) return "";
+  u = String(u).trim();
+
+  // strip "public/" prefix (common mistake)
+  u = u.replace(/^\/?public\//, "/");
+
+  // if already absolute http(s)/data OR starts with "/", leave it
+  if (/^(https?:)?\/\//i.test(u) || u.startsWith("/") || u.startsWith("data:")) {
+    return u;
+  }
+
+  // otherwise, assume it lives under /assets
+  return "/assets/" + u.replace(/^assets\//, "");
+}
+
 // --- Add near top (after helpers) ---
 function normalizeQuiz(raw) {
   // already in {questions:[...]} form
@@ -1599,7 +1616,8 @@ function renderProfilePanel() {
 
   const p = getProfile();
   const name = p.displayName || getUser()?.email || "Guest";
-  const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
+  const avatar = resolveAssetUrl(p.photoURL) || "https://i.pravatar.cc/80?u=openlearn";
+  // const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
 
   //   const completed = getCompletedRaw();                       // ← all completed
   const dic = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
@@ -1670,25 +1688,25 @@ function renderProfilePanel() {
 
   box.innerHTML = `
     <div class="row" style="gap:12px;align-items:flex-start">
-      <img src="${esc(
-        avatar
-      )}" alt="" style="width:72px;height:72px;border-radius:50%">
-      <div class="grow">
-        <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
-        ${
-          p.bio
-            ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
-            : ""
-        }
-        ${
-          p.skills
-            ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
-            : ""
-        }
-        <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
-        ${certSection}
-      </div>
-    </div>`;
+    <img src="${esc(avatar)}" alt=""
+         style="width:72px;height:72px;border-radius:50%"
+         onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
+    <div class="grow">
+      <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
+      ${
+        p.bio
+          ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
+          : ""
+      }
+      ${
+        p.skills
+          ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
+          : ""
+      }
+      <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
+      ${certSection}
+    </div>
+  </div>`;
 
   box.querySelectorAll("[data-cert-view]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1735,7 +1753,8 @@ $("#profileForm")?.addEventListener("submit", (e) => {
   const f = e.currentTarget;
   const data = {
     displayName: f.displayName.value.trim(),
-    photoURL: f.photoURL.value.trim(),
+    photoURL: resolveAssetUrl(f.photoURL.value.trim()),
+    // photoURL: f.photoURL.value.trim(),
     bio: f.bio.value.trim(),
     skills: f.skills.value.trim(),
     links: f.links.value.trim(),
@@ -2256,7 +2275,8 @@ window.renderMyLearning = renderMyLearning;
 function renderCertificate(course, cert) {
   const p = getProfile();
   const name = cert?.name || p.displayName || getUser()?.email || "Student";
-  const avatar = cert?.photo || p.photoURL || "/assets/default-avatar.png";
+  const avatar = resolveAssetUrl(cert?.photo || p.photoURL) || "/assets/default-avatar.png";
+  // const avatar = cert?.photo || p.photoURL || "/assets/default-avatar.png";
   const dateTxt = new Date(cert?.issuedAt || Date.now()).toLocaleDateString();
   const scoreTxt =
     typeof cert?.score === "number" ? `${Math.round(cert.score * 100)}%` : "—";
