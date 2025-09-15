@@ -835,77 +835,160 @@ function initSearch() {
 }
 
 // =========== Global Search ==============
-(function setupGlobalSearch(){
-  const input = document.getElementById('topSearch');
-  const results = document.getElementById('searchResults');
-  if(!input || !results) return;
+(function setupGlobalSearch() {
+  const input = document.getElementById("topSearch");
+  const results = document.getElementById("searchResults");
+  if (!input || !results) return;
 
   let INDEX = [];
 
   // Build index from modules/localStorage
-  function buildIndex(){
-    const safe = (fn, fb=[])=>{try{return fn()||fb;}catch(_){return fb;}};
-    const anns = safe(()=>getAnns?.()||JSON.parse(localStorage.getItem('anns')||'[]'));
-    const courses = safe(()=>getCourses?.()||JSON.parse(localStorage.getItem('courses')||'[]'));
-    const inv = safe(()=>getInventory?.()||JSON.parse(localStorage.getItem('inventory')||'[]'));
-    const sushi = safe(()=>getSushiItems?.()||JSON.parse(localStorage.getItem('sushi')||'[]'));
-    const vendors = safe(()=>getVendors?.()||JSON.parse(localStorage.getItem('vendors')||'[]'));
-    const tasks = safe(()=>getTasks?.()||JSON.parse(localStorage.getItem('tasks')||'[]'));
-    const cogs = safe(()=>getCogs?.()||JSON.parse(localStorage.getItem('cogs')||'[]'));
-    const users = safe(()=>getUsers?.()||JSON.parse(localStorage.getItem('users')||'[]'));
+  function buildIndex() {
+    const safe = (fn, fb = []) => {
+      try {
+        return fn() || fb;
+      } catch (_) {
+        return fb;
+      }
+    };
+    const anns = safe(
+      () => getAnns?.() || JSON.parse(localStorage.getItem("anns") || "[]")
+    );
+    const courses = safe(
+      () =>
+        getCourses?.() || JSON.parse(localStorage.getItem("courses") || "[]")
+    );
+    const inv = safe(
+      () =>
+        getInventory?.() ||
+        JSON.parse(localStorage.getItem("inventory") || "[]")
+    );
+    const sushi = safe(
+      () =>
+        getSushiItems?.() || JSON.parse(localStorage.getItem("sushi") || "[]")
+    );
+    const vendors = safe(
+      () =>
+        getVendors?.() || JSON.parse(localStorage.getItem("vendors") || "[]")
+    );
+    const tasks = safe(
+      () => getTasks?.() || JSON.parse(localStorage.getItem("tasks") || "[]")
+    );
+    const cogs = safe(
+      () => getCogs?.() || JSON.parse(localStorage.getItem("cogs") || "[]")
+    );
+    const users = safe(
+      () => getUsers?.() || JSON.parse(localStorage.getItem("users") || "[]")
+    );
 
     INDEX = [];
-    anns.forEach(a=>INDEX.push({type:'Announcements',title:a.title,body:a.body,page:'dashboard'}));
-    courses.forEach(c=>INDEX.push({type:'Courses',title:c.title,body:c.desc,page:'courses'}));
-    inv.forEach(i=>INDEX.push({type:'Inventory',title:i.name,body:`qty:${i.qty}`,page:'inventory'}));
-    sushi.forEach(s=>INDEX.push({type:'Sushi Items',title:s.name,body:s.ingredients,page:'sushi'}));
-    vendors.forEach(v=>INDEX.push({type:'Vendors',title:v.name,body:`${v.email||''} ${v.contact||''}`,page:'vendors'}));
-    tasks.forEach(t=>INDEX.push({type:'Tasks',title:t.title,body:t.desc,page:'tasks'}));
-    cogs.forEach(c=>INDEX.push({type:'COGS',title:c.item,body:`cost:${c.cost} price:${c.price}`,page:'cogs'}));
-    users.forEach(u=>INDEX.push({type:'Users',title:u.name||u.email,body:u.role,page:'settings'}));
+    anns.forEach((a) =>
+      INDEX.push({
+        type: "Announcements",
+        title: a.title,
+        body: a.body,
+        page: "dashboard",
+      })
+    );
+    courses.forEach((c) =>
+      INDEX.push({
+        type: "Courses",
+        title: c.title,
+        body: c.desc,
+        page: "courses",
+      })
+    );
+    inv.forEach((i) =>
+      INDEX.push({
+        type: "Inventory",
+        title: i.name,
+        body: `qty:${i.qty}`,
+        page: "inventory",
+      })
+    );
+    sushi.forEach((s) =>
+      INDEX.push({
+        type: "Sushi Items",
+        title: s.name,
+        body: s.ingredients,
+        page: "sushi",
+      })
+    );
+    vendors.forEach((v) =>
+      INDEX.push({
+        type: "Vendors",
+        title: v.name,
+        body: `${v.email || ""} ${v.contact || ""}`,
+        page: "vendors",
+      })
+    );
+    tasks.forEach((t) =>
+      INDEX.push({ type: "Tasks", title: t.title, body: t.desc, page: "tasks" })
+    );
+    cogs.forEach((c) =>
+      INDEX.push({
+        type: "COGS",
+        title: c.item,
+        body: `cost:${c.cost} price:${c.price}`,
+        page: "cogs",
+      })
+    );
+    users.forEach((u) =>
+      INDEX.push({
+        type: "Users",
+        title: u.name || u.email,
+        body: u.role,
+        page: "settings",
+      })
+    );
   }
 
-  function search(q){
+  function search(q) {
     const n = q.toLowerCase();
-    return INDEX.filter(r=>
-      (r.title||'').toLowerCase().includes(n) ||
-      (r.body||'').toLowerCase().includes(n)
-    ).slice(0,20);
+    return INDEX.filter(
+      (r) =>
+        (r.title || "").toLowerCase().includes(n) ||
+        (r.body || "").toLowerCase().includes(n)
+    ).slice(0, 20);
   }
 
-  function render(list,q){
-    results.innerHTML='';
-    if(!q){ results.hidden=true; return; }
-    if(!list.length){
-      results.innerHTML=`<div class="search-item">No results for “${q}”</div>`;
-      results.hidden=false; return;
+  function render(list, q) {
+    results.innerHTML = "";
+    if (!q) {
+      results.hidden = true;
+      return;
     }
-    list.forEach(item=>{
-      const div=document.createElement('div');
-      div.className='search-item';
-      div.innerHTML=`
+    if (!list.length) {
+      results.innerHTML = `<div class="search-item">No results for “${q}”</div>`;
+      results.hidden = false;
+      return;
+    }
+    list.forEach((item) => {
+      const div = document.createElement("div");
+      div.className = "search-item";
+      div.innerHTML = `
         <div class="search-type">${item.type}</div>
         <div class="search-title">${item.title}</div>
-        <div class="search-snippet">${item.body||''}</div>
+        <div class="search-snippet">${item.body || ""}</div>
       `;
-      div.onclick=()=>{
+      div.onclick = () => {
         showPage?.(item.page);
-        results.hidden=true;
+        results.hidden = true;
         input.blur();
       };
       results.appendChild(div);
     });
-    results.hidden=false;
+    results.hidden = false;
   }
 
-  input.addEventListener('input',e=>{
+  input.addEventListener("input", (e) => {
     buildIndex();
-    render(search(e.target.value),e.target.value);
+    render(search(e.target.value), e.target.value);
   });
 
-  document.addEventListener('click',e=>{
-    if(!results.contains(e.target)&&e.target!==input){
-      results.hidden=true;
+  document.addEventListener("click", (e) => {
+    if (!results.contains(e.target) && e.target !== input) {
+      results.hidden = true;
     }
   });
 })();
@@ -1424,14 +1507,14 @@ async function markCourseProgress(courseId, status, lesson = 0) {
 }
 
 // course card/buttons ပြထားတဲ့ loop/render function အတွင်း
-(async () => {
-  const p = await getProgress(course.id);   // ← Cloud-first
-  if (p && p.status === "review") {
-    showReviewButton(course.id);
-  } else {
-    showContinueButton(course.id, p?.lesson || 0);
-  }
-})();
+// (async () => {
+//   const p = await getProgress(course.id);   // ← Cloud-first
+//   if (p && p.status === "review") {
+//     showReviewButton(course.id);
+//   } else {
+//     showContinueButton(course.id, p?.lesson || 0);
+//   }
+// })();
 
 async function syncProgressBothWays() {
   const cloud = await loadProgressCloud();
@@ -1668,14 +1751,18 @@ $("#profileForm")?.addEventListener("submit", (e) => {
 window.READER_STATE = { courseId: null, lesson: 0 };
 
 function findCourse(courseId) {
-  const list = (window.ALL && window.ALL.length) ? window.ALL : (window.getCourses?.() || []);
-  return list.find(c => c.id === courseId) || null;
+  const list =
+    window.ALL && window.ALL.length ? window.ALL : window.getCourses?.() || [];
+  return list.find((c) => c.id === courseId) || null;
 }
 
 function isLastLesson(courseId, lessonIndex) {
   const c = findCourse(courseId);
-  const len = (c && Array.isArray(c.lessons)) ? c.lessons.length : (window.RD?.pages?.length || 0);
-  return len ? (lessonIndex >= len - 1) : false;
+  const len =
+    c && Array.isArray(c.lessons)
+      ? c.lessons.length
+      : window.RD?.pages?.length || 0;
+  return len ? lessonIndex >= len - 1 : false;
 }
 
 function goToLesson(courseId, nextIndex) {
@@ -1684,7 +1771,7 @@ function goToLesson(courseId, nextIndex) {
   renderPage();
   // mirror to READER_STATE
   window.READER_STATE.courseId = courseId;
-  window.READER_STATE.lesson   = window.RD.i;
+  window.READER_STATE.lesson = window.RD.i;
 }
 
 /* ---------- My Learning / Reader ---------- */
@@ -1918,8 +2005,8 @@ function renderPage() {
   // --- Navigation ---
   const btnPrev = $("#rdPrev"),
     btnNext = $("#rdNext");
-    if (btnPrev) btnPrev.disabled = (RD.i <= 0);
-  if (btnNext) btnNext.disabled = (RD.i >= RD.pages.length - 1);
+  if (btnPrev) btnPrev.disabled = RD.i <= 0;
+  if (btnNext) btnNext.disabled = RD.i >= RD.pages.length - 1;
   // if (btnPrev)
   //   btnPrev.onclick = () => {
   //     RD.i = Math.max(0, RD.i - 1);
@@ -1974,9 +2061,9 @@ function renderPage() {
       showCongrats();
     };
   }
-    // mirror RD → READER_STATE (delegation needs this)
+  // mirror RD → READER_STATE (delegation needs this)
   window.READER_STATE.courseId = RD.cid;
-  window.READER_STATE.lesson   = RD.i;
+  window.READER_STATE.lesson = RD.i;
 }
 
 function launchFireworks() {
@@ -2122,6 +2209,23 @@ function renderMyLearning() {
         openReader(id);
       })
   );
+
+  // --- Cloud-first label adjust (ensure 'Review' shows in all browsers) ---
+  (async function updateMyLearningLabelsCloud() {
+    try {
+      // 🔁 scope to this grid only
+      const cards = Array.from(grid.querySelectorAll(".card.course"));
+      for (const card of cards) {
+        const id = card.getAttribute("data-id");
+        if (!id) continue;
+        const p = await getProgress(id); // Cloud → Local fallback
+        if (p && p.status === "review") {
+          const btn = card.querySelector("[data-read]");
+          if (btn) btn.textContent = "Review";
+        }
+      }
+    } catch {}
+  })();
 
   grid.querySelectorAll("[data-cert]").forEach(
     (b) =>
@@ -2456,81 +2560,104 @@ async function openReader(cid) {
   if (typeof off === "function") window._ccOff = off;
 }
 
-  // --- Event Delegation on #reader (Next/Prev/Finish/Back) ---
-  const readerHost = document.getElementById('reader');
-  if (readerHost && !readerHost._delegated) {
-    readerHost._delegated = true;
+// --- Event Delegation on #reader (Next/Prev/Finish/Back) ---
+const readerHost = document.getElementById("reader");
+if (readerHost && !readerHost._delegated) {
+  readerHost._delegated = true;
 
-    readerHost.addEventListener('click', async (e) => {
-      const t = e.target;
-      if (!t || !(t instanceof HTMLElement)) return;
+  readerHost.addEventListener("click", async (e) => {
+    const t = e.target;
+    if (!t || !(t instanceof HTMLElement)) return;
 
-      // Always keep state in sync
-      window.READER_STATE.courseId = window.RD?.cid || null;
-      window.READER_STATE.lesson   = window.RD?.i ?? 0;
+    // Always keep state in sync
+    window.READER_STATE.courseId = window.RD?.cid || null;
+    window.READER_STATE.lesson = window.RD?.i ?? 0;
 
-      // ---- Prev ----
-      if (t.id === 'rdPrev') {
-        const { courseId, lesson } = window.READER_STATE;
-        if (!courseId) return;
-        goToLesson(courseId, Math.max(0, lesson - 1));
-        return;
+    // ---- Prev ----
+    if (t.id === "rdPrev") {
+      const { courseId, lesson } = window.READER_STATE;
+      if (!courseId) return;
+      goToLesson(courseId, Math.max(0, lesson - 1));
+      return;
+    }
+
+    // ---- Next ----
+    if (t.id === "rdNext") {
+      const { courseId, lesson } = window.READER_STATE;
+      if (!courseId) return;
+
+      // gating: quiz/project guard (same rules as renderPage)
+      const p = window.RD?.pages?.[lesson];
+      if (
+        p?.type === "quiz" &&
+        !(
+          window.hasPassedQuiz?.(window.RD.cid, lesson) ||
+          (window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7)
+        )
+      ) {
+        return toast(
+          `Need ≥ ${Math.round((window.QUIZ_PASS || 0.7) * 100)}% to continue`
+        );
+      }
+      if (p?.type === "project" && !window.PROJECT_UPLOADED) {
+        return toast("Please upload your project file first");
       }
 
-      // ---- Next ----
-      if (t.id === 'rdNext') {
-        const { courseId, lesson } = window.READER_STATE;
-        if (!courseId) return;
+      // mark lesson progress to Cloud (best/ passed flags are already handled in quiz)
+      try {
+        await window.markLessonProgress?.(
+          courseId,
+          lesson,
+          true,
+          window.LAST_QUIZ_SCORE || 0
+        );
+      } catch {}
 
-        // gating: quiz/project guard (same rules as renderPage)
-        const p = window.RD?.pages?.[lesson];
-        if (p?.type === 'quiz' && !(window.hasPassedQuiz?.(window.RD.cid, lesson) || (window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7))) {
-          return toast(`Need ≥ ${Math.round((window.QUIZ_PASS || 0.7)*100)}% to continue`);
-        }
-        if (p?.type === 'project' && !window.PROJECT_UPLOADED) {
-          return toast("Please upload your project file first");
-        }
+      // move next (if last page, just stay; finishing is via Finish button)
+      goToLesson(courseId, lesson + 1);
+      window.renderMyLearning?.();
+      return;
+    }
 
-        // mark lesson progress to Cloud (best/ passed flags are already handled in quiz)
-        try { await window.markLessonProgress?.(courseId, lesson, true, window.LAST_QUIZ_SCORE || 0); } catch {}
+    // ---- Finish ---- (only on last page; button id = rdFinish)
+    if (t.id === "rdFinish") {
+      const { courseId, lesson } = window.READER_STATE;
+      if (!courseId) return;
 
-        // move next (if last page, just stay; finishing is via Finish button)
-        goToLesson(courseId, lesson + 1);
-        window.renderMyLearning?.();
-        return;
+      const p = window.RD?.pages?.[lesson];
+      if (
+        p?.type === "quiz" &&
+        !(
+          window.hasPassedQuiz?.(window.RD.cid, lesson) ||
+          (window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7)
+        )
+      ) {
+        return toast(
+          `Need ≥ ${Math.round((window.QUIZ_PASS || 0.7) * 100)}% to finish`
+        );
+      }
+      if (p?.type === "project" && !window.PROJECT_UPLOADED) {
+        return toast("Please upload your project file first");
       }
 
-      // ---- Finish ---- (only on last page; button id = rdFinish)
-      if (t.id === 'rdFinish') {
-        const { courseId, lesson } = window.READER_STATE;
-        if (!courseId) return;
+      try {
+        await window.markCourseProgress?.(courseId, "review", lesson);
+      } catch {}
+      // local completion (also issues cert via showCongrats())
+      window.markCourseComplete?.(courseId, window.LAST_QUIZ_SCORE || null);
+      window.showCongrats?.();
+      window.renderMyLearning?.();
+      return;
+    }
 
-        const p = window.RD?.pages?.[lesson];
-        if (p?.type === 'quiz' && !(window.hasPassedQuiz?.(window.RD.cid, lesson) || (window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7))) {
-          return toast(`Need ≥ ${Math.round((window.QUIZ_PASS || 0.7)*100)}% to finish`);
-        }
-        if (p?.type === 'project' && !window.PROJECT_UPLOADED) {
-          return toast("Please upload your project file first");
-        }
-
-        try {
-          await window.markCourseProgress?.(courseId, 'review', lesson);
-        } catch {}
-        // local completion (also issues cert via showCongrats())
-        window.markCourseComplete?.(courseId, window.LAST_QUIZ_SCORE || null);
-        window.showCongrats?.();
-        window.renderMyLearning?.();
-        return;
-      }
-
-      // ---- Back ----
-      if (t.id === 'rdBack') {
-        e.preventDefault();
-        window.closeReader?.();
-        return;
-      }
-    });
-  }
+    // ---- Back ----
+    if (t.id === "rdBack") {
+      e.preventDefault();
+      window.closeReader?.();
+      return;
+    }
+  });
+}
 
 /* =========================================================
    Part 5/6 — Gradebook, Admin, Import/Export, Announcements, Chat
@@ -2826,10 +2953,10 @@ function initChatRealtime() {
     const roomRef = ref(getDatabase(), "chats/global");
 
     // after building roomRef
-pruneOldChatsRTDB(roomRef);
+    pruneOldChatsRTDB(roomRef);
 
-// if you keep an offline fallback list:
-pruneOldChatsLocal("ol_chat_room_global");          // for global
+    // if you keep an offline fallback list:
+    pruneOldChatsLocal("ol_chat_room_global"); // for global
 
     const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
     (async () => {
@@ -2918,11 +3045,11 @@ function wireCourseChatRealtime(courseId) {
     const roomRef = ref(getDatabase(), `chats/${courseId}`);
 
     // after building roomRef
-pruneOldChatsRTDB(roomRef);
+    pruneOldChatsRTDB(roomRef);
 
-// if you keep an offline fallback list:
-// per course:
-pruneOldChatsLocal("ol_chat_room_" + courseId);
+    // if you keep an offline fallback list:
+    // per course:
+    pruneOldChatsLocal("ol_chat_room_" + courseId);
 
     const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
     (async () => {
@@ -3014,11 +3141,13 @@ async function pruneOldChatsRTDB(roomRef) {
   try {
     const cutoff = Date.now() - TEN_DAYS;
     const snap = await get(roomRef); // no 'endAt' — filter client-side
-    snap.forEach(child => {
+    snap.forEach((child) => {
       const v = child.val && child.val();
       const ts = v && v.ts ? Number(v.ts) : 0;
       if (ts && ts < cutoff) {
-        try { remove(child.ref); } catch {}
+        try {
+          remove(child.ref);
+        } catch {}
       }
     });
   } catch (e) {
@@ -3030,7 +3159,7 @@ function pruneOldChatsLocal(key) {
   try {
     const cutoff = Date.now() - TEN_DAYS;
     const arr = JSON.parse(localStorage.getItem(key) || "[]");
-    const pruned = arr.filter(m => Number(m.ts || 0) >= cutoff);
+    const pruned = arr.filter((m) => Number(m.ts || 0) >= cutoff);
     if (pruned.length !== arr.length) {
       localStorage.setItem(key, JSON.stringify(pruned));
     }
@@ -3039,22 +3168,30 @@ function pruneOldChatsLocal(key) {
 
 let IS_AUTHED = false;
 
-const MAIN_CANDIDATES = ['#pages', '#main', '#appMain', 'main', '#content', '.main'];
+const MAIN_CANDIDATES = [
+  "#pages",
+  "#main",
+  "#appMain",
+  "main",
+  "#content",
+  ".main",
+];
 function findMain() {
-  return document.querySelector(MAIN_CANDIDATES.join(','));
+  return document.querySelector(MAIN_CANDIDATES.join(","));
 }
 
 // (optional) build a lightweight overlay next to main
 function ensureAuthOverlay(mainEl) {
   if (!mainEl) return null;
-  let ov = mainEl.nextElementSibling?.id === 'authGuardOverlay'
-    ? mainEl.nextElementSibling
-    : null;
+  let ov =
+    mainEl.nextElementSibling?.id === "authGuardOverlay"
+      ? mainEl.nextElementSibling
+      : null;
   if (!ov) {
-    ov = document.createElement('div');
-    ov.id = 'authGuardOverlay';
+    ov = document.createElement("div");
+    ov.id = "authGuardOverlay";
     ov.innerHTML = `<div class="msg">Please log in to continue</div>`;
-    mainEl.insertAdjacentElement('afterend', ov);
+    mainEl.insertAdjacentElement("afterend", ov);
   }
   return ov;
 }
@@ -3063,21 +3200,24 @@ function ensureAuthOverlay(mainEl) {
 const CLICKABLE_SELECTOR = `a, button, [role="button"], .nav-link, .card, .course-card, [data-action]`;
 function setClickableDisabled(root, disabled) {
   if (!root) return;
-  root.querySelectorAll(CLICKABLE_SELECTOR).forEach(el => {
+  root.querySelectorAll(CLICKABLE_SELECTOR).forEach((el) => {
     // skip obvious auth buttons if any
-    const id = (el.id || '').toLowerCase();
-    const ds = (el.dataset || {});
-    const isLogin = id.includes('login') || ds.auth === 'login' || ds.requiresAuth === 'false';
+    const id = (el.id || "").toLowerCase();
+    const ds = el.dataset || {};
+    const isLogin =
+      id.includes("login") ||
+      ds.auth === "login" ||
+      ds.requiresAuth === "false";
     if (isLogin) return;
 
     if (disabled) {
-      el.classList.add('disabled');
-      el.setAttribute('aria-disabled', 'true');
-      el.addEventListener('click', blockIfLocked, true);
+      el.classList.add("disabled");
+      el.setAttribute("aria-disabled", "true");
+      el.addEventListener("click", blockIfLocked, true);
     } else {
-      el.classList.remove('disabled');
-      el.removeAttribute('aria-disabled');
-      el.removeEventListener('click', blockIfLocked, true);
+      el.classList.remove("disabled");
+      el.removeAttribute("aria-disabled");
+      el.removeEventListener("click", blockIfLocked, true);
     }
   });
 }
@@ -3086,7 +3226,7 @@ function blockIfLocked(e) {
   if (!IS_AUTHED) {
     e.preventDefault();
     e.stopPropagation();
-    if (typeof toast === 'function') toast('Please log in to continue');
+    if (typeof toast === "function") toast("Please log in to continue");
   }
 }
 
@@ -3094,29 +3234,34 @@ function setAppLocked(locked) {
   const mainEl = findMain();
   if (!mainEl) return;
   if (locked) {
-    mainEl.classList.add('locked-main');
+    mainEl.classList.add("locked-main");
   } else {
-    mainEl.classList.remove('locked-main');
+    mainEl.classList.remove("locked-main");
   }
   ensureAuthOverlay(mainEl); // create once
   setClickableDisabled(mainEl, locked);
 }
 
 // Router guard: prevent page switch while locked
-const ALLOW_PAGES_WHEN_LOCKED = new Set(['welcome', 'login', 'about']); // adjust if needed
+const ALLOW_PAGES_WHEN_LOCKED = new Set(["welcome", "login", "about"]); // adjust if needed
 const _showPage = window.showPage; // keep reference if defined earlier
-window.showPage = function(name, ...rest) {
-  if (!IS_AUTHED && !ALLOW_PAGES_WHEN_LOCKED.has(String(name || '').toLowerCase())) {
-    if (typeof toast === 'function') toast('Please log in first');
-    name = 'welcome'; // fallback to a public-safe page
+window.showPage = function (name, ...rest) {
+  if (
+    !IS_AUTHED &&
+    !ALLOW_PAGES_WHEN_LOCKED.has(String(name || "").toLowerCase())
+  ) {
+    if (typeof toast === "function") toast("Please log in first");
+    name = "welcome"; // fallback to a public-safe page
   }
-  return typeof _showPage === 'function'
+  return typeof _showPage === "function"
     ? _showPage.call(this, name, ...rest)
     : null;
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  try { initAuthModal?.(); } catch {}
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    initAuthModal?.();
+  } catch {}
 
   try {
     onAuthStateChanged(auth, (u) => {
@@ -3125,17 +3270,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (u) {
         // your existing login success wiring
-        setUser?.({ email: u.email || "" , role: getUser?.()?.role || "student" });
+        setUser?.({
+          email: u.email || "",
+          role: getUser?.()?.role || "student",
+        });
         setLogged?.(true, u.email || "");
       } else {
         setUser?.(null);
         setLogged?.(false);
         // Optionally route to a public-safe page
-        showPage?.('welcome');
+        showPage?.("welcome");
       }
     });
   } catch (e) {
-    console.warn('Auth listener error', e);
+    console.warn("Auth listener error", e);
     // fail-safe: lock if we can’t read auth
     IS_AUTHED = false;
     setAppLocked(true);
@@ -3274,7 +3422,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 // run once on boot
 document.addEventListener("DOMContentLoaded", () => {
   // make sure the modal & handlers exist
-  try { initAuthModal(); } catch {}
+  try {
+    initAuthModal();
+  } catch {}
 
   // reflect Firebase auth state → UI & local profile
   try {
