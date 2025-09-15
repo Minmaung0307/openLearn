@@ -105,10 +105,12 @@
           class="navbtn"
           data-page="admin"
           title="Admin"
+          data-role-min="instructor"
           data-requires-auth
         >
           <i>🛠️</i><span>Admin</span>
         </button>
+        <section id="page-admin" class="page" data-role-min="instructor"> ... </section>
         <button
           class="navbtn"
           data-page="profile"
@@ -229,7 +231,7 @@
         <div class="row" style="margin-bottom: 10px">
           <h2 class="h4">Announcements</h2>
           <div class="grow"></div>
-          <button class="btn primary" id="btn-new-post">
+          <button class="btn primary" id="btn-new-post" data-role-min="instructor">
             + Add Announcement
           </button>
         </div>

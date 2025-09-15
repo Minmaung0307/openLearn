@@ -1060,7 +1060,11 @@ function initSearch() {
 /* ---------- Roles: resolve from Firestore or fallback map ---------- */
 const ROLE_ORDER = ["student","ta","instructor","admin","owner"];
 const _HARDCODED_ROLE_BY_EMAIL = {
+  "pbczmmus@gmail.com": "owner",
   "minmaung0307@gmail.com": "admin",
+  "panna07@gmail.com": "instructor",
+  "pannasiha@icloud.com": "ta",
+  "honeymoe093@gmail.com": "student",
   // လိုသလို ထပ်ထည့်လို့ရ: "teacher@example.com": "instructor"
 };
 function roleRank(r){ const i=ROLE_ORDER.indexOf(String(r||"student").toLowerCase()); return i<0?0:i; }
@@ -1866,12 +1870,28 @@ function _safeName(name="avatar.png"){
 
 async function uploadAvatarFile(file){
   if (!file) throw new Error("No file selected");
-  const userId = (auth?.currentUser?.uid || (getUser()?.email || "guest")).replace(/[^a-z0-9._-]+/gi, "_");
-  const path   = `avatars/${userId}/${Date.now()}_${_safeName(file.name)}`;
-  const ref    = storageRef(storage, path);
-  await uploadBytes(ref, file, { contentType: file.type || "image/*" });
+
+  // MUST be logged in — storage rules require auth.uid match
+  const uid = auth?.currentUser?.uid;
+  if (!uid) {
+    toast?.("Please log in to upload");
+    throw new Error("Not authenticated");
+  }
+
+  const path = `avatars/${uid}/${Date.now()}_${_safeName(file.name)}`;
+  const ref  = storageRef(storage, path);
+
+  await uploadBytes(ref, file, { contentType: file.type || "application/octet-stream" });
   return await getDownloadURL(ref);
 }
+// async function uploadAvatarFile(file){
+//   if (!file) throw new Error("No file selected");
+//   const userId = (auth?.currentUser?.uid || (getUser()?.email || "guest")).replace(/[^a-z0-9._-]+/gi, "_");
+//   const path   = `avatars/${userId}/${Date.now()}_${_safeName(file.name)}`;
+//   const ref    = storageRef(storage, path);
+//   await uploadBytes(ref, file, { contentType: file.type || "image/*" });
+//   return await getDownloadURL(ref);
+// }
 
 (function wireAvatarUploadOnce(){
   const fInput = document.getElementById("avatarFile");
@@ -3052,14 +3072,15 @@ function renderAnnouncements() {
       </div>
       <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
       <div class="row" style="justify-content:flex-end; gap:6px">
-        <button class="btn small" data-edit="${a.id}">Edit</button>
-        <button class="btn small" data-del="${a.id}">Delete</button>
+        <button class="btn small" data-edit="${a.id}" data-role-min="instructor">Edit</button>
++ <button class="btn small" data-del="${a.id}"  data-role-min="instructor">Delete</button>
       </div>
     </div>`
       )
       .join("") || `<div class="muted">No announcements yet.</div>`;
   wireAnnouncementEditButtons();
   updateAnnBadge();
+  enforceRoleGates?.(); // 🔒 re-check after DOM updates
 }
 window.renderAnnouncements = renderAnnouncements;
 
