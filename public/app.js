@@ -3317,6 +3317,114 @@ $("#fontSel")?.addEventListener("change", (e) => {
   applyFont(e.target.value);
 });
 
+function renderSettingsHelp() {
+  const box = document.getElementById("helpDoc");
+  if (!box) return;
+
+  // Developer guide download link (app bundle ထဲကို မကြာခဏကူးထားပါ)
+  const devA = document.getElementById("devGuideLink");
+  if (devA && !devA._wired) {
+    devA._wired = true;
+    // project root/docs/settingUpDetails.md ထဲကို ဖိုင်တင်ပြီးရင် အောက်က href ပြောင်းပါ
+    devA.href = "/docs/settingUpDetails.md"; 
+  }
+
+  box.innerHTML = `
+  <div class="help-grid">
+    <div class="help-card">
+      <b>🔐 Login & Account</b>
+      <ul class="help-list">
+        <li><b>Login</b>: Topbar → <span class="kbd">Login</span> (Email/Password)</li>
+        <li><b>Profile</b>: Settings → Edit Profile (Name, Photo, Bio, Skills)</li>
+        <li><b>Theme/Font</b>: Settings → Theme & Font</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <b>📚 Courses</b>
+      <ul class="help-list">
+        <li><b>Browse/Filter</b>: Courses စာမျက်နှာမှာ Category/Level/Sort</li>
+        <li><b>Enroll</b>: Free → Enroll, Paid → Pay (or MMK Paid)</li>
+        <li><b>My Learning</b>: သင်ယူနေ/ပြီးသား Courses များ စုစည်းပြ</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <b>📖 Reader Controls</b>
+      <ul class="help-list">
+        <li><span class="kbd">Prev</span>/<span class="kbd">Next</span> နဲ့ စာမျက်နှာပက်ကြ</li>
+        <li><span class="kbd">🔖</span> Bookmark, <span class="kbd">📝</span> Note (UI ထဲ)</li>
+        <li><b>Finish</b>: နောက်ဆုံးစာမျက်နှာမှာ ပြင်ဆင်ပြီး <span class="kbd">Finish Course</span></li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <b>🧪 Quizzes & Projects</b>
+      <ul class="help-list">
+        <li><b>Pass</b> ≥ 70% (default). မဖြတ်ကျော်နိုင်ရင် Retake နဲ့ပြန်လုပ်</li>
+        <li><b>Project</b>: File upload လုပ်မှ Next/Finish ပွင့်</li>
+        <li><b>Review</b>: Pass/Complete ဖြစ်ပြီးလျှင် My Learning မှာ “Review” ပေါ်မယ်</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <b>🎓 Certificates</b>
+      <ul class="help-list">
+        <li>Course ပြီးလျှင် Certificate auto-issue</li>
+        <li><b>Profile → Transcript</b> မှာ View/Print PDF လုပ်နိုင်</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <b>📣 Announcements</b>
+      <ul class="help-list">
+        <li>Dashboard တွင် Post များကြည့်ရန်</li>
+        <li>Topbar ထဲ Ann badge ကနေရေတွက်ချက်များပြ</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <b>💬 Live Chat</b>
+      <ul class="help-list">
+        <li><b>Global</b> & <b>Course Chat</b> နှစ်မျိုးရှိ</li>
+        <li>Login လုပ်ပြီးမှ ရိုက်ပို့နိုင်</li>
+        <li>စကားဝိုင်း Messages များကို ၁၀ ရက်ကျော်လျှင် auto-delete</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <b>🔎 Global Search</b>
+      <ul class="help-list">
+        <li>Topbar လိုင်မှာ အချက်အလက်အားလုံးကို ရှာနိုင်</li>
+        <li>Result ကိုနှိပ်ရင် သက်ဆိုင်ရာ Page သို့ Auto-Navigate</li>
+      </ul>
+    </div>
+  </div>
+
+  <details class="help">
+    <summary><b>🛠️ Troubleshooting</b></summary>
+    <ul class="help-list" style="margin-top:.4rem">
+      <li>Login ပြီးလည်း clicks မဖြစ်ဘူး → အင်တာနက်/Cache ပြန် refresh</li>
+      <li>Courses မထွက်ဘူး → <span class="kbd">/data/catalog.json</span> ရနိုင်မရနိုင် စစ်ပါ</li>
+      <li>Certificate မထုတ်/မပေါ် → Course ကို Finish ပြီး Transcript မှာစစ်ပါ</li>
+      <li>Firefox မှာ “Review” မပေါ်ဘူး → တစ်ခါတလဲ ခဏစောင့်ပြီး My Learning ပြန်ဝင်ကြည့်ပါ။ Chrome/Edge/Safari recommend.</li>
+    </ul>
+  </details>
+  `;
+}
+
+// Settings စာမျက်နှာပြသတိုင်း render
+(function wireSettingsHelp() {
+  // showPage() ထဲက router ကိုအသုံးပြုထားလျှင် ဒီလို hook လုပ်ပါ
+  const _showPage = window.showPage;
+  window.showPage = function(id, ...rest) {
+    const r = _showPage ? _showPage.call(this, id, ...rest) : null;
+    if (id === "settings") renderSettingsHelp();
+    return r;
+  };
+  // direct load ဖြစ်ရင်လည်း တခါတည်း render
+  if (location.hash.replace("#","") === "settings") renderSettingsHelp();
+  document.addEventListener("DOMContentLoaded", () => {
+    if (location.hash.replace("#","") === "settings") renderSettingsHelp();
+  });
+})();
+
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
   // Theme / font

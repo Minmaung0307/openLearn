@@ -1349,3 +1349,14 @@ button,
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Guide & Help styles */
+.help-body { font-size: 0.95rem; line-height: 1.6; }
+.help-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.help-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+.help-card b { display:block; margin-bottom: 4px; }
+.kbd { display:inline-block; padding:2px 6px; border:1px solid var(--border); border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; }
+.help-badge { display:inline-flex; align-items:center; gap:6px; background: rgba(var(--fg-r),var(--fg-g),var(--fg-b),0.06); border:1px solid var(--border); padding:6px 8px; border-radius:8px; }
+.help-list { margin: 0.2rem 0 0.6rem; padding-left: 1.1rem; }
+details.help { border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
+details.help+details.help { margin-top:10px; }
