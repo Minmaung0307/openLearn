@@ -3389,10 +3389,12 @@ function gateChatUI() {
 }
 
 /* ---------- Global Live Chat (RTDB if available; local fallback) ---------- */
-import {
-  getDatabase, ref, query, orderByChild, endAt, get,
-  onChildAdded, push, remove
-} from "firebase/database";
+// RTDB
+import { query as rtdbQuery, orderByChild, endAt, get, onChildAdded, push, remove } 
+  from "firebase/database";
+// Firestore
+import { query as fsQuery, collection, orderBy, onSnapshot, addDoc, doc, setDoc, serverTimestamp } 
+  from "firebase/firestore";
 
 function initChatRealtime() {
   const box = $("#chatBox"),
