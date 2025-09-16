@@ -790,8 +790,10 @@ if ("ResizeObserver" in window) {
 
 /* ---------- router + search ---------- */
 function showPage(id, push = true) {
-  $$(".page").forEach((p) => p.classList.remove("visible"));
-  $("#page-" + id)?.classList.add("visible");
+  // $$(".page").forEach((p) => p.classList.remove("visible"));
+  document.querySelectorAll("main .page").forEach(p => p.classList.remove("visible"));
+  // $("#page-" + id)?.classList.add("visible");
+  document.querySelector("main #page-" + id)?.classList.add("visible");
 
   // highlight nav
   $$("#sidebar .navbtn").forEach((b) =>

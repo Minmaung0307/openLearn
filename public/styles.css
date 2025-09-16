@@ -202,6 +202,8 @@ a:hover {
 }
 /* ❌ .pill-final removed */
 
+#page-admin.page.visible { min-height: calc(100vh - var(--topbar-offset, 60px)); }
+
 /* ===== SIDEBAR ===== */
 #sidebar {
   position: fixed;
@@ -216,6 +218,7 @@ a:hover {
   overflow: auto;
   transform: translateX(-100%);
   transition: transform 0.25s ease, width 0.2s ease;
+  max-height: calc(100vh - var(--topbar-offset, 60px));
 }
 #sidebar.expanded {
   width: var(--sidebar-w-exp);
