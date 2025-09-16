@@ -283,8 +283,14 @@ const getEnrolls = () => new Set(_read("ol_enrolls", []));
 const setEnrolls = (s) => _write("ol_enrolls", Array.from(s));
 const getAnns = () => _read("ol_anns", []);
 const setAnns = (a) => _write("ol_anns", a || []);
+// 👉 user-scoped profile storage key
+function profileStorageKey() {
+  return `ol_profile::${currentUidKey() || "anon"}`;
+}
+
+// 👉 scoped get/set
 const getProfile = () =>
-  _read("ol_profile", {
+  _read(profileStorageKey(), {
     displayName: "",
     photoURL: "",
     bio: "",
@@ -292,7 +298,8 @@ const getProfile = () =>
     links: "",
     social: "",
   });
-const setProfile = (p) => _write("ol_profile", p || {});
+
+const setProfile = (p) => _write(profileStorageKey(), p || {});
 const getUser = () => JSON.parse(localStorage.getItem("ol_user") || "null");
 const setUser = (u) => localStorage.setItem("ol_user", JSON.stringify(u));
 
@@ -357,6 +364,20 @@ function currentUidKey() {
 }
 function certKey(courseId) {
   return currentUidKey() + "|" + courseId;
+}
+
+// 👉 one-time migration from legacy shared key → user-scoped key
+function migrateProfileToScopedOnce() {
+  try {
+    const legacy = _read("ol_profile", null);              // old shared value (or null)
+    const targetKey = profileStorageKey();
+    const already = _read(targetKey, null);                // existing scoped value?
+    if (legacy && !already) {
+      _write(targetKey, legacy);                           // copy once
+    }
+    // (optional) old key နှိပ်ချင်ရင်:
+    // localStorage.removeItem("ol_profile");
+  } catch {}
 }
 
 // simple hash for ID (no crypto dependency)
@@ -1245,17 +1266,11 @@ function initAuthModal() {
     const pw = $("#loginPass")?.value;
     if (!em || !pw) return toast("Fill email/password");
     try {
-      // await signInWithEmailAndPassword(auth, em, pw);
-      // setUser({ email: em, role: "student" });
-      // setLogged(true, em);
       await signInWithEmailAndPassword(auth, em, pw);
- // resolve role from Firestore (users/{uid}) or fallback
- const u = auth.currentUser;
- const role = await resolveUserRole(u);
- setUser({ email: em, role });
- setLogged(true, em);
- // scope LS to this user
- switchLocalStateForUser(currentUidKey());
+      setUser({ email: em, role: "student" });
+      setLogged(true, em);
+     migrateProfileToScopedOnce();          // 🔸 add
+     renderProfilePanel?.();                // UI reflect
       modal.close();
       gateChatUI();
       toast("Welcome back");
@@ -1271,15 +1286,11 @@ function initAuthModal() {
     const pw = $("#signupPass")?.value;
     if (!em || !pw) return toast("Fill email/password");
     try {
-      // await createUserWithEmailAndPassword(auth, em, pw);
-      // setUser({ email: em, role: "student" });
-      // setLogged(true, em);
       await createUserWithEmailAndPassword(auth, em, pw);
- const u = auth.currentUser;
- const role = await resolveUserRole(u);
- setUser({ email: em, role });
- setLogged(true, em);
- switchLocalStateForUser(currentUidKey());
+      setUser({ email: em, role: "student" });
+      setLogged(true, em);
+     migrateProfileToScopedOnce();          // 🔸 add
+     renderProfilePanel?.();
       modal.close();
       gateChatUI();
       toast("Account created");
@@ -3690,12 +3701,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAuthModal();
   const u = getUser();
   setLogged(!!u, u?.email);
-  if (u) {
-    try {
-      await migrateProgressKey();
-      await syncProgressBothWays();
-    } catch {}
-  }
+  if (u) { migrateProfileToScopedOnce(); renderProfilePanel?.(); }
+  // if (u) {
+  //   try {
+  //     await migrateProgressKey();
+  //     await syncProgressBothWays();
+  //   } catch {}
+  // }
 
   // Gate chat inputs and keep in sync
   gateChatUI();
@@ -3706,6 +3718,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         await migrateProgressKey();
         await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
       } catch {}
+      // 🔸 profile scope migrate when a user is present
+ if (auth?.currentUser) { migrateProfileToScopedOnce(); renderProfilePanel?.(); }
       // ✅ sync ပြီမှ render — Firefox “Continue only” ပြဿနာကို ဒီနေရာက ဖြေ
       window.renderProfilePanel?.();
       window.renderMyLearning?.();
@@ -3806,18 +3820,14 @@ document.addEventListener("DOMContentLoaded", () => {
   try {
     onAuthStateChanged(auth, async (u) => {
       if (u) {
-        // setUser({ email: u.email || "", role: getUser()?.role || "student" });
-        // setLogged(true, u.email || "");
-        const role = await resolveUserRole(u);
-   setUser({ email: u.email || "", role });
-   setLogged(true, u.email || "");
-   switchLocalStateForUser(currentUidKey());
+        setUser({ email: u.email || "", role: getUser()?.role || "student" });
+    setLogged(true, u.email || "");
+   migrateProfileToScopedOnce();          // 🔸 add
+   renderProfilePanel?.();
       } else {
         setUser(null);
         setLogged(false);
-        switchLocalStateForUser("anon");
       }
-      enforceRoleGates?.();
     });
   } catch {}
 });
