@@ -3932,6 +3932,137 @@ function renderSettingsHelp() {
   `;
 }
 
+// === Help & Guide: enhanced render (append; won't delete your existing content) ===
+function renderHelpGuideEnhanced() {
+  const box = document.querySelector("#helpDoc");
+  if (!box) return;
+  // Guard: run-once per session
+  if (box.dataset.enhanced === "1") return;
+  box.dataset.enhanced = "1";
+
+  // 1) Append new “What’s New” (2025-09) section
+  const whatsNew = document.createElement("div");
+  whatsNew.className = "help-card help-news";
+  whatsNew.innerHTML = `
+    <b>🆕 What's New (Sep 2025)</b>
+    <ul class="help-list">
+      <li><b>Auth稳定化</b>: <code>onAuthStateChanged</code> ကို Singleton ပြီး Role ကို Firestore မှာ resolve</li>
+      <li><b>Role Cache Fix</b>: admin/owner/instructor/ta လိုအပ်ချက်များ UI မှန်ကန်ပြ</li>
+      <li><b>Enroll Sync</b>: <code>enrolls/{uid}</code> (cloud) ⇄ localStorage scoped, user ပိုင်းခြား</li>
+      <li><b>Chat Fallback</b>: RTDB ပိတ်ထားလည်း local fallback နဲ့ အလုပ်လုပ်</li>
+      <li><b>Help Refreshless</b>: Settings နှိပ်တာနဲ့ Help auto-render (manual refresh မလို)</li>
+      <li><b>Quiz Types</b>: Single/Multiple/Short-answer + Pass ≥ 70% + Retake</li>
+      <li><b>Certificates/Transcript</b>: Finish ပြီး auto-issue, Gradebook/Transcript မွာ ကြည့်/Print</li>
+    </ul>
+  `;
+  box.appendChild(whatsNew);
+
+  // 2) Tips with tiny icons (images optional; safe if not present)
+  const tips = document.createElement("div");
+  tips.className = "help-grid icons-row";
+  tips.innerHTML = `
+    <div class="help-card img-tip">
+      <img src="./images/help/auth.png" alt="Auth" onerror="this.style.display='none'">
+      <b>Auth & Roles</b>
+      <p>Login OK ဖြစ်သွားရင် Role ကို Firestore <code>users/{uid}.role</code> ကနေယူတယ်—local default မသုံးတော့ပါ</p>
+    </div>
+    <div class="help-card img-tip">
+      <img src="./images/help/enroll.png" alt="Enroll" onerror="this.style.display='none'">
+      <b>Per-User Enrolls</b>
+      <p><code>enrolls/{uid}</code> အနေနဲ့ သိမ်း → user မတူရင် courses မတူပေါ်</p>
+    </div>
+    <div class="help-card img-tip">
+      <img src="./images/help/chat.png" alt="Chat" onerror="this.style.display='none'">
+      <b>Chat</b>
+      <p>RTDB ရှိရင် realtime၊ မရှိရင် local fallback နဲ့ history တည်</p>
+    </div>
+    <div class="help-card img-tip">
+      <img src="./images/help/quiz.png" alt="Quiz" onerror="this.style.display='none'">
+      <b>Quizzes</b>
+      <p>Single/Multiple/Short – Pass ≥ 70%, Retake, Finish → Cert</p>
+    </div>
+  `;
+  box.appendChild(tips);
+
+  // 3) Developer quick refs
+  const dev = document.createElement("div");
+  dev.className = "help-card";
+  dev.innerHTML = `
+    <b>👨‍💻 Developer Notes (Quick)</b>
+    <ul class="help-list">
+      <li><code>onAuthStateChanged</code> ကို တစ်ခါတည်း register</li>
+      <li><code>resolveUserRole(u)</code> → Firestore doc 优先，fallback map 次要</li>
+      <li><code>ensureUserDoc(u, role)</code> → merge create (role overwrite မလုပ်)</li>
+      <li><code>syncEnrollsBothWays()</code> → Cloud→Local overwrite one-shot</li>
+      <li><code>renderHelpGuideEnhanced()</code> ကို Settings click မှာ ခေါ်</li>
+    </ul>
+  `;
+  box.appendChild(dev);
+}
+
+// === Wire: Settings tab click → show settings page + render help (no full refresh) ===
+document.getElementById("navSettings")?.addEventListener("click", () => {
+  if (typeof showPage === "function") showPage("settings");
+  // existing Help content မဖျက်ပဲ append
+  renderHelpGuideEnhanced();
+});
+
+// Also render once after DOM ready if already on settings
+document.addEventListener("DOMContentLoaded", () => {
+  if (document.getElementById("settings-help")) {
+    // run after minimal delay to ensure existing content rendered
+    setTimeout(renderHelpGuideEnhanced, 0);
+  }
+});
+
+// === Dev Guide (MD) download ===
+document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  const md = buildDevGuideMarkdownAddendum();
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "DEVELOPER_GUIDE_addendum.md";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+function buildDevGuideMarkdownAddendum() {
+  return `
+<!-- Append-only addendum; keep your existing MD as-is -->
+# OpenLearn – Developer Guide Addendum (Sep 2025)
+
+## Auth & Roles (Stabilized)
+- Register **one** \`onAuthStateChanged(auth, ...)\`
+- After login/signup/state change:
+  - \`role = await resolveUserRole(user) || "student"\`
+  - \`await ensureUserDoc(user, role)\` (merge create; don't overwrite existing admin/owner)
+  - \`setUser({ email, role })\` (❌ no hard "student")
+
+## Enroll Sync (Per User)
+- Firestore: \`enrolls/{uid}\`
+- Local: \`ol_enrolls::<uid>\`
+- \`syncEnrollsBothWays()\` runs once on login; Cloud → Local overwrite
+
+## Chat
+- RTDB rooms: \`/chats/global\`, \`/chats/{courseId}\`
+- Fallback to local if RTDB disabled
+- TTL prune ~10 days (client-side)
+
+## Quizzes
+- Types: single / multiple / short answer
+- Pass ≥ 0.70 (config: \`QUIZ_PASS\`)
+- Finish → \`ensureCertIssued\` → Transcript
+
+## Help & Guide (Refreshless)
+- \`renderHelpGuideEnhanced()\` appends cards/images into \`#helpDoc\`
+- Settings click triggers render; no manual refresh required
+`;
+}
+
 // Settings စာမျက်နှာပြသတိုင်း render
 (function wireSettingsHelp() {
   // showPage() ထဲက router ကိုအသုံးပြုထားလျှင် ဒီလို hook လုပ်ပါ
@@ -3993,7 +4124,61 @@ document.addEventListener("DOMContentLoaded", async () => {
       } catch {}
       setUser({ email: u.email || "", role });
       setLogged(true, u.email || "");
+
       // ... rest sync ...
+      try {
+  // 1) migrate profile (if the helper exists)
+  if (typeof migrateProfileToScopedOnce === "function") {
+    await migrateProfileToScopedOnce();
+  }
+
+  // 2) Run in parallel for speed:
+  const tasks = [];
+
+  // 2a) Cloud profile load
+  let cloudProfilePromise = null;
+  if (typeof loadProfileCloud === "function") {
+    cloudProfilePromise = loadProfileCloud();
+    tasks.push(cloudProfilePromise);
+  }
+
+  // 2b) Enroll migrations + sync
+  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
+    const enrollTask = (async () => {
+      if (typeof migrateEnrollsToScopedOnce === "function") {
+        await migrateEnrollsToScopedOnce();
+      }
+      if (typeof syncEnrollsBothWays === "function") {
+        await syncEnrollsBothWays(); // one time is enough
+      }
+    })();
+    tasks.push(enrollTask);
+  }
+
+  // 3) Wait for all
+  const results = await Promise.all(tasks);
+
+  // 4) Merge cloud profile → local (cloud overwrites local)
+  if (cloudProfilePromise) {
+    const cloudP = results[0]; // first pushed
+    if (cloudP) {
+      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
+      if (typeof setProfile === "function") {
+        setProfile({ ...localP, ...cloudP });
+      }
+    }
+  }
+
+  // 5) UI updates (call only if they exist)
+  if (typeof renderCatalog === "function") renderCatalog();
+  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
+  if (typeof renderProfilePanel === "function") renderProfilePanel();
+  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
+
+} catch (syncErr) {
+  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
+}
+
     } else {
       setUser(null);
       setLogged(false);

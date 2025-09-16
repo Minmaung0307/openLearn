@@ -1363,3 +1363,39 @@ button,
 .help-list { margin: 0.2rem 0 0.6rem; padding-left: 1.1rem; }
 details.help { border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
 details.help+details.help { margin-top:10px; }
+
+
+/* Help & Guide visuals */
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: .9rem;
+  margin-top: .75rem;
+}
+.help-card {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  padding: .9rem 1rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+.help-card b { display:block; margin-bottom:.35rem; }
+.help-list { padding-left: 1.05rem; margin: .25rem 0 0; }
+.help-list li { margin: .18rem 0; }
+.kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: .85em;
+  border: 1px solid var(--border, #d1d5db);
+  padding: 0 .35rem;
+  border-radius: 6px;
+  background: var(--muted, #f9fafb);
+}
+.icons-row .img-tip img {
+  width: 100%;
+  height: 84px;
+  object-fit: contain;
+  display: block;
+  margin-bottom: .5rem;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.06));
+}
+.help-news { border-left: 4px solid #06b6d4; }

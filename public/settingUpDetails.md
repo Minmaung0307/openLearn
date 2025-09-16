@@ -278,3 +278,14 @@ To extend, add your new collection to `buildIndex()`.
 
 **Happy building!**  
 If you need additional architecture diagrams or code walkthroughs, drop them into `/docs/` and link from Settings → Help.
+
+## 17) Addendum – Stabilizations (Sep 2025)
+
+### Auth Listener (Singleton)
+- Keep a single `onAuthStateChanged(auth, ...)` registration.
+- In the callback:
+  ```js
+  const role = await resolveUserRole(u) || "student";
+  await ensureUserDoc(u, role);          // merge create only
+  setUser({ email: u.email || "", role }); // no hard "student"
+  setLogged(true, u.email || "");
