@@ -2541,33 +2541,47 @@ function renderPage() {
   }
 
   // --- Navigation ---
-  const btnPrev = $("#rdPrev"),
-    btnNext = $("#rdNext");
-  if (btnPrev) btnPrev.disabled = RD.i <= 0;
-  if (btnNext) btnNext.disabled = RD.i >= RD.pages.length - 1;
-  // if (btnPrev)
-  //   btnPrev.onclick = () => {
-  //     RD.i = Math.max(0, RD.i - 1);
-  //     renderPage();
-  //   };
-  // if (btnNext)
-  //   btnNext.onclick = () => {
-  //     // Next button guard
-  //     if (
-  //       p?.type === "quiz" &&
-  //       !hasPassedQuiz(RD.cid, RD.i) &&
-  //       LAST_QUIZ_SCORE < QUIZ_PASS
-  //     ) {
-  //       toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% to continue`);
-  //       return;
-  //     }
-  //     if (p?.type === "project" && !PROJECT_UPLOADED) {
-  //       toast("Please upload your project file first");
-  //       return;
-  //     }
-  //     RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
-  //     renderPage();
-  //   };
+const btnPrev = $("#rdPrev"),
+      btnNext = $("#rdNext");
+
+// Prev: enable/disable + handler
+if (btnPrev) {
+  btnPrev.disabled = RD.i <= 0;
+  btnPrev.onclick = () => {
+    if (RD.i <= 0) return;
+    RD.i = Math.max(0, RD.i - 1);
+    renderPage();
+  };
+}
+
+// Next: enable/disable + guard for quiz/project
+if (btnNext) {
+  btnNext.disabled = RD.i >= RD.pages.length - 1;
+  btnNext.onclick = () => {
+    const p = RD.pages[RD.i];
+
+    // Guard: quiz must be passed (either already passed or current LAST_QUIZ_SCORE >= QUIZ_PASS)
+    if (p?.type === "quiz") {
+      const passed =
+        (typeof hasPassedQuiz === "function" && hasPassedQuiz(RD.cid, RD.i)) ||
+        (typeof LAST_QUIZ_SCORE !== "undefined" && LAST_QUIZ_SCORE >= QUIZ_PASS);
+      if (!passed) {
+        toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% to continue`);
+        return;
+      }
+    }
+
+    // Guard: project must be uploaded
+    if (p?.type === "project" && !PROJECT_UPLOADED) {
+      toast("Please upload your project file first");
+      return;
+    }
+
+    // Advance
+    RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+    renderPage();
+  };
+}
 
   // --- Finish button on LAST page only ---
   const isLast = RD.i === RD.pages.length - 1;
