@@ -40,6 +40,14 @@ import {
   getDownloadURL,
 } from "./firebase.js";
 
+// --- Auth state bootstrap (keep near top of app.js) ---
+onAuthStateChanged(auth, (u) => {
+  document.body.classList.toggle("logged", !!u);
+  document.body.classList.toggle("anon", !u);
+  // scope switch + minimal refresh
+  switchLocalStateForUser(currentUidKey());
+});
+
 /* ---------- tiny DOM helpers ---------- */
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
@@ -275,18 +283,34 @@ function _restoreScopeToBase(uidKey){
   });
 }
 
+// ======== FAST USER-SCOPE SWITCH (drop-in replacement) ========
 let _ACTIVE_UID_SCOPE = null;
-function switchLocalStateForUser(newUidKey){
-  const key = newUidKey || "anon";
-  if (_ACTIVE_UID_SCOPE === key) return;
-  // Save current base → old scope
-  if (_ACTIVE_UID_SCOPE !== null) _snapshotBaseToScope(_ACTIVE_UID_SCOPE);
-  // Switch → restore new scope into base
-  _ACTIVE_UID_SCOPE = key;
-  _restoreScopeToBase(_ACTIVE_UID_SCOPE);
-  // Re-render things that read from localStorage
+function switchLocalStateForUser(newUidKey) {
+  const target = newUidKey || "anon";
+  if (_ACTIVE_UID_SCOPE === target) return; // no-op
+
+  // 1) snapshot old base → old scope (cheap)
+  if (_ACTIVE_UID_SCOPE !== null) {
+    try { _snapshotBaseToScope(_ACTIVE_UID_SCOPE); } catch {}
+
+    // ⚡ defer heavy work so the UI stays responsive during auth transitions
+    queueMicrotask(() => requestIdleCallback?.(() => {
+      try { /* room for future compaction if needed */ } catch {}
+    }));
+  }
+
+  // 2) restore new scope → base (cheap)
+  _ACTIVE_UID_SCOPE = target;
+  try { _restoreScopeToBase(_ACTIVE_UID_SCOPE); } catch {}
+
+  // 3) minimally re-render only what truly depends on scoped LS
+  //    (old version was re-rendering many pages eagerly)
   try {
-    renderCatalog(); window.renderMyLearning?.(); window.renderProfilePanel?.(); window.renderGradebook?.();
+    renderCatalog();
+    const hash = (location.hash || "#catalog").slice(1);
+    if (hash === "mylearning") window.renderMyLearning?.();
+    else if (hash === "profile") window.renderProfilePanel?.();
+    else if (hash === "gradebook") window.renderGradebook?.();
   } catch {}
 }
 
@@ -780,32 +804,18 @@ document.addEventListener("DOMContentLoaded", () => {
 );
 
 /* ---------- sidebar + topbar offset (iPad/touch-friendly) ---------- */
+// ======== SIDEBAR INIT (replace the inner click bindings block) ========
 function initSidebar() {
-  const sb = $("#sidebar"),
-    burger = $("#btn-burger");
+  const sb = $("#sidebar"), burger = $("#btn-burger");
   const mqNarrow = matchMedia("(max-width:1024px)");
   const mqNoHover = matchMedia("(hover: none)");
   const mqCoarse = matchMedia("(pointer: coarse)");
-  const isTouchLike = () =>
-    mqNarrow.matches || mqNoHover.matches || mqCoarse.matches;
+  const isTouchLike = () => mqNarrow.matches || mqNoHover.matches || mqCoarse.matches;
 
-  const setBurger = () => {
-    if (burger) burger.style.display = isTouchLike() ? "" : "none";
-  };
-  setBurger();
-  addEventListener("resize", setBurger);
+  const setBurger = () => { if (burger) burger.style.display = isTouchLike() ? "" : "none"; };
+  setBurger(); addEventListener("resize", setBurger);
 
-  const setExpandedFlag = (on) =>
-    document.body.classList.toggle("sidebar-expanded", !!on);
-
-  sb?.addEventListener("click", (e) => {
-    const navBtn = e.target.closest(".navbtn");
-    if (navBtn) return;
-    if (isTouchLike()) {
-      const on = !document.body.classList.contains("sidebar-expanded");
-      setExpandedFlag(on);
-    }
-  });
+  const setExpandedFlag = (on) => document.body.classList.toggle("sidebar-expanded", !!on);
 
   burger?.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -813,23 +823,26 @@ function initSidebar() {
     setExpandedFlag(sb?.classList.contains("show"));
   });
 
+  // single delegated handler for nav buttons (no duplicate listeners)
   sb?.addEventListener("click", (e) => {
-    const b = e.target.closest(".navbtn");
-    if (!b) return;
-    showPage(b.dataset.page);
-    if (isTouchLike()) {
-      sb.classList.remove("show");
-      setExpandedFlag(false);
+    const navBtn = e.target.closest(".navbtn");
+    if (!navBtn) {
+      if (isTouchLike()) { // tap blank area toggles drawer
+        const on = !document.body.classList.contains("sidebar-expanded");
+        setExpandedFlag(on);
+      }
+      return;
     }
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const page = navBtn.dataset.page;
+    if (page) showPage(page);
+    if (isTouchLike()) { sb.classList.remove("show"); setExpandedFlag(false); }
   });
 
+  // outside click to close (touch only)
   document.addEventListener("click", (e) => {
-    if (!isTouchLike()) return;
-    if (!sb?.classList.contains("show")) return;
+    if (!isTouchLike() || !sb?.classList.contains("show")) return;
     if (!e.target.closest("#sidebar") && e.target !== burger) {
-      sb.classList.remove("show");
-      setExpandedFlag(false);
+      sb.classList.remove("show"); setExpandedFlag(false);
     }
   });
 }
@@ -854,27 +867,39 @@ if ("ResizeObserver" in window) {
   tb && new ResizeObserver(_runTopbarOffset).observe(tb);
 }
 
-/* ---------- router + search ---------- */
+// ======== FAST PAGE ROUTER (drop-in replacement) ========
+let _CURRENT_PAGE_ID = null;
+
 function showPage(id, push = true) {
-  // $$(".page").forEach((p) => p.classList.remove("visible"));
-  document.querySelectorAll("main .page").forEach(p => p.classList.remove("visible"));
-  // $("#page-" + id)?.classList.add("visible");
-  document.querySelector("main #page-" + id)?.classList.add("visible");
+  if (!id) id = "catalog";
+  if (id === _CURRENT_PAGE_ID) return; // already shown
 
-  // highlight nav
-  $$("#sidebar .navbtn").forEach((b) =>
-    b.classList.toggle("active", b.dataset.page === id)
-  );
+  // only touch two nodes: previous visible & target
+  const prev = document.querySelector("main .page.visible");
+  if (prev) prev.classList.remove("visible");
 
+  const next = document.getElementById("page-" + id);
+  if (next) next.classList.add("visible");
+
+  // nav highlight (no NodeList full scan if possible)
+  const activeBtn = document.querySelector('#sidebar .navbtn.active');
+  if (activeBtn) activeBtn.classList.remove('active');
+  const nextBtn = document.querySelector(`#sidebar .navbtn[data-page="${id}"]`);
+  if (nextBtn) nextBtn.classList.add('active');
+
+  // lazy-run page specific renders
   if (id === "mylearning") window.renderMyLearning?.();
-  if (id === "gradebook") window.renderGradebook?.();
-  if (id === "admin") window.renderAdminTable?.();
-  if (id === "dashboard") window.renderAnnouncements?.();
+  else if (id === "gradebook") window.renderGradebook?.();
+  else if (id === "admin") window.renderAdminTable?.();
+  else if (id === "dashboard") window.renderAnnouncements?.();
 
-  // 🔑 update browser history (default true)
-  if (push) {
-    history.pushState({ page: id }, "", "#" + id);
-  }
+  // update URL only when needed
+  if (push) history.pushState({ page: id }, "", "#" + id);
+
+  _CURRENT_PAGE_ID = id;
+
+  // smooth UX without forcing layout thrash
+  requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
 }
 
 function updateAnnBadge() {
@@ -907,13 +932,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// handle browser back/forward
+// ======== ROUTER BOOT ========
 window.addEventListener("popstate", (e) => {
   const id = e.state?.page || location.hash.replace("#", "") || "catalog";
-  showPage(id, false); // ⚠️ push=false မဟုတ်ရင် infinite loop ဖြစ်မယ်
+  showPage(id, false);
 });
-
-// on first load → hash check
 document.addEventListener("DOMContentLoaded", () => {
   const initial = location.hash.replace("#", "") || "catalog";
   showPage(initial, false);
