@@ -3202,25 +3202,37 @@ function wireAdminImportExportOnce() {
 }
 
 /* ---------- Announcements ---------- */
-// let ANN_CACHE = []; // [{id,title,body,tsMs}]
+// 🔹 One-time cache (declare once near the top of app.js)
 window.ANN_CACHE = window.ANN_CACHE || [];
 
-function startAnnouncementsLive() {
-  if (!annsCol) return;
-  const q = query(annsCol, orderBy("ts", "desc"));
-  onSnapshot(q, (snap) => {
-    ANN_CACHE = snap.docs.map(d => {
-      const v = d.data() || {};
-      return {
-        id: d.id,
-        title: v.title || "",
-        body: v.body || "",
-        tsMs: (v.ts?.toMillis && v.ts.toMillis()) || Date.now()
-      };
+// 🔹 Live announcements (single source of truth)
+function startLiveAnnouncements() {
+  if (!db) return; // offline/local fallback
+
+  try {
+    // build collection ref in-place
+    const col = collection(db, "announcements");
+    // use fsQuery/fsOrderBy (NOT plain orderBy)
+    const q = fsQuery(col, fsOrderBy("ts", "desc"));
+
+    onSnapshot(q, (ss) => {
+      window.ANN_CACHE = ss.docs.map((d) => {
+        const v = d.data() || {};
+        return {
+          id: d.id,
+          title: String(v.title || ""),
+          body: String(v.body || ""),
+          ts: v.ts || null,
+          tsMs: v.ts?.toMillis ? v.ts.toMillis() : (v.ts || Date.now()),
+        };
+      });
+
+      renderAnnouncements?.();   // re-render UI
+      updateAnnBadge?.();        // update badge count
     });
-    renderAnnouncements();      // re-render when cloud changes
-    updateAnnBadge();
-  });
+  } catch (e) {
+    console.warn("live announcements failed:", e);
+  }
 }
 
 // helper (တခါတည်း app.js ထဲ common helpers နားမှာထား)
@@ -3234,31 +3246,6 @@ const tsToMs = (v) => {
   if (v instanceof Date) return v.getTime();
   return 0;
 };
-
-// --- Firestore live announcements (put near “Announcements” section) ---
-
-function startLiveAnnouncements(){
-  if (!db) return; // offline/local fallback
-  try {
-    const q = fsQuery(collection(db, "announcements"), fsOrderBy("ts","desc"));
-    onSnapshot(q, (ss) => {
-      ANN_CACHE = ss.docs.map(d => {
-        const v = d.data() || {};
-        return {
-          id: d.id,
-          title: String(v.title || ""),
-          body: String(v.body || ""),
-          ts: v.ts || null,
-          tsMs: v.ts?.toMillis ? v.ts.toMillis() : (v.ts || Date.now()),
-        };
-      });
-      renderAnnouncements();
-      updateAnnBadge();
-    });
-  } catch (e) {
-    console.warn("live announcements failed:", e);
-  }
-}
 
 // DOMContentLoaded boot အောက်ဘက်ဘက်မှာ ခေါ်ပေးပါ
 document.addEventListener("DOMContentLoaded", () => {
@@ -4079,7 +4066,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   addEventListener("pageshow", () =>
     document.body.classList.remove("printing")
   );
-  startAnnouncementsLive();
+
+  startLiveAnnouncements();
 });
 
 // run once on boot
