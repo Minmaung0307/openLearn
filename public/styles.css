@@ -33,6 +33,8 @@
   --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.15);
   --shadow-medium: 0 6px 20px rgba(0, 0, 0, 0.18);
   --shadow-strong: 0 8px 30px rgba(0, 0, 0, 0.22);
+
+  --cert-logo-size: 84px;           /* logo+QR size; change once to resize both */
 }
 
 /* Reset / base */
@@ -973,9 +975,13 @@ textarea::placeholder {
   object-fit: contain;
 }
 /* Logo */
+.cert-wrap { position: relative; overflow: visible; }
+
 .cert-logo {
   margin-top: 4mm;
-  width: 90px;
+  width: var(--cert-logo-size);
+  height: var(--cert-logo-size);
+  object-fit: contain;
   position: absolute;
   top: 25px; /* ပိုနည်းခဲ့ရင် logo ပြတ်သွားမယ် */
   left: 25px;
@@ -1065,13 +1071,22 @@ body.cert-open {
 }
 
 /* brand/logo + photo + name layout */
-.cert-logo {
+
+.cert-qr {
   position: absolute;
-  top: 22px;
-  left: 22px;
-  width: 84px;
-  height: auto;
+  top: 16px;
+  right: 16px;
+  width: var(--cert-logo-size);
+  height: var(--cert-logo-size);
+  display: grid;
+  place-items: center;
 }
+.cert-qr img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+img.qr { display: none !important; }
 
 .cert-head {
   font-size: 26px;

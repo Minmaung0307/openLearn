@@ -2827,6 +2827,8 @@ function renderCertificate(course, cert) {
     <div class="cert-doc">
       <img src="/assets/logo.png" class="cert-logo" alt="OpenLearn Logo">
 
+      <div class="cert-qr"><img alt="Verify QR" src="${qr}"></div>
+      
       <div class="cert-head">OpenLearn Institute</div>
       <div class="cert-sub">Certificate of Completion</div>
 
@@ -2840,10 +2842,6 @@ function renderCertificate(course, cert) {
         Certificate No.: <b>${esc(certId)}</b> • Credits: ${
     course.credits || 3
   } • Score: ${scoreTxt} • Issued: ${dateTxt}
-      </div>
-
-      <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
-        <img class="qr" alt="Verify" src="${qr}">
       </div>
 
       <div class="cert-signs">
@@ -2868,6 +2866,13 @@ function renderCertificate(course, cert) {
     </div>
   `;
 }
+// မှတ်ချက် အစားထိုးထားသည်
+// အဟောင်း
+//   <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
+//         <img class="qr" alt="Verify" src="${qr}">
+//       </div>
+// အသစ်
+// <div class="cert-qr"><img alt="Verify QR" src="${qr}"></div>
 
 // stamp forgery footer
 document.addEventListener("DOMContentLoaded", () => {
