@@ -15,6 +15,7 @@ import {
   getAuth,
   setPersistence,
   browserLocalPersistence,
+  inMemoryPersistence,      // 👈 ADD THIS
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -75,7 +76,12 @@ export const app = initializeApp(cfg);
 
 /* Auth */
 export const auth = getAuth(app);
-setPersistence(auth, browserLocalPersistence).catch(() => {});
+try {
+  await setPersistence(auth, browserLocalPersistence);
+} catch {
+  // ⛑️ IndexedDB/3rd-party-cookie blocked → fallback to in-memory
+  await setPersistence(auth, inMemoryPersistence);
+}
 try { useDeviceLanguage(auth); } catch {}
 
 /* Firestore / RTDB / Storage instances */

@@ -1639,67 +1639,73 @@ function progressDocRef() {
 }
 
 // Migrate once: if we have both <email> and <uid>, merge into <uid>
+// 🔇 Progress migration disabled to avoid Firestore permission errors.
+// Your rules only allow /progress/{uid} for the current uid, so
+// reading legacy email-key docs will fail. Keeping this as a no-op is safe.
 async function migrateProgressKey() {
-  const uid = auth?.currentUser?.uid || "";
-  const email = (getUser()?.email || "").toLowerCase();
-  if (!db || !uid || !email || uid === email) return;
-
-  const refEmail = progressDocRefFor(email);
-  const refUid = progressDocRefFor(uid);
-
-  try {
-    const [snapEmail, snapUid] = await Promise.all([
-      getDoc(refEmail),
-      getDoc(refUid),
-    ]);
-    if (!snapEmail.exists()) return; // nothing under email → done
-
-    const dataE = snapEmail.data() || {};
-    const dataU = snapUid.exists() ? snapUid.data() || {} : {};
-
-    // merge strategy: completed by latest ts, quiz keep higher best/OR passed, certs prefer uid then email
-    const L_completed = dataE.completed || [];
-    const R_completed = dataU.completed || [];
-    const mapC = new Map();
-    [...L_completed, ...R_completed].forEach((x) => {
-      const prev = mapC.get(x.id);
-      if (!prev || (x.ts || 0) > (prev.ts || 0)) mapC.set(x.id, x);
-    });
-    const mergedCompleted = Array.from(mapC.values());
-
-    const keys = new Set([
-      ...Object.keys(dataE.quiz || {}),
-      ...Object.keys(dataU.quiz || {}),
-    ]);
-    const mergedQuiz = {};
-    keys.forEach((k) => {
-      const a = (dataE.quiz || {})[k] || {};
-      const b = (dataU.quiz || {})[k] || {};
-      mergedQuiz[k] = {
-        best: Math.max(a.best || 0, b.best || 0),
-        passed: !!(a.passed || b.passed),
-      };
-    });
-
-    const mergedCerts = { ...(dataE.certs || {}), ...(dataU.certs || {}) };
-
-    await setDoc(
-      refUid,
-      {
-        completed: mergedCompleted,
-        quiz: mergedQuiz,
-        certs: mergedCerts,
-        ts: Date.now(),
-      },
-      { merge: true }
-    );
-
-    // (optional) You can keep email doc or clean it up later.
-    // await deleteDoc(refEmail);
-  } catch (e) {
-    console.warn("migrateProgressKey failed:", e?.message || e);
-  }
+  return; // do nothing
 }
+// async function migrateProgressKey() {
+//   const uid = auth?.currentUser?.uid || "";
+//   const email = (getUser()?.email || "").toLowerCase();
+//   if (!db || !uid || !email || uid === email) return;
+
+//   const refEmail = progressDocRefFor(email);
+//   const refUid = progressDocRefFor(uid);
+
+//   try {
+//     const [snapEmail, snapUid] = await Promise.all([
+//       getDoc(refEmail),
+//       getDoc(refUid),
+//     ]);
+//     if (!snapEmail.exists()) return; // nothing under email → done
+
+//     const dataE = snapEmail.data() || {};
+//     const dataU = snapUid.exists() ? snapUid.data() || {} : {};
+
+//     // merge strategy: completed by latest ts, quiz keep higher best/OR passed, certs prefer uid then email
+//     const L_completed = dataE.completed || [];
+//     const R_completed = dataU.completed || [];
+//     const mapC = new Map();
+//     [...L_completed, ...R_completed].forEach((x) => {
+//       const prev = mapC.get(x.id);
+//       if (!prev || (x.ts || 0) > (prev.ts || 0)) mapC.set(x.id, x);
+//     });
+//     const mergedCompleted = Array.from(mapC.values());
+
+//     const keys = new Set([
+//       ...Object.keys(dataE.quiz || {}),
+//       ...Object.keys(dataU.quiz || {}),
+//     ]);
+//     const mergedQuiz = {};
+//     keys.forEach((k) => {
+//       const a = (dataE.quiz || {})[k] || {};
+//       const b = (dataU.quiz || {})[k] || {};
+//       mergedQuiz[k] = {
+//         best: Math.max(a.best || 0, b.best || 0),
+//         passed: !!(a.passed || b.passed),
+//       };
+//     });
+
+//     const mergedCerts = { ...(dataE.certs || {}), ...(dataU.certs || {}) };
+
+//     await setDoc(
+//       refUid,
+//       {
+//         completed: mergedCompleted,
+//         quiz: mergedQuiz,
+//         certs: mergedCerts,
+//         ts: Date.now(),
+//       },
+//       { merge: true }
+//     );
+
+//     // (optional) You can keep email doc or clean it up later.
+//     // await deleteDoc(refEmail);
+//   } catch (e) {
+//     console.warn("migrateProgressKey failed:", e?.message || e);
+//   }
+// }
 
 async function loadProgressCloud() {
   const ref = progressDocRef();
@@ -3754,14 +3760,31 @@ function blockIfLocked(e) {
 function setAppLocked(locked) {
   const mainEl = findMain();
   if (!mainEl) return;
-  if (locked) {
-    mainEl.classList.add("locked-main");
-  } else {
-    mainEl.classList.remove("locked-main");
+
+  // Overlay toggle
+  let ov = ensureAuthOverlay(mainEl);
+  if (ov) {
+    ov.style.display = locked ? "" : "none";
+    ov.style.pointerEvents = locked ? "none" : "none"; // never block clicks to modal/topbar
   }
-  ensureAuthOverlay(mainEl); // create once
+
+  if (locked) {
+    mainEl.classList.add('locked-main');
+  } else {
+    mainEl.classList.remove('locked-main');
+  }
+
+  // Disable in-app interactive elements only (but NOT modals/topbar)
   setClickableDisabled(mainEl, locked);
 }
+
+// login modal open 时 overlay ေပၚေနရင္ ေရႊ့ပေးရန်
+document.addEventListener("click", (e) => {
+  if (e.target.closest?.("#btn-login")) {
+    const ov = document.getElementById('authGuardOverlay');
+    if (ov) ov.style.display = "none";
+  }
+});
 
 // Router guard: prevent page switch while locked
 const ALLOW_PAGES_WHEN_LOCKED = new Set(["welcome", "login", "about"]); // adjust if needed
@@ -3961,6 +3984,50 @@ function renderSettingsHelp() {
     if (location.hash.replace("#","") === "settings") renderSettingsHelp();
   });
 })();
+
+// Somewhere near boot (DOMContentLoaded) — ensure single wiring
+if (!window._olAuthWired) {
+  window._olAuthWired = true;
+  onAuthStateChanged(auth, async (u) => {
+    const authed = !!u && !u.isAnonymous;
+    IS_AUTHED = authed;
+    setAppLocked(!authed);
+
+    if (authed) {
+      // Role fetch (optional)
+      let role = "student";
+      try {
+        const d = await getDoc(doc(db, "users", u.uid));
+        if (d.exists()) role = d.data()?.role || "student";
+      } catch {}
+
+      setUser?.({ email: u.email || "", role });
+      setLogged?.(true, u.email || "");
+
+      try { migrateProfileToScopedOnce?.(); } catch {}
+      try {
+        const cloudP = await loadProfileCloud?.();
+        if (cloudP) setProfile?.({ ...getProfile?.(), ...cloudP });
+      } catch {}
+
+      try { migrateEnrollsToScopedOnce?.(); } catch {}
+      try { await syncEnrollsBothWays?.(); } catch {}
+
+      renderCatalog?.();
+      window.renderMyLearning?.();
+      window.renderGradebook?.();
+      window.renderProfilePanel?.();
+    } else {
+      setUser?.(null);
+      setLogged?.(false);
+      renderCatalog?.();
+      window.renderMyLearning?.();
+    }
+
+    gateChatUI?.();        // ✅ chat enable/disable refresh
+    updateAnnBadge?.();    // ✅ badge refresh
+  });
+}
 
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
