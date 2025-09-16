@@ -277,10 +277,15 @@ function switchLocalStateForUser(newUidKey){
 }
 
 /* ---------- state (localStorage) ---------- */
+function enrollKey() {
+  return `ol_enrolls::${currentUidKey() || "anon"}`;
+}
 const getCourses = () => _read("ol_courses", []);
 const setCourses = (a) => _write("ol_courses", a || []);
-const getEnrolls = () => new Set(_read("ol_enrolls", []));
-const setEnrolls = (s) => _write("ol_enrolls", Array.from(s));
+const getEnrolls = () => new Set(_read(enrollKey(), []));
+const setEnrolls = (s) => _write(enrollKey(), Array.from(s || []));
+// const getEnrolls = () => new Set(_read("ol_enrolls", []));
+// const setEnrolls = (s) => _write("ol_enrolls", Array.from(s));
 const getAnns = () => _read("ol_anns", []);
 const setAnns = (a) => _write("ol_anns", a || []);
 // 👉 user-scoped profile storage key
@@ -364,6 +369,18 @@ function currentUidKey() {
 }
 function certKey(courseId) {
   return currentUidKey() + "|" + courseId;
+}
+
+// 👉 one-time migrate from old shared enrolls → per-user key
+function migrateEnrollsToScopedOnce() {
+  try {
+    const legacy = _read("ol_enrolls", null);          // old shared array
+    const scoped = _read(enrollKey(), null);
+    if (Array.isArray(legacy) && !scoped) {
+      _write(enrollKey(), legacy);
+      // localStorage.removeItem("ol_enrolls"); // if you want to delete old one
+    }
+  } catch {}
 }
 
 // 👉 one-time migration from legacy shared key → user-scoped key
@@ -532,17 +549,18 @@ async function syncEnrollsBothWays() {
   }
 
   try {
-    const local = getEnrolls();
-    const cloud = await loadEnrollsCloud();
+    const cloud = await loadEnrollsCloud();          // Set() or null
     if (cloud) {
-      const merged = new Set([...local, ...cloud]);
-      setEnrolls(merged);
-      await saveEnrollsCloud(merged);
+      // ✅ TRUST CLOUD: overwrite local for this user
+      setEnrolls(cloud);
+      await saveEnrollsCloud(cloud);
     } else {
+      // first-time user → keep local (usually empty)
+      const local = getEnrolls();
       await saveEnrollsCloud(local);
     }
   } catch (e) {
-    console.warn("syncEnrollsBothWays failed:", e.message || e);
+    console.warn("syncEnrollsBothWays failed:", e?.message || e);
   }
 
   renderCatalog();
@@ -1269,10 +1287,17 @@ function initAuthModal() {
       await signInWithEmailAndPassword(auth, em, pw);
       setUser({ email: em, role: "student" });
       setLogged(true, em);
+
      migrateProfileToScopedOnce();
 const cloudP = await loadProfileCloud();
 if (cloudP) setProfile({ ...getProfile(), ...cloudP });
 renderProfilePanel?.();
+
+      migrateEnrollsToScopedOnce();       // 🔸 new
+await syncEnrollsBothWays();        // 🔸 cloud → local overwrite
+renderCatalog();
+window.renderMyLearning?.();
+
       modal.close();
       gateChatUI();
       toast("Welcome back");
@@ -1291,10 +1316,17 @@ renderProfilePanel?.();
       await createUserWithEmailAndPassword(auth, em, pw);
       setUser({ email: em, role: "student" });
       setLogged(true, em);
+
      migrateProfileToScopedOnce();
 const cloudP = await loadProfileCloud();
 if (cloudP) setProfile({ ...getProfile(), ...cloudP });
 renderProfilePanel?.();
+
+      migrateEnrollsToScopedOnce();       // 🔸 new
+await syncEnrollsBothWays();        // 🔸 ensures empty for new user
+renderCatalog();
+window.renderMyLearning?.();
+
       modal.close();
       gateChatUI();
       toast("Account created");
@@ -3566,27 +3598,48 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch {}
 
   try {
-    // Global onAuthStateChanged handler (where you already call syncEnrollsBothWays)
-onAuthStateChanged(auth, async (u) => {
-  IS_AUTHED = !!u;
-  setAppLocked(!IS_AUTHED);
-  if (u) {
-    setUser?.({ email: u.email || "", role: getUser?.()?.role || "student" });
-    setLogged?.(true, u.email || "");
-    migrateProfileToScopedOnce();
-    const cloudP = await loadProfileCloud();
-    if (cloudP) setProfile({ ...getProfile(), ...cloudP });
-    renderProfilePanel?.();
-  } else {
-    setUser?.(null);
-    setLogged?.(false);
-  }
-});
+    // Global onAuthStateChanged handler
+    onAuthStateChanged(auth, async (u) => {
+      IS_AUTHED = !!u;
+      setAppLocked(!IS_AUTHED);
+
+      if (u) {
+        setUser?.({ email: u.email || "", role: getUser?.()?.role || "student" });
+        setLogged?.(true, u.email || "");
+
+        migrateEnrollsToScopedOnce();   // 🔸 new
+        await syncEnrollsBothWays();    // 🔸 new
+      } else {
+        setUser?.(null);
+        setLogged?.(false);
+
+        // optional: clear UI on logout
+        renderCatalog();
+        window.renderMyLearning?.();
+      }
+    });
   } catch (e) {
     console.warn("Auth listener error", e);
     // fail-safe: lock if we can’t read auth
     IS_AUTHED = false;
     setAppLocked(true);
+  }
+
+  // ✅ logoutBtn handler သီးသန့်ထည့်
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      try { await signOut(auth); } catch {}
+      setUser(null);
+      setLogged(false);
+      gateChatUI();
+
+      renderCatalog();
+      window.renderMyLearning?.();
+
+      toast("Logged out");
+    });
   }
 });
 
