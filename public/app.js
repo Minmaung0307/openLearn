@@ -26,6 +26,9 @@ import {
   setDoc,
 } from "./firebase.js";
 
+// (right after) } from "./firebase.js";
+window.__OL_ONCE__ = window.__OL_ONCE__ || {};
+
 /* ---------- tiny DOM helpers ---------- */
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
@@ -3592,57 +3595,6 @@ window.showPage = function (name, ...rest) {
     : null;
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-  try {
-    initAuthModal?.();
-  } catch {}
-
-  try {
-    // Global onAuthStateChanged handler
-    onAuthStateChanged(auth, async (u) => {
-      IS_AUTHED = !!u;
-      setAppLocked(!IS_AUTHED);
-
-      if (u) {
-        setUser?.({ email: u.email || "", role: getUser?.()?.role || "student" });
-        setLogged?.(true, u.email || "");
-
-        migrateEnrollsToScopedOnce();   // 🔸 new
-        await syncEnrollsBothWays();    // 🔸 new
-      } else {
-        setUser?.(null);
-        setLogged?.(false);
-
-        // optional: clear UI on logout
-        renderCatalog();
-        window.renderMyLearning?.();
-      }
-    });
-  } catch (e) {
-    console.warn("Auth listener error", e);
-    // fail-safe: lock if we can’t read auth
-    IS_AUTHED = false;
-    setAppLocked(true);
-  }
-
-  // ✅ logoutBtn handler သီးသန့်ထည့်
-  const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      try { await signOut(auth); } catch {}
-      setUser(null);
-      setLogged(false);
-      gateChatUI();
-
-      renderCatalog();
-      window.renderMyLearning?.();
-
-      toast("Logged out");
-    });
-  }
-});
-
 /* =========================================================
    Part 6/6 — Settings, Boot, Finals Removal Shim
    ========================================================= */
@@ -3782,7 +3734,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   applyFont(localStorage.getItem("ol_font") || "16");
 
   // Auth modal + restore login
-  initAuthModal();
+  // Auth modal (once)
+if (!window.__OL_ONCE__.authModal) {
+  try { initAuthModal(); } catch {}
+  window.__OL_ONCE__.authModal = true;
+}
+
   const u = getUser();
   setLogged(!!u, u?.email);
   if (u) { migrateProfileToScopedOnce(); renderProfilePanel?.(); }
@@ -3796,19 +3753,32 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Gate chat inputs and keep in sync
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
-    onAuthStateChanged(auth, async () => {
-      gateChatUI();
-      try {
-        await migrateProgressKey();
-        await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
-      } catch {}
-      // 🔸 profile scope migrate when a user is present
- if (auth?.currentUser) { migrateProfileToScopedOnce(); renderProfilePanel?.(); }
-      // ✅ sync ပြီမှ render — Firefox “Continue only” ပြဿနာကို ဒီနေရာက ဖြေ
-      window.renderProfilePanel?.();
+    // Auth state → UI (register once here)
+onAuthStateChanged(auth, async (u) => {
+  IS_AUTHED = !!u;
+  setAppLocked(!IS_AUTHED);
+
+  if (u) {
+    setUser({ email: u.email || "", role: getUser()?.role || "student" });
+    setLogged(true, u.email || "");
+
+    try {
+      migrateProfileToScopedOnce();
+      await Promise.all([
+        syncEnrollsBothWays(),
+        typeof syncProgressBothWays === "function" ? syncProgressBothWays() : Promise.resolve()
+      ]);
+      renderProfilePanel?.();
       window.renderMyLearning?.();
       window.renderGradebook?.();
-    });
+    } catch (e) {
+      console.warn("Post-login sync failed:", e?.message || e);
+    }
+  } else {
+    setUser(null);
+    setLogged(false);
+  }
+});
   }
 
   // UI
@@ -3891,29 +3861,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   addEventListener("pageshow", () =>
     document.body.classList.remove("printing")
   );
-});
-
-// run once on boot
-document.addEventListener("DOMContentLoaded", () => {
-  // make sure the modal & handlers exist
-  try {
-    initAuthModal();
-  } catch {}
-
-  // reflect Firebase auth state → UI & local profile
-  try {
-    onAuthStateChanged(auth, async (u) => {
-      if (u) {
-        setUser({ email: u.email || "", role: getUser()?.role || "student" });
-    setLogged(true, u.email || "");
-   migrateProfileToScopedOnce();          // 🔸 add
-   renderProfilePanel?.();
-      } else {
-        setUser(null);
-        setLogged(false);
-      }
-    });
-  } catch {}
 });
 
 // ==== DEBUG HOOKS (put near the bottom of app.js, after the functions are defined) ====
