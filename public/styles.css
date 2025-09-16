@@ -1082,8 +1082,8 @@ body.cert-open {
   place-items: center;
 }
 .cert-qr img {
-  width: 100%;
-  height: 100%;
+  width: 80%;
+  height: 80%;
   object-fit: contain;
   margin: 24px 24px 0 0;
 }
