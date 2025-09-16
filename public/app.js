@@ -26,6 +26,10 @@ import {
   setDoc,
 } from "./firebase.js";
 
+import {
+  collection, addDoc, onSnapshot, query, orderBy, serverTimestamp
+} from "./firebase.js";
+
 /* ---------- tiny DOM helpers ---------- */
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
@@ -327,6 +331,8 @@ function shuffle(arr) {
   return arr;
 }
 
+const CHAT_FORCE_CLOUD = true;  // login မရှိရင် chat ကို local-fallback မသွားအောင် ပိတ်
+
 const QUIZ_STATE_KEY = "ol_quiz_state"; // {"cid:idx":{best:0.8,passed:true}}
 const getQuizState = () => _read(QUIZ_STATE_KEY, {});
 const setQuizState = (o) => _write(QUIZ_STATE_KEY, o);
@@ -356,6 +362,17 @@ const setPassedQuiz = (cid, idx, score) => {
     origWarn.apply(console, args);
   };
 })();
+
+const annsCol = db ? collection(db, "announcements") : null;
+
+function postAnnouncementCloud({ title, body }) {
+  if (!annsCol) return Promise.reject("no-db");
+  return addDoc(annsCol, {
+    title,
+    body,
+    ts: serverTimestamp()   // server time for proper ordering
+  });
+}
 
 // ---- Certificate registry (local + optional cloud) ----
 const CERTS_KEY = "ol_certs_v1"; // { "<uid>|<courseId>": { id, issuedAt, name, photo, score } }
@@ -853,8 +870,14 @@ function showPage(id, push = true) {
 function updateAnnBadge() {
   const b = document.getElementById("annBadge");
   if (!b) return;
-  const list = getAnns ? getAnns() : [];
+
+  // 🔹 Prefer Firestore live cache, fallback to local
+  const list = (typeof ANN_CACHE !== "undefined" && Array.isArray(ANN_CACHE))
+    ? ANN_CACHE
+    : (getAnns ? getAnns() : []);
+
   const n = Array.isArray(list) ? list.length : 0;
+
   if (n > 0) {
     b.textContent = String(n);
     b.style.display = "inline-flex";
@@ -3041,82 +3064,90 @@ window.renderGradebook = renderGradebook;
 function renderAdminTable() {
   const tb = $("#adminTable tbody");
   if (!tb) return;
-  const list = ALL && ALL.length ? ALL : getCourses();
 
-  tb.innerHTML =
-    list
-      .map(
-        (c) => `
-    <tr data-id="${c.id}">
-      <td><a href="#" data-view="${c.id}">${esc(c.title)}</a></td>
-      <td>${esc(c.category || "")}</td>
-      <td>${esc(c.level || "")}</td>
-      <td>${esc(String(c.rating || 4.6))}</td>
-      <td>${esc(String(c.hours || 8))}</td>
-      <td>${(c.price || 0) > 0 ? "$" + c.price : "Free"}</td>
-      <td><button class="btn small" data-del="${c.id}">Delete</button></td>
-    </tr>`
-      )
-      .join("") || "<tr><td colspan='7' class='muted'>No courses</td></tr>";
+  // staff only UI (student တို့ အတွက် တောက်ပိတ်)
+  if (!(isAdminLike?.() || isStaffLike())) {
+    tb.innerHTML = `<tr><td colspan="7" class="muted">Admins only</td></tr>`;
+    return;
+  }
 
-  tb.querySelectorAll("[data-del]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-del");
-        const arr = getCourses().filter((x) => x.id !== id);
-        setCourses(arr);
+  const list = (ALL && ALL.length ? ALL : (getCourses?.() || [])).slice();
+
+  tb.innerHTML = list.length
+    ? list.map((c) => `
+        <tr data-id="${esc(c.id || "")}">
+          <td><a href="#" data-view="${esc(c.id || "")}">${esc(c.title || "Course")}</a></td>
+          <td>${esc(c.category || "")}</td>
+          <td>${esc(c.level || "")}</td>
+          <td>${esc(String(c.rating ?? 4.6))}</td>
+          <td>${esc(String(c.hours ?? 8))}</td>
+          <td>${(c.price || 0) > 0 ? "$" + esc(String(c.price)) : "Free"}</td>
+          <td><button class="btn small" data-del="${esc(c.id || "")}">Delete</button></td>
+        </tr>`
+      ).join("")
+    : "<tr><td colspan='7' class='muted'>No courses</td></tr>";
+
+  // delete
+  tb.querySelectorAll("[data-del]").forEach((b) => {
+    b.onclick = () => {
+      const id = b.getAttribute("data-del");
+      if (!id) return;
+      const arr = (getCourses?.() || []).filter((x) => x.id !== id);
+      setCourses?.(arr);
+      window.ALL = arr;
+      renderCatalog?.();
+      renderAdminTable(); // re-render self
+      toast?.("Deleted");
+    };
+  });
+
+  // view/edit
+  tb.querySelectorAll("[data-view]").forEach((a) => {
+    a.onclick = (e) => {
+      e.preventDefault();
+      const id = a.getAttribute("data-view");
+      const c = list.find((x) => x.id === id);
+      if (!c) return;
+
+      $("#avmTitle").textContent = c.title || "Course";
+      $("#avmBody").innerHTML = `
+        <div class="small">Category: ${esc(c.category || "")}</div>
+        <div class="small">Level: ${esc(c.level || "")}</div>
+        <div class="small">Rating: ${esc(String(c.rating ?? ""))}</div>
+        <div class="small">Hours: ${esc(String(c.hours ?? ""))}</div>
+        <p style="margin-top:.5rem">${esc(c.summary || "")}</p>`;
+      $("#adminViewModal")?.showModal();
+
+      const f = $("#courseForm");
+      $("#avmEdit").onclick = () => {
+        if (!f) return;
+        $("#courseModal")?.showModal();
+        f.title.value       = c.title || "";
+        f.category.value    = c.category || "";
+        f.level.value       = c.level || "Beginner";
+        f.price.value       = Number(c.price || 0);
+        f.rating.value      = Number(c.rating || 4.6);
+        f.hours.value       = Number(c.hours || 0);
+        f.credits.value     = Number(c.credits || 0);
+        f.img.value         = c.image || "";
+        f.description.value = c.summary || "";
+        f.benefits.value    = Array.isArray(c.benefits) ? c.benefits.join("\n") : (c.benefits || "");
+        $("#adminViewModal")?.close();
+      };
+
+      $("#avmDelete").onclick = () => {
+        const arr = (getCourses?.() || []).filter((x) => x.id !== id);
+        setCourses?.(arr);
         window.ALL = arr;
-        renderCatalog();
+        renderCatalog?.();
         renderAdminTable();
-        toast("Deleted");
-      })
-  );
+        toast?.("Deleted");
+        $("#adminViewModal")?.close();
+      };
+    };
+  });
 
-  tb.querySelectorAll("[data-view]").forEach(
-    (a) =>
-      (a.onclick = (e) => {
-        e.preventDefault();
-        const id = a.getAttribute("data-view");
-        const c = list.find((x) => x.id === id);
-        if (!c) return;
-        $("#avmTitle").textContent = c.title || "Course";
-        $("#avmBody").innerHTML = `
-      <div class="small">Category: ${esc(c.category || "")}</div>
-      <div class="small">Level: ${esc(c.level || "")}</div>
-      <div class="small">Rating: ${esc(String(c.rating || ""))}</div>
-      <div class="small">Hours: ${esc(String(c.hours || ""))}</div>
-      <p style="margin-top:.5rem">${esc(c.summary || "")}</p>`;
-        $("#adminViewModal")?.showModal();
-
-        $("#avmEdit").onclick = () => {
-          const f = $("#courseForm");
-          $("#courseModal")?.showModal();
-          f.title.value = c.title || "";
-          f.category.value = c.category || "";
-          f.level.value = c.level || "Beginner";
-          f.price.value = Number(c.price || 0);
-          f.rating.value = Number(c.rating || 4.6);
-          f.hours.value = Number(c.hours || 0);
-          f.credits.value = Number(c.credits || 0);
-          f.img.value = c.image || "";
-          f.description.value = c.summary || "";
-          f.benefits.value = c.benefits || "";
-          $("#adminViewModal")?.close();
-        };
-        $("#avmDelete").onclick = () => {
-          const arr = getCourses().filter((x) => x.id !== id);
-          setCourses(arr);
-          window.ALL = arr;
-          renderCatalog();
-          renderAdminTable();
-          toast("Deleted");
-          $("#adminViewModal")?.close();
-        };
-      })
-  );
-  $("#avmClose")?.addEventListener("click", () =>
-    $("#adminViewModal")?.close()
-  );
+  $("#avmClose")?.addEventListener("click", () => $("#adminViewModal")?.close());
 }
 window.renderAdminTable = renderAdminTable;
 
@@ -3164,30 +3195,75 @@ function wireAdminImportExportOnce() {
 }
 
 /* ---------- Announcements ---------- */
+let ANN_CACHE = []; // [{id,title,body,tsMs}]
+
+function startAnnouncementsLive() {
+  if (!annsCol) return;
+  const q = query(annsCol, orderBy("ts", "desc"));
+  onSnapshot(q, (snap) => {
+    ANN_CACHE = snap.docs.map(d => {
+      const v = d.data() || {};
+      return {
+        id: d.id,
+        title: v.title || "",
+        body: v.body || "",
+        tsMs: (v.ts?.toMillis && v.ts.toMillis()) || Date.now()
+      };
+    });
+    renderAnnouncements();      // re-render when cloud changes
+    updateAnnBadge();
+  });
+}
+
+// helper (တခါတည်း app.js ထဲ common helpers နားမှာထား)
+const isStaffLike = () => ["owner","admin","instructor","ta"].includes(getRole?.() || "student");
+const tsToMs = (v) => {
+  // support: number | Firestore Timestamp | {tsMs:number} | Date
+  if (typeof v === "number") return v;
+  if (v?.toMillis)      return v.toMillis();         // Firestore Timestamp
+  if (v?.seconds)       return v.seconds * 1000;     // plain proto
+  if (v?.tsMs)          return Number(v.tsMs) || 0;  // our cache shape
+  if (v instanceof Date) return v.getTime();
+  return 0;
+};
+
 function renderAnnouncements() {
   const box = $("#annList");
   if (!box) return;
-  const arr = getAnns().slice().reverse();
-  box.innerHTML =
-    arr
-      .map(
-        (a) => `
-    <div class="card" data-id="${a.id}">
-      <div class="row" style="justify-content:space-between">
-        <strong>${esc(a.title)}</strong>
-        <span class="small muted">${new Date(a.ts).toLocaleString()}</span>
-      </div>
-      <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
-      <div class="row" style="justify-content:flex-end; gap:6px">
-        <button class="btn small" data-edit="${a.id}" data-role-min="instructor">Edit</button>
-+ <button class="btn small" data-del="${a.id}"  data-role-min="instructor">Delete</button>
-      </div>
-    </div>`
-      )
-      .join("") || `<div class="muted">No announcements yet.</div>`;
-  wireAnnouncementEditButtons();
-  updateAnnBadge();
-  enforceRoleGates?.(); // 🔒 re-check after DOM updates
+
+  // Firestore live listener နဲ့ sync လုပ်ထားမယ်ဆို ANN_CACHE က latest
+  const arrRaw = (typeof ANN_CACHE !== "undefined" && Array.isArray(ANN_CACHE))
+    ? ANN_CACHE
+    : (getAnns?.() || []);
+
+  // sort → latest first (tsMs || ts)
+  const arr = arrRaw.slice().sort((a,b) => tsToMs(b.ts ?? b.tsMs) - tsToMs(a.ts ?? a.tsMs));
+
+  box.innerHTML = arr.length
+    ? arr.map((a) => {
+        const when = tsToMs(a.ts ?? a.tsMs);
+        return `
+          <div class="card" data-id="${esc(a.id || "")}">
+            <div class="row" style="justify-content:space-between">
+              <strong>${esc(a.title || "")}</strong>
+              <span class="small muted">${when ? new Date(when).toLocaleString() : "—"}</span>
+            </div>
+            <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
+            ${
+              (isAdminLike?.() || isStaffLike())
+                ? `<div class="row" style="justify-content:flex-end; gap:6px">
+                     <button class="btn small" data-edit="${esc(a.id || "")}">Edit</button>
+                     <button class="btn small" data-del="${esc(a.id || "")}">Delete</button>
+                   </div>`
+                : ``
+            }
+          </div>`;
+      }).join("")
+    : `<div class="muted">No announcements yet.</div>`;
+
+  wireAnnouncementEditButtons?.();
+  updateAnnBadge?.();
+  enforceRoleGates?.(); // role-based button disable/hide (ရှိရင်)
 }
 window.renderAnnouncements = renderAnnouncements;
 
@@ -3229,20 +3305,60 @@ $("#btn-new-post")?.addEventListener("click", () => {
 });
 $("#closePostModal")?.addEventListener("click", () => $("#postModal")?.close());
 $("#cancelPost")?.addEventListener("click", () => $("#postModal")?.close());
-$("#postForm")?.addEventListener("submit", (e) => {
+// Firestore-based submit (with local fallback)
+$("#postForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
+
   const t = $("#pmTitle")?.value.trim();
   const b = $("#pmBody")?.value.trim();
   if (!t || !b) return toast("Fill all fields");
+
+  // 🔐 Only staff can post/edit
+  if (!(typeof isStaffLike === "function" ? isStaffLike() : isAdminLike())) {
+    return toast("Only staff can post/edit");
+  }
+
   const f = $("#postForm");
   const editId = f?.dataset.editId || "";
-  const arr = getAnns();
+
+  // ---- Firestore path (preferred) ----
+  try {
+    if (db && typeof collection === "function") {
+      const colRef = collection(db, "announcements");
+
+      if (editId) {
+        // Update existing doc
+        const ref = doc(db, "announcements", editId);
+        await setDoc(
+          ref,
+          { title: t, body: b, ts: serverTimestamp() },
+          { merge: true }
+        );
+        toast("Updated");
+      } else {
+        // Create new doc
+        await addDoc(colRef, { title: t, body: b, ts: serverTimestamp() });
+        toast("Announcement posted");
+      }
+
+      // Firestore onSnapshot listener will re-render UI
+      f.dataset.editId = "";
+      $("#postModal")?.close();
+      return;
+    }
+  } catch (err) {
+    console.warn("Firestore post failed, falling back to local:", err);
+  }
+
+  // ---- Local fallback (only if Firestore unavailable) ----
+  const arr = (typeof getAnns === "function" ? getAnns() : []) || [];
   if (editId) {
     const i = arr.findIndex((x) => x.id === editId);
     if (i >= 0) {
       arr[i].title = t;
       arr[i].body = b;
-      toast("Updated");
+      arr[i].ts = Date.now();
+      toast("Updated (local)");
     }
   } else {
     arr.push({
@@ -3251,11 +3367,11 @@ $("#postForm")?.addEventListener("submit", (e) => {
       body: b,
       ts: Date.now(),
     });
-    toast("Announcement posted");
+    toast("Announcement posted (local)");
   }
-  setAnns(arr);
+  if (typeof setAnns === "function") setAnns(arr);
   $("#postModal")?.close();
-  renderAnnouncements();
+  if (typeof renderAnnouncements === "function") renderAnnouncements();
 });
 
 /* ---------- Chat gating ---------- */
@@ -3273,25 +3389,37 @@ function gateChatUI() {
 }
 
 /* ---------- Global Live Chat (RTDB if available; local fallback) ---------- */
+import {
+  getDatabase, ref, query, orderByChild, endAt, get,
+  onChildAdded, push, remove
+} from "firebase/database";
+
 function initChatRealtime() {
   const box = $("#chatBox"),
     input = $("#chatInput"),
     send = $("#chatSend");
   if (!box || !send) return;
+
   const display = getUser()?.email || "guest";
+
+  if (CHAT_FORCE_CLOUD && (!auth?.currentUser || auth.currentUser.isAnonymous)) {
+  // disable UI & hint
+  input?.setAttribute("disabled", "true");
+  send?.setAttribute("disabled", "true");
+  const card = send?.closest(".card");
+  card && card.classList.add("gated");
+  toast("Please log in to use chat");
+  return () => {};
+}
 
   try {
     if (!auth?.currentUser || auth.currentUser.isAnonymous)
       throw new Error("no-auth");
+
     const rtdb = getDatabase();
-    const roomRef = ref(getDatabase(), "chats/global");
+    const roomRef = ref(rtdb, "chats/global");
 
-    // after building roomRef
-    pruneOldChatsRTDB(roomRef);
-
-    // if you keep an offline fallback list:
-    pruneOldChatsLocal("ol_chat_room_global"); // for global
-
+    // auto prune old (10 days)
     const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
     (async () => {
       try {
@@ -3299,9 +3427,12 @@ function initChatRealtime() {
         const oldQ = query(roomRef, orderByChild("ts"), endAt(cutoff));
         const snap = await get(oldQ);
         snap.forEach((child) => remove(child.ref));
-      } catch {}
+      } catch (err) {
+        console.warn("Prune failed", err);
+      }
     })();
 
+    // listen for new chats
     onChildAdded(roomRef, (snap) => {
       const m = snap.val();
       if (!m) return;
@@ -3314,6 +3445,7 @@ function initChatRealtime() {
       box.scrollTop = box.scrollHeight;
     });
 
+    // send handler
     send.onclick = async () => {
       const text = (input?.value || "").trim();
       if (!text) return;
@@ -3329,14 +3461,17 @@ function initChatRealtime() {
           ts: Date.now(),
         });
         if (input) input.value = "";
-      } catch {
+      } catch (err) {
+        console.warn("Push failed", err);
         toast("Chat failed");
       }
     };
     return;
-  } catch {}
+  } catch (err) {
+    console.warn("Chat init failed", err);
+  }
 
-  // Local-only fallback
+  // fallback (local only)
   const KEY = "ol_chat_local";
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
@@ -3363,125 +3498,22 @@ function initChatRealtime() {
 }
 
 /* ---------- Per-course chat ---------- */
-function wireCourseChatRealtime(courseId) {
-  const list = $("#ccList"),
-    input = $("#ccInput"),
-    send = $("#ccSend"),
-    label = $("#chatRoomLabel");
-  if (!list || !send) return;
-  if (label) label.textContent = "room: " + courseId;
-  const display = getUser()?.email || "you";
+// RTDB helper imports (firebase.js ကနေ export ပြီးသားဖြစ်ရပါမယ်)
 
-  try {
-    if (!auth?.currentUser || auth.currentUser.isAnonymous)
-      throw new Error("no-auth");
-    const rtdb = getDatabase();
-    const roomRef = ref(getDatabase(), `chats/${courseId}`);
 
-    // after building roomRef
-    pruneOldChatsRTDB(roomRef);
-
-    // if you keep an offline fallback list:
-    // per course:
-    pruneOldChatsLocal("ol_chat_room_" + courseId);
-
-    const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
-    (async () => {
-      try {
-        const cutoff = Date.now() - TEN_DAYS;
-        const oldQ = query(roomRef, orderByChild("ts"), endAt(cutoff));
-        const snap = await get(oldQ);
-        snap.forEach((child) => remove(child.ref));
-      } catch {}
-    })();
-
-    onChildAdded(roomRef, (snap) => {
-      const m = snap.val();
-      if (!m) return;
-      list.insertAdjacentHTML(
-        "beforeend",
-        `<div class="msg"><b>${esc(m.user)}</b>
-        <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
-        <div>${esc(m.text)}</div></div>`
-      );
-      list.scrollTop = list.scrollHeight;
-    });
-
-    send.onclick = async () => {
-      const text = (input?.value || "").trim();
-      if (!text) return;
-      if (!auth.currentUser || auth.currentUser.isAnonymous) {
-        toast("Please login to chat");
-        return;
-      }
-      try {
-        await push(roomRef, {
-          uid: auth.currentUser.uid,
-          user: auth.currentUser.email || "user",
-          text,
-          ts: Date.now(),
-        });
-        if (input) input.value = "";
-      } catch {
-        toast("Chat failed");
-      }
-    };
-    return;
-  } catch {}
-
-  // local fallback
-  const KEY = "ol_chat_room_" + courseId;
-  const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
-  const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
-  const draw = (m) => {
-    list.insertAdjacentHTML(
-      "beforeend",
-      `<div class="msg"><b>${esc(m.user)}</b>
-      <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
-      <div>${esc(m.text)}</div></div>`
-    );
-    list.scrollTop = list.scrollHeight;
-  };
-
-  const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
-
-  let arr = load();
-
-  // prune 10 days+
-  const cutoff = Date.now() - TEN_DAYS;
-  const pruned = arr.filter((m) => (m.ts || 0) >= cutoff);
-  if (pruned.length !== arr.length) {
-    save(pruned);
-    arr = pruned;
-  }
-
-  list.innerHTML = "";
-  arr.forEach(draw);
-  send.onclick = () => {
-    const text = (input?.value || "").trim();
-    if (!text) return;
-    const m = { user: display, text, ts: Date.now() };
-    arr.push(m);
-    save(arr);
-    draw(m);
-    if (input) input.value = "";
-  };
-}
-
-// === Chat TTL (10 days) ===
+// 10 days TTL (shared)
 const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
 
+/** Safer prune that does NOT require `endAt` */
 async function pruneOldChatsRTDB(roomRef) {
   try {
     const cutoff = Date.now() - TEN_DAYS;
-    const snap = await get(roomRef); // no 'endAt' — filter client-side
-    snap.forEach((child) => {
-      const v = child.val && child.val();
-      const ts = v && v.ts ? Number(v.ts) : 0;
+    const snap = await get(roomRef);  // fetch once
+    snap.forEach(child => {
+      const v = child.val();
+      const ts = v && Number(v.ts || 0);
       if (ts && ts < cutoff) {
-        try {
-          remove(child.ref);
-        } catch {}
+        try { remove(child.ref); } catch {}
       }
     });
   } catch (e) {
@@ -3493,11 +3525,128 @@ function pruneOldChatsLocal(key) {
   try {
     const cutoff = Date.now() - TEN_DAYS;
     const arr = JSON.parse(localStorage.getItem(key) || "[]");
-    const pruned = arr.filter((m) => Number(m.ts || 0) >= cutoff);
+    const pruned = arr.filter(m => Number(m.ts || 0) >= cutoff);
     if (pruned.length !== arr.length) {
       localStorage.setItem(key, JSON.stringify(pruned));
     }
   } catch {}
+}
+
+export function wireCourseChatRealtime(courseId) {
+  const list  = $("#ccList"),
+        input = $("#ccInput"),
+        send  = $("#ccSend"),
+        label = $("#chatRoomLabel");
+  if (!list || !send) return () => {};
+
+  if (label) label.textContent = "room: " + courseId;
+  const display = getUser()?.email || "you";
+
+  if (CHAT_FORCE_CLOUD && (!auth?.currentUser || auth.currentUser.isAnonymous)) {
+  // disable UI & hint
+  input?.setAttribute("disabled", "true");
+  send?.setAttribute("disabled", "true");
+  const card = send?.closest(".card");
+  card && card.classList.add("gated");
+  toast("Please log in to use chat");
+  return () => {};
+}
+
+  // ---------- Cloud (RTDB) path ----------
+  try {
+    if (!auth?.currentUser || auth.currentUser.isAnonymous) {
+      throw new Error("no-auth");
+    }
+    const rtdb = getDatabase();
+    const roomRef = ref(rtdb, `chats/${courseId}`);
+
+    // prune (single function; no `endAt` needed)
+    pruneOldChatsRTDB(roomRef);
+    // local cache prune (if you keep it)
+    pruneOldChatsLocal("ol_chat_room_" + courseId);
+
+    // draw helper
+    const draw = (m) => {
+      list.insertAdjacentHTML(
+        "beforeend",
+        `<div class="msg"><b>${esc(m.user)}</b>
+          <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+          <div>${esc(m.text)}</div>
+        </div>`
+      );
+      list.scrollTop = list.scrollHeight;
+    };
+
+    // listen
+    const off = onChildAdded(roomRef, (snap) => {
+      const m = snap.val();
+      if (m) draw(m);
+    });
+
+    // send
+    send.onclick = async () => {
+      const text = (input?.value || "").trim();
+      if (!text) return;
+      if (!auth.currentUser || auth.currentUser.isAnonymous) {
+        toast("Please login to chat");
+        return;
+      }
+      try {
+        await push(roomRef, {
+          uid:  auth.currentUser.uid,
+          user: auth.currentUser.email || "user",
+          text,
+          ts:   Date.now(),
+        });
+        if (input) input.value = "";
+      } catch (e) {
+        console.warn("chat push failed", e);
+        toast("Chat failed");
+      }
+    };
+
+    // return unsubscribe for caller to clean up
+    return () => {
+      try { off && off(); } catch {}
+    };
+  } catch {
+    // fall through to local
+  }
+
+  // ---------- Local-only fallback ----------
+  const KEY  = "ol_chat_room_" + courseId;
+  const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
+  const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
+
+  // prune & render
+  const cutoff = Date.now() - TEN_DAYS;
+  let arr = load().filter(m => Number(m.ts || 0) >= cutoff);
+  save(arr);
+
+  list.innerHTML = "";
+  const drawLocal = (m) => {
+    list.insertAdjacentHTML(
+      "beforeend",
+      `<div class="msg"><b>${esc(m.user)}</b>
+        <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+        <div>${esc(m.text)}</div>
+      </div>`
+    );
+    list.scrollTop = list.scrollHeight;
+  };
+  arr.forEach(drawLocal);
+
+  send.onclick = () => {
+    const text = (input?.value || "").trim();
+    if (!text) return;
+    const m = { user: display, text, ts: Date.now() };
+    arr.push(m); save(arr);
+    drawLocal(m);
+    if (input) input.value = "";
+  };
+
+  // local fallback has nothing to unsubscribe
+  return () => {};
 }
 
 let IS_AUTHED = false;
@@ -3891,6 +4040,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   addEventListener("pageshow", () =>
     document.body.classList.remove("printing")
   );
+  startAnnouncementsLive();
 });
 
 // run once on boot
