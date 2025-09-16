@@ -3202,7 +3202,8 @@ function wireAdminImportExportOnce() {
 }
 
 /* ---------- Announcements ---------- */
-let ANN_CACHE = []; // [{id,title,body,tsMs}]
+// let ANN_CACHE = []; // [{id,title,body,tsMs}]
+window.ANN_CACHE = window.ANN_CACHE || [];
 
 function startAnnouncementsLive() {
   if (!annsCol) return;
