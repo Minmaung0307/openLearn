@@ -236,6 +236,9 @@ function applyFont(px = 16) {
   document.documentElement.style.setProperty("--fontSize", px + "px");
 }
 
+// Ensure default theme is light/readable on first load
+document.documentElement.setAttribute('data-theme', 'light');
+
 /* ---------- Per-user localStorage scoping (prevents leakage across accounts) ---------- */
 const LS_BASE_KEYS = [
   "ol_enrolls",
