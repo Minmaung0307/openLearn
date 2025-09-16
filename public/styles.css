@@ -248,7 +248,7 @@ a:hover {
   cursor: pointer;
   padding: 0 12px;
   justify-content: left;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 #sidebar .navbtn.active {
   background: rgba(255, 255, 255, 0.08);
@@ -256,7 +256,6 @@ a:hover {
 }
 #sidebar .navbtn:hover {
   background: rgba(255, 255, 255, 0.08);
-  will-change: background;
 }
 #sidebar .navbtn i {
   width: 28px;
@@ -1286,9 +1285,7 @@ button,
 
 /* optional overlay (main မှာသာ ပြ) */
 #authGuardOverlay {
-  /* position: absolute; */
-  position: static;
-  pointer-events: none;
+  position: absolute;
   inset: 0;
   display: none;
   align-items: center;
@@ -1298,7 +1295,7 @@ button,
 }
 .locked-main + #authGuardOverlay { display: flex; }
 #authGuardOverlay .msg {
-  /* background: #fff; */
+  background: #fff;
   padding: 14px 18px;
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,.15);
@@ -1355,8 +1352,6 @@ button,
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-#topbar .btn { pointer-events: auto; }
 
 /* Guide & Help styles */
 .help-body { font-size: 0.95rem; line-height: 1.6; }

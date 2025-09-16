@@ -2,7 +2,6 @@
    OpenLearn · app.js (Improved)
    Part 1/6 — Imports, helpers, theme, state, roles
    ========================================================= */
-/* app.js — single-source imports only */
 import {
   db,
   auth,
@@ -16,44 +15,16 @@ import {
   ref,
   push,
   onChildAdded,
-  rtdbQuery,
+  query,
   orderByChild,
-  rtdbEndAt,
-  rtdbGet,
-  rtdbRemove,
+  get,
+  remove,
 
-  // Firestore
+  // Firestore (for enroll sync)
   doc,
   getDoc,
   setDoc,
-  collection,
-  addDoc,
-  onSnapshot,
-  fsQuery,
-  fsOrderBy,
-  serverTimestamp,
-
-  // Storage (✅ keep only here)
-  storage,
-  storageRef,
-  uploadBytes,
-  getDownloadURL,
 } from "./firebase.js";
-
-// --- Auth state bootstrap (keep near top of app.js) ---
-onAuthStateChanged(auth, (u) => {
-  document.body.classList.toggle("logged", !!u);
-  document.body.classList.toggle("anon", !u);
-
-  // keep login/logout buttons in sync
-  const bLogin = document.getElementById("btn-login");
-  const bLogout = document.getElementById("btn-logout");
-  if (bLogin) bLogin.style.display = u ? "none" : "";
-  if (bLogout) bLogout.style.display = u ? "" : "none";
-
-  // scope + minimal refresh
-  switchLocalStateForUser(currentUidKey());
-});
 
 /* ---------- tiny DOM helpers ---------- */
 const $ = (s, root = document) => root.querySelector(s);
@@ -263,85 +234,45 @@ function applyFont(px = 16) {
 }
 
 /* ---------- Per-user localStorage scoping (prevents leakage across accounts) ---------- */
-const LS_BASE_KEYS = [
-  "ol_enrolls",
-  "ol_completed_v2",
-  "ol_quiz_state",
-  "ol_certs_v1",
-  "progress",
-];
-function _scopeKey(base, id) {
-  return `${base}::${id || "anon"}`;
-}
-function _readLS(k, d) {
-  try {
-    return JSON.parse(localStorage.getItem(k) || JSON.stringify(d));
-  } catch {
-    return d;
-  }
-}
-function _writeLS(k, v) {
-  localStorage.setItem(k, JSON.stringify(v));
-}
+const LS_BASE_KEYS = ["ol_enrolls","ol_completed_v2","ol_quiz_state","ol_certs_v1","progress"];
+function _scopeKey(base, id){ return `${base}::${id||"anon"}`; }
+function _readLS(k, d){ try{ return JSON.parse(localStorage.getItem(k) || JSON.stringify(d)); }catch{ return d; } }
+function _writeLS(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
 
-function _snapshotBaseToScope(uidKey) {
-  LS_BASE_KEYS.forEach((base) => {
+function _snapshotBaseToScope(uidKey){
+  LS_BASE_KEYS.forEach(base=>{
     const v = _readLS(base, null);
-    if (v !== null && v !== undefined) _writeLS(_scopeKey(base, uidKey), v);
+    if (v!==null && v!==undefined) _writeLS(_scopeKey(base, uidKey), v);
   });
 }
-function _restoreScopeToBase(uidKey) {
-  LS_BASE_KEYS.forEach((base) => {
+function _restoreScopeToBase(uidKey){
+  LS_BASE_KEYS.forEach(base=>{
     const scoped = _readLS(_scopeKey(base, uidKey), null);
-    if (scoped === null || scoped === undefined) {
+    if (scoped===null || scoped===undefined) {
       // no prior state for this user → clear base to safe default
-      if (base === "ol_enrolls") _writeLS(base, []);
-      else if (base === "ol_completed_v2") _writeLS(base, []);
-      else if (base === "ol_quiz_state") _writeLS(base, {});
-      else if (base === "ol_certs_v1") _writeLS(base, {});
-      else if (base === "progress") _writeLS(base, {});
+      if (base==="ol_enrolls") _writeLS(base, []);
+      else if (base==="ol_completed_v2") _writeLS(base, []);
+      else if (base==="ol_quiz_state") _writeLS(base, {});
+      else if (base==="ol_certs_v1") _writeLS(base, {});
+      else if (base==="progress") _writeLS(base, {});
     } else {
       _writeLS(base, scoped);
     }
   });
 }
 
-// ======== FAST USER-SCOPE SWITCH (drop-in replacement) ========
 let _ACTIVE_UID_SCOPE = null;
-function switchLocalStateForUser(newUidKey) {
-  const target = newUidKey || "anon";
-  if (_ACTIVE_UID_SCOPE === target) return; // no-op
-
-  // 1) snapshot old base → old scope (cheap)
-  if (_ACTIVE_UID_SCOPE !== null) {
-    try {
-      _snapshotBaseToScope(_ACTIVE_UID_SCOPE);
-    } catch {}
-
-    // ⚡ defer heavy work so the UI stays responsive during auth transitions
-    queueMicrotask(() =>
-      requestIdleCallback?.(() => {
-        try {
-          /* room for future compaction if needed */
-        } catch {}
-      })
-    );
-  }
-
-  // 2) restore new scope → base (cheap)
-  _ACTIVE_UID_SCOPE = target;
+function switchLocalStateForUser(newUidKey){
+  const key = newUidKey || "anon";
+  if (_ACTIVE_UID_SCOPE === key) return;
+  // Save current base → old scope
+  if (_ACTIVE_UID_SCOPE !== null) _snapshotBaseToScope(_ACTIVE_UID_SCOPE);
+  // Switch → restore new scope into base
+  _ACTIVE_UID_SCOPE = key;
+  _restoreScopeToBase(_ACTIVE_UID_SCOPE);
+  // Re-render things that read from localStorage
   try {
-    _restoreScopeToBase(_ACTIVE_UID_SCOPE);
-  } catch {}
-
-  // 3) minimally re-render only what truly depends on scoped LS
-  //    (old version was re-rendering many pages eagerly)
-  try {
-    renderCatalog();
-    const hash = (location.hash || "#catalog").slice(1);
-    if (hash === "mylearning") window.renderMyLearning?.();
-    else if (hash === "profile") window.renderProfilePanel?.();
-    else if (hash === "gradebook") window.renderGradebook?.();
+    renderCatalog(); window.renderMyLearning?.(); window.renderProfilePanel?.(); window.renderGradebook?.();
   } catch {}
 }
 
@@ -396,8 +327,6 @@ function shuffle(arr) {
   return arr;
 }
 
-const CHAT_FORCE_CLOUD = true; // login မရှိရင် chat ကို local-fallback မသွားအောင် ပိတ်
-
 const QUIZ_STATE_KEY = "ol_quiz_state"; // {"cid:idx":{best:0.8,passed:true}}
 const getQuizState = () => _read(QUIZ_STATE_KEY, {});
 const setQuizState = (o) => _write(QUIZ_STATE_KEY, o);
@@ -428,17 +357,6 @@ const setPassedQuiz = (cid, idx, score) => {
   };
 })();
 
-const annsCol = db ? collection(db, "announcements") : null;
-
-function postAnnouncementCloud({ title, body }) {
-  if (!annsCol) return Promise.reject("no-db");
-  return addDoc(annsCol, {
-    title,
-    body,
-    ts: serverTimestamp(), // server time for proper ordering
-  });
-}
-
 // ---- Certificate registry (local + optional cloud) ----
 const CERTS_KEY = "ol_certs_v1"; // { "<uid>|<courseId>": { id, issuedAt, name, photo, score } }
 const getCerts = () => _read(CERTS_KEY, {});
@@ -456,7 +374,7 @@ function certKey(courseId) {
 // 👉 one-time migrate from old shared enrolls → per-user key
 function migrateEnrollsToScopedOnce() {
   try {
-    const legacy = _read("ol_enrolls", null); // old shared array
+    const legacy = _read("ol_enrolls", null);          // old shared array
     const scoped = _read(enrollKey(), null);
     if (Array.isArray(legacy) && !scoped) {
       _write(enrollKey(), legacy);
@@ -468,11 +386,11 @@ function migrateEnrollsToScopedOnce() {
 // 👉 one-time migration from legacy shared key → user-scoped key
 function migrateProfileToScopedOnce() {
   try {
-    const legacy = _read("ol_profile", null); // old shared value (or null)
+    const legacy = _read("ol_profile", null);              // old shared value (or null)
     const targetKey = profileStorageKey();
-    const already = _read(targetKey, null); // existing scoped value?
+    const already = _read(targetKey, null);                // existing scoped value?
     if (legacy && !already) {
-      _write(targetKey, legacy); // copy once
+      _write(targetKey, legacy);                           // copy once
     }
     // (optional) old key နှိပ်ချင်ရင်:
     // localStorage.removeItem("ol_profile");
@@ -532,11 +450,7 @@ function resolveAssetUrl(u) {
   u = u.replace(/^\/?public\//, "/");
 
   // if already absolute http(s)/data OR starts with "/", leave it
-  if (
-    /^(https?:)?\/\//i.test(u) ||
-    u.startsWith("/") ||
-    u.startsWith("data:")
-  ) {
+  if (/^(https?:)?\/\//i.test(u) || u.startsWith("/") || u.startsWith("data:")) {
     return u;
   }
 
@@ -570,7 +484,6 @@ function normalizeQuiz(raw) {
   }
   return null;
 }
-
 
 // ===== Quiz config (add this near the top) =====
 const QUIZ_PASS = 0.7; // 0.70 = 70% pass (လိုသလို 0.75 သို့ပြန်ခဲ့ရင် အလွယ်)
@@ -636,7 +549,7 @@ async function syncEnrollsBothWays() {
   }
 
   try {
-    const cloud = await loadEnrollsCloud(); // Set() or null
+    const cloud = await loadEnrollsCloud();          // Set() or null
     if (cloud) {
       // ✅ TRUST CLOUD: overwrite local for this user
       setEnrolls(cloud);
@@ -840,7 +753,6 @@ document.addEventListener("DOMContentLoaded", () => {
 );
 
 /* ---------- sidebar + topbar offset (iPad/touch-friendly) ---------- */
-// ======== SIDEBAR INIT (replace the inner click bindings block) ========
 function initSidebar() {
   const sb = $("#sidebar"),
     burger = $("#btn-burger");
@@ -859,34 +771,35 @@ function initSidebar() {
   const setExpandedFlag = (on) =>
     document.body.classList.toggle("sidebar-expanded", !!on);
 
+  sb?.addEventListener("click", (e) => {
+    const navBtn = e.target.closest(".navbtn");
+    if (navBtn) return;
+    if (isTouchLike()) {
+      const on = !document.body.classList.contains("sidebar-expanded");
+      setExpandedFlag(on);
+    }
+  });
+
   burger?.addEventListener("click", (e) => {
     e.stopPropagation();
     sb?.classList.toggle("show");
     setExpandedFlag(sb?.classList.contains("show"));
   });
 
-  // single delegated handler for nav buttons (no duplicate listeners)
   sb?.addEventListener("click", (e) => {
-    const navBtn = e.target.closest(".navbtn");
-    if (!navBtn) {
-      if (isTouchLike()) {
-        // tap blank area toggles drawer
-        const on = !document.body.classList.contains("sidebar-expanded");
-        setExpandedFlag(on);
-      }
-      return;
-    }
-    const page = navBtn.dataset.page;
-    if (page) showPage(page);
+    const b = e.target.closest(".navbtn");
+    if (!b) return;
+    showPage(b.dataset.page);
     if (isTouchLike()) {
       sb.classList.remove("show");
       setExpandedFlag(false);
     }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
-  // outside click to close (touch only)
   document.addEventListener("click", (e) => {
-    if (!isTouchLike() || !sb?.classList.contains("show")) return;
+    if (!isTouchLike()) return;
+    if (!sb?.classList.contains("show")) return;
     if (!e.target.closest("#sidebar") && e.target !== burger) {
       sb.classList.remove("show");
       setExpandedFlag(false);
@@ -914,55 +827,34 @@ if ("ResizeObserver" in window) {
   tb && new ResizeObserver(_runTopbarOffset).observe(tb);
 }
 
-// ======== FAST PAGE ROUTER (drop-in replacement) ========
-let _CURRENT_PAGE_ID = null;
-
+/* ---------- router + search ---------- */
 function showPage(id, push = true) {
-  if (!id) id = "catalog";
-  if (id === _CURRENT_PAGE_ID) return; // already shown
+  // $$(".page").forEach((p) => p.classList.remove("visible"));
+  document.querySelectorAll("main .page").forEach(p => p.classList.remove("visible"));
+  // $("#page-" + id)?.classList.add("visible");
+  document.querySelector("main #page-" + id)?.classList.add("visible");
 
-  // only touch two nodes: previous visible & target
-  const prev = document.querySelector("main .page.visible");
-  if (prev) prev.classList.remove("visible");
+  // highlight nav
+  $$("#sidebar .navbtn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.page === id)
+  );
 
-  const next = document.getElementById("page-" + id);
-  if (next) next.classList.add("visible");
-
-  // nav highlight (no NodeList full scan if possible)
-  const activeBtn = document.querySelector("#sidebar .navbtn.active");
-  if (activeBtn) activeBtn.classList.remove("active");
-  const nextBtn = document.querySelector(`#sidebar .navbtn[data-page="${id}"]`);
-  if (nextBtn) nextBtn.classList.add("active");
-
-  // lazy-run page specific renders
   if (id === "mylearning") window.renderMyLearning?.();
-  else if (id === "gradebook") window.renderGradebook?.();
-  else if (id === "admin") window.renderAdminTable?.();
-  else if (id === "dashboard") window.renderAnnouncements?.();
+  if (id === "gradebook") window.renderGradebook?.();
+  if (id === "admin") window.renderAdminTable?.();
+  if (id === "dashboard") window.renderAnnouncements?.();
 
-  // update URL only when needed
-  if (push) history.pushState({ page: id }, "", "#" + id);
-
-  _CURRENT_PAGE_ID = id;
-
-  // smooth UX without forcing layout thrash
-  requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  // 🔑 update browser history (default true)
+  if (push) {
+    history.pushState({ page: id }, "", "#" + id);
+  }
 }
 
 function updateAnnBadge() {
   const b = document.getElementById("annBadge");
   if (!b) return;
-
-  // 🔹 Prefer Firestore live cache, fallback to local
-  const list =
-    typeof ANN_CACHE !== "undefined" && Array.isArray(ANN_CACHE)
-      ? ANN_CACHE
-      : getAnns
-      ? getAnns()
-      : [];
-
+  const list = getAnns ? getAnns() : [];
   const n = Array.isArray(list) ? list.length : 0;
-
   if (n > 0) {
     b.textContent = String(n);
     b.style.display = "inline-flex";
@@ -982,11 +874,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// ======== ROUTER BOOT ========
+// handle browser back/forward
 window.addEventListener("popstate", (e) => {
   const id = e.state?.page || location.hash.replace("#", "") || "catalog";
-  showPage(id, false);
+  showPage(id, false); // ⚠️ push=false မဟုတ်ရင် infinite loop ဖြစ်မယ်
 });
+
+// on first load → hash check
 document.addEventListener("DOMContentLoaded", () => {
   const initial = location.hash.replace("#", "") || "catalog";
   showPage(initial, false);
@@ -1022,52 +916,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // escape key / backdrop click auto works with <dialog>
-});
-
-// --- Login / Logout UI wiring (run once after DOM ready) ---
-document.addEventListener("DOMContentLoaded", () => {
-  const dlg = document.getElementById("loginModal");
-  const frm = document.getElementById("loginForm");
-  const bLogin = document.getElementById("btn-login");
-  const bLogout = document.getElementById("btn-logout");
-  const bCancel = document.getElementById("btnLoginCancel");
-
-  // open modal
-  bLogin?.addEventListener("click", () => {
-    document.body.classList.remove("locked"); // safety
-    dlg?.showModal();
-  });
-
-  // cancel
-  bCancel?.addEventListener("click", () => dlg?.close());
-
-  // submit -> Firebase email/password
-  frm?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = (document.getElementById("loginEmail")?.value || "").trim();
-    const pass = (document.getElementById("loginPass")?.value || "").trim();
-    if (!email || !pass) return;
-
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-      dlg?.close();
-      toast("Signed in");
-    } catch (err) {
-      console.error(err);
-      toast("Login failed: " + (err?.code || "unknown"));
-    }
-  });
-
-  // logout
-  bLogout?.addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-      toast("Signed out");
-    } catch (e) {
-      console.error(e);
-      toast("Logout failed");
-    }
-  });
 });
 
 function initSearch() {
@@ -1251,7 +1099,7 @@ function initSearch() {
    ========================================================= */
 
 /* ---------- Roles: resolve from Firestore or fallback map ---------- */
-const ROLE_ORDER = ["student", "ta", "instructor", "admin", "owner"];
+const ROLE_ORDER = ["student","ta","instructor","admin","owner"];
 const _HARDCODED_ROLE_BY_EMAIL = {
   "pbczmmus@gmail.com": "owner",
   "minmaung0307@gmail.com": "admin",
@@ -1260,12 +1108,9 @@ const _HARDCODED_ROLE_BY_EMAIL = {
   "honeymoe093@gmail.com": "student",
   // လိုသလို ထပ်ထည့်လို့ရ: "teacher@example.com": "instructor"
 };
-function roleRank(r) {
-  const i = ROLE_ORDER.indexOf(String(r || "student").toLowerCase());
-  return i < 0 ? 0 : i;
-}
+function roleRank(r){ const i=ROLE_ORDER.indexOf(String(r||"student").toLowerCase()); return i<0?0:i; }
 
-async function resolveUserRole(u) {
+async function resolveUserRole(u){
   try {
     // u: Firebase user object
     const uid = u?.uid || "";
@@ -1290,14 +1135,14 @@ async function resolveUserRole(u) {
 
 /* ---------- Page-level role guard ---------- */
 const PAGE_ROLE_MIN = {
-  admin: "instructor", // admin page requires instructor+
-  gradebook: "instructor", // gradebook requires instructor+
+  admin: "instructor",   // admin page requires instructor+
+  gradebook: "instructor" // gradebook requires instructor+
   // လိုသလို ထပ်ထည့်ပါ: dashboard: "ta", etc.
 };
 
-(function patchShowPageRoleGuard() {
+(function patchShowPageRoleGuard(){
   const _sp = window.showPage;
-  window.showPage = function (id, ...rest) {
+  window.showPage = function(id, ...rest){
     const need = PAGE_ROLE_MIN[id];
     if (need && roleRank(getRole()) < roleRank(need)) {
       toast(`Requires ${need}+ role`);
@@ -1311,28 +1156,18 @@ const PAGE_ROLE_MIN = {
 })();
 
 /* ---------- Element-level role gate (attach data-role-min on sensitive controls) ---------- */
-function enforceRoleGates() {
+function enforceRoleGates(){
   const r = getRole();
   const myRank = roleRank(r);
-  document.querySelectorAll("[data-role-min]").forEach((el) => {
+  document.querySelectorAll("[data-role-min]").forEach(el=>{
     const need = (el.getAttribute("data-role-min") || "student").toLowerCase();
     const ok = myRank >= roleRank(need);
     el.toggleAttribute("disabled", !ok);
     el.classList.toggle("disabled", !ok);
     if (el.dataset.roleHide === "true") el.style.display = ok ? "" : "none";
-    if (!el._rgWired) {
+    if (!el._rgWired){
       el._rgWired = true;
-      el.addEventListener(
-        "click",
-        (e) => {
-          if (!ok) {
-            e.preventDefault();
-            e.stopPropagation();
-            toast(`Requires ${need}+`);
-          }
-        },
-        true
-      );
+      el.addEventListener("click", (e)=>{ if(!ok){ e.preventDefault(); e.stopPropagation(); toast(`Requires ${need}+`);} }, true);
     }
   });
 }
@@ -1340,7 +1175,7 @@ document.addEventListener("DOMContentLoaded", enforceRoleGates);
 
 /* ---------- auth modal ---------- */
 function ensureAuthModalMarkup() {
-  if (document.getElementById("authModal")) return;
+  if ($("#authModal")) return;
   document.body.insertAdjacentHTML(
     "beforeend",
     `
@@ -1352,7 +1187,7 @@ function ensureAuthModalMarkup() {
       <input id="loginEmail" class="input" type="email" placeholder="you@example.com" required/>
       <label>Password</label>
       <input id="loginPass" class="input" type="password" placeholder="••••••••" required/>
-      <button class="btn primary wide" type="submit">Login</button>
+      <button class="btn primary wide" id="doLogin" type="submit">Login</button>
       <div class="auth-links">
         <a href="#" id="linkSignup">Sign up</a><span>·</span><a href="#" id="linkForgot">Forgot password?</a>
       </div>
@@ -1361,24 +1196,23 @@ function ensureAuthModalMarkup() {
     <form id="authSignup" class="authpane ol-hidden" method="dialog">
       <div class="h4" style="margin-bottom:6px">Create Account</div>
       <label>Email</label>
-      <input id="signupEmail" class="input" type="email" required/>
+      <input id="signupEmail" class="input" type="email" placeholder="you@example.com" required/>
       <label>Password</label>
-      <input id="signupPass" class="input" type="password" required/>
-      <button class="btn primary wide" type="submit">Create account</button>
+      <input id="signupPass" class="input" type="password" placeholder="Choose a password" required/>
+      <button class="btn primary wide" id="doSignup" type="submit">Create account</button>
       <div class="auth-links"><a href="#" id="backToLogin1">Back to login</a></div>
     </form>
 
     <form id="authForgot" class="authpane ol-hidden" method="dialog">
       <div class="h4" style="margin-bottom:6px">Reset Password</div>
       <label>Email</label>
-      <input id="forgotEmail" class="input" type="email" required/>
-      <button class="btn wide" type="submit">Send reset link</button>
+      <input id="forgotEmail" class="input" type="email" placeholder="you@example.com" required/>
+      <button class="btn wide" id="doForgot" type="submit">Send reset link</button>
       <div class="auth-links"><a href="#" id="backToLogin2">Back to login</a></div>
     </form>
   </dialog>`
   );
 }
-
 function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
   $("#btn-login") && ($("#btn-login").style.display = on ? "none" : "");
@@ -1391,22 +1225,20 @@ function setLogged(on, email) {
     window.renderProfilePanel?.();
   } catch (_) {}
 }
-
 function initAuthModal() {
   ensureAuthModalMarkup();
-  const modal = document.getElementById("authModal");
+  const modal = $("#authModal");
   if (!modal) return;
 
   const showPane = (id) => {
     ["authLogin", "authSignup", "authForgot"].forEach((x) =>
-      document.getElementById(x)?.classList.add("ol-hidden")
+      $("#" + x)?.classList.add("ol-hidden")
     );
-    document.getElementById(id)?.classList.remove("ol-hidden");
-    if (!modal.open) modal.showModal();
+    $("#" + id)?.classList.remove("ol-hidden");
+    modal.showModal();
   };
   window._showLoginPane = () => showPane("authLogin");
 
-  // top-right login/logout buttons
   document.addEventListener("click", (e) => {
     const loginBtn = e.target.closest("#btn-login");
     const logoutBtn = e.target.closest("#btn-logout");
@@ -1420,146 +1252,101 @@ function initAuthModal() {
         try {
           await signOut(auth);
         } catch {}
-        setUser?.(null);
-        setLogged?.(false);
-        gateChatUI?.();
-        if (typeof switchLocalStateForUser === "function") {
-          switchLocalStateForUser("anon"); // isolate anon scope (guarded)
-        }
-        // UI refresh
-        renderCatalog?.();
-        window.renderMyLearning?.();
-        toast?.("Logged out");
+        setUser(null);
+        setLogged(false);
+        gateChatUI();
+        toast("Logged out");
+        switchLocalStateForUser("anon"); // isolate anon scope
       })();
     }
   });
 
-  // pane links
-  document.getElementById("linkSignup")?.addEventListener("click", (e) => {
+  $("#linkSignup")?.addEventListener("click", (e) => {
     e.preventDefault();
     showPane("authSignup");
   });
-  document.getElementById("linkForgot")?.addEventListener("click", (e) => {
+  $("#linkForgot")?.addEventListener("click", (e) => {
     e.preventDefault();
     showPane("authForgot");
   });
-  document.getElementById("backToLogin1")?.addEventListener("click", (e) => {
+  $("#backToLogin1")?.addEventListener("click", (e) => {
     e.preventDefault();
     showPane("authLogin");
   });
-  document.getElementById("backToLogin2")?.addEventListener("click", (e) => {
+  $("#backToLogin2")?.addEventListener("click", (e) => {
     e.preventDefault();
     showPane("authLogin");
   });
 
-  // helper: fetch role from Firestore if available; fallback to 'student'
-  async function fetchUserRole(u) {
+  $("#doLogin")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const em = $("#loginEmail")?.value.trim();
+    const pw = $("#loginPass")?.value;
+    if (!em || !pw) return toast("Fill email/password");
     try {
-      if (!u || !db) return "student";
-      const d = await getDoc(doc(db, "users", u.uid));
-      const r = d.exists() ? d.data().role || "student" : "student";
-      return r;
+      await signInWithEmailAndPassword(auth, em, pw);
+      setUser({ email: em, role: "student" });
+      setLogged(true, em);
+
+     migrateProfileToScopedOnce();
+const cloudP = await loadProfileCloud();
+if (cloudP) setProfile({ ...getProfile(), ...cloudP });
+renderProfilePanel?.();
+
+      migrateEnrollsToScopedOnce();       // 🔸 new
+await syncEnrollsBothWays();        // 🔸 cloud → local overwrite
+renderCatalog();
+window.renderMyLearning?.();
+
+      modal.close();
+      gateChatUI();
+      toast("Welcome back");
+      await syncEnrollsBothWays(); // ✅ sync enrolls on login
     } catch {
-      return "student";
+      toast("Login failed");
     }
-  }
-
-  // LOGIN (form submit → supports Enter key)
-  document
-    .getElementById("authLogin")
-    ?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const em = document.getElementById("loginEmail")?.value.trim();
-      const pw = document.getElementById("loginPass")?.value;
-      if (!em || !pw) return toast?.("Fill email/password");
-      try {
-        const cred = await signInWithEmailAndPassword(auth, em, pw);
-        const role = await fetchUserRole(cred.user);
-        setUser?.({ email: em, role });
-        setLogged?.(true, em);
-
-        // profile + enrolls scoped to user
-        try {
-          migrateProfileToScopedOnce?.();
-        } catch {}
-        try {
-          const cloudP = await loadProfileCloud?.();
-          if (cloudP) setProfile?.({ ...getProfile?.(), ...cloudP });
-          renderProfilePanel?.();
-        } catch {}
-
-        try {
-          migrateEnrollsToScopedOnce?.();
-        } catch {}
-        await syncEnrollsBothWays?.(); // ← ONE call is enough
-
-        renderCatalog?.();
-        window.renderMyLearning?.();
-        gateChatUI?.();
-
-        modal.close();
-        toast?.("Welcome back");
-      } catch (err) {
-        console.warn(err);
-        toast?.(err?.message || "Login failed");
-      }
-    });
-
-  // SIGNUP
-  document
-    .getElementById("authSignup")
-    ?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const em = document.getElementById("signupEmail")?.value.trim();
-      const pw = document.getElementById("signupPass")?.value;
-      if (!em || !pw) return toast?.("Fill email/password");
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, em, pw);
-        // default role student (or write to /users)
-        setUser?.({ email: em, role: "student" });
-        setLogged?.(true, em);
-
-        try {
-          migrateProfileToScopedOnce?.();
-        } catch {}
-        try {
-          const cloudP = await loadProfileCloud?.();
-          if (cloudP) setProfile?.({ ...getProfile?.(), ...cloudP });
-          renderProfilePanel?.();
-        } catch {}
-
-        try {
-          migrateEnrollsToScopedOnce?.();
-        } catch {}
-        await syncEnrollsBothWays?.(); // new users → ends up empty
-
-        renderCatalog?.();
-        window.renderMyLearning?.();
-        gateChatUI?.();
-
-        modal.close();
-        toast?.("Account created");
-      } catch (err) {
-        console.warn(err);
-        toast?.(err?.message || "Signup failed");
-      }
-    });
-
-  // FORGOT
-  document.getElementById("authForgot")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const em = document.getElementById("forgotEmail")?.value.trim();
-    if (!em) return toast?.("Enter email");
-    // If you already import sendPasswordResetEmail, you can call it here.
-    // await sendPasswordResetEmail(auth, em).catch(()=>{});
-    toast?.("Reset link sent (demo)");
-    showPane("authLogin");
   });
 
-  // gate clicks to require auth
+  $("#doSignup")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const em = $("#signupEmail")?.value.trim();
+    const pw = $("#signupPass")?.value;
+    if (!em || !pw) return toast("Fill email/password");
+    try {
+      await createUserWithEmailAndPassword(auth, em, pw);
+      setUser({ email: em, role: "student" });
+      setLogged(true, em);
+
+     migrateProfileToScopedOnce();
+const cloudP = await loadProfileCloud();
+if (cloudP) setProfile({ ...getProfile(), ...cloudP });
+renderProfilePanel?.();
+
+      migrateEnrollsToScopedOnce();       // 🔸 new
+await syncEnrollsBothWays();        // 🔸 ensures empty for new user
+renderCatalog();
+window.renderMyLearning?.();
+
+      modal.close();
+      gateChatUI();
+      toast("Account created");
+      await syncEnrollsBothWays(); // ✅ sync enrolls on signup
+    } catch {
+      toast("Signup failed");
+    }
+  });
+
+  $("#doForgot")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    const em = $("#forgotEmail")?.value.trim();
+    if (!em) return toast("Enter email");
+    modal.close();
+    toast("Reset link sent (demo)");
+  });
+
   document.addEventListener("click", (e) => {
-    const gated = e.target.closest?.("[data-requires-auth]");
-    if (gated && !auth?.currentUser) {
+    const gated = e.target.closest("[data-requires-auth]");
+    if (gated && !isLogged()) {
       e.preventDefault();
       e.stopPropagation();
       window._showLoginPane?.();
@@ -1807,73 +1594,67 @@ function progressDocRef() {
 }
 
 // Migrate once: if we have both <email> and <uid>, merge into <uid>
-// 🔇 Progress migration disabled to avoid Firestore permission errors.
-// Your rules only allow /progress/{uid} for the current uid, so
-// reading legacy email-key docs will fail. Keeping this as a no-op is safe.
 async function migrateProgressKey() {
-  return; // do nothing
+  const uid = auth?.currentUser?.uid || "";
+  const email = (getUser()?.email || "").toLowerCase();
+  if (!db || !uid || !email || uid === email) return;
+
+  const refEmail = progressDocRefFor(email);
+  const refUid = progressDocRefFor(uid);
+
+  try {
+    const [snapEmail, snapUid] = await Promise.all([
+      getDoc(refEmail),
+      getDoc(refUid),
+    ]);
+    if (!snapEmail.exists()) return; // nothing under email → done
+
+    const dataE = snapEmail.data() || {};
+    const dataU = snapUid.exists() ? snapUid.data() || {} : {};
+
+    // merge strategy: completed by latest ts, quiz keep higher best/OR passed, certs prefer uid then email
+    const L_completed = dataE.completed || [];
+    const R_completed = dataU.completed || [];
+    const mapC = new Map();
+    [...L_completed, ...R_completed].forEach((x) => {
+      const prev = mapC.get(x.id);
+      if (!prev || (x.ts || 0) > (prev.ts || 0)) mapC.set(x.id, x);
+    });
+    const mergedCompleted = Array.from(mapC.values());
+
+    const keys = new Set([
+      ...Object.keys(dataE.quiz || {}),
+      ...Object.keys(dataU.quiz || {}),
+    ]);
+    const mergedQuiz = {};
+    keys.forEach((k) => {
+      const a = (dataE.quiz || {})[k] || {};
+      const b = (dataU.quiz || {})[k] || {};
+      mergedQuiz[k] = {
+        best: Math.max(a.best || 0, b.best || 0),
+        passed: !!(a.passed || b.passed),
+      };
+    });
+
+    const mergedCerts = { ...(dataE.certs || {}), ...(dataU.certs || {}) };
+
+    await setDoc(
+      refUid,
+      {
+        completed: mergedCompleted,
+        quiz: mergedQuiz,
+        certs: mergedCerts,
+        ts: Date.now(),
+      },
+      { merge: true }
+    );
+
+    // (optional) You can keep email doc or clean it up later.
+    // await deleteDoc(refEmail);
+  } catch (e) {
+    console.warn("migrateProgressKey failed:", e?.message || e);
+  }
 }
-// async function migrateProgressKey() {
-//   const uid = auth?.currentUser?.uid || "";
-//   const email = (getUser()?.email || "").toLowerCase();
-//   if (!db || !uid || !email || uid === email) return;
-
-//   const refEmail = progressDocRefFor(email);
-//   const refUid = progressDocRefFor(uid);
-
-//   try {
-//     const [snapEmail, snapUid] = await Promise.all([
-//       getDoc(refEmail),
-//       getDoc(refUid),
-//     ]);
-//     if (!snapEmail.exists()) return; // nothing under email → done
-
-//     const dataE = snapEmail.data() || {};
-//     const dataU = snapUid.exists() ? snapUid.data() || {} : {};
-
-//     // merge strategy: completed by latest ts, quiz keep higher best/OR passed, certs prefer uid then email
-//     const L_completed = dataE.completed || [];
-//     const R_completed = dataU.completed || [];
-//     const mapC = new Map();
-//     [...L_completed, ...R_completed].forEach((x) => {
-//       const prev = mapC.get(x.id);
-//       if (!prev || (x.ts || 0) > (prev.ts || 0)) mapC.set(x.id, x);
-//     });
-//     const mergedCompleted = Array.from(mapC.values());
-
-//     const keys = new Set([
-//       ...Object.keys(dataE.quiz || {}),
-//       ...Object.keys(dataU.quiz || {}),
-//     ]);
-//     const mergedQuiz = {};
-//     keys.forEach((k) => {
-//       const a = (dataE.quiz || {})[k] || {};
-//       const b = (dataU.quiz || {})[k] || {};
-//       mergedQuiz[k] = {
-//         best: Math.max(a.best || 0, b.best || 0),
-//         passed: !!(a.passed || b.passed),
-//       };
-//     });
-
-//     const mergedCerts = { ...(dataE.certs || {}), ...(dataU.certs || {}) };
-
-//     await setDoc(
-//       refUid,
-//       {
-//         completed: mergedCompleted,
-//         quiz: mergedQuiz,
-//         certs: mergedCerts,
-//         ts: Date.now(),
-//       },
-//       { merge: true }
-//     );
-
-//     // (optional) You can keep email doc or clean it up later.
-//     // await deleteDoc(refEmail);
-//   } catch (e) {
-//     console.warn("migrateProgressKey failed:", e?.message || e);
-//   }
-// }
 
 async function loadProgressCloud() {
   const ref = progressDocRef();
@@ -2029,9 +1810,7 @@ function renderProfilePanel() {
   const p = getProfile();
   const name = p.displayName || getUser()?.email || "Guest";
   const baseSrc = toImageSrc(p.photoURL);
-  const avatar = baseSrc
-    ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
-    : "";
+  const avatar = baseSrc ? (baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()) : "";
 
   //   const completed = getCompletedRaw();                       // ← all completed
   const dic = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
@@ -2108,16 +1887,8 @@ function renderProfilePanel() {
            onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
       <div class="grow">
         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
-        ${
-          p.bio
-            ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
-            : ""
-        }
-        ${
-          p.skills
-            ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
-            : ""
-        }
+        ${p.bio ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>` : ""}
+        ${p.skills ? `<div class="small muted">Skills: ${esc(p.skills)}</div>` : ""}
         <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
         ${certSection}
       </div>
@@ -2142,29 +1913,22 @@ function renderProfilePanel() {
 }
 window.renderProfilePanel = renderProfilePanel;
 
+// ---- Avatar Upload to Firebase Storage (non-destructive) ----
+import { storage, storageRef, uploadBytes, getDownloadURL } from "./firebase.js";
+
 // helper: path-safe filename
-function _safeName(name = "avatar.png") {
-  return String(name)
-    .replace(/[^a-z0-9._-]+/gi, "_")
-    .slice(0, 80);
+function _safeName(name="avatar.png"){
+  return String(name).replace(/[^a-z0-9._-]+/gi, "_").slice(0,80);
 }
 
 // ===== Avatar upload to Firebase Storage (uid-only) =====
 async function uploadAvatarFile(file) {
   if (!file) throw new Error("No file selected");
   const uid = auth?.currentUser?.uid;
-  if (!uid) {
-    toast?.("Please log in to upload");
-    throw new Error("Not authenticated");
-  }
-  const path = `avatars/${uid}/${Date.now()}_${(file.name || "img").replace(
-    /[^a-z0-9._-]+/gi,
-    "_"
-  )}`;
+  if (!uid) { toast?.("Please log in to upload"); throw new Error("Not authenticated"); }
+  const path = `avatars/${uid}/${Date.now()}_${(file.name||"img").replace(/[^a-z0-9._-]+/gi,"_")}`;
   const ref0 = storageRef(storage, path);
-  await uploadBytes(ref0, file, {
-    contentType: file.type || "application/octet-stream",
-  });
+  await uploadBytes(ref0, file, { contentType: file.type || "application/octet-stream" });
   return await getDownloadURL(ref0);
 }
 // async function uploadAvatarFile(file){
@@ -2184,9 +1948,7 @@ async function loadProfileCloud() {
     const docRef = doc(db, "users", uid);
     const snap = await getDoc(docRef);
     return snap.exists() ? snap.data() : null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function saveProfileCloud(patch) {
@@ -2198,30 +1960,26 @@ async function saveProfileCloud(patch) {
   } catch {}
 }
 
-(function wireAvatarUploadOnce() {
+(function wireAvatarUploadOnce(){
   const fInput = document.getElementById("avatarFile");
-  const btn = document.getElementById("avatarUploadBtn");
-  const form = document.getElementById("profileForm");
-  const urlEl =
-    form?.querySelector('input[name="photoURL"]') ||
-    document.getElementById("photoURL");
+  const btn    = document.getElementById("avatarUploadBtn");
+  const form   = document.getElementById("profileForm");
+  const urlEl  = form?.querySelector('input[name="photoURL"]') || document.getElementById("photoURL");
 
   if (!fInput || !btn) return;
-  if (btn._wired) return;
-  btn._wired = true;
+  if (btn._wired) return; btn._wired = true;
 
   btn.addEventListener("click", async () => {
     try {
       const file = fInput.files?.[0];
       if (!file) return toast("Select a file first");
       // (optional) size guard ~ 3MB
-      if (file.size > 3 * 1024 * 1024)
-        return toast("Image too large (max 3MB)");
+      if (file.size > 3 * 1024 * 1024) return toast("Image too large (max 3MB)");
 
       const url = await uploadAvatarFile(file);
-      if (urlEl) urlEl.value = url; // fill Photo URL field
+      if (urlEl) urlEl.value = url;     // fill Photo URL field
       toast("Avatar uploaded ✔️ (URL filled)");
-    } catch (e) {
+    } catch (e){
       console.warn(e);
       toast("Upload failed");
     }
@@ -2236,7 +1994,7 @@ function normalizeGDriveUrl(u) {
     if (url.hostname.includes("googleusercontent.com")) return u;
     if (url.hostname === "drive.google.com") {
       const m = url.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      const id = m ? m[1] : url.searchParams.get("id") || "";
+      const id = m ? m[1] : (url.searchParams.get("id") || "");
       if (id) return `https://drive.google.com/uc?export=view&id=${id}`;
     }
   } catch {}
@@ -2251,11 +2009,11 @@ document.getElementById("btn-edit-profile")?.addEventListener("click", () => {
   const p = getProfile();
   if (f) {
     f.displayName.value = p.displayName || "";
-    f.photoURL.value = p.photoURL || "";
-    f.bio.value = p.bio || "";
-    f.skills.value = p.skills || "";
-    f.links.value = p.links || "";
-    f.social.value = p.social || "";
+    f.photoURL.value    = p.photoURL || "";
+    f.bio.value         = p.bio || "";
+    f.skills.value      = p.skills || "";
+    f.links.value       = p.links || "";
+    f.social.value      = p.social || "";
   }
   // 🔽 wire file input for avatar upload (add this if not present)
   const file = document.getElementById("avatarFile");
@@ -2265,8 +2023,8 @@ document.getElementById("btn-edit-profile")?.addEventListener("click", () => {
       const sel = e.target.files?.[0];
       if (!sel) return;
       try {
-        const url = await uploadAvatarFile(sel); // Firebase Storage
-        if (f?.photoURL) f.photoURL.value = url; // put URL into field
+        const url = await uploadAvatarFile(sel);         // Firebase Storage
+        if (f?.photoURL) f.photoURL.value = url;         // put URL into field
         toast("Avatar uploaded");
       } catch (err) {
         console.warn(err);
@@ -2282,33 +2040,31 @@ $("#closeProfileModal")?.addEventListener("click", () =>
 $("#cancelProfile")?.addEventListener("click", () =>
   $("#profileEditModal")?.close()
 );
-document
-  .getElementById("profileForm")
-  ?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const f = e.currentTarget;
-    const rawUrl = (f.photoURL.value || "").trim();
+document.getElementById("profileForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.currentTarget;
+  const rawUrl = (f.photoURL.value || "").trim();
 
-    // 1) Google Drive link ဖြစ်ရင် direct view လုပ်ပေး
-    const normUrl = normalizeGDriveUrl(rawUrl);
+  // 1) Google Drive link ဖြစ်ရင် direct view လုပ်ပေး
+  const normUrl = normalizeGDriveUrl(rawUrl);
 
-    // 2) Save to local (user-scoped) + Cloud
-    const data = {
-      displayName: f.displayName.value.trim(),
-      photoURL: normUrl,
-      bio: f.bio.value.trim(),
-      skills: f.skills.value.trim(),
-      links: f.links.value.trim(),
-      social: f.social.value.trim(),
-    };
-    setProfile(data);
-    await saveProfileCloud(data);
+  // 2) Save to local (user-scoped) + Cloud
+  const data = {
+    displayName: f.displayName.value.trim(),
+    photoURL: normUrl,
+    bio: f.bio.value.trim(),
+    skills: f.skills.value.trim(),
+    links: f.links.value.trim(),
+    social: f.social.value.trim(),
+  };
+  setProfile(data);
+  await saveProfileCloud(data);
 
-    // 3) UI refresh
-    renderProfilePanel();
-    document.getElementById("profileEditModal")?.close();
-    toast("Profile saved");
-  });
+  // 3) UI refresh
+  renderProfilePanel();
+  document.getElementById("profileEditModal")?.close();
+  toast("Profile saved");
+});
 
 // ---- Reader state (for delegation) ----
 window.READER_STATE = { courseId: null, lesson: 0 };
@@ -2765,43 +2521,43 @@ function renderMyLearning() {
     .join("");
 
   // wire buttons (this was missing → caused “can’t click”)
-  grid.querySelectorAll("[data-read]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-read");
-        openReader(id);
-      })
-  );
+grid.querySelectorAll("[data-read]").forEach(
+  (b) =>
+    (b.onclick = () => {
+      const id = b.getAttribute("data-read");
+      openReader(id);
+    })
+);
 
-  // ★★★ ADD THIS BLOCK — Firefox timing safe label fix ★★★
-  (async () => {
-    const cards = Array.from(grid.querySelectorAll(".card.course"));
-    for (const card of cards) {
-      const id = card.getAttribute("data-id");
-      if (!id) continue;
-      const btn = card.querySelector("[data-read]");
-      if (!btn) continue;
+// ★★★ ADD THIS BLOCK — Firefox timing safe label fix ★★★
+(async () => {
+  const cards = Array.from(grid.querySelectorAll(".card.course"));
+  for (const card of cards) {
+    const id = card.getAttribute("data-id");
+    if (!id) continue;
+    const btn = card.querySelector("[data-read]");
+    if (!btn) continue;
 
-      // 1) Local completed first (instant)
-      if (completed.has(id)) {
-        btn.textContent = "Review";
-        continue;
-      }
-
-      // 2) Cloud progress (fallback)
-      try {
-        const p = await getProgress(id); // cloud → local fallback
-        // progress object ကို သင့် app မှာ ဒီလို save လုပ်တယ်:
-        // { [courseId]: { status, lesson, ts } }
-        // markCourseProgress() က status='review' ထည့်ပေးထားပြီးသား
-        // (function က အခုလည်း app.js ထဲမှာ ရှိပြီ။
-        //  [oai_citation:1‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb)  /  [oai_citation:2‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb))
-        if (p && p.status === "review") {
-          btn.textContent = "Review";
-        }
-      } catch {}
+    // 1) Local completed first (instant)
+    if (completed.has(id)) {
+      btn.textContent = "Review";
+      continue;
     }
-  })();
+
+    // 2) Cloud progress (fallback)
+    try {
+      const p = await getProgress(id); // cloud → local fallback
+      // progress object ကို သင့် app မှာ ဒီလို save လုပ်တယ်:
+      // { [courseId]: { status, lesson, ts } }
+      // markCourseProgress() က status='review' ထည့်ပေးထားပြီးသား
+      // (function က အခုလည်း app.js ထဲမှာ ရှိပြီ။
+      //  [oai_citation:1‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb)  /  [oai_citation:2‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb))
+      if (p && p.status === "review") {
+        btn.textContent = "Review";
+      }
+    } catch {}
+  }
+})();
 
   grid.querySelectorAll("[data-cert]").forEach(
     (b) =>
@@ -2819,8 +2575,7 @@ window.renderMyLearning = renderMyLearning;
 function renderCertificate(course, cert) {
   const p = getProfile();
   const name = cert?.name || p.displayName || getUser()?.email || "Student";
-  const avatar =
-    resolveAssetUrl(cert?.photo || p.photoURL) || "/assets/default-avatar.png";
+  const avatar = resolveAssetUrl(cert?.photo || p.photoURL) || "/assets/default-avatar.png";
   // const avatar = cert?.photo || p.photoURL || "/assets/default-avatar.png";
   const dateTxt = new Date(cert?.issuedAt || Date.now()).toLocaleDateString();
   const scoreTxt =
@@ -3286,98 +3041,79 @@ window.renderGradebook = renderGradebook;
 function renderAdminTable() {
   const tb = $("#adminTable tbody");
   if (!tb) return;
+  const list = ALL && ALL.length ? ALL : getCourses();
 
-  // staff only UI (student တို့ အတွက် တောက်ပိတ်)
-  if (!(isAdminLike?.() || isStaffLike())) {
-    tb.innerHTML = `<tr><td colspan="7" class="muted">Admins only</td></tr>`;
-    return;
-  }
+  tb.innerHTML =
+    list
+      .map(
+        (c) => `
+    <tr data-id="${c.id}">
+      <td><a href="#" data-view="${c.id}">${esc(c.title)}</a></td>
+      <td>${esc(c.category || "")}</td>
+      <td>${esc(c.level || "")}</td>
+      <td>${esc(String(c.rating || 4.6))}</td>
+      <td>${esc(String(c.hours || 8))}</td>
+      <td>${(c.price || 0) > 0 ? "$" + c.price : "Free"}</td>
+      <td><button class="btn small" data-del="${c.id}">Delete</button></td>
+    </tr>`
+      )
+      .join("") || "<tr><td colspan='7' class='muted'>No courses</td></tr>";
 
-  const list = (ALL && ALL.length ? ALL : getCourses?.() || []).slice();
-
-  tb.innerHTML = list.length
-    ? list
-        .map(
-          (c) => `
-        <tr data-id="${esc(c.id || "")}">
-          <td><a href="#" data-view="${esc(c.id || "")}">${esc(
-            c.title || "Course"
-          )}</a></td>
-          <td>${esc(c.category || "")}</td>
-          <td>${esc(c.level || "")}</td>
-          <td>${esc(String(c.rating ?? 4.6))}</td>
-          <td>${esc(String(c.hours ?? 8))}</td>
-          <td>${(c.price || 0) > 0 ? "$" + esc(String(c.price)) : "Free"}</td>
-          <td><button class="btn small" data-del="${esc(
-            c.id || ""
-          )}">Delete</button></td>
-        </tr>`
-        )
-        .join("")
-    : "<tr><td colspan='7' class='muted'>No courses</td></tr>";
-
-  // delete
-  tb.querySelectorAll("[data-del]").forEach((b) => {
-    b.onclick = () => {
-      const id = b.getAttribute("data-del");
-      if (!id) return;
-      const arr = (getCourses?.() || []).filter((x) => x.id !== id);
-      setCourses?.(arr);
-      window.ALL = arr;
-      renderCatalog?.();
-      renderAdminTable(); // re-render self
-      toast?.("Deleted");
-    };
-  });
-
-  // view/edit
-  tb.querySelectorAll("[data-view]").forEach((a) => {
-    a.onclick = (e) => {
-      e.preventDefault();
-      const id = a.getAttribute("data-view");
-      const c = list.find((x) => x.id === id);
-      if (!c) return;
-
-      $("#avmTitle").textContent = c.title || "Course";
-      $("#avmBody").innerHTML = `
-        <div class="small">Category: ${esc(c.category || "")}</div>
-        <div class="small">Level: ${esc(c.level || "")}</div>
-        <div class="small">Rating: ${esc(String(c.rating ?? ""))}</div>
-        <div class="small">Hours: ${esc(String(c.hours ?? ""))}</div>
-        <p style="margin-top:.5rem">${esc(c.summary || "")}</p>`;
-      $("#adminViewModal")?.showModal();
-
-      const f = $("#courseForm");
-      $("#avmEdit").onclick = () => {
-        if (!f) return;
-        $("#courseModal")?.showModal();
-        f.title.value = c.title || "";
-        f.category.value = c.category || "";
-        f.level.value = c.level || "Beginner";
-        f.price.value = Number(c.price || 0);
-        f.rating.value = Number(c.rating || 4.6);
-        f.hours.value = Number(c.hours || 0);
-        f.credits.value = Number(c.credits || 0);
-        f.img.value = c.image || "";
-        f.description.value = c.summary || "";
-        f.benefits.value = Array.isArray(c.benefits)
-          ? c.benefits.join("\n")
-          : c.benefits || "";
-        $("#adminViewModal")?.close();
-      };
-
-      $("#avmDelete").onclick = () => {
-        const arr = (getCourses?.() || []).filter((x) => x.id !== id);
-        setCourses?.(arr);
+  tb.querySelectorAll("[data-del]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const id = b.getAttribute("data-del");
+        const arr = getCourses().filter((x) => x.id !== id);
+        setCourses(arr);
         window.ALL = arr;
-        renderCatalog?.();
+        renderCatalog();
         renderAdminTable();
-        toast?.("Deleted");
-        $("#adminViewModal")?.close();
-      };
-    };
-  });
+        toast("Deleted");
+      })
+  );
 
+  tb.querySelectorAll("[data-view]").forEach(
+    (a) =>
+      (a.onclick = (e) => {
+        e.preventDefault();
+        const id = a.getAttribute("data-view");
+        const c = list.find((x) => x.id === id);
+        if (!c) return;
+        $("#avmTitle").textContent = c.title || "Course";
+        $("#avmBody").innerHTML = `
+      <div class="small">Category: ${esc(c.category || "")}</div>
+      <div class="small">Level: ${esc(c.level || "")}</div>
+      <div class="small">Rating: ${esc(String(c.rating || ""))}</div>
+      <div class="small">Hours: ${esc(String(c.hours || ""))}</div>
+      <p style="margin-top:.5rem">${esc(c.summary || "")}</p>`;
+        $("#adminViewModal")?.showModal();
+
+        $("#avmEdit").onclick = () => {
+          const f = $("#courseForm");
+          $("#courseModal")?.showModal();
+          f.title.value = c.title || "";
+          f.category.value = c.category || "";
+          f.level.value = c.level || "Beginner";
+          f.price.value = Number(c.price || 0);
+          f.rating.value = Number(c.rating || 4.6);
+          f.hours.value = Number(c.hours || 0);
+          f.credits.value = Number(c.credits || 0);
+          f.img.value = c.image || "";
+          f.description.value = c.summary || "";
+          f.benefits.value = c.benefits || "";
+          $("#adminViewModal")?.close();
+        };
+        $("#avmDelete").onclick = () => {
+          const arr = getCourses().filter((x) => x.id !== id);
+          setCourses(arr);
+          window.ALL = arr;
+          renderCatalog();
+          renderAdminTable();
+          toast("Deleted");
+          $("#adminViewModal")?.close();
+        };
+      })
+  );
   $("#avmClose")?.addEventListener("click", () =>
     $("#adminViewModal")?.close()
   );
@@ -3428,105 +3164,30 @@ function wireAdminImportExportOnce() {
 }
 
 /* ---------- Announcements ---------- */
-// 🔹 One-time cache (declare once near the top of app.js)
-window.ANN_CACHE = window.ANN_CACHE || [];
-// 🔹 Live announcements (single source of truth)
-function startLiveAnnouncements() {
-  if (!db) return; // offline/local fallback
-
-  try {
-    // build collection ref in-place
-    const col = collection(db, "announcements");
-    // use fsQuery/fsOrderBy (NOT plain orderBy)
-    const q = fsQuery(col, fsOrderBy("ts", "desc"));
-
-    onSnapshot(q, (ss) => {
-      window.ANN_CACHE = ss.docs.map((d) => {
-        const v = d.data() || {};
-        return {
-          id: d.id,
-          title: String(v.title || ""),
-          body: String(v.body || ""),
-          ts: v.ts || null,
-          tsMs: v.ts?.toMillis ? v.ts.toMillis() : v.ts || Date.now(),
-        };
-      });
-
-      renderAnnouncements?.(); // re-render UI
-      updateAnnBadge?.(); // update badge count
-    });
-  } catch (e) {
-    console.warn("live announcements failed:", e);
-  }
-}
-
-// helper (တခါတည်း app.js ထဲ common helpers နားမှာထား)
-const isStaffLike = () =>
-  ["owner", "admin", "instructor", "ta"].includes(getRole?.() || "student");
-const tsToMs = (v) => {
-  // support: number | Firestore Timestamp | {tsMs:number} | Date
-  if (typeof v === "number") return v;
-  if (v?.toMillis) return v.toMillis(); // Firestore Timestamp
-  if (v?.seconds) return v.seconds * 1000; // plain proto
-  if (v?.tsMs) return Number(v.tsMs) || 0; // our cache shape
-  if (v instanceof Date) return v.getTime();
-  return 0;
-};
-
-// DOMContentLoaded boot အောက်ဘက်ဘက်မှာ ခေါ်ပေးပါ
-document.addEventListener("DOMContentLoaded", () => {
-  // ... your existing boot stuff ...
-  startLiveAnnouncements(); // 👈 add this
-});
-
 function renderAnnouncements() {
   const box = $("#annList");
   if (!box) return;
-
-  // Firestore live listener နဲ့ sync လုပ်ထားမယ်ဆို ANN_CACHE က latest
-  const arrRaw =
-    typeof ANN_CACHE !== "undefined" && Array.isArray(ANN_CACHE)
-      ? ANN_CACHE
-      : getAnns?.() || [];
-
-  // sort → latest first (tsMs || ts)
-  const arr = arrRaw
-    .slice()
-    .sort((a, b) => tsToMs(b.ts ?? b.tsMs) - tsToMs(a.ts ?? a.tsMs));
-
-  box.innerHTML = arr.length
-    ? arr
-        .map((a) => {
-          const when = tsToMs(a.ts ?? a.tsMs);
-          return `
-          <div class="card" data-id="${esc(a.id || "")}">
-            <div class="row" style="justify-content:space-between">
-              <strong>${esc(a.title || "")}</strong>
-              <span class="small muted">${
-                when ? new Date(when).toLocaleString() : "—"
-              }</span>
-            </div>
-            <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
-            ${
-              isAdminLike?.() || isStaffLike()
-                ? `<div class="row" style="justify-content:flex-end; gap:6px">
-                     <button class="btn small" data-edit="${esc(
-                       a.id || ""
-                     )}">Edit</button>
-                     <button class="btn small" data-del="${esc(
-                       a.id || ""
-                     )}">Delete</button>
-                   </div>`
-                : ``
-            }
-          </div>`;
-        })
-        .join("")
-    : `<div class="muted">No announcements yet.</div>`;
-
-  wireAnnouncementEditButtons?.();
-  updateAnnBadge?.();
-  enforceRoleGates?.(); // role-based button disable/hide (ရှိရင်)
+  const arr = getAnns().slice().reverse();
+  box.innerHTML =
+    arr
+      .map(
+        (a) => `
+    <div class="card" data-id="${a.id}">
+      <div class="row" style="justify-content:space-between">
+        <strong>${esc(a.title)}</strong>
+        <span class="small muted">${new Date(a.ts).toLocaleString()}</span>
+      </div>
+      <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
+      <div class="row" style="justify-content:flex-end; gap:6px">
+        <button class="btn small" data-edit="${a.id}" data-role-min="instructor">Edit</button>
++ <button class="btn small" data-del="${a.id}"  data-role-min="instructor">Delete</button>
+      </div>
+    </div>`
+      )
+      .join("") || `<div class="muted">No announcements yet.</div>`;
+  wireAnnouncementEditButtons();
+  updateAnnBadge();
+  enforceRoleGates?.(); // 🔒 re-check after DOM updates
 }
 window.renderAnnouncements = renderAnnouncements;
 
@@ -3568,60 +3229,20 @@ $("#btn-new-post")?.addEventListener("click", () => {
 });
 $("#closePostModal")?.addEventListener("click", () => $("#postModal")?.close());
 $("#cancelPost")?.addEventListener("click", () => $("#postModal")?.close());
-// Firestore-based submit (with local fallback)
-$("#postForm")?.addEventListener("submit", async (e) => {
+$("#postForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
-
   const t = $("#pmTitle")?.value.trim();
   const b = $("#pmBody")?.value.trim();
   if (!t || !b) return toast("Fill all fields");
-
-  // 🔐 Only staff can post/edit
-  if (!(typeof isStaffLike === "function" ? isStaffLike() : isAdminLike())) {
-    return toast("Only staff can post/edit");
-  }
-
   const f = $("#postForm");
   const editId = f?.dataset.editId || "";
-
-  // ---- Firestore path (preferred) ----
-  try {
-    if (db && typeof collection === "function") {
-      const colRef = collection(db, "announcements");
-
-      if (editId) {
-        // Update existing doc
-        const ref = doc(db, "announcements", editId);
-        await setDoc(
-          ref,
-          { title: t, body: b, ts: serverTimestamp() },
-          { merge: true }
-        );
-        toast("Updated");
-      } else {
-        // Create new doc
-        await addDoc(colRef, { title: t, body: b, ts: serverTimestamp() });
-        toast("Announcement posted");
-      }
-
-      // Firestore onSnapshot listener will re-render UI
-      f.dataset.editId = "";
-      $("#postModal")?.close();
-      return;
-    }
-  } catch (err) {
-    console.warn("Firestore post failed, falling back to local:", err);
-  }
-
-  // ---- Local fallback (only if Firestore unavailable) ----
-  const arr = (typeof getAnns === "function" ? getAnns() : []) || [];
+  const arr = getAnns();
   if (editId) {
     const i = arr.findIndex((x) => x.id === editId);
     if (i >= 0) {
       arr[i].title = t;
       arr[i].body = b;
-      arr[i].ts = Date.now();
-      toast("Updated (local)");
+      toast("Updated");
     }
   } else {
     arr.push({
@@ -3630,11 +3251,11 @@ $("#postForm")?.addEventListener("submit", async (e) => {
       body: b,
       ts: Date.now(),
     });
-    toast("Announcement posted (local)");
+    toast("Announcement posted");
   }
-  if (typeof setAnns === "function") setAnns(arr);
+  setAnns(arr);
   $("#postModal")?.close();
-  if (typeof renderAnnouncements === "function") renderAnnouncements();
+  renderAnnouncements();
 });
 
 /* ---------- Chat gating ---------- */
@@ -3657,43 +3278,30 @@ function initChatRealtime() {
     input = $("#chatInput"),
     send = $("#chatSend");
   if (!box || !send) return;
-
   const display = getUser()?.email || "guest";
-
-  if (
-    CHAT_FORCE_CLOUD &&
-    (!auth?.currentUser || auth.currentUser.isAnonymous)
-  ) {
-    // disable UI & hint
-    input?.setAttribute("disabled", "true");
-    send?.setAttribute("disabled", "true");
-    const card = send?.closest(".card");
-    card && card.classList.add("gated");
-    toast("Please log in to use chat");
-    return () => {};
-  }
 
   try {
     if (!auth?.currentUser || auth.currentUser.isAnonymous)
       throw new Error("no-auth");
-
     const rtdb = getDatabase();
-    const roomRef = ref(rtdb, "chats/global");
+    const roomRef = ref(getDatabase(), "chats/global");
 
-    // auto prune old (10 days)
+    // after building roomRef
+    pruneOldChatsRTDB(roomRef);
+
+    // if you keep an offline fallback list:
+    pruneOldChatsLocal("ol_chat_room_global"); // for global
+
     const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
     (async () => {
       try {
-        const cutoff = Date.now() - 10 * 24 * 60 * 60 * 1000; // 10 days
-        const oldQ = rtdbQuery(roomRef, orderByChild("ts"), rtdbEndAt(cutoff));
-        const snap = await rtdbGet(oldQ);
-        snap.forEach((child) => rtdbRemove(child.ref));
-      } catch (err) {
-        console.warn("Prune failed", err);
-      }
+        const cutoff = Date.now() - TEN_DAYS;
+        const oldQ = query(roomRef, orderByChild("ts"), endAt(cutoff));
+        const snap = await get(oldQ);
+        snap.forEach((child) => remove(child.ref));
+      } catch {}
     })();
 
-    // listen for new chats
     onChildAdded(roomRef, (snap) => {
       const m = snap.val();
       if (!m) return;
@@ -3706,7 +3314,6 @@ function initChatRealtime() {
       box.scrollTop = box.scrollHeight;
     });
 
-    // send handler
     send.onclick = async () => {
       const text = (input?.value || "").trim();
       if (!text) return;
@@ -3722,17 +3329,14 @@ function initChatRealtime() {
           ts: Date.now(),
         });
         if (input) input.value = "";
-      } catch (err) {
-        console.warn("Push failed", err);
+      } catch {
         toast("Chat failed");
       }
     };
     return;
-  } catch (err) {
-    console.warn("Chat init failed", err);
-  }
+  } catch {}
 
-  // fallback (local only)
+  // Local-only fallback
   const KEY = "ol_chat_local";
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
@@ -3759,93 +3363,50 @@ function initChatRealtime() {
 }
 
 /* ---------- Per-course chat ---------- */
-// RTDB helper imports (firebase.js ကနေ export ပြီးသားဖြစ်ရပါမယ်)
-
-// 10 days TTL (shared)
-const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
-
-/** Safer prune that does NOT require `endAt` */
-async function pruneOldChatsRTDB(roomRef) {
-  try {
-    const cutoff = Date.now() - 10 * 24 * 60 * 60 * 1000; // 10 days
-    const oldQ = rtdbQuery(roomRef, orderByChild("ts"), rtdbEndAt(cutoff));
-    const snap = await rtdbGet(oldQ);
-    snap.forEach((child) => rtdbRemove(child.ref));
-  } catch (e) {
-    console.warn("RTDB prune failed", e);
-  }
-}
-
-function pruneOldChatsLocal(key) {
-  try {
-    const cutoff = Date.now() - 10 * 24 * 60 * 60 * 1000; // 10 days
-    const arr = JSON.parse(localStorage.getItem(key) || "[]");
-    const pruned = arr.filter((m) => Number(m.ts || 0) >= cutoff);
-    if (pruned.length !== arr.length) {
-      localStorage.setItem(key, JSON.stringify(pruned));
-    }
-  } catch (e) {
-    console.warn("Local chat prune failed", e);
-  }
-}
-
-export function wireCourseChatRealtime(courseId) {
+function wireCourseChatRealtime(courseId) {
   const list = $("#ccList"),
     input = $("#ccInput"),
     send = $("#ccSend"),
     label = $("#chatRoomLabel");
-  if (!list || !send) return () => {};
-
+  if (!list || !send) return;
   if (label) label.textContent = "room: " + courseId;
   const display = getUser()?.email || "you";
 
-  if (
-    CHAT_FORCE_CLOUD &&
-    (!auth?.currentUser || auth.currentUser.isAnonymous)
-  ) {
-    // disable UI & hint
-    input?.setAttribute("disabled", "true");
-    send?.setAttribute("disabled", "true");
-    const card = send?.closest(".card");
-    card && card.classList.add("gated");
-    toast("Please log in to use chat");
-    return () => {};
-  }
-
-  // ---------- Cloud (RTDB) path ----------
   try {
-    if (!auth?.currentUser || auth.currentUser.isAnonymous) {
+    if (!auth?.currentUser || auth.currentUser.isAnonymous)
       throw new Error("no-auth");
-    }
     const rtdb = getDatabase();
-    const roomRef = ref(rtdb, `chats/${courseId}`);
+    const roomRef = ref(getDatabase(), `chats/${courseId}`);
 
-    // prune (single function; no `endAt` needed)
+    // after building roomRef
     pruneOldChatsRTDB(roomRef);
-    // local cache prune (if you keep it)
+
+    // if you keep an offline fallback list:
+    // per course:
     pruneOldChatsLocal("ol_chat_room_" + courseId);
 
-    // draw helper
-    const draw = (m) => {
+    const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
+    (async () => {
+      try {
+        const cutoff = Date.now() - TEN_DAYS;
+        const oldQ = query(roomRef, orderByChild("ts"), endAt(cutoff));
+        const snap = await get(oldQ);
+        snap.forEach((child) => remove(child.ref));
+      } catch {}
+    })();
+
+    onChildAdded(roomRef, (snap) => {
+      const m = snap.val();
+      if (!m) return;
       list.insertAdjacentHTML(
         "beforeend",
         `<div class="msg"><b>${esc(m.user)}</b>
-          <span class="small muted">${new Date(
-            m.ts
-          ).toLocaleTimeString()}</span>
-          <div>${esc(m.text)}</div>
-        </div>`
+        <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+        <div>${esc(m.text)}</div></div>`
       );
       list.scrollTop = list.scrollHeight;
-    };
-
-    // listen
-    const off = onChildAdded(roomRef, (snap) => {
-      const m = snap.val();
-      if (m) draw(m);
     });
 
-    // send
     send.onclick = async () => {
       const text = (input?.value || "").trim();
       if (!text) return;
@@ -3861,65 +3422,82 @@ export function wireCourseChatRealtime(courseId) {
           ts: Date.now(),
         });
         if (input) input.value = "";
-      } catch (e) {
-        console.warn("chat push failed", e);
+      } catch {
         toast("Chat failed");
       }
     };
+    return;
+  } catch {}
 
-    // return unsubscribe for caller to clean up
-    return () => {
-      try {
-        off && off();
-      } catch {}
-    };
-  } catch {
-    // fall through to local
-  }
-
-  // ---------- Local-only fallback ----------
+  // local fallback
   const KEY = "ol_chat_room_" + courseId;
   const load = () => JSON.parse(localStorage.getItem(KEY) || "[]");
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
-
-  // prune & render
-  const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
-  (async () => {
-    try {
-      const cutoff = Date.now() - TEN_DAYS;
-      const oldQ = rtdbQuery(roomRef, orderByChild("ts"), rtdbEndAt(cutoff));
-      const snap = await rtdbGet(oldQ);
-      snap.forEach((child) => rtdbRemove(child.ref));
-    } catch {}
-  })();
-  let arr = load().filter((m) => Number(m.ts || 0) >= cutoff);
-  save(arr);
-
-  list.innerHTML = "";
-  const drawLocal = (m) => {
+  const draw = (m) => {
     list.insertAdjacentHTML(
       "beforeend",
       `<div class="msg"><b>${esc(m.user)}</b>
-        <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
-        <div>${esc(m.text)}</div>
-      </div>`
+      <span class="small muted">${new Date(m.ts).toLocaleTimeString()}</span>
+      <div>${esc(m.text)}</div></div>`
     );
     list.scrollTop = list.scrollHeight;
   };
-  arr.forEach(drawLocal);
 
+  const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
+
+  let arr = load();
+
+  // prune 10 days+
+  const cutoff = Date.now() - TEN_DAYS;
+  const pruned = arr.filter((m) => (m.ts || 0) >= cutoff);
+  if (pruned.length !== arr.length) {
+    save(pruned);
+    arr = pruned;
+  }
+
+  list.innerHTML = "";
+  arr.forEach(draw);
   send.onclick = () => {
     const text = (input?.value || "").trim();
     if (!text) return;
     const m = { user: display, text, ts: Date.now() };
     arr.push(m);
     save(arr);
-    drawLocal(m);
+    draw(m);
     if (input) input.value = "";
   };
+}
 
-  // local fallback has nothing to unsubscribe
-  return () => {};
+// === Chat TTL (10 days) ===
+const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
+
+async function pruneOldChatsRTDB(roomRef) {
+  try {
+    const cutoff = Date.now() - TEN_DAYS;
+    const snap = await get(roomRef); // no 'endAt' — filter client-side
+    snap.forEach((child) => {
+      const v = child.val && child.val();
+      const ts = v && v.ts ? Number(v.ts) : 0;
+      if (ts && ts < cutoff) {
+        try {
+          remove(child.ref);
+        } catch {}
+      }
+    });
+  } catch (e) {
+    console.warn("pruneOldChatsRTDB failed:", e?.message || e);
+  }
+}
+
+function pruneOldChatsLocal(key) {
+  try {
+    const cutoff = Date.now() - TEN_DAYS;
+    const arr = JSON.parse(localStorage.getItem(key) || "[]");
+    const pruned = arr.filter((m) => Number(m.ts || 0) >= cutoff);
+    if (pruned.length !== arr.length) {
+      localStorage.setItem(key, JSON.stringify(pruned));
+    }
+  } catch {}
 }
 
 let IS_AUTHED = false;
@@ -3989,31 +3567,14 @@ function blockIfLocked(e) {
 function setAppLocked(locked) {
   const mainEl = findMain();
   if (!mainEl) return;
-
-  // Overlay toggle
-  let ov = ensureAuthOverlay(mainEl);
-  if (ov) {
-    ov.style.display = locked ? "" : "none";
-    ov.style.pointerEvents = locked ? "none" : "none"; // never block clicks to modal/topbar
-  }
-
   if (locked) {
     mainEl.classList.add("locked-main");
   } else {
     mainEl.classList.remove("locked-main");
   }
-
-  // Disable in-app interactive elements only (but NOT modals/topbar)
+  ensureAuthOverlay(mainEl); // create once
   setClickableDisabled(mainEl, locked);
 }
-
-// login modal open 时 overlay ေပၚေနရင္ ေရႊ့ပေးရန်
-document.addEventListener("click", (e) => {
-  if (e.target.closest?.("#btn-login")) {
-    const ov = document.getElementById("authGuardOverlay");
-    if (ov) ov.style.display = "none";
-  }
-});
 
 // Router guard: prevent page switch while locked
 const ALLOW_PAGES_WHEN_LOCKED = new Set(["welcome", "login", "about"]); // adjust if needed
@@ -4043,14 +3604,11 @@ document.addEventListener("DOMContentLoaded", () => {
       setAppLocked(!IS_AUTHED);
 
       if (u) {
-        setUser?.({
-          email: u.email || "",
-          role: getUser?.()?.role || "student",
-        });
+        setUser?.({ email: u.email || "", role: getUser?.()?.role || "student" });
         setLogged?.(true, u.email || "");
 
-        migrateEnrollsToScopedOnce(); // 🔸 new
-        await syncEnrollsBothWays(); // 🔸 new
+        migrateEnrollsToScopedOnce();   // 🔸 new
+        await syncEnrollsBothWays();    // 🔸 new
       } else {
         setUser?.(null);
         setLogged?.(false);
@@ -4072,9 +3630,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async (e) => {
       e.preventDefault();
-      try {
-        await signOut(auth);
-      } catch {}
+      try { await signOut(auth); } catch {}
       setUser(null);
       setLogged(false);
       gateChatUI();
@@ -4110,7 +3666,7 @@ function renderSettingsHelp() {
   if (devA && !devA._wired) {
     devA._wired = true;
     // project root/docs/settingUpDetails.md ထဲကို ဖိုင်တင်ပြီးရင် အောက်က href ပြောင်းပါ
-    devA.href = "/docs/settingUpDetails.md";
+    devA.href = "/docs/settingUpDetails.md"; 
   }
 
   box.innerHTML = `
@@ -4207,67 +3763,17 @@ function renderSettingsHelp() {
 (function wireSettingsHelp() {
   // showPage() ထဲက router ကိုအသုံးပြုထားလျှင် ဒီလို hook လုပ်ပါ
   const _showPage = window.showPage;
-  window.showPage = function (id, ...rest) {
+  window.showPage = function(id, ...rest) {
     const r = _showPage ? _showPage.call(this, id, ...rest) : null;
     if (id === "settings") renderSettingsHelp();
     return r;
   };
   // direct load ဖြစ်ရင်လည်း တခါတည်း render
-  if (location.hash.replace("#", "") === "settings") renderSettingsHelp();
+  if (location.hash.replace("#","") === "settings") renderSettingsHelp();
   document.addEventListener("DOMContentLoaded", () => {
-    if (location.hash.replace("#", "") === "settings") renderSettingsHelp();
+    if (location.hash.replace("#","") === "settings") renderSettingsHelp();
   });
 })();
-
-// Somewhere near boot (DOMContentLoaded) — ensure single wiring
-if (!window._olAuthWired) {
-  window._olAuthWired = true;
-  onAuthStateChanged(auth, async (u) => {
-    const authed = !!u && !u.isAnonymous;
-    IS_AUTHED = authed;
-    setAppLocked(!authed);
-
-    if (authed) {
-      // Role fetch (optional)
-      let role = "student";
-      try {
-        const d = await getDoc(doc(db, "users", u.uid));
-        if (d.exists()) role = d.data()?.role || "student";
-      } catch {}
-
-      setUser?.({ email: u.email || "", role });
-      setLogged?.(true, u.email || "");
-
-      try {
-        migrateProfileToScopedOnce?.();
-      } catch {}
-      try {
-        const cloudP = await loadProfileCloud?.();
-        if (cloudP) setProfile?.({ ...getProfile?.(), ...cloudP });
-      } catch {}
-
-      try {
-        migrateEnrollsToScopedOnce?.();
-      } catch {}
-      try {
-        await syncEnrollsBothWays?.();
-      } catch {}
-
-      renderCatalog?.();
-      window.renderMyLearning?.();
-      window.renderGradebook?.();
-      window.renderProfilePanel?.();
-    } else {
-      setUser?.(null);
-      setLogged?.(false);
-      renderCatalog?.();
-      window.renderMyLearning?.();
-    }
-
-    gateChatUI?.(); // ✅ chat enable/disable refresh
-    updateAnnBadge?.(); // ✅ badge refresh
-  });
-}
 
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -4279,10 +3785,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAuthModal();
   const u = getUser();
   setLogged(!!u, u?.email);
-  if (u) {
-    migrateProfileToScopedOnce();
-    renderProfilePanel?.();
-  }
+  if (u) { migrateProfileToScopedOnce(); renderProfilePanel?.(); }
   // if (u) {
   //   try {
   //     await migrateProgressKey();
@@ -4292,21 +3795,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Gate chat inputs and keep in sync
   gateChatUI();
-  //   if (typeof onAuthStateChanged === "function" && auth) {
-  //     onAuthStateChanged(auth, async () => {
-  //       gateChatUI();
-  //       try {
-  //         await migrateProgressKey();
-  //         await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
-  //       } catch {}
-  //       // 🔸 profile scope migrate when a user is present
-  //  if (auth?.currentUser) { migrateProfileToScopedOnce(); renderProfilePanel?.(); }
-  //       // ✅ sync ပြီမှ render — Firefox “Continue only” ပြဿနာကို ဒီနေရာက ဖြေ
-  //       window.renderProfilePanel?.();
-  //       window.renderMyLearning?.();
-  //       window.renderGradebook?.();
-  //     });
-  //   }
+  if (typeof onAuthStateChanged === "function" && auth) {
+    onAuthStateChanged(auth, async () => {
+      gateChatUI();
+      try {
+        await migrateProgressKey();
+        await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
+      } catch {}
+      // 🔸 profile scope migrate when a user is present
+ if (auth?.currentUser) { migrateProfileToScopedOnce(); renderProfilePanel?.(); }
+      // ✅ sync ပြီမှ render — Firefox “Continue only” ပြဿနာကို ဒီနေရာက ဖြေ
+      window.renderProfilePanel?.();
+      window.renderMyLearning?.();
+      window.renderGradebook?.();
+    });
+  }
 
   // UI
   initSidebar();
@@ -4388,8 +3891,29 @@ document.addEventListener("DOMContentLoaded", async () => {
   addEventListener("pageshow", () =>
     document.body.classList.remove("printing")
   );
+});
 
-  startLiveAnnouncements();
+// run once on boot
+document.addEventListener("DOMContentLoaded", () => {
+  // make sure the modal & handlers exist
+  try {
+    initAuthModal();
+  } catch {}
+
+  // reflect Firebase auth state → UI & local profile
+  try {
+    onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        setUser({ email: u.email || "", role: getUser()?.role || "student" });
+    setLogged(true, u.email || "");
+   migrateProfileToScopedOnce();          // 🔸 add
+   renderProfilePanel?.();
+      } else {
+        setUser(null);
+        setLogged(false);
+      }
+    });
+  } catch {}
 });
 
 // ==== DEBUG HOOKS (put near the bottom of app.js, after the functions are defined) ====
@@ -4423,153 +3947,3 @@ function stripFinalsUI() {
   s.textContent = `.navbtn[data-page="finals"]{display:none!important}`;
   document.head.appendChild(s);
 }
-
-// --- HARD UNLOCK in case anything left UI 'locked'
-document.addEventListener("DOMContentLoaded", () => {
-  document.body.classList.remove("locked");
-});
-
-// --- Ensure login modal exists (auto-create if missing) ---
-function ensureLoginModal() {
-  let dlg = document.getElementById("loginModal");
-  if (!dlg) {
-    dlg = document.createElement("dialog");
-    dlg.id = "loginModal";
-    dlg.className = "card";
-    dlg.innerHTML = `
-      <form id="loginForm" method="dialog">
-        <h3 class="h4" style="margin:0 0 10px">Login</h3>
-        <div class="stack" style="gap:8px">
-          <input id="loginEmail" class="input" type="email" placeholder="Email" required />
-          <input id="loginPass" class="input" type="password" placeholder="Password" required />
-          <div class="row" style="justify-content:flex-end;gap:8px">
-            <button type="button" id="btnLoginCancel" class="btn">Cancel</button>
-            <button type="submit" class="btn primary">Sign in</button>
-          </div>
-        </div>
-      </form>`;
-    document.body.appendChild(dlg);
-  }
-  return dlg;
-}
-
-// --- Delegated click handlers (works even if DOM moved/re-rendered) ---
-document.addEventListener("click", (e) => {
-  const btn = e.target.closest("#btn-login, #btn-logout, #btnLoginCancel");
-  if (!btn) return;
-
-  // always ensure modal node exists before any action
-  const dlg = ensureLoginModal();
-
-  if (btn.id === "btn-login") {
-    document.body.classList.remove("locked");
-    try {
-      dlg.showModal();
-    } catch {
-      dlg.setAttribute("open", "");
-    } // Safari fallback
-  }
-
-  if (btn.id === "btnLoginCancel") {
-    try {
-      dlg.close();
-    } catch {
-      dlg.removeAttribute("open");
-    }
-  }
-
-  if (btn.id === "btn-logout") {
-    (async () => {
-      try {
-        await signOut(auth);
-        toast("Signed out");
-      } catch (err) {
-        console.error(err);
-        toast("Logout failed");
-      }
-    })();
-  }
-});
-
-// --- Form submit handler (bind once, supports auto-created modal) ---
-document.addEventListener("submit", async (e) => {
-  const form = e.target;
-  if (form.id !== "loginForm") return;
-  e.preventDefault();
-  const email = (document.getElementById("loginEmail")?.value || "").trim();
-  const pass = (document.getElementById("loginPass")?.value || "").trim();
-  if (!email || !pass) return;
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-    const dlg = document.getElementById("loginModal");
-    try {
-      dlg?.close();
-    } catch {
-      dlg?.removeAttribute("open");
-    }
-    toast("Signed in");
-  } catch (err) {
-    console.error(err);
-    toast("Login failed: " + (err?.code || "unknown"));
-  }
-});
-
-// --- Keep topbar buttons synced with auth state (already added earlier is fine) ---
-onAuthStateChanged(auth, async (u) => {
-  document.body.classList.toggle("logged", !!u);
-  document.body.classList.toggle("anon", !u);
-
-  // buttons
-  const bLogin = document.getElementById("btn-login");
-  const bLogout = document.getElementById("btn-logout");
-  if (bLogin) bLogin.style.display = u ? "none" : "";
-  if (bLogout) bLogout.style.display = u ? "" : "none";
-
-  // reflect into local profile state (moved here from removed block)
-  if (u) {
-    setUser({ email: u.email || "", role: getUser()?.role || "student" });
-    setLogged(true, u.email || "");
-    migrateProfileToScopedOnce?.();
-  } else {
-    setUser(null);
-    setLogged(false);
-  }
-
-  // scoped LS refresh
-  switchLocalStateForUser(currentUidKey());
-
-  // optional heavy syncs
-  try {
-    await migrateProgressKey?.();
-    await Promise.allSettled([
-      syncEnrollsBothWays?.(),
-      syncProgressBothWays?.(),
-    ]);
-  } catch {}
-
-  // lazy renders
-  window.renderProfilePanel?.();
-  if (location.hash === "#mylearning") window.renderMyLearning?.();
-  if (location.hash === "#gradebook") window.renderGradebook?.();
-
-  // chat gating refresh if you rely on auth
-  gateChatUI?.();
-});
-
-// DEBUG: direct wire (temporary)
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("btn-login")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    window._showLoginPane?.(); // initAuthModal() အတွင်းမှာ set ထားတဲ့ helper
-  });
-});
-
-// TEMP debug (remove after test)
-document.addEventListener("DOMContentLoaded", () => {
-  document.body.classList.remove("locked");              // overlay gating 제거
-  document.getElementById("btn-login")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    window._showLoginPane?.();                           // app modal helper
-    document.getElementById("authModal")?.showModal?.(); // fallback open
-  });
-});

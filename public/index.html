@@ -367,21 +367,6 @@
     </main>
 
     <!-- MODALS -->
-     <!-- Login Modal -->
-<dialog id="loginModal" class="card" style="max-width:420px;padding:16px">
-  <form id="loginForm" method="dialog">
-    <h3 class="h4" style="margin:0 0 10px">Login</h3>
-    <div class="stack" style="gap:8px">
-      <input id="loginEmailAlt" class="input" type="email" placeholder="Email" required />
-      <input id="loginPassAlt" class="input" type="password" placeholder="Password" required />
-      <div class="row" style="justify-content:flex-end;gap:8px">
-        <button type="button" id="btnLoginCancel" class="btn">Cancel</button>
-        <button type="submit" class="btn primary">Sign in</button>
-      </div>
-    </div>
-  </form>
-</dialog>
-
     <dialog id="authModal" class="ol-modal card auth-modern">
       <div class="auth-brand">🎓 OpenLearn</div>
       <form id="authLogin" class="authpane" method="dialog">
@@ -726,7 +711,7 @@
     <script>
       window.OPENLEARN_DATA_BASE = "/data";
     </script>
-    <script type="module" src="./app.js"></script>
+    <!-- <script type="module" src="./app.js"></script> -->
     <script>
       window.renderProfilePanel ||= () => {};
       window.renderMyLearning ||= () => {};
@@ -734,6 +719,8 @@
       window.renderAdminTable ||= () => {};
       window.renderAnnouncements ||= () => {};
     </script>
+    <script type="module" src="./app.js?v=ff-safe-2"></script>
+
     <!-- tiny UX: mobile search toggle (no duplicate listeners) -->
     <script>
       (function () {
