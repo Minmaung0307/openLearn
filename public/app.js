@@ -3,6 +3,7 @@
    Part 1/6 — Imports, helpers, theme, state, roles
    ========================================================= */
 import {
+  // Core
   db,
   auth,
   onAuthStateChanged,
@@ -10,24 +11,27 @@ import {
   createUserWithEmailAndPassword,
   signOut,
 
-  // RTDB
+  // RTDB (firebase/database) — use rtdb* aliases
   getDatabase,
   ref,
   push,
   onChildAdded,
-  query,
+  query as rtdbQuery,     // 👈 RTDB.query
   orderByChild,
-  get,
-  remove,
+  endAt as rtdbEndAt,     // 👈 RTDB.endAt  (firebase.js မှာ export လုပ်ထားရမယ်)
+  get as rtdbGet,         // 👈 RTDB.get
+  remove as rtdbRemove,   // 👈 RTDB.remove
 
-  // Firestore (for enroll sync)
+  // Firestore (firebase/firestore) — use fs* aliases
   doc,
   getDoc,
   setDoc,
-} from "./firebase.js";
-
-import {
-  collection, addDoc, onSnapshot, query, orderBy, serverTimestamp
+  collection,
+  addDoc,
+  onSnapshot,
+  query as fsQuery,       // 👈 Firestore.query
+  orderBy as fsOrderBy,   // 👈 Firestore.orderBy
+  serverTimestamp,
 } from "./firebase.js";
 
 /* ---------- tiny DOM helpers ---------- */
@@ -3227,6 +3231,38 @@ const tsToMs = (v) => {
   return 0;
 };
 
+// --- Firestore live announcements (put near “Announcements” section) ---
+let ANN_CACHE = [];
+
+function startLiveAnnouncements(){
+  if (!db) return; // offline/local fallback
+  try {
+    const q = fsQuery(collection(db, "announcements"), fsOrderBy("ts","desc"));
+    onSnapshot(q, (ss) => {
+      ANN_CACHE = ss.docs.map(d => {
+        const v = d.data() || {};
+        return {
+          id: d.id,
+          title: String(v.title || ""),
+          body: String(v.body || ""),
+          ts: v.ts || null,
+          tsMs: v.ts?.toMillis ? v.ts.toMillis() : (v.ts || Date.now()),
+        };
+      });
+      renderAnnouncements();
+      updateAnnBadge();
+    });
+  } catch (e) {
+    console.warn("live announcements failed:", e);
+  }
+}
+
+// DOMContentLoaded boot အောက်ဘက်ဘက်မှာ ခေါ်ပေးပါ
+document.addEventListener("DOMContentLoaded", () => {
+  // ... your existing boot stuff ...
+  startLiveAnnouncements();     // 👈 add this
+});
+
 function renderAnnouncements() {
   const box = $("#annList");
   if (!box) return;
@@ -3389,13 +3425,6 @@ function gateChatUI() {
 }
 
 /* ---------- Global Live Chat (RTDB if available; local fallback) ---------- */
-// RTDB
-import { query as rtdbQuery, orderByChild, endAt, get, onChildAdded, push, remove } 
-  from "firebase/database";
-// Firestore
-import { query as fsQuery, collection, orderBy, onSnapshot, addDoc, doc, setDoc, serverTimestamp } 
-  from "firebase/firestore";
-
 function initChatRealtime() {
   const box = $("#chatBox"),
     input = $("#chatInput"),
@@ -3426,9 +3455,9 @@ function initChatRealtime() {
     (async () => {
       try {
         const cutoff = Date.now() - TEN_DAYS;
-        const oldQ = query(roomRef, orderByChild("ts"), endAt(cutoff));
-        const snap = await get(oldQ);
-        snap.forEach((child) => remove(child.ref));
+        const oldQ = rtdbQuery(roomRef, orderByChild("ts"), rtdbEndAt(cutoff));
+    const snap = await rtdbGet(oldQ);
+    snap.forEach((child) => rtdbRemove(child.ref));
       } catch (err) {
         console.warn("Prune failed", err);
       }
@@ -3621,7 +3650,15 @@ export function wireCourseChatRealtime(courseId) {
   const save = (a) => localStorage.setItem(KEY, JSON.stringify(a));
 
   // prune & render
-  const cutoff = Date.now() - TEN_DAYS;
+  const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
+(async () => {
+  try {
+    const cutoff = Date.now() - TEN_DAYS;
+    const oldQ = rtdbQuery(roomRef, orderByChild("ts"), rtdbEndAt(cutoff));
+    const snap = await rtdbGet(oldQ);
+    snap.forEach((child) => rtdbRemove(child.ref));
+  } catch {}
+})();
   let arr = load().filter(m => Number(m.ts || 0) >= cutoff);
   save(arr);
 
