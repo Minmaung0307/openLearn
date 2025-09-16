@@ -4,15 +4,11 @@
 
 /* === THEME TOKENS === */
 :root {
-  --bg: #ffffff;
-  --fg: #111827;        /* dark text */
+  --bg: #0b0f17;
+  --fg: #eaf1ff;
   --card: #111827;
-  --card-bg: #ffffff;
   --muted: #9fb0c3;
-  --muted-fg: #374151;  /* secondary text */
-  /* --border: #1f2a3b; */
-  --border: #e5e7eb;
-  --link: #2563eb;
+  --border: #1f2a3b;
   --btnBg: #0f172a;
   --btnFg: #eaf1ff;
   --btnPrimaryBg: #2563eb;
@@ -61,33 +57,18 @@ body {
 html,
 body {
   height: 100%;
-  background: var(--bg) !important;
-  color: var(--fg) !important;
+  background: var(--bg);
   margin: 0;
 }
-
-/* All main containers/pages/cards default to dark text on light bg */
-.page, .card, .help-card, .help-body, #settings-help, #helpDoc {
-  background: var(--card-bg) !important;
-  color: var(--fg) !important;
-  border-color: var(--border) !important;
-}
-
-/* Text elements */
-h1, h2, h3, h4, h5, h6, p, li, dt, dd, label, small, span, div {
-  color: var(--fg);
-}
-
-.muted, .text-muted { color: var(--muted-fg) !important; }
 
 /* Helpers */
 .hidden,
 .ol-hidden {
   display: none !important;
 }
-/* .muted {
+.muted {
   color: var(--muted);
-} */
+}
 .row {
   display: flex;
   align-items: center;
@@ -106,8 +87,7 @@ h1, h2, h3, h4, h5, h6, p, li, dt, dd, label, small, span, div {
   margin: 0;
 }
 a {
-  /* color: var(--btnPrimaryBg); */
-  color: var(--link);
+  color: var(--btnPrimaryBg);
   text-decoration: none;
 }
 a:hover {
@@ -840,14 +820,6 @@ textarea:disabled,
 button:disabled {
   cursor: not-allowed;
 }
-/* Inputs */
-input, select, textarea {
-  color: var(--fg) !important;
-  background: #fff !important;
-  border: 1px solid var(--border);
-}
-input::placeholder, 
-textarea::placeholder { color: #6b7280; }
 
 /* ---- Modal forms polish: labels + fields + placeholders ---- */
 .authpane label,
@@ -1323,11 +1295,12 @@ button,
 }
 .locked-main + #authGuardOverlay { display: flex; }
 #authGuardOverlay .msg {
-  background: #fff;
+  /* background: #fff; */
   padding: 14px 18px;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.15);
+  box-shadow: 0 10px 30px rgba(211, 235, 134, 0.718);
   font-weight: 600;
+  border: 1px solid var(--border);
 }
 
 /* === Global Search Results === */
@@ -1401,7 +1374,6 @@ details.help+details.help { margin-top:10px; }
   margin-top: .75rem;
 }
 .help-card {
-  background: var(--card-bg, #fff);
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 14px;
   padding: .9rem 1rem;
@@ -1413,10 +1385,10 @@ details.help+details.help { margin-top:10px; }
 .kbd {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: .85em;
-  border: 1px solid var(--border, #d1d5db);
+  border: 1px solid #fae676;
   padding: 0 .35rem;
   border-radius: 6px;
-  background: var(--muted, #f9fafb);
+  color: #70faf5;
 }
 .icons-row .img-tip img {
   width: 100%;
@@ -1427,13 +1399,3 @@ details.help+details.help { margin-top:10px; }
   filter: drop-shadow(0 1px 2px rgba(0,0,0,.06));
 }
 .help-news { border-left: 4px solid #06b6d4; }
-
-/* If any global class forced white text before, neutralize on light theme */
-.text-white, .white, .fg-white {
-  color: var(--fg) !important;
-}
-
-/* Help tiles with icons */
-.help-grid .help-card img {
-  background: transparent;
-}
