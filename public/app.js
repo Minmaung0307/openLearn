@@ -1269,8 +1269,10 @@ function initAuthModal() {
       await signInWithEmailAndPassword(auth, em, pw);
       setUser({ email: em, role: "student" });
       setLogged(true, em);
-     migrateProfileToScopedOnce();          // 🔸 add
-     renderProfilePanel?.();                // UI reflect
+     migrateProfileToScopedOnce();
+const cloudP = await loadProfileCloud();
+if (cloudP) setProfile({ ...getProfile(), ...cloudP });
+renderProfilePanel?.();
       modal.close();
       gateChatUI();
       toast("Welcome back");
@@ -1289,8 +1291,10 @@ function initAuthModal() {
       await createUserWithEmailAndPassword(auth, em, pw);
       setUser({ email: em, role: "student" });
       setLogged(true, em);
-     migrateProfileToScopedOnce();          // 🔸 add
-     renderProfilePanel?.();
+     migrateProfileToScopedOnce();
+const cloudP = await loadProfileCloud();
+if (cloudP) setProfile({ ...getProfile(), ...cloudP });
+renderProfilePanel?.();
       modal.close();
       gateChatUI();
       toast("Account created");
@@ -1762,8 +1766,7 @@ function renderProfilePanel() {
 
   const p = getProfile();
   const name = p.displayName || getUser()?.email || "Guest";
-  const avatar = resolveAssetUrl(p.photoURL) || "https://i.pravatar.cc/80?u=openlearn";
-  // const avatar = p.photoURL || "https://i.pravatar.cc/80?u=openlearn";
+  const avatar = p.photoURL || "https://i.pravatar.cc/80?u=" + (getUser()?.email || "anon");
 
   //   const completed = getCompletedRaw();                       // ← all completed
   const dic = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
@@ -1834,25 +1837,17 @@ function renderProfilePanel() {
 
   box.innerHTML = `
     <div class="row" style="gap:12px;align-items:flex-start">
-    <img src="${esc(avatar)}" alt=""
-         style="width:72px;height:72px;border-radius:50%"
-         onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
-    <div class="grow">
-      <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
-      ${
-        p.bio
-          ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
-          : ""
-      }
-      ${
-        p.skills
-          ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
-          : ""
-      }
-      <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
-      ${certSection}
-    </div>
-  </div>`;
+      <img src="${esc(avatar)}" alt=""
+           style="width:72px;height:72px;border-radius:50%"
+           onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
+      <div class="grow">
+        <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
+        ${p.bio ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>` : ""}
+        ${p.skills ? `<div class="small muted">Skills: ${esc(p.skills)}</div>` : ""}
+        <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
+        ${certSection}
+      </div>
+    </div>`;
 
   box.querySelectorAll("[data-cert-view]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1881,21 +1876,15 @@ function _safeName(name="avatar.png"){
   return String(name).replace(/[^a-z0-9._-]+/gi, "_").slice(0,80);
 }
 
-async function uploadAvatarFile(file){
+// ===== Avatar upload to Firebase Storage (uid-only) =====
+async function uploadAvatarFile(file) {
   if (!file) throw new Error("No file selected");
-
-  // MUST be logged in — storage rules require auth.uid match
   const uid = auth?.currentUser?.uid;
-  if (!uid) {
-    toast?.("Please log in to upload");
-    throw new Error("Not authenticated");
-  }
-
-  const path = `avatars/${uid}/${Date.now()}_${_safeName(file.name)}`;
-  const ref  = storageRef(storage, path);
-
-  await uploadBytes(ref, file, { contentType: file.type || "application/octet-stream" });
-  return await getDownloadURL(ref);
+  if (!uid) { toast?.("Please log in to upload"); throw new Error("Not authenticated"); }
+  const path = `avatars/${uid}/${Date.now()}_${(file.name||"img").replace(/[^a-z0-9._-]+/gi,"_")}`;
+  const ref0 = storageRef(storage, path);
+  await uploadBytes(ref0, file, { contentType: file.type || "application/octet-stream" });
+  return await getDownloadURL(ref0);
 }
 // async function uploadAvatarFile(file){
 //   if (!file) throw new Error("No file selected");
@@ -1905,6 +1894,26 @@ async function uploadAvatarFile(file){
 //   await uploadBytes(ref, file, { contentType: file.type || "image/*" });
 //   return await getDownloadURL(ref);
 // }
+
+// ===== Cloud profile (Firestore /users/{uid}) =====
+async function loadProfileCloud() {
+  try {
+    const uid = auth?.currentUser?.uid;
+    if (!uid || !db) return null;
+    const docRef = doc(db, "users", uid);
+    const snap = await getDoc(docRef);
+    return snap.exists() ? snap.data() : null;
+  } catch { return null; }
+}
+
+async function saveProfileCloud(patch) {
+  try {
+    const uid = auth?.currentUser?.uid;
+    if (!uid || !db) return;
+    const docRef = doc(db, "users", uid);
+    await setDoc(docRef, patch, { merge: true });
+  } catch {}
+}
 
 (function wireAvatarUploadOnce(){
   const fInput = document.getElementById("avatarFile");
@@ -1932,22 +1941,15 @@ async function uploadAvatarFile(file){
   });
 })();
 
+// Convert common Drive links → direct image view
 function normalizeGDriveUrl(u) {
   if (!u) return u;
   try {
     const url = new URL(u, location.origin);
-
-    // already direct from googleusercontent -> 그대로 သုံး
-    if (url.hostname.includes('googleusercontent.com')) return u;
-
-    if (url.hostname === 'drive.google.com') {
-      // /file/d/<id>/view?... pattern
+    if (url.hostname.includes("googleusercontent.com")) return u;
+    if (url.hostname === "drive.google.com") {
       const m = url.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      let id = m ? m[1] : "";
-
-      // open?id=<id> pattern
-      if (!id) id = url.searchParams.get('id') || "";
-
+      let id = m ? m[1] : url.searchParams.get("id") || "";
       if (id) return `https://drive.google.com/uc?export=view&id=${id}`;
     }
   } catch {}
@@ -1955,17 +1957,35 @@ function normalizeGDriveUrl(u) {
 }
 
 /* ---------- Profile Edit modal wiring ---------- */
-$("#btn-edit-profile")?.addEventListener("click", () => {
+// When opening the profile edit modal (keep your existing code)
+document.getElementById("btn-edit-profile")?.addEventListener("click", () => {
   const m = $("#profileEditModal");
   const f = $("#profileForm");
   const p = getProfile();
   if (f) {
     f.displayName.value = p.displayName || "";
-    f.photoURL.value = p.photoURL || "";
-    f.bio.value = p.bio || "";
-    f.skills.value = p.skills || "";
-    f.links.value = p.links || "";
-    f.social.value = p.social || "";
+    f.photoURL.value    = p.photoURL || "";
+    f.bio.value         = p.bio || "";
+    f.skills.value      = p.skills || "";
+    f.links.value       = p.links || "";
+    f.social.value      = p.social || "";
+  }
+  // 🔽 wire file input for avatar upload (add this if not present)
+  const file = document.getElementById("avatarFile");
+  if (file && !file._wired) {
+    file._wired = true;
+    file.addEventListener("change", async (e) => {
+      const sel = e.target.files?.[0];
+      if (!sel) return;
+      try {
+        const url = await uploadAvatarFile(sel);         // Firebase Storage
+        if (f?.photoURL) f.photoURL.value = url;         // put URL into field
+        toast("Avatar uploaded");
+      } catch (err) {
+        console.warn(err);
+        toast("Upload failed. Paste a Google Drive link instead.");
+      }
+    });
   }
   m?.showModal();
 });
@@ -1975,23 +1995,21 @@ $("#closeProfileModal")?.addEventListener("click", () =>
 $("#cancelProfile")?.addEventListener("click", () =>
   $("#profileEditModal")?.close()
 );
-$("#profileForm")?.addEventListener("submit", (e) => {
+document.getElementById("profileForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = e.currentTarget;
   const data = {
     displayName: f.displayName.value.trim(),
-    // photoURL: (typeof resolveAssetUrl === "function" ? resolveAssetUrl(f.photoURL.value.trim()) : f.photoURL.value.trim()),
     photoURL: normalizeGDriveUrl(f.photoURL.value.trim()),
-    // photoURL: resolveAssetUrl(f.photoURL.value.trim()),
-    // photoURL: f.photoURL.value.trim(),
     bio: f.bio.value.trim(),
     skills: f.skills.value.trim(),
     links: f.links.value.trim(),
     social: f.social.value.trim(),
   };
-  setProfile(data);
+  setProfile(data);             // local (user-scoped)
+  await saveProfileCloud(data); // cloud (for cross-device)
   renderProfilePanel();
-  $("#profileEditModal")?.close();
+  document.getElementById("profileEditModal")?.close();
   toast("Profile saved");
 });
 
@@ -3527,30 +3545,22 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch {}
 
   try {
-    onAuthStateChanged(auth, async (u) => {
-      IS_AUTHED = !!u;
-      setAppLocked(!IS_AUTHED);
-
-      if (u) {
-        // your existing login success wiring
-        // setUser?.({
-        //   email: u.email || "",
-        //   role: getUser?.()?.role || "student",
-        // });
-        // setLogged?.(true, u.email || "");
-        const role = await resolveUserRole(u);
-   setUser?.({ email: u.email || "", role });
-   setLogged?.(true, u.email || "");
-   switchLocalStateForUser(currentUidKey());
-      } else {
-        setUser?.(null);
-        setLogged?.(false);
-        switchLocalStateForUser("anon");
-        // Optionally route to a public-safe page
-        showPage?.("welcome");
-      }
-      enforceRoleGates?.();
-    });
+    // Global onAuthStateChanged handler (where you already call syncEnrollsBothWays)
+onAuthStateChanged(auth, async (u) => {
+  IS_AUTHED = !!u;
+  setAppLocked(!IS_AUTHED);
+  if (u) {
+    setUser?.({ email: u.email || "", role: getUser?.()?.role || "student" });
+    setLogged?.(true, u.email || "");
+    migrateProfileToScopedOnce();
+    const cloudP = await loadProfileCloud();
+    if (cloudP) setProfile({ ...getProfile(), ...cloudP });
+    renderProfilePanel?.();
+  } else {
+    setUser?.(null);
+    setLogged?.(false);
+  }
+});
   } catch (e) {
     console.warn("Auth listener error", e);
     // fail-safe: lock if we can’t read auth
