@@ -237,27 +237,43 @@ function applyFont(px = 16) {
 }
 
 /* ---------- Per-user localStorage scoping (prevents leakage across accounts) ---------- */
-const LS_BASE_KEYS = ["ol_enrolls","ol_completed_v2","ol_quiz_state","ol_certs_v1","progress"];
-function _scopeKey(base, id){ return `${base}::${id||"anon"}`; }
-function _readLS(k, d){ try{ return JSON.parse(localStorage.getItem(k) || JSON.stringify(d)); }catch{ return d; } }
-function _writeLS(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+const LS_BASE_KEYS = [
+  "ol_enrolls",
+  "ol_completed_v2",
+  "ol_quiz_state",
+  "ol_certs_v1",
+  "progress",
+];
+function _scopeKey(base, id) {
+  return `${base}::${id || "anon"}`;
+}
+function _readLS(k, d) {
+  try {
+    return JSON.parse(localStorage.getItem(k) || JSON.stringify(d));
+  } catch {
+    return d;
+  }
+}
+function _writeLS(k, v) {
+  localStorage.setItem(k, JSON.stringify(v));
+}
 
-function _snapshotBaseToScope(uidKey){
-  LS_BASE_KEYS.forEach(base=>{
+function _snapshotBaseToScope(uidKey) {
+  LS_BASE_KEYS.forEach((base) => {
     const v = _readLS(base, null);
-    if (v!==null && v!==undefined) _writeLS(_scopeKey(base, uidKey), v);
+    if (v !== null && v !== undefined) _writeLS(_scopeKey(base, uidKey), v);
   });
 }
-function _restoreScopeToBase(uidKey){
-  LS_BASE_KEYS.forEach(base=>{
+function _restoreScopeToBase(uidKey) {
+  LS_BASE_KEYS.forEach((base) => {
     const scoped = _readLS(_scopeKey(base, uidKey), null);
-    if (scoped===null || scoped===undefined) {
+    if (scoped === null || scoped === undefined) {
       // no prior state for this user → clear base to safe default
-      if (base==="ol_enrolls") _writeLS(base, []);
-      else if (base==="ol_completed_v2") _writeLS(base, []);
-      else if (base==="ol_quiz_state") _writeLS(base, {});
-      else if (base==="ol_certs_v1") _writeLS(base, {});
-      else if (base==="progress") _writeLS(base, {});
+      if (base === "ol_enrolls") _writeLS(base, []);
+      else if (base === "ol_completed_v2") _writeLS(base, []);
+      else if (base === "ol_quiz_state") _writeLS(base, {});
+      else if (base === "ol_certs_v1") _writeLS(base, {});
+      else if (base === "progress") _writeLS(base, {});
     } else {
       _writeLS(base, scoped);
     }
@@ -265,7 +281,7 @@ function _restoreScopeToBase(uidKey){
 }
 
 let _ACTIVE_UID_SCOPE = null;
-function switchLocalStateForUser(newUidKey){
+function switchLocalStateForUser(newUidKey) {
   const key = newUidKey || "anon";
   if (_ACTIVE_UID_SCOPE === key) return;
   // Save current base → old scope
@@ -275,7 +291,10 @@ function switchLocalStateForUser(newUidKey){
   _restoreScopeToBase(_ACTIVE_UID_SCOPE);
   // Re-render things that read from localStorage
   try {
-    renderCatalog(); window.renderMyLearning?.(); window.renderProfilePanel?.(); window.renderGradebook?.();
+    renderCatalog();
+    window.renderMyLearning?.();
+    window.renderProfilePanel?.();
+    window.renderGradebook?.();
   } catch {}
 }
 
@@ -377,7 +396,7 @@ function certKey(courseId) {
 // 👉 one-time migrate from old shared enrolls → per-user key
 function migrateEnrollsToScopedOnce() {
   try {
-    const legacy = _read("ol_enrolls", null);          // old shared array
+    const legacy = _read("ol_enrolls", null); // old shared array
     const scoped = _read(enrollKey(), null);
     if (Array.isArray(legacy) && !scoped) {
       _write(enrollKey(), legacy);
@@ -389,11 +408,11 @@ function migrateEnrollsToScopedOnce() {
 // 👉 one-time migration from legacy shared key → user-scoped key
 function migrateProfileToScopedOnce() {
   try {
-    const legacy = _read("ol_profile", null);              // old shared value (or null)
+    const legacy = _read("ol_profile", null); // old shared value (or null)
     const targetKey = profileStorageKey();
-    const already = _read(targetKey, null);                // existing scoped value?
+    const already = _read(targetKey, null); // existing scoped value?
     if (legacy && !already) {
-      _write(targetKey, legacy);                           // copy once
+      _write(targetKey, legacy); // copy once
     }
     // (optional) old key နှိပ်ချင်ရင်:
     // localStorage.removeItem("ol_profile");
@@ -453,7 +472,11 @@ function resolveAssetUrl(u) {
   u = u.replace(/^\/?public\//, "/");
 
   // if already absolute http(s)/data OR starts with "/", leave it
-  if (/^(https?:)?\/\//i.test(u) || u.startsWith("/") || u.startsWith("data:")) {
+  if (
+    /^(https?:)?\/\//i.test(u) ||
+    u.startsWith("/") ||
+    u.startsWith("data:")
+  ) {
     return u;
   }
 
@@ -552,7 +575,7 @@ async function syncEnrollsBothWays() {
   }
 
   try {
-    const cloud = await loadEnrollsCloud();          // Set() or null
+    const cloud = await loadEnrollsCloud(); // Set() or null
     if (cloud) {
       // ✅ TRUST CLOUD: overwrite local for this user
       setEnrolls(cloud);
@@ -833,7 +856,9 @@ if ("ResizeObserver" in window) {
 /* ---------- router + search ---------- */
 function showPage(id, push = true) {
   // $$(".page").forEach((p) => p.classList.remove("visible"));
-  document.querySelectorAll("main .page").forEach(p => p.classList.remove("visible"));
+  document
+    .querySelectorAll("main .page")
+    .forEach((p) => p.classList.remove("visible"));
   // $("#page-" + id)?.classList.add("visible");
   document.querySelector("main #page-" + id)?.classList.add("visible");
 
@@ -1102,7 +1127,7 @@ function initSearch() {
    ========================================================= */
 
 /* ---------- Roles: resolve from Firestore or fallback map ---------- */
-const ROLE_ORDER = ["student","ta","instructor","admin","owner"];
+const ROLE_ORDER = ["student", "ta", "instructor", "admin", "owner"];
 const _HARDCODED_ROLE_BY_EMAIL = {
   "pbczmmus@gmail.com": "owner",
   "minmaung0307@gmail.com": "admin",
@@ -1111,41 +1136,59 @@ const _HARDCODED_ROLE_BY_EMAIL = {
   "honeymoe093@gmail.com": "student",
   // လိုသလို ထပ်ထည့်လို့ရ: "teacher@example.com": "instructor"
 };
-function roleRank(r){ const i=ROLE_ORDER.indexOf(String(r||"student").toLowerCase()); return i<0?0:i; }
+function roleRank(r) {
+  const i = ROLE_ORDER.indexOf(String(r || "student").toLowerCase());
+  return i < 0 ? 0 : i;
+}
 
-async function resolveUserRole(u){
+// If you already have resolveUserRole() defined, keep yours.
+// Below is a safe fallback just in case.
+async function resolveUserRole(u) {
+  // 1) Try Firestore users/{uid}.role
   try {
-    // u: Firebase user object
-    const uid = u?.uid || "";
-    const email = (u?.email || "").toLowerCase();
-    // 1) users/{uid} doc မှာ role ကြည့်မယ်
-    if (uid && db) {
-      const uref = doc(db, "users", uid);
-      const usnap = await getDoc(uref);
-      if (usnap.exists()) {
-        const r = (usnap.data()?.role || "").toLowerCase();
-        if (ROLE_ORDER.includes(r)) return r;
-      }
-    }
-    // 2) fallback map by email
-    if (email && _HARDCODED_ROLE_BY_EMAIL[email]) {
-      return _HARDCODED_ROLE_BY_EMAIL[email];
-    }
+    const uref = doc(db, "users", u.uid);
+    const snap = await getDoc(uref);
+    if (snap.exists() && snap.data()?.role) return snap.data().role;
   } catch {}
-  // 3) default
-  return "student";
+  // 2) Optional: fallback map by email (edit as you need)
+  const email = (u?.email || "").toLowerCase();
+  const map = window.__EMAIL_ROLE_MAP__ || {}; // e.g., {"admin@x.com":"admin", ...}
+  return map[email] || "student";
+}
+
+async function ensureUserDoc(u, role) {
+  if (!db || !u?.uid) return;
+  const uref = doc(db, "users", u.uid);
+  const snap = await getDoc(uref);
+  if (!snap.exists()) {
+    await setDoc(
+      uref,
+      {
+        email: (u.email || "").toLowerCase(),
+        role: role || "student",
+        createdAt: Date.now(),
+      },
+      { merge: true }
+    ); // don't overwrite future admin/owner fields
+  }
+}
+
+function safeCloseModal(modalRef) {
+  try {
+    modalRef?.close?.();
+  } catch {}
 }
 
 /* ---------- Page-level role guard ---------- */
 const PAGE_ROLE_MIN = {
-  admin: "instructor",   // admin page requires instructor+
-  gradebook: "instructor" // gradebook requires instructor+
+  admin: "instructor", // admin page requires instructor+
+  gradebook: "instructor", // gradebook requires instructor+
   // လိုသလို ထပ်ထည့်ပါ: dashboard: "ta", etc.
 };
 
-(function patchShowPageRoleGuard(){
+(function patchShowPageRoleGuard() {
   const _sp = window.showPage;
-  window.showPage = function(id, ...rest){
+  window.showPage = function (id, ...rest) {
     const need = PAGE_ROLE_MIN[id];
     if (need && roleRank(getRole()) < roleRank(need)) {
       toast(`Requires ${need}+ role`);
@@ -1159,18 +1202,28 @@ const PAGE_ROLE_MIN = {
 })();
 
 /* ---------- Element-level role gate (attach data-role-min on sensitive controls) ---------- */
-function enforceRoleGates(){
+function enforceRoleGates() {
   const r = getRole();
   const myRank = roleRank(r);
-  document.querySelectorAll("[data-role-min]").forEach(el=>{
+  document.querySelectorAll("[data-role-min]").forEach((el) => {
     const need = (el.getAttribute("data-role-min") || "student").toLowerCase();
     const ok = myRank >= roleRank(need);
     el.toggleAttribute("disabled", !ok);
     el.classList.toggle("disabled", !ok);
     if (el.dataset.roleHide === "true") el.style.display = ok ? "" : "none";
-    if (!el._rgWired){
+    if (!el._rgWired) {
       el._rgWired = true;
-      el.addEventListener("click", (e)=>{ if(!ok){ e.preventDefault(); e.stopPropagation(); toast(`Requires ${need}+`);} }, true);
+      el.addEventListener(
+        "click",
+        (e) => {
+          if (!ok) {
+            e.preventDefault();
+            e.stopPropagation();
+            toast(`Requires ${need}+`);
+          }
+        },
+        true
+      );
     }
   });
 }
@@ -1286,27 +1339,59 @@ function initAuthModal() {
     const em = $("#loginEmail")?.value.trim();
     const pw = $("#loginPass")?.value;
     if (!em || !pw) return toast("Fill email/password");
+
+    const btn = $("#doLogin");
+    btn?.setAttribute("disabled", "true");
     try {
-      await signInWithEmailAndPassword(auth, em, pw);
-      setUser({ email: em, role: "student" });
+      const cred = await signInWithEmailAndPassword(auth, em, pw);
+
+      // 🔑 resolve role from Firestore (or fallback map) + ensure user doc
+      let role = "student";
+      try {
+        role = (await resolveUserRole(cred.user)) || "student";
+        await ensureUserDoc(cred.user, role);
+      } catch (err) {
+        console.warn("role resolve/ensureUserDoc failed:", err?.message || err);
+      }
+
+      // ✅ set UI/session with real role (NOT local default)
+      setUser({ email: (em || "").toLowerCase(), role });
       setLogged(true, em);
-
-     migrateProfileToScopedOnce();
-const cloudP = await loadProfileCloud();
-if (cloudP) setProfile({ ...getProfile(), ...cloudP });
-renderProfilePanel?.();
-
-      migrateEnrollsToScopedOnce();       // 🔸 new
-await syncEnrollsBothWays();        // 🔸 cloud → local overwrite
-renderCatalog();
-window.renderMyLearning?.();
-
-      modal.close();
-      gateChatUI();
       toast("Welcome back");
-      await syncEnrollsBothWays(); // ✅ sync enrolls on login
-    } catch {
-      toast("Login failed");
+
+      // ── Post-auth sync (don’t break login UX if fails)
+      try {
+        migrateProfileToScopedOnce?.();
+        const cloudP = await loadProfileCloud?.();
+        if (cloudP) setProfile?.({ ...getProfile?.(), ...cloudP });
+        renderProfilePanel?.();
+
+        migrateEnrollsToScopedOnce?.();
+        await syncEnrollsBothWays?.(); // one time is enough
+        renderCatalog?.();
+        window.renderMyLearning?.();
+      } catch (syncErr) {
+        console.warn("Post-login sync failed:", syncErr?.message || syncErr);
+      }
+
+      // UI finalize
+      safeCloseModal(window.modal || $("#authModal"));
+      gateChatUI?.();
+    } catch (err) {
+      const code = err?.code || "";
+      if (
+        code.includes("invalid-credential") ||
+        code.includes("user-not-found") ||
+        code.includes("wrong-password")
+      ) {
+        toast("Wrong email or password");
+      } else if (code.includes("too-many-requests")) {
+        toast("Too many attempts. Please try again later.");
+      } else {
+        toast("Login failed");
+      }
+    } finally {
+      btn?.removeAttribute("disabled");
     }
   });
 
@@ -1315,27 +1400,55 @@ window.renderMyLearning?.();
     const em = $("#signupEmail")?.value.trim();
     const pw = $("#signupPass")?.value;
     if (!em || !pw) return toast("Fill email/password");
+
+    const btn = $("#doSignup");
+    btn?.setAttribute("disabled", "true");
     try {
-      await createUserWithEmailAndPassword(auth, em, pw);
-      setUser({ email: em, role: "student" });
+      const cred = await createUserWithEmailAndPassword(auth, em, pw);
+
+      // 🔑 resolve role (maybe map promotes certain emails), ensure users/{uid}
+      let role = "student";
+      try {
+        role = (await resolveUserRole(cred.user)) || "student";
+        await ensureUserDoc(cred.user, role);
+      } catch (err) {
+        console.warn("role resolve/ensureUserDoc failed:", err?.message || err);
+      }
+
+      // ✅ set with real role
+      setUser({ email: (em || "").toLowerCase(), role });
       setLogged(true, em);
-
-     migrateProfileToScopedOnce();
-const cloudP = await loadProfileCloud();
-if (cloudP) setProfile({ ...getProfile(), ...cloudP });
-renderProfilePanel?.();
-
-      migrateEnrollsToScopedOnce();       // 🔸 new
-await syncEnrollsBothWays();        // 🔸 ensures empty for new user
-renderCatalog();
-window.renderMyLearning?.();
-
-      modal.close();
-      gateChatUI();
       toast("Account created");
-      await syncEnrollsBothWays(); // ✅ sync enrolls on signup
-    } catch {
-      toast("Signup failed");
+
+      // ── Post-signup init/sync
+      try {
+        migrateProfileToScopedOnce?.();
+        const cloudP = await loadProfileCloud?.();
+        if (cloudP) setProfile?.({ ...getProfile?.(), ...cloudP });
+        renderProfilePanel?.();
+
+        migrateEnrollsToScopedOnce?.();
+        await syncEnrollsBothWays?.(); // ensure empty/init structures for new user
+        renderCatalog?.();
+        window.renderMyLearning?.();
+      } catch (syncErr) {
+        console.warn("Post-signup setup failed:", syncErr?.message || syncErr);
+      }
+
+      // UI finalize
+      safeCloseModal(window.modal || $("#authModal"));
+      gateChatUI?.();
+    } catch (err) {
+      const code = err?.code || "";
+      if (code.includes("email-already-in-use")) {
+        toast("This email is already in use");
+      } else if (code.includes("weak-password")) {
+        toast("Password is too weak");
+      } else {
+        toast("Signup failed");
+      }
+    } finally {
+      btn?.removeAttribute("disabled");
     }
   });
 
@@ -1813,7 +1926,9 @@ function renderProfilePanel() {
   const p = getProfile();
   const name = p.displayName || getUser()?.email || "Guest";
   const baseSrc = toImageSrc(p.photoURL);
-  const avatar = baseSrc ? (baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()) : "";
+  const avatar = baseSrc
+    ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
+    : "";
 
   //   const completed = getCompletedRaw();                       // ← all completed
   const dic = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
@@ -1890,8 +2005,16 @@ function renderProfilePanel() {
            onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
       <div class="grow">
         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
-        ${p.bio ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>` : ""}
-        ${p.skills ? `<div class="small muted">Skills: ${esc(p.skills)}</div>` : ""}
+        ${
+          p.bio
+            ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
+            : ""
+        }
+        ${
+          p.skills
+            ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
+            : ""
+        }
         <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
         ${certSection}
       </div>
@@ -1917,21 +2040,36 @@ function renderProfilePanel() {
 window.renderProfilePanel = renderProfilePanel;
 
 // ---- Avatar Upload to Firebase Storage (non-destructive) ----
-import { storage, storageRef, uploadBytes, getDownloadURL } from "./firebase.js";
+import {
+  storage,
+  storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from "./firebase.js";
 
 // helper: path-safe filename
-function _safeName(name="avatar.png"){
-  return String(name).replace(/[^a-z0-9._-]+/gi, "_").slice(0,80);
+function _safeName(name = "avatar.png") {
+  return String(name)
+    .replace(/[^a-z0-9._-]+/gi, "_")
+    .slice(0, 80);
 }
 
 // ===== Avatar upload to Firebase Storage (uid-only) =====
 async function uploadAvatarFile(file) {
   if (!file) throw new Error("No file selected");
   const uid = auth?.currentUser?.uid;
-  if (!uid) { toast?.("Please log in to upload"); throw new Error("Not authenticated"); }
-  const path = `avatars/${uid}/${Date.now()}_${(file.name||"img").replace(/[^a-z0-9._-]+/gi,"_")}`;
+  if (!uid) {
+    toast?.("Please log in to upload");
+    throw new Error("Not authenticated");
+  }
+  const path = `avatars/${uid}/${Date.now()}_${(file.name || "img").replace(
+    /[^a-z0-9._-]+/gi,
+    "_"
+  )}`;
   const ref0 = storageRef(storage, path);
-  await uploadBytes(ref0, file, { contentType: file.type || "application/octet-stream" });
+  await uploadBytes(ref0, file, {
+    contentType: file.type || "application/octet-stream",
+  });
   return await getDownloadURL(ref0);
 }
 // async function uploadAvatarFile(file){
@@ -1951,7 +2089,9 @@ async function loadProfileCloud() {
     const docRef = doc(db, "users", uid);
     const snap = await getDoc(docRef);
     return snap.exists() ? snap.data() : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function saveProfileCloud(patch) {
@@ -1963,26 +2103,30 @@ async function saveProfileCloud(patch) {
   } catch {}
 }
 
-(function wireAvatarUploadOnce(){
+(function wireAvatarUploadOnce() {
   const fInput = document.getElementById("avatarFile");
-  const btn    = document.getElementById("avatarUploadBtn");
-  const form   = document.getElementById("profileForm");
-  const urlEl  = form?.querySelector('input[name="photoURL"]') || document.getElementById("photoURL");
+  const btn = document.getElementById("avatarUploadBtn");
+  const form = document.getElementById("profileForm");
+  const urlEl =
+    form?.querySelector('input[name="photoURL"]') ||
+    document.getElementById("photoURL");
 
   if (!fInput || !btn) return;
-  if (btn._wired) return; btn._wired = true;
+  if (btn._wired) return;
+  btn._wired = true;
 
   btn.addEventListener("click", async () => {
     try {
       const file = fInput.files?.[0];
       if (!file) return toast("Select a file first");
       // (optional) size guard ~ 3MB
-      if (file.size > 3 * 1024 * 1024) return toast("Image too large (max 3MB)");
+      if (file.size > 3 * 1024 * 1024)
+        return toast("Image too large (max 3MB)");
 
       const url = await uploadAvatarFile(file);
-      if (urlEl) urlEl.value = url;     // fill Photo URL field
+      if (urlEl) urlEl.value = url; // fill Photo URL field
       toast("Avatar uploaded ✔️ (URL filled)");
-    } catch (e){
+    } catch (e) {
       console.warn(e);
       toast("Upload failed");
     }
@@ -1997,7 +2141,7 @@ function normalizeGDriveUrl(u) {
     if (url.hostname.includes("googleusercontent.com")) return u;
     if (url.hostname === "drive.google.com") {
       const m = url.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      const id = m ? m[1] : (url.searchParams.get("id") || "");
+      const id = m ? m[1] : url.searchParams.get("id") || "";
       if (id) return `https://drive.google.com/uc?export=view&id=${id}`;
     }
   } catch {}
@@ -2012,11 +2156,11 @@ document.getElementById("btn-edit-profile")?.addEventListener("click", () => {
   const p = getProfile();
   if (f) {
     f.displayName.value = p.displayName || "";
-    f.photoURL.value    = p.photoURL || "";
-    f.bio.value         = p.bio || "";
-    f.skills.value      = p.skills || "";
-    f.links.value       = p.links || "";
-    f.social.value      = p.social || "";
+    f.photoURL.value = p.photoURL || "";
+    f.bio.value = p.bio || "";
+    f.skills.value = p.skills || "";
+    f.links.value = p.links || "";
+    f.social.value = p.social || "";
   }
   // 🔽 wire file input for avatar upload (add this if not present)
   const file = document.getElementById("avatarFile");
@@ -2026,8 +2170,8 @@ document.getElementById("btn-edit-profile")?.addEventListener("click", () => {
       const sel = e.target.files?.[0];
       if (!sel) return;
       try {
-        const url = await uploadAvatarFile(sel);         // Firebase Storage
-        if (f?.photoURL) f.photoURL.value = url;         // put URL into field
+        const url = await uploadAvatarFile(sel); // Firebase Storage
+        if (f?.photoURL) f.photoURL.value = url; // put URL into field
         toast("Avatar uploaded");
       } catch (err) {
         console.warn(err);
@@ -2043,31 +2187,33 @@ $("#closeProfileModal")?.addEventListener("click", () =>
 $("#cancelProfile")?.addEventListener("click", () =>
   $("#profileEditModal")?.close()
 );
-document.getElementById("profileForm")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const f = e.currentTarget;
-  const rawUrl = (f.photoURL.value || "").trim();
+document
+  .getElementById("profileForm")
+  ?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.currentTarget;
+    const rawUrl = (f.photoURL.value || "").trim();
 
-  // 1) Google Drive link ဖြစ်ရင် direct view လုပ်ပေး
-  const normUrl = normalizeGDriveUrl(rawUrl);
+    // 1) Google Drive link ဖြစ်ရင် direct view လုပ်ပေး
+    const normUrl = normalizeGDriveUrl(rawUrl);
 
-  // 2) Save to local (user-scoped) + Cloud
-  const data = {
-    displayName: f.displayName.value.trim(),
-    photoURL: normUrl,
-    bio: f.bio.value.trim(),
-    skills: f.skills.value.trim(),
-    links: f.links.value.trim(),
-    social: f.social.value.trim(),
-  };
-  setProfile(data);
-  await saveProfileCloud(data);
+    // 2) Save to local (user-scoped) + Cloud
+    const data = {
+      displayName: f.displayName.value.trim(),
+      photoURL: normUrl,
+      bio: f.bio.value.trim(),
+      skills: f.skills.value.trim(),
+      links: f.links.value.trim(),
+      social: f.social.value.trim(),
+    };
+    setProfile(data);
+    await saveProfileCloud(data);
 
-  // 3) UI refresh
-  renderProfilePanel();
-  document.getElementById("profileEditModal")?.close();
-  toast("Profile saved");
-});
+    // 3) UI refresh
+    renderProfilePanel();
+    document.getElementById("profileEditModal")?.close();
+    toast("Profile saved");
+  });
 
 // ---- Reader state (for delegation) ----
 window.READER_STATE = { courseId: null, lesson: 0 };
@@ -2524,43 +2670,43 @@ function renderMyLearning() {
     .join("");
 
   // wire buttons (this was missing → caused “can’t click”)
-grid.querySelectorAll("[data-read]").forEach(
-  (b) =>
-    (b.onclick = () => {
-      const id = b.getAttribute("data-read");
-      openReader(id);
-    })
-);
+  grid.querySelectorAll("[data-read]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const id = b.getAttribute("data-read");
+        openReader(id);
+      })
+  );
 
-// ★★★ ADD THIS BLOCK — Firefox timing safe label fix ★★★
-(async () => {
-  const cards = Array.from(grid.querySelectorAll(".card.course"));
-  for (const card of cards) {
-    const id = card.getAttribute("data-id");
-    if (!id) continue;
-    const btn = card.querySelector("[data-read]");
-    if (!btn) continue;
+  // ★★★ ADD THIS BLOCK — Firefox timing safe label fix ★★★
+  (async () => {
+    const cards = Array.from(grid.querySelectorAll(".card.course"));
+    for (const card of cards) {
+      const id = card.getAttribute("data-id");
+      if (!id) continue;
+      const btn = card.querySelector("[data-read]");
+      if (!btn) continue;
 
-    // 1) Local completed first (instant)
-    if (completed.has(id)) {
-      btn.textContent = "Review";
-      continue;
-    }
-
-    // 2) Cloud progress (fallback)
-    try {
-      const p = await getProgress(id); // cloud → local fallback
-      // progress object ကို သင့် app မှာ ဒီလို save လုပ်တယ်:
-      // { [courseId]: { status, lesson, ts } }
-      // markCourseProgress() က status='review' ထည့်ပေးထားပြီးသား
-      // (function က အခုလည်း app.js ထဲမှာ ရှိပြီ။
-      //  [oai_citation:1‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb)  /  [oai_citation:2‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb))
-      if (p && p.status === "review") {
+      // 1) Local completed first (instant)
+      if (completed.has(id)) {
         btn.textContent = "Review";
+        continue;
       }
-    } catch {}
-  }
-})();
+
+      // 2) Cloud progress (fallback)
+      try {
+        const p = await getProgress(id); // cloud → local fallback
+        // progress object ကို သင့် app မှာ ဒီလို save လုပ်တယ်:
+        // { [courseId]: { status, lesson, ts } }
+        // markCourseProgress() က status='review' ထည့်ပေးထားပြီးသား
+        // (function က အခုလည်း app.js ထဲမှာ ရှိပြီ။
+        //  [oai_citation:1‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb)  /  [oai_citation:2‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb))
+        if (p && p.status === "review") {
+          btn.textContent = "Review";
+        }
+      } catch {}
+    }
+  })();
 
   grid.querySelectorAll("[data-cert]").forEach(
     (b) =>
@@ -2578,7 +2724,8 @@ window.renderMyLearning = renderMyLearning;
 function renderCertificate(course, cert) {
   const p = getProfile();
   const name = cert?.name || p.displayName || getUser()?.email || "Student";
-  const avatar = resolveAssetUrl(cert?.photo || p.photoURL) || "/assets/default-avatar.png";
+  const avatar =
+    resolveAssetUrl(cert?.photo || p.photoURL) || "/assets/default-avatar.png";
   // const avatar = cert?.photo || p.photoURL || "/assets/default-avatar.png";
   const dateTxt = new Date(cert?.issuedAt || Date.now()).toLocaleDateString();
   const scoreTxt =
@@ -3182,8 +3329,12 @@ function renderAnnouncements() {
       </div>
       <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
       <div class="row" style="justify-content:flex-end; gap:6px">
-        <button class="btn small" data-edit="${a.id}" data-role-min="instructor">Edit</button>
-+ <button class="btn small" data-del="${a.id}"  data-role-min="instructor">Delete</button>
+        <button class="btn small" data-edit="${
+          a.id
+        }" data-role-min="instructor">Edit</button>
++ <button class="btn small" data-del="${
+          a.id
+        }"  data-role-min="instructor">Delete</button>
       </div>
     </div>`
       )
@@ -3618,7 +3769,7 @@ function renderSettingsHelp() {
   if (devA && !devA._wired) {
     devA._wired = true;
     // project root/docs/settingUpDetails.md ထဲကို ဖိုင်တင်ပြီးရင် အောက်က href ပြောင်းပါ
-    devA.href = "/docs/settingUpDetails.md"; 
+    devA.href = "/docs/settingUpDetails.md";
   }
 
   box.innerHTML = `
@@ -3715,15 +3866,15 @@ function renderSettingsHelp() {
 (function wireSettingsHelp() {
   // showPage() ထဲက router ကိုအသုံးပြုထားလျှင် ဒီလို hook လုပ်ပါ
   const _showPage = window.showPage;
-  window.showPage = function(id, ...rest) {
+  window.showPage = function (id, ...rest) {
     const r = _showPage ? _showPage.call(this, id, ...rest) : null;
     if (id === "settings") renderSettingsHelp();
     return r;
   };
   // direct load ဖြစ်ရင်လည်း တခါတည်း render
-  if (location.hash.replace("#","") === "settings") renderSettingsHelp();
+  if (location.hash.replace("#", "") === "settings") renderSettingsHelp();
   document.addEventListener("DOMContentLoaded", () => {
-    if (location.hash.replace("#","") === "settings") renderSettingsHelp();
+    if (location.hash.replace("#", "") === "settings") renderSettingsHelp();
   });
 })();
 
@@ -3735,14 +3886,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Auth modal + restore login
   // Auth modal (once)
-if (!window.__OL_ONCE__.authModal) {
-  try { initAuthModal(); } catch {}
-  window.__OL_ONCE__.authModal = true;
-}
+  if (!window.__OL_ONCE__.authModal) {
+    try {
+      initAuthModal();
+    } catch {}
+    window.__OL_ONCE__.authModal = true;
+  }
 
   const u = getUser();
   setLogged(!!u, u?.email);
-  if (u) { migrateProfileToScopedOnce(); renderProfilePanel?.(); }
+  if (u) {
+    migrateProfileToScopedOnce();
+    renderProfilePanel?.();
+  }
   // if (u) {
   //   try {
   //     await migrateProgressKey();
@@ -3754,31 +3910,43 @@ if (!window.__OL_ONCE__.authModal) {
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
     // Auth state → UI (register once here)
-onAuthStateChanged(auth, async (u) => {
-  IS_AUTHED = !!u;
-  setAppLocked(!IS_AUTHED);
+    // Auth state → UI (register once here)
+    onAuthStateChanged(auth, async (u) => {
+      IS_AUTHED = !!u;
+      setAppLocked(!IS_AUTHED);
 
-  if (u) {
-    setUser({ email: u.email || "", role: getUser()?.role || "student" });
-    setLogged(true, u.email || "");
+      if (u) {
+        // 🔑 role ကို Firestore (သို့) fallback map က resolve
+        let role = "student";
+        try {
+          role = (await resolveUserRole(u)) || "student";
+          await ensureUserDoc(u, role); // users/{uid} doc မရှိသေးရင် create
+        } catch (e) {
+          console.warn("role resolve failed:", e?.message || e);
+        }
 
-    try {
-      migrateProfileToScopedOnce();
-      await Promise.all([
-        syncEnrollsBothWays(),
-        typeof syncProgressBothWays === "function" ? syncProgressBothWays() : Promise.resolve()
-      ]);
-      renderProfilePanel?.();
-      window.renderMyLearning?.();
-      window.renderGradebook?.();
-    } catch (e) {
-      console.warn("Post-login sync failed:", e?.message || e);
-    }
-  } else {
-    setUser(null);
-    setLogged(false);
-  }
-});
+        setUser({ email: u.email || "", role });
+        setLogged(true, u.email || "");
+
+        try {
+          migrateProfileToScopedOnce();
+          await Promise.all([
+            syncEnrollsBothWays(),
+            typeof syncProgressBothWays === "function"
+              ? syncProgressBothWays()
+              : Promise.resolve(),
+          ]);
+          renderProfilePanel?.();
+          window.renderMyLearning?.();
+          window.renderGradebook?.();
+        } catch (e) {
+          console.warn("Post-login sync failed:", e?.message || e);
+        }
+      } else {
+        setUser(null);
+        setLogged(false);
+      }
+    });
   }
 
   // UI
