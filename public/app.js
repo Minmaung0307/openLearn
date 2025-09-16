@@ -40,10 +40,6 @@ import {
   getDownloadURL,
 } from "./firebase.js";
 
-// hard unlock UI just in case any 'locked' flag stuck
-document.addEventListener("DOMContentLoaded", () => {
-  document.body.classList.remove("locked");
-});
 // --- Auth state bootstrap (keep near top of app.js) ---
 onAuthStateChanged(auth, (u) => {
   document.body.classList.toggle("logged", !!u);
@@ -4124,21 +4120,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Gate chat inputs and keep in sync
   gateChatUI();
-  if (typeof onAuthStateChanged === "function" && auth) {
-    onAuthStateChanged(auth, async () => {
-      gateChatUI();
-      try {
-        await migrateProgressKey();
-        await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
-      } catch {}
-      // 🔸 profile scope migrate when a user is present
- if (auth?.currentUser) { migrateProfileToScopedOnce(); renderProfilePanel?.(); }
-      // ✅ sync ပြီမှ render — Firefox “Continue only” ပြဿနာကို ဒီနေရာက ဖြေ
-      window.renderProfilePanel?.();
-      window.renderMyLearning?.();
-      window.renderGradebook?.();
-    });
-  }
+//   if (typeof onAuthStateChanged === "function" && auth) {
+//     onAuthStateChanged(auth, async () => {
+//       gateChatUI();
+//       try {
+//         await migrateProgressKey();
+//         await Promise.all([syncEnrollsBothWays(), syncProgressBothWays()]);
+//       } catch {}
+//       // 🔸 profile scope migrate when a user is present
+//  if (auth?.currentUser) { migrateProfileToScopedOnce(); renderProfilePanel?.(); }
+//       // ✅ sync ပြီမှ render — Firefox “Continue only” ပြဿနာကို ဒီနေရာက ဖြေ
+//       window.renderProfilePanel?.();
+//       window.renderMyLearning?.();
+//       window.renderGradebook?.();
+//     });
+//   }
 
   // UI
   initSidebar();
@@ -4224,29 +4220,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   startLiveAnnouncements();
 });
 
-// run once on boot
-document.addEventListener("DOMContentLoaded", () => {
-  // make sure the modal & handlers exist
-  try {
-    initAuthModal();
-  } catch {}
-
-  // reflect Firebase auth state → UI & local profile
-  try {
-    onAuthStateChanged(auth, async (u) => {
-      if (u) {
-        setUser({ email: u.email || "", role: getUser()?.role || "student" });
-    setLogged(true, u.email || "");
-   migrateProfileToScopedOnce();          // 🔸 add
-   renderProfilePanel?.();
-      } else {
-        setUser(null);
-        setLogged(false);
-      }
-    });
-  } catch {}
-});
-
 // ==== DEBUG HOOKS (put near the bottom of app.js, after the functions are defined) ====
 Object.assign(window, {
   getCompletedRaw, // -> view local completed array
@@ -4278,3 +4251,115 @@ function stripFinalsUI() {
   s.textContent = `.navbtn[data-page="finals"]{display:none!important}`;
   document.head.appendChild(s);
 }
+
+// --- HARD UNLOCK in case anything left UI 'locked'
+document.addEventListener("DOMContentLoaded", () => {
+  document.body.classList.remove("locked");
+});
+
+// --- Ensure login modal exists (auto-create if missing) ---
+function ensureLoginModal() {
+  let dlg = document.getElementById("loginModal");
+  if (!dlg) {
+    dlg = document.createElement("dialog");
+    dlg.id = "loginModal";
+    dlg.className = "card";
+    dlg.innerHTML = `
+      <form id="loginForm" method="dialog">
+        <h3 class="h4" style="margin:0 0 10px">Login</h3>
+        <div class="stack" style="gap:8px">
+          <input id="loginEmail" class="input" type="email" placeholder="Email" required />
+          <input id="loginPass" class="input" type="password" placeholder="Password" required />
+          <div class="row" style="justify-content:flex-end;gap:8px">
+            <button type="button" id="btnLoginCancel" class="btn">Cancel</button>
+            <button type="submit" class="btn primary">Sign in</button>
+          </div>
+        </div>
+      </form>`;
+    document.body.appendChild(dlg);
+  }
+  return dlg;
+}
+
+// --- Delegated click handlers (works even if DOM moved/re-rendered) ---
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("#btn-login, #btn-logout, #btnLoginCancel");
+  if (!btn) return;
+
+  // always ensure modal node exists before any action
+  const dlg = ensureLoginModal();
+
+  if (btn.id === "btn-login") {
+    document.body.classList.remove("locked");
+    try { dlg.showModal(); } catch { dlg.setAttribute("open",""); } // Safari fallback
+  }
+
+  if (btn.id === "btnLoginCancel") {
+    try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+  }
+
+  if (btn.id === "btn-logout") {
+    (async () => {
+      try { await signOut(auth); toast("Signed out"); }
+      catch (err) { console.error(err); toast("Logout failed"); }
+    })();
+  }
+});
+
+// --- Form submit handler (bind once, supports auto-created modal) ---
+document.addEventListener("submit", async (e) => {
+  const form = e.target;
+  if (form.id !== "loginForm") return;
+  e.preventDefault();
+  const email = (document.getElementById("loginEmail")?.value || "").trim();
+  const pass  = (document.getElementById("loginPass")?.value || "").trim();
+  if (!email || !pass) return;
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+    const dlg = document.getElementById("loginModal");
+    try { dlg?.close(); } catch { dlg?.removeAttribute("open"); }
+    toast("Signed in");
+  } catch (err) {
+    console.error(err);
+    toast("Login failed: " + (err?.code || "unknown"));
+  }
+});
+
+// --- Keep topbar buttons synced with auth state (already added earlier is fine) ---
+onAuthStateChanged(auth, async (u) => {
+  document.body.classList.toggle("logged", !!u);
+  document.body.classList.toggle("anon", !u);
+
+  // buttons
+  const bLogin = document.getElementById("btn-login");
+  const bLogout = document.getElementById("btn-logout");
+  if (bLogin) bLogin.style.display = u ? "none" : "";
+  if (bLogout) bLogout.style.display = u ? "" : "none";
+
+  // reflect into local profile state (moved here from removed block)
+  if (u) {
+    setUser({ email: u.email || "", role: getUser()?.role || "student" });
+    setLogged(true, u.email || "");
+    migrateProfileToScopedOnce?.();
+  } else {
+    setUser(null);
+    setLogged(false);
+  }
+
+  // scoped LS refresh
+  switchLocalStateForUser(currentUidKey());
+
+  // optional heavy syncs
+  try {
+    await migrateProgressKey?.();
+    await Promise.allSettled([syncEnrollsBothWays?.(), syncProgressBothWays?.()]);
+  } catch {}
+
+  // lazy renders
+  window.renderProfilePanel?.();
+  if (location.hash === "#mylearning") window.renderMyLearning?.();
+  if (location.hash === "#gradebook") window.renderGradebook?.();
+
+  // chat gating refresh if you rely on auth
+  gateChatUI?.();
+});

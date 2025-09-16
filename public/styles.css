@@ -1356,6 +1356,8 @@ button,
   text-overflow: ellipsis;
 }
 
+#topbar .btn { pointer-events: auto; }
+
 /* Guide & Help styles */
 .help-body { font-size: 0.95rem; line-height: 1.6; }
 .help-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
