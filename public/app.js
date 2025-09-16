@@ -699,27 +699,51 @@ function sortCourses(list, sort) {
     return list.slice().sort((a, b) => (b.price || 0) - (a.price || 0));
   return list;
 }
+
+// helpers (normalize text, and safe category match)
+function _norm(s){ return (s || "").toString().trim().toLowerCase(); }
+function _hasCategory(course, wanted){
+  // support single string or array on course.category
+  const cat = course.category;
+  if (Array.isArray(cat)) return cat.some(c => _norm(c) === _norm(wanted));
+  return _norm(cat) === _norm(wanted);
+}
+
 function renderCatalog() {
   const grid = $("#courseGrid");
   if (!grid) return;
   ALL = getCourses();
 
+  // ---- build category options ONCE (don’t reset user selection) ----
   const sel = $("#filterCategory");
-  if (sel) {
-    const cats = Array.from(new Set(ALL.map((c) => c.category || "")))
-      .filter(Boolean)
-      .sort();
+  if (sel && !sel.dataset.built) {
+    const cats = Array.from(new Set(
+      ALL.flatMap(c => Array.isArray(c.category) ? c.category : [c.category])
+        .map(c => (c || "").toString().trim())
+        .filter(Boolean)
+    )).sort((a,b) => a.localeCompare(b));
     sel.innerHTML =
       `<option value="">All Categories</option>` +
       cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    sel.dataset.built = "1";
   }
 
-  const cat = ($("#filterCategory")?.value || "").trim();
-  const lvl = ($("#filterLevel")?.value || "").trim();
-  const sort = ($("#sortBy")?.value || "").trim();
-  let list = ALL.filter(
-    (c) => (!cat || c.category === cat) && (!lvl || c.level === lvl)
-  );
+  // ---- read filters (treat "", "All", "all categories" as ALL) ----
+  const rawCat  = ($("#filterCategory")?.value || "");
+  const rawLvl  = ($("#filterLevel")?.value || "");
+  const sort    = ($("#sortBy")?.value || "").trim();
+
+  const cat = _norm(rawCat);
+  const lvl = _norm(rawLvl);
+  const isAllCat = (cat === "" || cat === "all" || cat === "all categories");
+
+  // ---- filter ----
+  let list = ALL.filter(c => {
+    const okCat = isAllCat ? true : _hasCategory(c, rawCat);
+    const okLvl = (lvl === "" ? true : _norm(c.level) === lvl);
+    return okCat && okLvl;
+  });
+
   list = sortCourses(list, sort);
 
   if (!list.length) {
@@ -727,53 +751,39 @@ function renderCatalog() {
     return;
   }
 
-  grid.innerHTML = list
-    .map((c) => {
-      const r = Number(c.rating || 4.6);
-      const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
-      const search = [c.title, c.summary, c.category, c.level].join(" ");
-      const enrolled = getEnrolls().has(c.id);
-      return `<div class="card course" data-id="${c.id}" data-search="${esc(
-        search
-      )}">
-      <img class="course-cover" src="${esc(
-        c.image || `https://picsum.photos/seed/${c.id}/640/360`
-      )}" alt="">
+  grid.innerHTML = list.map((c) => {
+    const r = Number(c.rating || 4.6);
+    const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+    const search = [c.title, c.summary, (Array.isArray(c.category)?c.category.join(", "):c.category), c.level].join(" ");
+    const enrolled = getEnrolls().has(c.id);
+    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
+      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(c.category || "")} • ${esc(
-        c.level || ""
-      )} • ★ ${r.toFixed(1)} • ${priceStr}</div>
+        <div class="small muted">${esc(Array.isArray(c.category)?c.category.join(", "):(c.category || ""))} • ${esc(c.level || "")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
         <div class="muted">${esc(c.summary || "")}</div>
         <div class="row" style="justify-content:flex-end; gap:8px">
           <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${
-        enrolled ? "Enrolled" : "Enroll"
-      }</button>
+          <button class="btn primary" data-enroll="${c.id}">${enrolled ? "Enrolled" : "Enroll"}</button>
         </div>
       </div>
     </div>`;
-    })
-    .join("");
+  }).join("");
 
-  grid
-    .querySelectorAll("[data-enroll]")
-    .forEach(
-      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
-    );
-  grid
-    .querySelectorAll("[data-details]")
-    .forEach(
-      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
-    );
+  grid.querySelectorAll("[data-enroll]")
+    .forEach((b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll"))));
+  grid.querySelectorAll("[data-details]")
+    .forEach((b) => (b.onclick = () => openDetails(b.getAttribute("data-details"))));
 }
 
-// default filter dropdown before data arrives
+// default option before data arrives (kept)
 document.addEventListener("DOMContentLoaded", () => {
   const catSel = $("#filterCategory");
   if (catSel && !catSel.options.length)
     catSel.innerHTML = `<option value="">All Categories</option>`;
 });
+
+// re-render on filter changes (kept)
 ["filterCategory", "filterLevel", "sortBy"].forEach((id) =>
   document.getElementById(id)?.addEventListener("change", renderCatalog)
 );
@@ -2828,7 +2838,7 @@ function renderCertificate(course, cert) {
       <img src="/assets/logo.png" class="cert-logo" alt="OpenLearn Logo">
 
       <div class="cert-qr"><img alt="Verify QR" src="${qr}"></div>
-      
+
       <div class="cert-head">OpenLearn Institute</div>
       <div class="cert-sub">Certificate of Completion</div>
 
