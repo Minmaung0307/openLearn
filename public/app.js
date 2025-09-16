@@ -4,7 +4,6 @@
    ========================================================= */
 /* app.js — single-source imports only */
 import {
-  // Core
   db,
   auth,
   onAuthStateChanged,
@@ -12,29 +11,29 @@ import {
   createUserWithEmailAndPassword,
   signOut,
 
-  // RTDB (use rtdb* aliases to avoid name clashes)
+  // RTDB
   getDatabase,
   ref,
   push,
   onChildAdded,
-  rtdbQuery,        // RTDB query
-  orderByChild,     // RTDB orderByChild
-  rtdbEndAt,        // RTDB endAt
-  rtdbGet,          // RTDB get
-  rtdbRemove,       // RTDB remove
+  rtdbQuery,
+  orderByChild,
+  rtdbEndAt,
+  rtdbGet,
+  rtdbRemove,
 
-  // Firestore (use fs* aliases to avoid name clashes)
+  // Firestore
   doc,
   getDoc,
   setDoc,
   collection,
   addDoc,
   onSnapshot,
-  fsQuery,          // Firestore query
-  fsOrderBy,        // Firestore orderBy
+  fsQuery,
+  fsOrderBy,
   serverTimestamp,
 
-  // Storage (if you use avatar upload)
+  // Storage (✅ keep only here)
   storage,
   storageRef,
   uploadBytes,
