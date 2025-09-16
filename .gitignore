@@ -1,6 +1,7 @@
 .vscode
 .firebase
 .github
-old
-public0
-public1
+functions/node_modules
+functions/.env
+functions/.firebase
+.DS_Store
