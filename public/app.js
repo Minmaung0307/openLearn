@@ -1946,9 +1946,6 @@ function renderProfilePanel() {
 }
 window.renderProfilePanel = renderProfilePanel;
 
-// ---- Avatar Upload to Firebase Storage (non-destructive) ----
-import { storage, storageRef, uploadBytes, getDownloadURL } from "./firebase.js";
-
 // helper: path-safe filename
 function _safeName(name="avatar.png"){
   return String(name).replace(/[^a-z0-9._-]+/gi, "_").slice(0,80);
