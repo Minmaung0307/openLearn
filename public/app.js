@@ -3560,7 +3560,8 @@ function blockIfLocked(e) {
   if (!IS_AUTHED) {
     e.preventDefault();
     e.stopPropagation();
-    if (typeof toast === "function") toast("Please log in to continue");
+    try { if (typeof toast === "function") toast("Please log in to continue"); } catch {}
+    try { window._showLoginPane?.(); } catch {}
   }
 }
 
@@ -3593,12 +3594,20 @@ window.showPage = function (name, ...rest) {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  try {
-    initAuthModal?.();
-  } catch {}
+  try { initAuthModal?.(); } catch {}
 
+  // 🔹 Login button → open auth modal
+  const btnLogin = document.getElementById("btn-login");
+  if (btnLogin && !btnLogin._wired) {
+    btnLogin._wired = true;
+    btnLogin.addEventListener("click", (e) => {
+      e.preventDefault();
+      try { window._showLoginPane?.(); } catch {}
+    });
+  }
+
+  // 🔹 Global onAuthStateChanged
   try {
-    // Global onAuthStateChanged handler
     onAuthStateChanged(auth, async (u) => {
       IS_AUTHED = !!u;
       setAppLocked(!IS_AUTHED);
@@ -3606,39 +3615,34 @@ document.addEventListener("DOMContentLoaded", () => {
       if (u) {
         setUser?.({ email: u.email || "", role: getUser?.()?.role || "student" });
         setLogged?.(true, u.email || "");
-
-        migrateEnrollsToScopedOnce();   // 🔸 new
-        await syncEnrollsBothWays();    // 🔸 new
+        migrateEnrollsToScopedOnce();
+        await syncEnrollsBothWays();
       } else {
         setUser?.(null);
         setLogged?.(false);
-
-        // optional: clear UI on logout
         renderCatalog();
         window.renderMyLearning?.();
       }
     });
   } catch (e) {
     console.warn("Auth listener error", e);
-    // fail-safe: lock if we can’t read auth
     IS_AUTHED = false;
     setAppLocked(true);
   }
 
-  // ✅ logoutBtn handler သီးသန့်ထည့်
-  const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn) {
+  // 🔹 FIX: use the correct logout button id (#btn-logout, not #logoutBtn)
+  const logoutBtn = document.getElementById("btn-logout");
+  if (logoutBtn && !logoutBtn._wired) {
+    logoutBtn._wired = true;
     logoutBtn.addEventListener("click", async (e) => {
       e.preventDefault();
       try { await signOut(auth); } catch {}
       setUser(null);
       setLogged(false);
-      gateChatUI();
-
+      gateChatUI?.();
       renderCatalog();
       window.renderMyLearning?.();
-
-      toast("Logged out");
+      try { toast("Logged out"); } catch {}
     });
   }
 });
