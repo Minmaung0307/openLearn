@@ -2,6 +2,7 @@
    OpenLearn · app.js (Improved)
    Part 1/6 — Imports, helpers, theme, state, roles
    ========================================================= */
+/* app.js — single-source imports only */
 import {
   // Core
   db,
@@ -11,27 +12,33 @@ import {
   createUserWithEmailAndPassword,
   signOut,
 
-  // RTDB (firebase/database) — use rtdb* aliases
+  // RTDB (use rtdb* aliases to avoid name clashes)
   getDatabase,
   ref,
   push,
   onChildAdded,
-  query as rtdbQuery,     // 👈 RTDB.query
-  orderByChild,
-  endAt as rtdbEndAt,     // 👈 RTDB.endAt  (firebase.js မှာ export လုပ်ထားရမယ်)
-  get as rtdbGet,         // 👈 RTDB.get
-  remove as rtdbRemove,   // 👈 RTDB.remove
+  rtdbQuery,        // RTDB query
+  orderByChild,     // RTDB orderByChild
+  rtdbEndAt,        // RTDB endAt
+  rtdbGet,          // RTDB get
+  rtdbRemove,       // RTDB remove
 
-  // Firestore (firebase/firestore) — use fs* aliases
+  // Firestore (use fs* aliases to avoid name clashes)
   doc,
   getDoc,
   setDoc,
   collection,
   addDoc,
   onSnapshot,
-  query as fsQuery,       // 👈 Firestore.query
-  orderBy as fsOrderBy,   // 👈 Firestore.orderBy
+  fsQuery,          // Firestore query
+  fsOrderBy,        // Firestore orderBy
   serverTimestamp,
+
+  // Storage (if you use avatar upload)
+  storage,
+  storageRef,
+  uploadBytes,
+  getDownloadURL,
 } from "./firebase.js";
 
 /* ---------- tiny DOM helpers ---------- */
@@ -3232,7 +3239,6 @@ const tsToMs = (v) => {
 };
 
 // --- Firestore live announcements (put near “Announcements” section) ---
-let ANN_CACHE = [];
 
 function startLiveAnnouncements(){
   if (!db) return; // offline/local fallback
@@ -3454,10 +3460,10 @@ function initChatRealtime() {
     const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
     (async () => {
       try {
-        const cutoff = Date.now() - TEN_DAYS;
-        const oldQ = rtdbQuery(roomRef, orderByChild("ts"), rtdbEndAt(cutoff));
-    const snap = await rtdbGet(oldQ);
-    snap.forEach((child) => rtdbRemove(child.ref));
+        const cutoff = Date.now() - 10*24*60*60*1000; // 10 days
+const oldQ = rtdbQuery(roomRef, orderByChild("ts"), rtdbEndAt(cutoff));
+const snap = await rtdbGet(oldQ);
+snap.forEach(child => rtdbRemove(child.ref));
       } catch (err) {
         console.warn("Prune failed", err);
       }
@@ -3538,29 +3544,26 @@ const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
 /** Safer prune that does NOT require `endAt` */
 async function pruneOldChatsRTDB(roomRef) {
   try {
-    const cutoff = Date.now() - TEN_DAYS;
-    const snap = await get(roomRef);  // fetch once
-    snap.forEach(child => {
-      const v = child.val();
-      const ts = v && Number(v.ts || 0);
-      if (ts && ts < cutoff) {
-        try { remove(child.ref); } catch {}
-      }
-    });
+    const cutoff = Date.now() - 10 * 24 * 60 * 60 * 1000; // 10 days
+    const oldQ = rtdbQuery(roomRef, orderByChild("ts"), rtdbEndAt(cutoff));
+    const snap = await rtdbGet(oldQ);
+    snap.forEach(child => rtdbRemove(child.ref));
   } catch (e) {
-    console.warn("pruneOldChatsRTDB failed:", e?.message || e);
+    console.warn("RTDB prune failed", e);
   }
 }
 
 function pruneOldChatsLocal(key) {
   try {
-    const cutoff = Date.now() - TEN_DAYS;
+    const cutoff = Date.now() - 10 * 24 * 60 * 60 * 1000; // 10 days
     const arr = JSON.parse(localStorage.getItem(key) || "[]");
     const pruned = arr.filter(m => Number(m.ts || 0) >= cutoff);
     if (pruned.length !== arr.length) {
       localStorage.setItem(key, JSON.stringify(pruned));
     }
-  } catch {}
+  } catch (e) {
+    console.warn("Local chat prune failed", e);
+  }
 }
 
 export function wireCourseChatRealtime(courseId) {
