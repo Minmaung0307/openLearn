@@ -40,11 +40,22 @@ import {
   getDownloadURL,
 } from "./firebase.js";
 
+// hard unlock UI just in case any 'locked' flag stuck
+document.addEventListener("DOMContentLoaded", () => {
+  document.body.classList.remove("locked");
+});
 // --- Auth state bootstrap (keep near top of app.js) ---
 onAuthStateChanged(auth, (u) => {
   document.body.classList.toggle("logged", !!u);
   document.body.classList.toggle("anon", !u);
-  // scope switch + minimal refresh
+
+  // keep login/logout buttons in sync
+  const bLogin = document.getElementById("btn-login");
+  const bLogout = document.getElementById("btn-logout");
+  if (bLogin) bLogin.style.display = u ? "none" : "";
+  if (bLogout) bLogout.style.display = u ? "" : "none";
+
+  // scope + minimal refresh
   switchLocalStateForUser(currentUidKey());
 });
 
@@ -972,6 +983,47 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // escape key / backdrop click auto works with <dialog>
+});
+
+// --- Login / Logout UI wiring (run once after DOM ready) ---
+document.addEventListener("DOMContentLoaded", () => {
+  const dlg = document.getElementById("loginModal");
+  const frm = document.getElementById("loginForm");
+  const bLogin = document.getElementById("btn-login");
+  const bLogout = document.getElementById("btn-logout");
+  const bCancel = document.getElementById("btnLoginCancel");
+
+  // open modal
+  bLogin?.addEventListener("click", () => {
+    document.body.classList.remove("locked"); // safety
+    dlg?.showModal();
+  });
+
+  // cancel
+  bCancel?.addEventListener("click", () => dlg?.close());
+
+  // submit -> Firebase email/password
+  frm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = (document.getElementById("loginEmail")?.value || "").trim();
+    const pass  = (document.getElementById("loginPass")?.value || "").trim();
+    if (!email || !pass) return;
+
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      dlg?.close();
+      toast("Signed in");
+    } catch (err) {
+      console.error(err);
+      toast("Login failed: " + (err?.code || "unknown"));
+    }
+  });
+
+  // logout
+  bLogout?.addEventListener("click", async () => {
+    try { await signOut(auth); toast("Signed out"); }
+    catch(e){ console.error(e); toast("Logout failed"); }
+  });
 });
 
 function initSearch() {

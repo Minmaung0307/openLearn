@@ -364,6 +364,20 @@
           </div>
         </div>
       </section>
+      <!-- Login Modal -->
+<dialog id="loginModal" class="card" style="max-width:420px;padding:16px">
+  <form id="loginForm" method="dialog">
+    <h3 class="h4" style="margin:0 0 10px">Login</h3>
+    <div class="stack" style="gap:8px">
+      <input id="loginEmail" class="input" type="email" placeholder="Email" required />
+      <input id="loginPass" class="input" type="password" placeholder="Password" required />
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button type="button" id="btnLoginCancel" class="btn">Cancel</button>
+        <button type="submit" class="btn primary">Sign in</button>
+      </div>
+    </div>
+  </form>
+</dialog>
     </main>
 
     <!-- MODALS -->
