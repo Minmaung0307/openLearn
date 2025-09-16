@@ -1208,10 +1208,8 @@ document.addEventListener("DOMContentLoaded", enforceRoleGates);
 
 /* ---------- auth modal ---------- */
 function ensureAuthModalMarkup() {
-  if ($("#authModal")) return;
-  document.body.insertAdjacentHTML(
-    "beforeend",
-    `
+  if (document.getElementById("authModal")) return;
+  document.body.insertAdjacentHTML("beforeend", `
   <dialog id="authModal" class="ol-modal auth-modern">
     <div class="auth-brand">🎓 OpenLearn</div>
 
@@ -1220,7 +1218,7 @@ function ensureAuthModalMarkup() {
       <input id="loginEmail" class="input" type="email" placeholder="you@example.com" required/>
       <label>Password</label>
       <input id="loginPass" class="input" type="password" placeholder="••••••••" required/>
-      <button class="btn primary wide" id="doLogin" type="submit">Login</button>
+      <button class="btn primary wide" type="submit">Login</button>
       <div class="auth-links">
         <a href="#" id="linkSignup">Sign up</a><span>·</span><a href="#" id="linkForgot">Forgot password?</a>
       </div>
@@ -1229,23 +1227,23 @@ function ensureAuthModalMarkup() {
     <form id="authSignup" class="authpane ol-hidden" method="dialog">
       <div class="h4" style="margin-bottom:6px">Create Account</div>
       <label>Email</label>
-      <input id="signupEmail" class="input" type="email" placeholder="you@example.com" required/>
+      <input id="signupEmail" class="input" type="email" required/>
       <label>Password</label>
-      <input id="signupPass" class="input" type="password" placeholder="Choose a password" required/>
-      <button class="btn primary wide" id="doSignup" type="submit">Create account</button>
+      <input id="signupPass" class="input" type="password" required/>
+      <button class="btn primary wide" type="submit">Create account</button>
       <div class="auth-links"><a href="#" id="backToLogin1">Back to login</a></div>
     </form>
 
     <form id="authForgot" class="authpane ol-hidden" method="dialog">
       <div class="h4" style="margin-bottom:6px">Reset Password</div>
       <label>Email</label>
-      <input id="forgotEmail" class="input" type="email" placeholder="you@example.com" required/>
-      <button class="btn wide" id="doForgot" type="submit">Send reset link</button>
+      <input id="forgotEmail" class="input" type="email" required/>
+      <button class="btn wide" type="submit">Send reset link</button>
       <div class="auth-links"><a href="#" id="backToLogin2">Back to login</a></div>
     </form>
-  </dialog>`
-  );
+  </dialog>`);
 }
+
 function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
   $("#btn-login") && ($("#btn-login").style.display = on ? "none" : "");
@@ -1258,128 +1256,142 @@ function setLogged(on, email) {
     window.renderProfilePanel?.();
   } catch (_) {}
 }
+
 function initAuthModal() {
   ensureAuthModalMarkup();
-  const modal = $("#authModal");
+  const modal = document.getElementById("authModal");
   if (!modal) return;
 
   const showPane = (id) => {
-    ["authLogin", "authSignup", "authForgot"].forEach((x) =>
-      $("#" + x)?.classList.add("ol-hidden")
-    );
-    $("#" + id)?.classList.remove("ol-hidden");
-    modal.showModal();
+    ["authLogin","authSignup","authForgot"].forEach(x => document.getElementById(x)?.classList.add("ol-hidden"));
+    document.getElementById(id)?.classList.remove("ol-hidden");
+    if (!modal.open) modal.showModal();
   };
   window._showLoginPane = () => showPane("authLogin");
 
+  // top-right login/logout buttons
   document.addEventListener("click", (e) => {
-    const loginBtn = e.target.closest("#btn-login");
+    const loginBtn  = e.target.closest("#btn-login");
     const logoutBtn = e.target.closest("#btn-logout");
-    if (loginBtn) {
-      e.preventDefault();
-      showPane("authLogin");
-    }
+    if (loginBtn) { e.preventDefault(); showPane("authLogin"); }
     if (logoutBtn) {
       e.preventDefault();
       (async () => {
-        try {
-          await signOut(auth);
-        } catch {}
-        setUser(null);
-        setLogged(false);
-        gateChatUI();
-        toast("Logged out");
-        switchLocalStateForUser("anon"); // isolate anon scope
+        try { await signOut(auth); } catch {}
+        setUser?.(null);
+        setLogged?.(false);
+        gateChatUI?.();
+        if (typeof switchLocalStateForUser === "function") {
+          switchLocalStateForUser("anon"); // isolate anon scope (guarded)
+        }
+        // UI refresh
+        renderCatalog?.();
+        window.renderMyLearning?.();
+        toast?.("Logged out");
       })();
     }
   });
 
-  $("#linkSignup")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    showPane("authSignup");
-  });
-  $("#linkForgot")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    showPane("authForgot");
-  });
-  $("#backToLogin1")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    showPane("authLogin");
-  });
-  $("#backToLogin2")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    showPane("authLogin");
-  });
+  // pane links
+  document.getElementById("linkSignup")?.addEventListener("click", e => { e.preventDefault(); showPane("authSignup"); });
+  document.getElementById("linkForgot")?.addEventListener("click", e => { e.preventDefault(); showPane("authForgot"); });
+  document.getElementById("backToLogin1")?.addEventListener("click", e => { e.preventDefault(); showPane("authLogin"); });
+  document.getElementById("backToLogin2")?.addEventListener("click", e => { e.preventDefault(); showPane("authLogin"); });
 
-  $("#doLogin")?.addEventListener("click", async (e) => {
-    e.preventDefault();
-    const em = $("#loginEmail")?.value.trim();
-    const pw = $("#loginPass")?.value;
-    if (!em || !pw) return toast("Fill email/password");
+  // helper: fetch role from Firestore if available; fallback to 'student'
+  async function fetchUserRole(u) {
     try {
-      await signInWithEmailAndPassword(auth, em, pw);
-      setUser({ email: em, role: "student" });
-      setLogged(true, em);
+      if (!u || !db) return "student";
+      const d = await getDoc(doc(db, "users", u.uid));
+      const r = d.exists() ? (d.data().role || "student") : "student";
+      return r;
+    } catch { return "student"; }
+  }
 
-     migrateProfileToScopedOnce();
-const cloudP = await loadProfileCloud();
-if (cloudP) setProfile({ ...getProfile(), ...cloudP });
-renderProfilePanel?.();
+  // LOGIN (form submit → supports Enter key)
+  document.getElementById("authLogin")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const em = document.getElementById("loginEmail")?.value.trim();
+    const pw = document.getElementById("loginPass")?.value;
+    if (!em || !pw) return toast?.("Fill email/password");
+    try {
+      const cred = await signInWithEmailAndPassword(auth, em, pw);
+      const role = await fetchUserRole(cred.user);
+      setUser?.({ email: em, role });
+      setLogged?.(true, em);
 
-      migrateEnrollsToScopedOnce();       // 🔸 new
-await syncEnrollsBothWays();        // 🔸 cloud → local overwrite
-renderCatalog();
-window.renderMyLearning?.();
+      // profile + enrolls scoped to user
+      try { migrateProfileToScopedOnce?.(); } catch {}
+      try {
+        const cloudP = await loadProfileCloud?.();
+        if (cloudP) setProfile?.({ ...getProfile?.(), ...cloudP });
+        renderProfilePanel?.();
+      } catch {}
+
+      try { migrateEnrollsToScopedOnce?.(); } catch {}
+      await syncEnrollsBothWays?.();   // ← ONE call is enough
+
+      renderCatalog?.();
+      window.renderMyLearning?.();
+      gateChatUI?.();
 
       modal.close();
-      gateChatUI();
-      toast("Welcome back");
-      await syncEnrollsBothWays(); // ✅ sync enrolls on login
-    } catch {
-      toast("Login failed");
+      toast?.("Welcome back");
+    } catch (err) {
+      console.warn(err);
+      toast?.(err?.message || "Login failed");
     }
   });
 
-  $("#doSignup")?.addEventListener("click", async (e) => {
+  // SIGNUP
+  document.getElementById("authSignup")?.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const em = $("#signupEmail")?.value.trim();
-    const pw = $("#signupPass")?.value;
-    if (!em || !pw) return toast("Fill email/password");
+    const em = document.getElementById("signupEmail")?.value.trim();
+    const pw = document.getElementById("signupPass")?.value;
+    if (!em || !pw) return toast?.("Fill email/password");
     try {
-      await createUserWithEmailAndPassword(auth, em, pw);
-      setUser({ email: em, role: "student" });
-      setLogged(true, em);
+      const cred = await createUserWithEmailAndPassword(auth, em, pw);
+      // default role student (or write to /users)
+      setUser?.({ email: em, role: "student" });
+      setLogged?.(true, em);
 
-     migrateProfileToScopedOnce();
-const cloudP = await loadProfileCloud();
-if (cloudP) setProfile({ ...getProfile(), ...cloudP });
-renderProfilePanel?.();
+      try { migrateProfileToScopedOnce?.(); } catch {}
+      try {
+        const cloudP = await loadProfileCloud?.();
+        if (cloudP) setProfile?.({ ...getProfile?.(), ...cloudP });
+        renderProfilePanel?.();
+      } catch {}
 
-      migrateEnrollsToScopedOnce();       // 🔸 new
-await syncEnrollsBothWays();        // 🔸 ensures empty for new user
-renderCatalog();
-window.renderMyLearning?.();
+      try { migrateEnrollsToScopedOnce?.(); } catch {}
+      await syncEnrollsBothWays?.();   // new users → ends up empty
+
+      renderCatalog?.();
+      window.renderMyLearning?.();
+      gateChatUI?.();
 
       modal.close();
-      gateChatUI();
-      toast("Account created");
-      await syncEnrollsBothWays(); // ✅ sync enrolls on signup
-    } catch {
-      toast("Signup failed");
+      toast?.("Account created");
+    } catch (err) {
+      console.warn(err);
+      toast?.(err?.message || "Signup failed");
     }
   });
 
-  $("#doForgot")?.addEventListener("click", (e) => {
+  // FORGOT
+  document.getElementById("authForgot")?.addEventListener("submit", (e) => {
     e.preventDefault();
-    const em = $("#forgotEmail")?.value.trim();
-    if (!em) return toast("Enter email");
-    modal.close();
-    toast("Reset link sent (demo)");
+    const em = document.getElementById("forgotEmail")?.value.trim();
+    if (!em) return toast?.("Enter email");
+    // If you already import sendPasswordResetEmail, you can call it here.
+    // await sendPasswordResetEmail(auth, em).catch(()=>{});
+    toast?.("Reset link sent (demo)");
+    showPane("authLogin");
   });
 
+  // gate clicks to require auth
   document.addEventListener("click", (e) => {
-    const gated = e.target.closest("[data-requires-auth]");
-    if (gated && !isLogged()) {
+    const gated = e.target.closest?.("[data-requires-auth]");
+    if (gated && !(auth?.currentUser)) {
       e.preventDefault();
       e.stopPropagation();
       window._showLoginPane?.();
