@@ -3397,7 +3397,9 @@ function renderAnnouncements() {
         <strong>${esc(a.title)}</strong>
         <span class="small muted">${new Date(a.ts).toLocaleString()}</span>
       </div>
-      <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div>
+      <div style="margin:.3rem 0 .5rem">
+  ${(a.body || "").replace(/\n/g, "<br>")}
+</div>
       <div class="row" style="justify-content:flex-end; gap:6px">
         <button class="btn small" data-edit="${
           a.id
@@ -3413,6 +3415,7 @@ function renderAnnouncements() {
   updateAnnBadge();
   enforceRoleGates?.(); // 🔒 re-check after DOM updates
 }
+{/* <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div> */}
 window.renderAnnouncements = renderAnnouncements;
 
 function wireAnnouncementEditButtons() {
