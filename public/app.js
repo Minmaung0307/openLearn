@@ -1760,13 +1760,25 @@ function markCourseComplete(id, score = null) {
   saveProgressCloud({ completed: getCompletedRaw(), ts: Date.now() });
 }
 
+function toImageSrc(u) {
+  const s = String(u || "").trim();
+  if (!s) return "";
+  // Absolute http(s) OK
+  if (/^https?:\/\//i.test(s)) return s;
+  // Root-relative (/assets/…) — good
+  if (s.startsWith("/")) return s;
+  // Common mistake: "assets/…" → fix to "/assets/…"
+  return "/" + s.replace(/^\.?\//, "");
+}
+
 function renderProfilePanel() {
   const box = $("#profilePanel");
   if (!box) return;
 
   const p = getProfile();
   const name = p.displayName || getUser()?.email || "Guest";
-  const avatar = p.photoURL || "https://i.pravatar.cc/80?u=" + (getUser()?.email || "anon");
+  const baseSrc = toImageSrc(p.photoURL);
+  const avatar = baseSrc ? (baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()) : "";
 
   //   const completed = getCompletedRaw();                       // ← all completed
   const dic = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
@@ -1837,7 +1849,8 @@ function renderProfilePanel() {
 
   box.innerHTML = `
     <div class="row" style="gap:12px;align-items:flex-start">
-      <img src="${esc(avatar)}" alt=""
+      <img src="${avatar || "/assets/default-avatar.png"}"
+           alt=""
            style="width:72px;height:72px;border-radius:50%"
            onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
       <div class="grow">
@@ -1949,7 +1962,7 @@ function normalizeGDriveUrl(u) {
     if (url.hostname.includes("googleusercontent.com")) return u;
     if (url.hostname === "drive.google.com") {
       const m = url.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      let id = m ? m[1] : url.searchParams.get("id") || "";
+      const id = m ? m[1] : (url.searchParams.get("id") || "");
       if (id) return `https://drive.google.com/uc?export=view&id=${id}`;
     }
   } catch {}
@@ -1998,16 +2011,24 @@ $("#cancelProfile")?.addEventListener("click", () =>
 document.getElementById("profileForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = e.currentTarget;
+  const rawUrl = (f.photoURL.value || "").trim();
+
+  // 1) Google Drive link ဖြစ်ရင် direct view လုပ်ပေး
+  const normUrl = normalizeGDriveUrl(rawUrl);
+
+  // 2) Save to local (user-scoped) + Cloud
   const data = {
     displayName: f.displayName.value.trim(),
-    photoURL: normalizeGDriveUrl(f.photoURL.value.trim()),
+    photoURL: normUrl,
     bio: f.bio.value.trim(),
     skills: f.skills.value.trim(),
     links: f.links.value.trim(),
     social: f.social.value.trim(),
   };
-  setProfile(data);             // local (user-scoped)
-  await saveProfileCloud(data); // cloud (for cross-device)
+  setProfile(data);
+  await saveProfileCloud(data);
+
+  // 3) UI refresh
   renderProfilePanel();
   document.getElementById("profileEditModal")?.close();
   toast("Profile saved");
