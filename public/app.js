@@ -1343,36 +1343,72 @@ function initAuthModal() {
     const btn = $("#doLogin");
     btn?.setAttribute("disabled", "true");
     try {
+      // LOGIN (replace your current handler body with this shape)
       const cred = await signInWithEmailAndPassword(auth, em, pw);
 
-      // 🔑 resolve role from Firestore (or fallback map) + ensure user doc
+      // 🔑 resolve role (Firestore > fallback map), ensure users/{uid} exists
       let role = "student";
       try {
         role = (await resolveUserRole(cred.user)) || "student";
-        await ensureUserDoc(cred.user, role);
-      } catch (err) {
-        console.warn("role resolve/ensureUserDoc failed:", err?.message || err);
-      }
-
-      // ✅ set UI/session with real role (NOT local default)
-      setUser({ email: (em || "").toLowerCase(), role });
+        await ensureUserDoc(cred.user, role); // merge create if missing
+      } catch {}
+      setUser({ email: em.toLowerCase(), role }); // <-- NO hard "student"
       setLogged(true, em);
       toast("Welcome back");
 
       // ── Post-auth sync (don’t break login UX if fails)
       try {
-        migrateProfileToScopedOnce?.();
-        const cloudP = await loadProfileCloud?.();
-        if (cloudP) setProfile?.({ ...getProfile?.(), ...cloudP });
-        renderProfilePanel?.();
+  // 1) migrate profile (if the helper exists)
+  if (typeof migrateProfileToScopedOnce === "function") {
+    await migrateProfileToScopedOnce();
+  }
 
-        migrateEnrollsToScopedOnce?.();
-        await syncEnrollsBothWays?.(); // one time is enough
-        renderCatalog?.();
-        window.renderMyLearning?.();
-      } catch (syncErr) {
-        console.warn("Post-login sync failed:", syncErr?.message || syncErr);
+  // 2) Run in parallel for speed:
+  const tasks = [];
+
+  // 2a) Cloud profile load
+  let cloudProfilePromise = null;
+  if (typeof loadProfileCloud === "function") {
+    cloudProfilePromise = loadProfileCloud();
+    tasks.push(cloudProfilePromise);
+  }
+
+  // 2b) Enroll migrations + sync
+  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
+    const enrollTask = (async () => {
+      if (typeof migrateEnrollsToScopedOnce === "function") {
+        await migrateEnrollsToScopedOnce();
       }
+      if (typeof syncEnrollsBothWays === "function") {
+        await syncEnrollsBothWays(); // one time is enough
+      }
+    })();
+    tasks.push(enrollTask);
+  }
+
+  // 3) Wait for all
+  const results = await Promise.all(tasks);
+
+  // 4) Merge cloud profile → local (cloud overwrites local)
+  if (cloudProfilePromise) {
+    const cloudP = results[0]; // first pushed
+    if (cloudP) {
+      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
+      if (typeof setProfile === "function") {
+        setProfile({ ...localP, ...cloudP });
+      }
+    }
+  }
+
+  // 5) UI updates (call only if they exist)
+  if (typeof renderCatalog === "function") renderCatalog();
+  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
+  if (typeof renderProfilePanel === "function") renderProfilePanel();
+  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
+
+} catch (syncErr) {
+  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
+}
 
       // UI finalize
       safeCloseModal(window.modal || $("#authModal"));
@@ -1404,36 +1440,70 @@ function initAuthModal() {
     const btn = $("#doSignup");
     btn?.setAttribute("disabled", "true");
     try {
+      // SIGNUP (similar change)
       const cred = await createUserWithEmailAndPassword(auth, em, pw);
-
-      // 🔑 resolve role (maybe map promotes certain emails), ensure users/{uid}
       let role = "student";
       try {
         role = (await resolveUserRole(cred.user)) || "student";
         await ensureUserDoc(cred.user, role);
-      } catch (err) {
-        console.warn("role resolve/ensureUserDoc failed:", err?.message || err);
-      }
-
-      // ✅ set with real role
-      setUser({ email: (em || "").toLowerCase(), role });
+      } catch {}
+      setUser({ email: em.toLowerCase(), role });
       setLogged(true, em);
       toast("Account created");
 
       // ── Post-signup init/sync
       try {
-        migrateProfileToScopedOnce?.();
-        const cloudP = await loadProfileCloud?.();
-        if (cloudP) setProfile?.({ ...getProfile?.(), ...cloudP });
-        renderProfilePanel?.();
+  // 1) migrate profile (if the helper exists)
+  if (typeof migrateProfileToScopedOnce === "function") {
+    await migrateProfileToScopedOnce();
+  }
 
-        migrateEnrollsToScopedOnce?.();
-        await syncEnrollsBothWays?.(); // ensure empty/init structures for new user
-        renderCatalog?.();
-        window.renderMyLearning?.();
-      } catch (syncErr) {
-        console.warn("Post-signup setup failed:", syncErr?.message || syncErr);
+  // 2) Run in parallel for speed:
+  const tasks = [];
+
+  // 2a) Cloud profile load
+  let cloudProfilePromise = null;
+  if (typeof loadProfileCloud === "function") {
+    cloudProfilePromise = loadProfileCloud();
+    tasks.push(cloudProfilePromise);
+  }
+
+  // 2b) Enroll migrations + sync
+  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
+    const enrollTask = (async () => {
+      if (typeof migrateEnrollsToScopedOnce === "function") {
+        await migrateEnrollsToScopedOnce();
       }
+      if (typeof syncEnrollsBothWays === "function") {
+        await syncEnrollsBothWays(); // one time is enough
+      }
+    })();
+    tasks.push(enrollTask);
+  }
+
+  // 3) Wait for all
+  const results = await Promise.all(tasks);
+
+  // 4) Merge cloud profile → local (cloud overwrites local)
+  if (cloudProfilePromise) {
+    const cloudP = results[0]; // first pushed
+    if (cloudP) {
+      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
+      if (typeof setProfile === "function") {
+        setProfile({ ...localP, ...cloudP });
+      }
+    }
+  }
+
+  // 5) UI updates (call only if they exist)
+  if (typeof renderCatalog === "function") renderCatalog();
+  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
+  if (typeof renderProfilePanel === "function") renderProfilePanel();
+  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
+
+} catch (syncErr) {
+  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
+}
 
       // UI finalize
       safeCloseModal(window.modal || $("#authModal"));
@@ -3909,45 +3979,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Gate chat inputs and keep in sync
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
-    // Auth state → UI (register once here)
-    // Auth state → UI (register once here)
-    onAuthStateChanged(auth, async (u) => {
-      IS_AUTHED = !!u;
-      setAppLocked(!IS_AUTHED);
+  // Auth state → UI (register once here)
+  onAuthStateChanged(auth, async (u) => {
+    IS_AUTHED = !!u;
+    setAppLocked(!IS_AUTHED);
 
-      if (u) {
-        // 🔑 role ကို Firestore (သို့) fallback map က resolve
-        let role = "student";
-        try {
-          role = (await resolveUserRole(u)) || "student";
-          await ensureUserDoc(u, role); // users/{uid} doc မရှိသေးရင် create
-        } catch (e) {
-          console.warn("role resolve failed:", e?.message || e);
-        }
-
-        setUser({ email: u.email || "", role });
-        setLogged(true, u.email || "");
-
-        try {
-          migrateProfileToScopedOnce();
-          await Promise.all([
-            syncEnrollsBothWays(),
-            typeof syncProgressBothWays === "function"
-              ? syncProgressBothWays()
-              : Promise.resolve(),
-          ]);
-          renderProfilePanel?.();
-          window.renderMyLearning?.();
-          window.renderGradebook?.();
-        } catch (e) {
-          console.warn("Post-login sync failed:", e?.message || e);
-        }
-      } else {
-        setUser(null);
-        setLogged(false);
-      }
-    });
-  }
+    if (u) {
+      // 🔑 role ကို Firestore (သို့) fallback map က resolve
+      let role = "student";
+      try {
+        role = await resolveUserRole(u) || "student";
+        await ensureUserDoc(u, role);
+      } catch {}
+      setUser({ email: u.email || "", role });
+      setLogged(true, u.email || "");
+      // ... rest sync ...
+    } else {
+      setUser(null);
+      setLogged(false);
+    }
+  });
+}
 
   // UI
   initSidebar();
