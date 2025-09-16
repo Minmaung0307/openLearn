@@ -4563,3 +4563,13 @@ document.addEventListener("DOMContentLoaded", () => {
     window._showLoginPane?.(); // initAuthModal() အတွင်းမှာ set ထားတဲ့ helper
   });
 });
+
+// TEMP debug (remove after test)
+document.addEventListener("DOMContentLoaded", () => {
+  document.body.classList.remove("locked");              // overlay gating 제거
+  document.getElementById("btn-login")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    window._showLoginPane?.();                           // app modal helper
+    document.getElementById("authModal")?.showModal?.(); // fallback open
+  });
+});
