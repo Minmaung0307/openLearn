@@ -1,21 +1,21 @@
-/* firebase.js — ESM build (v10)
-   Make sure config.js is loaded BEFORE this file:
-   <script src="/config.js"></script>
-   <script type="module" src="/firebase.js"></script>
-*/
-// ---- Put this at TOP of firebase.js, BEFORE initializing Firebase ----
+/* firebase.js — ESM build (v10) */
+
+// ---- Mute noisy terminate logs ----
 (function muteFirestoreTerminate400(){
   const noisy = /google\.firestore\.v1\.Firestore\/(Write|Listen)\/channel.*TYPE=terminate/i;
-  const origE = console.error, origW = console.warn;
-  console.error = function(...args){ if(args.some(a=> typeof a==="string" && noisy.test(a))) return; origE.apply(console,args); };
-  console.warn  = function(...args){ if(args.some(a=> typeof a==="string" && noisy.test(a))) return; origW.apply(console,args); };
+  const E = console.error, W = console.warn;
+  console.error = (...args)=> args.some(a=> typeof a==="string" && noisy.test(a)) ? void 0 : E.apply(console,args);
+  console.warn  = (...args)=> args.some(a=> typeof a==="string" && noisy.test(a)) ? void 0 : W.apply(console,args);
 })();
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+/* Auth (CDN) */
 import {
   getAuth,
   setPersistence,
   browserLocalPersistence,
+  inMemoryPersistence,      // 👈 ADD THIS
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -23,8 +23,10 @@ import {
   updateProfile,
   signOut,
   useDeviceLanguage,
+  signInAnonymously,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+/* Firestore (CDN) */
 import {
   getFirestore,
   collection,
@@ -36,73 +38,58 @@ import {
   doc,
   getDoc,
   getDocs,
-  query,
-  orderBy,
+  query as fsQuery,
+  orderBy as fsOrderBy,
   where,
   limit,
-  onSnapshot
+  onSnapshot,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-/* (Optional) RTDB — used by Live Chat if available */
+/* RTDB (CDN) */
 import {
   getDatabase,
   ref,
   push,
   onChildAdded,
   set,
-  get, 
+  get as rtdbGet,
   child,
-  remove,
-  // Optional client-side filtering (if your app.js uses it):
+  remove as rtdbRemove,
   query as rtdbQuery,
   orderByChild,
+  endAt as rtdbEndAt,
   startAt as rtdbStartAt,
-  limitToLast
+  limitToLast,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+/* Storage (CDN) */
 import {
   getStorage, ref as sRef, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 /* ===== Config guard ===== */
 const cfg = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.firebase) || null;
-if (!cfg) {
-  throw new Error("config.js missing: window.OPENLEARN_CFG.firebase");
-}
+if (!cfg) throw new Error("config.js missing: window.OPENLEARN_CFG.firebase");
 
 /* ===== Initialize Firebase ===== */
 export const app = initializeApp(cfg);
 
 /* Auth */
 export const auth = getAuth(app);
-setPersistence(auth, browserLocalPersistence).catch(() => {});
-// (Optional) nicer emails for some locales
+try {
+  await setPersistence(auth, browserLocalPersistence);
+} catch {
+  // ⛑️ IndexedDB/3rd-party-cookie blocked → fallback to in-memory
+  await setPersistence(auth, inMemoryPersistence);
+}
 try { useDeviceLanguage(auth); } catch {}
 
-/* Firestore */
+/* Firestore / RTDB / Storage instances */
 export const db = getFirestore(app);
-
 export const storage = getStorage(app);
 
-export { sRef as storageRef, uploadBytes, getDownloadURL };
-
-/* RTDB (exported for optional chat) */
-export { 
-  getDatabase, 
-  ref, 
-  push, 
-  onChildAdded, 
-  set, 
-  get, 
-  child, 
-  remove,
-  // Optional client-side filtering:
-  rtdbQuery,
-  orderByChild,
-  rtdbStartAt,
-  limitToLast };
-
-/* Re-export frequently used Firebase helpers for convenience */
+/* ===== Re-exports (ONLY from CDN modules above) ===== */
+// Auth
 export {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -110,6 +97,11 @@ export {
   sendPasswordResetEmail,
   updateProfile,
   signOut,
+  signInAnonymously,
+};
+
+// Firestore
+export {
   collection,
   addDoc,
   setDoc,
@@ -119,48 +111,52 @@ export {
   doc,
   getDoc,
   getDocs,
-  query,
-  orderBy,
+  fsQuery,
+  fsOrderBy,
   where,
   limit,
-  onSnapshot
+  onSnapshot,
 };
 
-/* ===== PayPal SDK injector (optional) =====
-   Use like:
-   import { ensurePayPal } from "./firebase.js";
-   await ensurePayPal(); // window.paypal becomes available
-*/
+// RTDB
+export {
+  getDatabase,
+  ref,
+  push,
+  onChildAdded,
+  set,
+  rtdbGet,
+  child,
+  rtdbRemove,
+  rtdbQuery,
+  orderByChild,
+  rtdbEndAt,
+  rtdbStartAt,
+  limitToLast,
+};
+
+// Storage
+export { sRef as storageRef, uploadBytes, getDownloadURL };
+
+/* ===== Optional: PayPal loader ===== */
 export async function ensurePayPal() {
   const cid = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.paypalClientId) || "";
-  if (!cid) {
-    console.warn("PayPal client ID not set in config.js; demo flow will be used.");
-    return null;
-  }
+  if (!cid) { console.warn("PayPal client ID not set; demo flow only."); return null; }
   if (window.paypal) return window.paypal;
   await new Promise((res, rej) => {
     const s = document.createElement("script");
     s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(cid)}&currency=USD`;
     s.async = true;
-    s.onload = res;
-    s.onerror = rej;
+    s.onload = res; s.onerror = rej;
     document.head.appendChild(s);
   });
   return window.paypal || null;
 }
 
-/* ===== EmailJS init helper (optional) =====
-   Use like:
-   import { initEmailJS } from "./firebase.js";
-   initEmailJS();
-*/
+/* ===== Optional: EmailJS init ===== */
 export function initEmailJS() {
   const e = window.OPENLEARN_CFG && window.OPENLEARN_CFG.emailjs;
-  if (!e || !e.publicKey) {
-    console.warn("EmailJS publicKey not set; contact form will be local-only.");
-    return;
-  }
-  // Load SDK if not present
+  if (!e || !e.publicKey) { console.warn("EmailJS publicKey not set."); return; }
   if (!window.emailjs) {
     const s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js";
@@ -171,5 +167,3 @@ export function initEmailJS() {
     try { window.emailjs.init(e.publicKey); } catch {}
   }
 }
-
-export { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";

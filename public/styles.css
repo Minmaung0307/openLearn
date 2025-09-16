@@ -1285,7 +1285,9 @@ button,
 
 /* optional overlay (main မှာသာ ပြ) */
 #authGuardOverlay {
-  position: absolute;
+  /* position: absolute; */
+  position: static;
+  pointer-events: none;
   inset: 0;
   display: none;
   align-items: center;
@@ -1295,7 +1297,7 @@ button,
 }
 .locked-main + #authGuardOverlay { display: flex; }
 #authGuardOverlay .msg {
-  background: #fff;
+  /* background: #fff; */
   padding: 14px 18px;
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,.15);
