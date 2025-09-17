@@ -605,7 +605,7 @@ document.getElementById("doLogin")?.addEventListener("click", async (e) => {
     }
 
     // 5) UI finalize
-    safeCloseModal(window.modal || document.getElementById("authModal"));
+    // safeCloseModal(window.modal || document.getElementById("authModal"));
     gateChatUI?.();
 
   } catch (err) {
