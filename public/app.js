@@ -1336,110 +1336,113 @@ function initSearch() {
    ========================================================= */
 
 /* ---------- Roles: resolve from Firestore or fallback map ---------- */
-const ROLE_ORDER = ["student", "ta", "instructor", "admin", "owner"];
+/* ===== Role & Access – clean single-source ===== */
+const ROLE_ORDER = ["student","ta","instructor","admin","owner"];
+const normRole = (r) => (r || "student").toString().trim().toLowerCase();
+const roleRank = (r) => {
+  const i = ROLE_ORDER.indexOf(normRole(r));
+  return i >= 0 ? i : 0;
+};
+const atLeast = (have, need) => roleRank(have) >= roleRank(need);
+
+// Optional: hardcoded email → role map (will be used as fallback)
 const _HARDCODED_ROLE_BY_EMAIL = {
   "pbczmmus@gmail.com": "owner",
   "minmaung0307@gmail.com": "admin",
   "panna07@gmail.com": "instructor",
   "pannasiha@icloud.com": "ta",
   "honeymoe093@gmail.com": "student",
-  // လိုသလို ထပ်ထည့်လို့ရ: "teacher@example.com": "instructor"
+  // "teacher@example.com": "instructor",
 };
-function roleRank(r) {
-  const i = ROLE_ORDER.indexOf(String(r || "student").toLowerCase());
-  return i < 0 ? 0 : i;
-}
 
-// If you already have resolveUserRole() defined, keep yours.
-// Below is a safe fallback just in case.
+/* ---- Resolve role (Firestore → fallback by email) ---- */
 async function resolveUserRole(u) {
-  // 1) Try Firestore users/{uid}.role
   try {
-    const uref = doc(db, "users", u.uid);
-    const snap = await getDoc(uref);
-    if (snap.exists() && snap.data()?.role) return snap.data().role;
+    const ref = doc(db, "users", u.uid);
+    const s = await getDoc(ref);
+    if (s.exists()) return normRole(s.data()?.role);
   } catch {}
-  // 2) Optional: fallback map by email (edit as you need)
   const email = (u?.email || "").toLowerCase();
-  const map = window.__EMAIL_ROLE_MAP__ || {}; // e.g., {"admin@x.com":"admin", ...}
-  return map[email] || "student";
+  // allow override via window.__EMAIL_ROLE_MAP__ if present
+  const map = window.__EMAIL_ROLE_MAP__ || _HARDCODED_ROLE_BY_EMAIL || {};
+  return normRole(map[email] || "student");
 }
 
+/* ---- Ensure /users/{uid} doc without demoting admins ---- */
 async function ensureUserDoc(u, role) {
   if (!db || !u?.uid) return;
   const uref = doc(db, "users", u.uid);
   const snap = await getDoc(uref);
   const now = Date.now();
-  // merge-only to avoid clobbering future changes
-  await setDoc(
-    uref,
-    {
-      email: (u.email || "").toLowerCase(),
-      displayName: u.displayName || "", // 🔹 add
-      role:
-        role || (snap.exists() ? snap.data()?.role || "student" : "student"),
-      ts: snap.exists() ? snap.data()?.ts || now : now, // 🔹 first seen
-      updatedAt: now, // 🔹 last active-ish
-    },
-    { merge: true }
-  );
+
+  const existingRole = snap.exists() ? normRole(snap.data()?.role) : null;
+  const incomingRole = normRole(role);
+  const finalRole = existingRole || incomingRole || "student"; // keep existing
+
+  await setDoc(uref, {
+    email: (u.email || "").toLowerCase(),
+    displayName: u.displayName || "",
+    role: finalRole,
+    ts: snap.exists() ? (snap.data()?.ts || now) : now,
+    updatedAt: now,
+  }, { merge: true });
+
+  try { setUser?.({ email: (u.email||"").toLowerCase(), role: finalRole }); } catch {}
 }
 
-// function safeCloseModal(modalRef) {
-//   try {
-//     modalRef?.close?.();
-//   } catch {}
-// }
-
 /* ---------- Page-level role guard ---------- */
+// Minimum role per page
 const PAGE_ROLE_MIN = {
-  admin: "admin", // admin page requires instructor+
-  gradebook: "instructor", // gradebook requires instructor+
-  // လိုသလို ထပ်ထည့်ပါ: dashboard: "ta", etc.
+  admin: "admin",         // admin page requires admin+
+  gradebook: "instructor" // gradebook requires instructor+
+  // e.g., dashboard: "ta"
 };
 
-(function patchShowPageRoleGuard() {
-  const _sp = window.showPage;
-  window.showPage = function (id, ...rest) {
-    const need = PAGE_ROLE_MIN[id];
-    if (need && roleRank(getRole()) < roleRank(need)) {
-      toast(`Requires ${need}+ role`);
-      return _sp ? _sp.call(this, "catalog", ...rest) : null;
+// single wrapper only (avoid double-wrapping)
+(function wrapShowPageOnce() {
+  const orig = window.showPage;
+  window.showPage = function(pageId, ...rest) {
+    const min = normRole(PAGE_ROLE_MIN[pageId] || "student");
+    const current = normRole(getRole?.() || getUser?.()?.role);
+    if (!atLeast(current, min)) {
+      toast?.(`Requires ${min}+`);
+      return orig ? orig.call(this, "catalog", ...rest) : null;
     }
-    const r = _sp ? _sp.call(this, id, ...rest) : null;
-    // after navigation also apply element-level gates
-    enforceRoleGates?.();
+    const r = orig ? orig.call(this, pageId, ...rest) : null;
+    // after navigation, update element-level gates
+    applyRoleGates();
     return r;
   };
 })();
 
-/* ---------- Element-level role gate (attach data-role-min on sensitive controls) ---------- */
-function enforceRoleGates() {
-  const r = getRole();
-  const myRank = roleRank(r);
+/* ---------- Element-level role gate (one function) ---------- */
+function applyRoleGates() {
+  const current = normRole(getRole?.() || getUser?.()?.role);
   document.querySelectorAll("[data-role-min]").forEach((el) => {
-    const need = (el.getAttribute("data-role-min") || "student").toLowerCase();
-    const ok = myRank >= roleRank(need);
+    const need = normRole((el.getAttribute("data-role-min") || "student").trim());
+    const ok = atLeast(current, need);
     el.toggleAttribute("disabled", !ok);
-    el.classList.toggle("disabled", !ok);
-    if (el.dataset.roleHide === "true") el.style.display = ok ? "" : "none";
+    if (el.hasAttribute("data-hide-if-no-role")) {
+      el.classList.toggle("ol-hidden", !ok);
+    }
+    el.title = ok ? "" : `Requires ${need}+`;
+    // click guard (re-evaluate fresh each click)
     if (!el._rgWired) {
       el._rgWired = true;
-      el.addEventListener(
-        "click",
-        (e) => {
-          if (!ok) {
-            e.preventDefault();
-            e.stopPropagation();
-            toast(`Requires ${need}+`);
-          }
-        },
-        true
-      );
+      el.addEventListener("click", (e) => {
+        const cur = normRole(getRole?.() || getUser?.()?.role);
+        const needNow = normRole((el.getAttribute("data-role-min") || "student").trim());
+        if (!atLeast(cur, needNow)) {
+          e.preventDefault(); e.stopPropagation();
+          toast?.(`Requires ${needNow}+`);
+        }
+      }, true);
     }
   });
 }
-document.addEventListener("DOMContentLoaded", enforceRoleGates);
+
+// Call once on load and again after login/signup/role-change
+document.addEventListener("DOMContentLoaded", applyRoleGates);
 
 /* ---------- auth modal ---------- */
 function ensureAuthModalMarkup() {
