@@ -1443,6 +1443,7 @@ function applyRoleGates() {
 
 // Call once on load and again after login/signup/role-change
 document.addEventListener("DOMContentLoaded", applyRoleGates);
+window.enforceRoleGates = applyRoleGates;   // ✅ compat for old calls
 
 /* ---------- auth modal ---------- */
 function ensureAuthModalMarkup() {
