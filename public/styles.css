@@ -1503,7 +1503,7 @@ details.help + details.help {
 .table thead th {
   position: sticky;
   top: 0;
-  background: var(--surface, #f3f4f6); /* header bg */
+  background: var(--surface, #09793d); /* header bg */
   color: var(--fg, #111827); /* header text */
   text-align: left;
   padding: 0.55rem 0.65rem;

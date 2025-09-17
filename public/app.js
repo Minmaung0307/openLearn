@@ -5008,6 +5008,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Remove Finals from UI if present (robust no-op if missing)
   stripFinalsUI();
 
+  document.getElementById("anReloadUsers")?.addEventListener("click", async () => {
+    try {
+      const list = await loadUsersCloudToLocal();
+      console.log("Users cached:", list.length);
+
+      const si = document.getElementById("topSearch");
+      si?.dispatchEvent(new Event("focus"));
+      if (si?.value) si.dispatchEvent(new Event("input", { bubbles: true }));
+
+      toast?.(`Users reloaded: ${list.length}`);
+    } catch (e) {
+      console.warn("Reload users failed:", e);
+      toast?.("Reload users failed");
+    }
+  });
+
   // defensive: keep auth-required items clickable (CSS gates by JS)
   document.querySelectorAll("[data-requires-auth]").forEach((el) => {
     el.style.pointerEvents = "auto";
