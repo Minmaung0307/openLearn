@@ -531,14 +531,28 @@ function showAuthError(err) {
   (typeof toast === "function" ? toast : console.log)(map[code] || `Login/Signup failed: ${code || "unknown error"}`);
 }
 
+// Put this ONCE in your helpers area (and remove any duplicates elsewhere)
 function safeCloseModal(mod) {
   try {
-    if (!mod) mod = document.getElementById("authModal");
-    if (mod?.close) mod.close(); // <dialog>
-    const dlg = mod?.closest?.("dialog");
-    if (dlg?.open) dlg.close();
+    mod = mod || document.getElementById("authModal") || window.modal;
+    if (!mod) return;
+
+    // <dialog> support
+    if (typeof mod.close === "function") mod.close();
+    mod.removeAttribute?.("open");
+
+    // class-based modals
+    mod.classList?.remove("open","show");
     document.body.classList.remove("modal-open");
-  } catch {}
+
+    // cleanup any backdrops your CSS/JS may have added
+    document.querySelectorAll(".modal-backdrop,.backdrop,.overlay").forEach(el => el.remove());
+
+    // just in case some app lock remained
+    if (typeof setAppLocked === "function") setAppLocked(false);
+  } catch (e) {
+    console.warn("safeCloseModal:", e);
+  }
 }
 
 /* ---------- LOGIN ---------- */
@@ -587,7 +601,7 @@ document.getElementById("doLogin")?.addEventListener("click", async (e) => {
         })());
       }
 
-      const results = tasks.length ? await Promise.all(results = tasks) : [];
+      const results = tasks.length ? await Promise.all(tasks) : [];
       if (cloudProfilePromise) {
         const cloudP = results[0];
         if (cloudP && typeof setProfile === "function") {
@@ -660,14 +674,14 @@ document.getElementById("doSignup")?.addEventListener("click", async (e) => {
         })());
       }
 
-      const results = tasks.length ? await Promise.all(tasks) : [];
-      if (cloudProfilePromise) {
-        const cloudP = results[0];
-        if (cloudP && typeof setProfile === "function") {
-          const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
-          setProfile({ ...localP, ...cloudP });
-        }
-      }
+      // const results = tasks.length ? await Promise.all(tasks) : [];
+      // if (cloudProfilePromise) {
+      //   const cloudP = results[0];
+      //   if (cloudP && typeof setProfile === "function") {
+      //     const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
+      //     setProfile({ ...localP, ...cloudP });
+      //   }
+      // }
 
       renderCatalog?.();
       window.renderMyLearning?.();
@@ -1552,221 +1566,229 @@ function initAuthModal() {
     showPane("authLogin");
   });
 
-  // $("#doLogin")?.addEventListener("click", async (e) => {
-  //   e.preventDefault();
-  //   const em = $("#loginEmail")?.value.trim();
-  //   const pw = $("#loginPass")?.value;
-  //   if (!em || !pw) return toast("Fill email/password");
+  $("#doLogin")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const em = $("#loginEmail")?.value.trim();
+    const pw = $("#loginPass")?.value;
+    if (!em || !pw) return toast("Fill email/password");
 
-  //   const btn = $("#doLogin");
-  //   btn?.setAttribute("disabled", "true");
-  //   try {
-  //     // LOGIN (replace your current handler body with this shape)
-  //     const cred = await signInWithEmailAndPassword(auth, em, pw);
+    const btn = $("#doLogin");
+    btn?.setAttribute("disabled", "true");
+    try {
+      // LOGIN (replace your current handler body with this shape)
+      const cred = await signInWithEmailAndPassword(auth, em, pw);
 
-  //     // 🔑 resolve role (Firestore > fallback map), ensure users/{uid} exists
-  //     let role = "student";
-  //     try {
-  //       role = (await resolveUserRole(cred.user)) || "student";
-  //       await ensureUserDoc(cred.user, role); // merge create if missing
-  //     } catch {}
-  //     setUser({ email: em.toLowerCase(), role }); // <-- NO hard "student"
-  //     setLogged(true, em);
-  //     toast("Welcome back");
+      // 🔑 resolve role (Firestore > fallback map), ensure users/{uid} exists
+      let role = "student";
+      try {
+        role = (await resolveUserRole(cred.user)) || "student";
+        await ensureUserDoc(cred.user, role); // merge create if missing
+      } catch {}
+      setUser({ email: em.toLowerCase(), role }); // <-- NO hard "student"
+      setLogged(true, em);
+      toast("Welcome back");
 
-  //     // ── Post-auth sync (don’t break login UX if fails)
-  //     try {
-  //       // 1) migrate profile (if the helper exists)
-  //       if (typeof migrateProfileToScopedOnce === "function") {
-  //         await migrateProfileToScopedOnce();
-  //       }
+      // success path (close modal + refresh chat UI)
+safeCloseModal();          // <- close auth modal robustly
+gateChatUI?.();
 
-  //       // 2) Run in parallel for speed:
-  //       const tasks = [];
+      // ── Post-auth sync (don’t break login UX if fails)
+      try {
+        // 1) migrate profile (if the helper exists)
+        if (typeof migrateProfileToScopedOnce === "function") {
+          await migrateProfileToScopedOnce();
+        }
 
-  //       // 2a) Cloud profile load
-  //       let cloudProfilePromise = null;
-  //       if (typeof loadProfileCloud === "function") {
-  //         cloudProfilePromise = loadProfileCloud();
-  //         tasks.push(cloudProfilePromise);
-  //       }
+        // 2) Run in parallel for speed:
+        const tasks = [];
 
-  //       // 2b) Enroll migrations + sync
-  //       if (
-  //         typeof migrateEnrollsToScopedOnce === "function" ||
-  //         typeof syncEnrollsBothWays === "function"
-  //       ) {
-  //         const enrollTask = (async () => {
-  //           if (typeof migrateEnrollsToScopedOnce === "function") {
-  //             await migrateEnrollsToScopedOnce();
-  //           }
-  //           if (typeof syncEnrollsBothWays === "function") {
-  //             await syncEnrollsBothWays(); // one time is enough
-  //           }
-  //         })();
-  //         tasks.push(enrollTask);
-  //       }
+        // 2a) Cloud profile load
+        let cloudProfilePromise = null;
+        if (typeof loadProfileCloud === "function") {
+          cloudProfilePromise = loadProfileCloud();
+          tasks.push(cloudProfilePromise);
+        }
 
-  //       // 3) Wait for all
-  //       const results = await Promise.all(tasks);
+        // 2b) Enroll migrations + sync
+        if (
+          typeof migrateEnrollsToScopedOnce === "function" ||
+          typeof syncEnrollsBothWays === "function"
+        ) {
+          const enrollTask = (async () => {
+            if (typeof migrateEnrollsToScopedOnce === "function") {
+              await migrateEnrollsToScopedOnce();
+            }
+            if (typeof syncEnrollsBothWays === "function") {
+              await syncEnrollsBothWays(); // one time is enough
+            }
+          })();
+          tasks.push(enrollTask);
+        }
 
-  //       // 4) Merge cloud profile → local (cloud overwrites local)
-  //       if (cloudProfilePromise) {
-  //         const cloudP = results[0]; // first pushed
-  //         if (cloudP) {
-  //           const localP =
-  //             typeof getProfile === "function" ? getProfile() || {} : {};
-  //           if (typeof setProfile === "function") {
-  //             setProfile({ ...localP, ...cloudP });
-  //           }
-  //         }
-  //       }
+        // 3) Wait for all
+        const results = await Promise.all(tasks);
 
-  //       // 5) UI updates (call only if they exist)
-  //       if (typeof renderCatalog === "function") renderCatalog();
-  //       if (
-  //         typeof window !== "undefined" &&
-  //         typeof window.renderMyLearning === "function"
-  //       )
-  //         window.renderMyLearning();
-  //       if (typeof renderProfilePanel === "function") renderProfilePanel();
-  //       if (
-  //         typeof window !== "undefined" &&
-  //         typeof window.renderGradebook === "function"
-  //       )
-  //         window.renderGradebook();
-  //     } catch (syncErr) {
-  //       console.warn(
-  //         "Post-login sync failed:",
-  //         syncErr && syncErr.message ? syncErr.message : syncErr
-  //       );
-  //     }
+        // 4) Merge cloud profile → local (cloud overwrites local)
+        if (cloudProfilePromise) {
+          const cloudP = results[0]; // first pushed
+          if (cloudP) {
+            const localP =
+              typeof getProfile === "function" ? getProfile() || {} : {};
+            if (typeof setProfile === "function") {
+              setProfile({ ...localP, ...cloudP });
+            }
+          }
+        }
 
-  //     // UI finalize
-  //     safeCloseModal(window.modal || $("#authModal"));
-  //     gateChatUI?.();
-  //   } catch (err) {
-  //     const code = err?.code || "";
-  //     if (
-  //       code.includes("invalid-credential") ||
-  //       code.includes("user-not-found") ||
-  //       code.includes("wrong-password")
-  //     ) {
-  //       toast("Wrong email or password");
-  //     } else if (code.includes("too-many-requests")) {
-  //       toast("Too many attempts. Please try again later.");
-  //     } else {
-  //       toast("Login failed");
-  //     }
-  //   } finally {
-  //     btn?.removeAttribute("disabled");
-  //   }
-  // });
+        // 5) UI updates (call only if they exist)
+        if (typeof renderCatalog === "function") renderCatalog();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderMyLearning === "function"
+        )
+          window.renderMyLearning();
+        if (typeof renderProfilePanel === "function") renderProfilePanel();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderGradebook === "function"
+        )
+          window.renderGradebook();
+      } catch (syncErr) {
+        console.warn(
+          "Post-login sync failed:",
+          syncErr && syncErr.message ? syncErr.message : syncErr
+        );
+      }
 
-  // $("#doSignup")?.addEventListener("click", async (e) => {
-  //   e.preventDefault();
-  //   const em = $("#signupEmail")?.value.trim();
-  //   const pw = $("#signupPass")?.value;
-  //   if (!em || !pw) return toast("Fill email/password");
+      // UI finalize
+      safeCloseModal(window.modal || $("#authModal"));
+      gateChatUI?.();
+    } catch (err) {
+      const code = err?.code || "";
+      if (
+        code.includes("invalid-credential") ||
+        code.includes("user-not-found") ||
+        code.includes("wrong-password")
+      ) {
+        toast("Wrong email or password");
+      } else if (code.includes("too-many-requests")) {
+        toast("Too many attempts. Please try again later.");
+      } else {
+        toast("Login failed");
+      }
+    } finally {
+      btn?.removeAttribute("disabled");
+    }
+  });
 
-  //   const btn = $("#doSignup");
-  //   btn?.setAttribute("disabled", "true");
-  //   try {
-  //     // SIGNUP (similar change)
-  //     const cred = await createUserWithEmailAndPassword(auth, em, pw);
-  //     let role = "student";
-  //     try {
-  //       role = (await resolveUserRole(cred.user)) || "student";
-  //       await ensureUserDoc(cred.user, role);
-  //     } catch {}
-  //     setUser({ email: em.toLowerCase(), role });
-  //     setLogged(true, em);
-  //     toast("Account created");
+  $("#doSignup")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const em = $("#signupEmail")?.value.trim();
+    const pw = $("#signupPass")?.value;
+    if (!em || !pw) return toast("Fill email/password");
 
-  //     // ── Post-signup init/sync
-  //     try {
-  //       // 1) migrate profile (if the helper exists)
-  //       if (typeof migrateProfileToScopedOnce === "function") {
-  //         await migrateProfileToScopedOnce();
-  //       }
+    const btn = $("#doSignup");
+    btn?.setAttribute("disabled", "true");
+    try {
+      // SIGNUP (similar change)
+      const cred = await createUserWithEmailAndPassword(auth, em, pw);
+      let role = "student";
+      try {
+        role = (await resolveUserRole(cred.user)) || "student";
+        await ensureUserDoc(cred.user, role);
+      } catch {}
+      setUser({ email: em.toLowerCase(), role });
+      setLogged(true, em);
+      toast("Account created");
 
-  //       // 2) Run in parallel for speed:
-  //       const tasks = [];
+      // success path (close modal + refresh chat UI)
+safeCloseModal();          // <- close auth modal robustly
+gateChatUI?.();
 
-  //       // 2a) Cloud profile load
-  //       let cloudProfilePromise = null;
-  //       if (typeof loadProfileCloud === "function") {
-  //         cloudProfilePromise = loadProfileCloud();
-  //         tasks.push(cloudProfilePromise);
-  //       }
+      // ── Post-signup init/sync
+      try {
+        // 1) migrate profile (if the helper exists)
+        if (typeof migrateProfileToScopedOnce === "function") {
+          await migrateProfileToScopedOnce();
+        }
 
-  //       // 2b) Enroll migrations + sync
-  //       if (
-  //         typeof migrateEnrollsToScopedOnce === "function" ||
-  //         typeof syncEnrollsBothWays === "function"
-  //       ) {
-  //         const enrollTask = (async () => {
-  //           if (typeof migrateEnrollsToScopedOnce === "function") {
-  //             await migrateEnrollsToScopedOnce();
-  //           }
-  //           if (typeof syncEnrollsBothWays === "function") {
-  //             await syncEnrollsBothWays(); // one time is enough
-  //           }
-  //         })();
-  //         tasks.push(enrollTask);
-  //       }
+        // 2) Run in parallel for speed:
+        const tasks = [];
 
-  //       // 3) Wait for all
-  //       const results = await Promise.all(tasks);
+        // 2a) Cloud profile load
+        let cloudProfilePromise = null;
+        if (typeof loadProfileCloud === "function") {
+          cloudProfilePromise = loadProfileCloud();
+          tasks.push(cloudProfilePromise);
+        }
 
-  //       // 4) Merge cloud profile → local (cloud overwrites local)
-  //       if (cloudProfilePromise) {
-  //         const cloudP = results[0]; // first pushed
-  //         if (cloudP) {
-  //           const localP =
-  //             typeof getProfile === "function" ? getProfile() || {} : {};
-  //           if (typeof setProfile === "function") {
-  //             setProfile({ ...localP, ...cloudP });
-  //           }
-  //         }
-  //       }
+        // 2b) Enroll migrations + sync
+        if (
+          typeof migrateEnrollsToScopedOnce === "function" ||
+          typeof syncEnrollsBothWays === "function"
+        ) {
+          const enrollTask = (async () => {
+            if (typeof migrateEnrollsToScopedOnce === "function") {
+              await migrateEnrollsToScopedOnce();
+            }
+            if (typeof syncEnrollsBothWays === "function") {
+              await syncEnrollsBothWays(); // one time is enough
+            }
+          })();
+          tasks.push(enrollTask);
+        }
 
-  //       // 5) UI updates (call only if they exist)
-  //       if (typeof renderCatalog === "function") renderCatalog();
-  //       if (
-  //         typeof window !== "undefined" &&
-  //         typeof window.renderMyLearning === "function"
-  //       )
-  //         window.renderMyLearning();
-  //       if (typeof renderProfilePanel === "function") renderProfilePanel();
-  //       if (
-  //         typeof window !== "undefined" &&
-  //         typeof window.renderGradebook === "function"
-  //       )
-  //         window.renderGradebook();
-  //     } catch (syncErr) {
-  //       console.warn(
-  //         "Post-login sync failed:",
-  //         syncErr && syncErr.message ? syncErr.message : syncErr
-  //       );
-  //     }
+        // 3) Wait for all
+        const results = await Promise.all(tasks);
 
-  //     // UI finalize
-  //     safeCloseModal(window.modal || $("#authModal"));
-  //     gateChatUI?.();
-  //   } catch (err) {
-  //     const code = err?.code || "";
-  //     if (code.includes("email-already-in-use")) {
-  //       toast("This email is already in use");
-  //     } else if (code.includes("weak-password")) {
-  //       toast("Password is too weak");
-  //     } else {
-  //       toast("Signup failed");
-  //     }
-  //   } finally {
-  //     btn?.removeAttribute("disabled");
-  //   }
-  // });
+        // 4) Merge cloud profile → local (cloud overwrites local)
+        if (cloudProfilePromise) {
+          const cloudP = results[0]; // first pushed
+          if (cloudP) {
+            const localP =
+              typeof getProfile === "function" ? getProfile() || {} : {};
+            if (typeof setProfile === "function") {
+              setProfile({ ...localP, ...cloudP });
+            }
+          }
+        }
+
+        // 5) UI updates (call only if they exist)
+        if (typeof renderCatalog === "function") renderCatalog();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderMyLearning === "function"
+        )
+          window.renderMyLearning();
+        if (typeof renderProfilePanel === "function") renderProfilePanel();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderGradebook === "function"
+        )
+          window.renderGradebook();
+      } catch (syncErr) {
+        console.warn(
+          "Post-login sync failed:",
+          syncErr && syncErr.message ? syncErr.message : syncErr
+        );
+      }
+
+      // UI finalize
+      safeCloseModal(window.modal || $("#authModal"));
+      gateChatUI?.();
+    } catch (err) {
+      const code = err?.code || "";
+      if (code.includes("email-already-in-use")) {
+        toast("This email is already in use");
+      } else if (code.includes("weak-password")) {
+        toast("Password is too weak");
+      } else {
+        toast("Signup failed");
+      }
+    } finally {
+      btn?.removeAttribute("disabled");
+    }
+  });
 
   $("#doForgot")?.addEventListener("click", (e) => {
     e.preventDefault();
