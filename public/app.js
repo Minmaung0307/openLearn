@@ -701,11 +701,14 @@ function sortCourses(list, sort) {
 }
 
 // helpers (normalize text, and safe category match)
-function _norm(s){ return (s || "").toString().trim().toLowerCase(); }
-function _hasCategory(course, wanted){
+function _norm(s) {
+  return (s || "").toString().trim().toLowerCase();
+}
+
+function _hasCategory(course, wanted) {
   // support single string or array on course.category
   const cat = course.category;
-  if (Array.isArray(cat)) return cat.some(c => _norm(c) === _norm(wanted));
+  if (Array.isArray(cat)) return cat.some((c) => _norm(c) === _norm(wanted));
   return _norm(cat) === _norm(wanted);
 }
 
@@ -717,11 +720,15 @@ function renderCatalog() {
   // ---- build category options ONCE (don’t reset user selection) ----
   const sel = $("#filterCategory");
   if (sel && !sel.dataset.built) {
-    const cats = Array.from(new Set(
-      ALL.flatMap(c => Array.isArray(c.category) ? c.category : [c.category])
-        .map(c => (c || "").toString().trim())
-        .filter(Boolean)
-    )).sort((a,b) => a.localeCompare(b));
+    const cats = Array.from(
+      new Set(
+        ALL.flatMap((c) =>
+          Array.isArray(c.category) ? c.category : [c.category]
+        )
+          .map((c) => (c || "").toString().trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
     sel.innerHTML =
       `<option value="">All Categories</option>` +
       cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
@@ -729,18 +736,18 @@ function renderCatalog() {
   }
 
   // ---- read filters (treat "", "All", "all categories" as ALL) ----
-  const rawCat  = ($("#filterCategory")?.value || "");
-  const rawLvl  = ($("#filterLevel")?.value || "");
-  const sort    = ($("#sortBy")?.value || "").trim();
+  const rawCat = $("#filterCategory")?.value || "";
+  const rawLvl = $("#filterLevel")?.value || "";
+  const sort = ($("#sortBy")?.value || "").trim();
 
   const cat = _norm(rawCat);
   const lvl = _norm(rawLvl);
-  const isAllCat = (cat === "" || cat === "all" || cat === "all categories");
+  const isAllCat = cat === "" || cat === "all" || cat === "all categories";
 
   // ---- filter ----
-  let list = ALL.filter(c => {
+  let list = ALL.filter((c) => {
     const okCat = isAllCat ? true : _hasCategory(c, rawCat);
-    const okLvl = (lvl === "" ? true : _norm(c.level) === lvl);
+    const okLvl = lvl === "" ? true : _norm(c.level) === lvl;
     return okCat && okLvl;
   });
 
@@ -751,29 +758,50 @@ function renderCatalog() {
     return;
   }
 
-  grid.innerHTML = list.map((c) => {
-    const r = Number(c.rating || 4.6);
-    const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
-    const search = [c.title, c.summary, (Array.isArray(c.category)?c.category.join(", "):c.category), c.level].join(" ");
-    const enrolled = getEnrolls().has(c.id);
-    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
-      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+  grid.innerHTML = list
+    .map((c) => {
+      const r = Number(c.rating || 4.6);
+      const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+      const search = [
+        c.title,
+        c.summary,
+        Array.isArray(c.category) ? c.category.join(", ") : c.category,
+        c.level,
+      ].join(" ");
+      const enrolled = getEnrolls().has(c.id);
+      return `<div class="card course" data-id="${c.id}" data-search="${esc(
+        search
+      )}">
+      <img class="course-cover" src="${esc(
+        c.image || `https://picsum.photos/seed/${c.id}/640/360`
+      )}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(Array.isArray(c.category)?c.category.join(", "):(c.category || ""))} • ${esc(c.level || "")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
+        <div class="small muted">${esc(
+          Array.isArray(c.category) ? c.category.join(", ") : c.category || ""
+        )} • ${esc(c.level || "")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
         <div class="muted">${esc(c.summary || "")}</div>
         <div class="row" style="justify-content:flex-end; gap:8px">
           <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${enrolled ? "Enrolled" : "Enroll"}</button>
+          <button class="btn primary" data-enroll="${c.id}">${
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
         </div>
       </div>
     </div>`;
-  }).join("");
+    })
+    .join("");
 
-  grid.querySelectorAll("[data-enroll]")
-    .forEach((b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll"))));
-  grid.querySelectorAll("[data-details]")
-    .forEach((b) => (b.onclick = () => openDetails(b.getAttribute("data-details"))));
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
 }
 
 // default option before data arrives (kept)
@@ -1368,57 +1396,71 @@ function initAuthModal() {
 
       // ── Post-auth sync (don’t break login UX if fails)
       try {
-  // 1) migrate profile (if the helper exists)
-  if (typeof migrateProfileToScopedOnce === "function") {
-    await migrateProfileToScopedOnce();
-  }
+        // 1) migrate profile (if the helper exists)
+        if (typeof migrateProfileToScopedOnce === "function") {
+          await migrateProfileToScopedOnce();
+        }
 
-  // 2) Run in parallel for speed:
-  const tasks = [];
+        // 2) Run in parallel for speed:
+        const tasks = [];
 
-  // 2a) Cloud profile load
-  let cloudProfilePromise = null;
-  if (typeof loadProfileCloud === "function") {
-    cloudProfilePromise = loadProfileCloud();
-    tasks.push(cloudProfilePromise);
-  }
+        // 2a) Cloud profile load
+        let cloudProfilePromise = null;
+        if (typeof loadProfileCloud === "function") {
+          cloudProfilePromise = loadProfileCloud();
+          tasks.push(cloudProfilePromise);
+        }
 
-  // 2b) Enroll migrations + sync
-  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
-    const enrollTask = (async () => {
-      if (typeof migrateEnrollsToScopedOnce === "function") {
-        await migrateEnrollsToScopedOnce();
+        // 2b) Enroll migrations + sync
+        if (
+          typeof migrateEnrollsToScopedOnce === "function" ||
+          typeof syncEnrollsBothWays === "function"
+        ) {
+          const enrollTask = (async () => {
+            if (typeof migrateEnrollsToScopedOnce === "function") {
+              await migrateEnrollsToScopedOnce();
+            }
+            if (typeof syncEnrollsBothWays === "function") {
+              await syncEnrollsBothWays(); // one time is enough
+            }
+          })();
+          tasks.push(enrollTask);
+        }
+
+        // 3) Wait for all
+        const results = await Promise.all(tasks);
+
+        // 4) Merge cloud profile → local (cloud overwrites local)
+        if (cloudProfilePromise) {
+          const cloudP = results[0]; // first pushed
+          if (cloudP) {
+            const localP =
+              typeof getProfile === "function" ? getProfile() || {} : {};
+            if (typeof setProfile === "function") {
+              setProfile({ ...localP, ...cloudP });
+            }
+          }
+        }
+
+        // 5) UI updates (call only if they exist)
+        if (typeof renderCatalog === "function") renderCatalog();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderMyLearning === "function"
+        )
+          window.renderMyLearning();
+        if (typeof renderProfilePanel === "function") renderProfilePanel();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderGradebook === "function"
+        )
+          window.renderGradebook();
+      } catch (syncErr) {
+        console.warn(
+          "Post-login sync failed:",
+          syncErr && syncErr.message ? syncErr.message : syncErr
+        );
       }
-      if (typeof syncEnrollsBothWays === "function") {
-        await syncEnrollsBothWays(); // one time is enough
-      }
-    })();
-    tasks.push(enrollTask);
-  }
-
-  // 3) Wait for all
-  const results = await Promise.all(tasks);
-
-  // 4) Merge cloud profile → local (cloud overwrites local)
-  if (cloudProfilePromise) {
-    const cloudP = results[0]; // first pushed
-    if (cloudP) {
-      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
-      if (typeof setProfile === "function") {
-        setProfile({ ...localP, ...cloudP });
-      }
-    }
-  }
-
-  // 5) UI updates (call only if they exist)
-  if (typeof renderCatalog === "function") renderCatalog();
-  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
-  if (typeof renderProfilePanel === "function") renderProfilePanel();
-  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
-
-} catch (syncErr) {
-  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
-}
 
       // UI finalize
       safeCloseModal(window.modal || $("#authModal"));
@@ -1463,57 +1505,71 @@ function initAuthModal() {
 
       // ── Post-signup init/sync
       try {
-  // 1) migrate profile (if the helper exists)
-  if (typeof migrateProfileToScopedOnce === "function") {
-    await migrateProfileToScopedOnce();
-  }
+        // 1) migrate profile (if the helper exists)
+        if (typeof migrateProfileToScopedOnce === "function") {
+          await migrateProfileToScopedOnce();
+        }
 
-  // 2) Run in parallel for speed:
-  const tasks = [];
+        // 2) Run in parallel for speed:
+        const tasks = [];
 
-  // 2a) Cloud profile load
-  let cloudProfilePromise = null;
-  if (typeof loadProfileCloud === "function") {
-    cloudProfilePromise = loadProfileCloud();
-    tasks.push(cloudProfilePromise);
-  }
+        // 2a) Cloud profile load
+        let cloudProfilePromise = null;
+        if (typeof loadProfileCloud === "function") {
+          cloudProfilePromise = loadProfileCloud();
+          tasks.push(cloudProfilePromise);
+        }
 
-  // 2b) Enroll migrations + sync
-  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
-    const enrollTask = (async () => {
-      if (typeof migrateEnrollsToScopedOnce === "function") {
-        await migrateEnrollsToScopedOnce();
+        // 2b) Enroll migrations + sync
+        if (
+          typeof migrateEnrollsToScopedOnce === "function" ||
+          typeof syncEnrollsBothWays === "function"
+        ) {
+          const enrollTask = (async () => {
+            if (typeof migrateEnrollsToScopedOnce === "function") {
+              await migrateEnrollsToScopedOnce();
+            }
+            if (typeof syncEnrollsBothWays === "function") {
+              await syncEnrollsBothWays(); // one time is enough
+            }
+          })();
+          tasks.push(enrollTask);
+        }
+
+        // 3) Wait for all
+        const results = await Promise.all(tasks);
+
+        // 4) Merge cloud profile → local (cloud overwrites local)
+        if (cloudProfilePromise) {
+          const cloudP = results[0]; // first pushed
+          if (cloudP) {
+            const localP =
+              typeof getProfile === "function" ? getProfile() || {} : {};
+            if (typeof setProfile === "function") {
+              setProfile({ ...localP, ...cloudP });
+            }
+          }
+        }
+
+        // 5) UI updates (call only if they exist)
+        if (typeof renderCatalog === "function") renderCatalog();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderMyLearning === "function"
+        )
+          window.renderMyLearning();
+        if (typeof renderProfilePanel === "function") renderProfilePanel();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderGradebook === "function"
+        )
+          window.renderGradebook();
+      } catch (syncErr) {
+        console.warn(
+          "Post-login sync failed:",
+          syncErr && syncErr.message ? syncErr.message : syncErr
+        );
       }
-      if (typeof syncEnrollsBothWays === "function") {
-        await syncEnrollsBothWays(); // one time is enough
-      }
-    })();
-    tasks.push(enrollTask);
-  }
-
-  // 3) Wait for all
-  const results = await Promise.all(tasks);
-
-  // 4) Merge cloud profile → local (cloud overwrites local)
-  if (cloudProfilePromise) {
-    const cloudP = results[0]; // first pushed
-    if (cloudP) {
-      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
-      if (typeof setProfile === "function") {
-        setProfile({ ...localP, ...cloudP });
-      }
-    }
-  }
-
-  // 5) UI updates (call only if they exist)
-  if (typeof renderCatalog === "function") renderCatalog();
-  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
-  if (typeof renderProfilePanel === "function") renderProfilePanel();
-  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
-
-} catch (syncErr) {
-  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
-}
 
       // UI finalize
       safeCloseModal(window.modal || $("#authModal"));
@@ -2551,47 +2607,49 @@ function renderPage() {
   }
 
   // --- Navigation ---
-const btnPrev = $("#rdPrev"),
-      btnNext = $("#rdNext");
+  const btnPrev = $("#rdPrev"),
+    btnNext = $("#rdNext");
 
-// Prev: enable/disable + handler
-if (btnPrev) {
-  btnPrev.disabled = RD.i <= 0;
-  btnPrev.onclick = () => {
-    if (RD.i <= 0) return;
-    RD.i = Math.max(0, RD.i - 1);
-    renderPage();
-  };
-}
+  // Prev: enable/disable + handler
+  if (btnPrev) {
+    btnPrev.disabled = RD.i <= 0;
+    btnPrev.onclick = () => {
+      if (RD.i <= 0) return;
+      RD.i = Math.max(0, RD.i - 1);
+      renderPage();
+    };
+  }
 
-// Next: enable/disable + guard for quiz/project
-if (btnNext) {
-  btnNext.disabled = RD.i >= RD.pages.length - 1;
-  btnNext.onclick = () => {
-    const p = RD.pages[RD.i];
+  // Next: enable/disable + guard for quiz/project
+  if (btnNext) {
+    btnNext.disabled = RD.i >= RD.pages.length - 1;
+    btnNext.onclick = () => {
+      const p = RD.pages[RD.i];
 
-    // Guard: quiz must be passed (either already passed or current LAST_QUIZ_SCORE >= QUIZ_PASS)
-    if (p?.type === "quiz") {
-      const passed =
-        (typeof hasPassedQuiz === "function" && hasPassedQuiz(RD.cid, RD.i)) ||
-        (typeof LAST_QUIZ_SCORE !== "undefined" && LAST_QUIZ_SCORE >= QUIZ_PASS);
-      if (!passed) {
-        toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% to continue`);
+      // Guard: quiz must be passed (either already passed or current LAST_QUIZ_SCORE >= QUIZ_PASS)
+      if (p?.type === "quiz") {
+        const passed =
+          (typeof hasPassedQuiz === "function" &&
+            hasPassedQuiz(RD.cid, RD.i)) ||
+          (typeof LAST_QUIZ_SCORE !== "undefined" &&
+            LAST_QUIZ_SCORE >= QUIZ_PASS);
+        if (!passed) {
+          toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% to continue`);
+          return;
+        }
+      }
+
+      // Guard: project must be uploaded
+      if (p?.type === "project" && !PROJECT_UPLOADED) {
+        toast("Please upload your project file first");
         return;
       }
-    }
 
-    // Guard: project must be uploaded
-    if (p?.type === "project" && !PROJECT_UPLOADED) {
-      toast("Please upload your project file first");
-      return;
-    }
-
-    // Advance
-    RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
-    renderPage();
-  };
-}
+      // Advance
+      RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+      renderPage();
+    };
+  }
 
   // --- Finish button on LAST page only ---
   const isLast = RD.i === RD.pages.length - 1;
@@ -3444,7 +3502,9 @@ function renderAnnouncements() {
   updateAnnBadge();
   enforceRoleGates?.(); // 🔒 re-check after DOM updates
 }
-{/* <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div> */}
+{
+  /* <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div> */
+}
 window.renderAnnouncements = renderAnnouncements;
 
 function wireAnnouncementEditButtons() {
@@ -4115,12 +4175,15 @@ function buildDevGuideMarkdownAddendum() {
 
 (function () {
   // tiny esc util (avoid XSS in titles)
-  const _esc = (s) => (s == null ? "" : String(s)
-    .replace(/&/g,"&amp;")
-    .replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;")
-    .replace(/'/g,"&#39;"));
+  const _esc = (s) =>
+    s == null
+      ? ""
+      : String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
 
   // Ensure containers exist
   function ensureSearchNodes() {
@@ -4141,20 +4204,77 @@ function buildDevGuideMarkdownAddendum() {
   }
 
   // Build a small index from courses (title, summary, category, level)
+  function getUsersLocal() {
+    try {
+      return JSON.parse(localStorage.getItem("users") || "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  // ⬇️ DROP-IN REPLACE THIS WHOLE FUNCTION
   function buildSearchIndex() {
+    // Courses
     let courses = [];
     try {
-      courses = (typeof getCourses === "function") ? (getCourses() || []) : (window.ALL || []);
-    } catch { courses = []; }
-    return courses.map(c => ({
-      type: "course",
-      page: "courses",
-      courseId: c.id,
-      title: c.title || "",
-      subtitle: [c.category, c.level].filter(Boolean).join(" • "),
-      haystack: [c.title, c.summary, c.category, c.level].filter(Boolean).join(" ").toLowerCase()
-    }));
+      courses =
+        typeof getCourses === "function"
+          ? getCourses() || []
+          : window.ALL || [];
+    } catch {
+      courses = [];
+    }
+
+    const idx = [];
+
+    // course → index
+    for (const c of courses) {
+      idx.push({
+        type: "course",
+        page: "courses",
+        courseId: c.id,
+        title: c.title || "",
+        subtitle: [c.category, c.level].filter(Boolean).join(" • "),
+        haystack: [c.title, c.summary, c.category, c.level]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase(),
+      });
+    }
+
+    // users → index (from localStorage 'users', populated by loadUsersCloudToLocal)
+    const users = getUsersLocal();
+    for (const u of users) {
+      const name = u.displayName || "";
+      const email = (u.email || "").toLowerCase();
+      const role = u.role || "student";
+      if (!email) continue;
+      idx.push({
+        type: "user",
+        page: "settings", // click → Settings page (သင်လိုချင်တဲ့ page နဲ့ပြောင်းလို့ရ)
+        userEmail: email,
+        title: name || email, // search result title
+        subtitle: role, // role badge
+        haystack: [name, email, role].join(" ").toLowerCase(),
+      });
+    }
+
+    return idx;
   }
+  // function buildSearchIndex() {
+  //   let courses = [];
+  //   try {
+  //     courses = (typeof getCourses === "function") ? (getCourses() || []) : (window.ALL || []);
+  //   } catch { courses = []; }
+  //   return courses.map(c => ({
+  //     type: "course",
+  //     page: "courses",
+  //     courseId: c.id,
+  //     title: c.title || "",
+  //     subtitle: [c.category, c.level].filter(Boolean).join(" • "),
+  //     haystack: [c.title, c.summary, c.category, c.level].filter(Boolean).join(" ").toLowerCase()
+  //   }));
+  // }
 
   // Simple contains search with basic scoring (title boost)
   function runSearch(index, q, limit = 10) {
@@ -4164,13 +4284,13 @@ function buildDevGuideMarkdownAddendum() {
     const scored = [];
     for (const r of index) {
       const inTitle = (r.title || "").toLowerCase().includes(needle);
-      const inBody  = r.haystack.includes(needle);
+      const inBody = r.haystack.includes(needle);
       if (inTitle || inBody) {
         const score = (inTitle ? 2 : 0) + (inBody ? 1 : 0);
         scored.push({ ...r, score });
       }
     }
-    scored.sort((a,b) => b.score - a.score || a.title.localeCompare(b.title));
+    scored.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
     return scored.slice(0, limit);
   }
 
@@ -4182,43 +4302,67 @@ function buildDevGuideMarkdownAddendum() {
       box.style.display = "none";
       return;
     }
-    box.innerHTML = results.map(r => `
-      <div class="search-item" data-type="${_esc(r.type)}" data-page="${_esc(r.page)}" data-course="${_esc(r.courseId || "")}">
+    box.innerHTML = results
+      .map(
+        (r) => `
+      <div class="search-item" data-type="${_esc(r.type)}" data-page="${_esc(
+          r.page
+        )}" data-course="${_esc(r.courseId || "")}">
         <div class="si-title">${_esc(r.title)}</div>
         ${r.subtitle ? `<div class="si-sub">${_esc(r.subtitle)}</div>` : ""}
       </div>
-    `).join("");
+    `
+      )
+      .join("");
     box.style.display = "block";
 
     // Click → route
-    box.querySelectorAll(".search-item").forEach(el => {
+    box.querySelectorAll(".search-item").forEach((el) => {
       el.onclick = () => {
         const page = el.getAttribute("data-page");
-        const cid  = el.getAttribute("data-course");
+        const cid = el.getAttribute("data-course");
+        const typ = el.getAttribute("data-type");
 
-        // Route to page
-        if (typeof showPage === "function" && page) {
-          showPage(page);
-        } else if (page) {
-          // fallback: update hash
-          location.hash = `#${page}`;
+        // Route to target page first
+        if (page) {
+          if (typeof showPage === "function") showPage(page);
+          else location.hash = `#${page}`;
         }
 
-        // Course details if provided
+        // Course → open details
         if (page === "courses" && cid) {
-          if (typeof openDetails === "function") {
-            openDetails(cid);
-          } else {
-            // fallback: emit a custom event for your code to catch
-            document.dispatchEvent(new CustomEvent("open-course-details", { detail: { id: cid }}));
+          if (typeof openDetails === "function") openDetails(cid);
+          else
+            document.dispatchEvent(
+              new CustomEvent("open-course-details", { detail: { id: cid } })
+            );
+        }
+
+        // User → go Settings (and auto-fill admin analytics search if available)
+        if (typ === "user") {
+          if (!page) {
+            if (typeof showPage === "function") showPage("settings");
+            else location.hash = "#settings";
+          }
+          const q = el.querySelector(".si-title")?.textContent || "";
+          const field =
+            document.getElementById("anQuery") ||
+            document.getElementById("userSearch");
+          if (field) {
+            field.value = q;
+            field.dispatchEvent(new Event("input", { bubbles: true }));
+            document.getElementById("anSearch")?.click();
           }
         }
 
-        // clear dropdown & search box
+        // clear dropdown & box text
         const input = document.getElementById("topSearch");
         if (input) input.value = "";
         const resultsBox = document.getElementById("searchResults");
-        if (resultsBox) { resultsBox.innerHTML = ""; resultsBox.style.display = "none"; }
+        if (resultsBox) {
+          resultsBox.innerHTML = "";
+          resultsBox.style.display = "none";
+        }
       };
     });
   }
@@ -4227,10 +4371,18 @@ function buildDevGuideMarkdownAddendum() {
   function wireGlobalSearch() {
     const input = document.getElementById("topSearch");
     if (!input) return;
-    const idx = buildSearchIndex();
 
-    // search on input
+    let idx = []; // <-- start empty
+    const rebuild = () => {
+      idx = buildSearchIndex();
+    };
+
+    // build index when the user focuses or types (users cache may have been updated after login)
+    input.addEventListener("focus", rebuild);
+    input.addEventListener("click", rebuild); // click to refresh too
     input.addEventListener("input", () => {
+      // ensure we are using the latest users/courses
+      rebuild();
       const q = input.value || "";
       const res = runSearch(idx, q, 12);
       renderResults(res);
@@ -4244,16 +4396,28 @@ function buildDevGuideMarkdownAddendum() {
         if (first) first.click();
       } else if (e.key === "Escape") {
         const box = document.getElementById("searchResults");
-        if (box) { box.innerHTML = ""; box.style.display = "none"; }
+        if (box) {
+          box.innerHTML = "";
+          box.style.display = "none";
+        }
       }
     });
 
     // click outside to close
-    document.addEventListener("click", (e) => {
-      const box = document.getElementById("searchResults");
-      const hit = e.target.closest ? e.target.closest("#searchResults, #topSearch") : null;
-      if (box && !hit) { box.innerHTML = ""; box.style.display = "none"; }
-    }, { capture: true });
+    document.addEventListener(
+      "click",
+      (e) => {
+        const box = document.getElementById("searchResults");
+        const hit = e.target.closest
+          ? e.target.closest("#searchResults, #topSearch")
+          : null;
+        if (box && !hit) {
+          box.innerHTML = "";
+          box.style.display = "none";
+        }
+      },
+      { capture: true }
+    );
   }
 
   // Boot after DOM ready
@@ -4276,106 +4440,202 @@ document.addEventListener("open-course-details", (e) => {
    and your existing helpers: getCourses(), esc(), toast? (optional)
 */
 
-const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const M2I = Object.fromEntries(MONTHS.map((m,i)=>[m,i]));
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+const M2I = Object.fromEntries(MONTHS.map((m, i) => [m, i]));
 
 // Firestore helpers (optional presence-safe)
 async function _tryGetAllProgress() {
   try {
     if (!window.db || typeof window.db !== "object") throw 0;
-    const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const { getDocs, collection } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+    );
     const snap = await getDocs(collection(db, "progress"));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch { return null; }
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    return null;
+  }
 }
 async function _tryGetAllEnrolls() {
   try {
     if (!window.db || typeof window.db !== "object") throw 0;
-    const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const { getDocs, collection } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+    );
     const snap = await getDocs(collection(db, "enrolls"));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch { return null; }
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    return null;
+  }
 }
 async function _tryGetAllUsers() {
   try {
     if (!window.db || typeof window.db !== "object") throw 0;
-    const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const { getDocs, collection } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+    );
     const snap = await getDocs(collection(db, "users"));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch { return []; }
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    return [];
+  }
 }
 
 // Merge to analytics index: { uid, name, email, enrolled[], completed[], credits, firstSeen, lastActive, certs{} }
-function _buildIndex({progressList, enrollList, userList}) {
+function _buildIndex({ progressList, enrollList, userList }) {
   const byUid = new Map();
 
   // seed from users (names/emails)
-  for (const u of (userList || [])) {
-    const item = byUid.get(u.id) || { uid: u.id, name: u.displayName || "", email: u.email || "", enrolled: [], completed: [], credits: 0, firstSeen: null, lastActive: null, certs: {} };
+  for (const u of userList || []) {
+    const item = byUid.get(u.id) || {
+      uid: u.id,
+      name: u.displayName || "",
+      email: u.email || "",
+      enrolled: [],
+      completed: [],
+      credits: 0,
+      firstSeen: null,
+      lastActive: null,
+      certs: {},
+    };
     item.name = item.name || u.displayName || "";
     item.email = item.email || u.email || "";
     byUid.set(u.id, item);
   }
 
   // enrolls
-  for (const e of (enrollList || [])) {
-    const item = byUid.get(e.id) || { uid: e.id, name: "", email: "", enrolled: [], completed: [], credits: 0, firstSeen: null, lastActive: null, certs: {} };
+  for (const e of enrollList || []) {
+    const item = byUid.get(e.id) || {
+      uid: e.id,
+      name: "",
+      email: "",
+      enrolled: [],
+      completed: [],
+      credits: 0,
+      firstSeen: null,
+      lastActive: null,
+      certs: {},
+    };
     const arr = Array.isArray(e.courses) ? e.courses : [];
     item.enrolled = Array.from(new Set([...(item.enrolled || []), ...arr]));
     item.firstSeen = item.firstSeen ?? (e.ts || null);
-    item.lastActive = Math.max(item.lastActive || 0, e.ts || 0) || item.lastActive;
+    item.lastActive =
+      Math.max(item.lastActive || 0, e.ts || 0) || item.lastActive;
     byUid.set(e.id, item);
   }
 
   // progress
-  for (const p of (progressList || [])) {
-    const item = byUid.get(p.id) || { uid: p.id, name: "", email: "", enrolled: [], completed: [], credits: 0, firstSeen: null, lastActive: null, certs: {} };
+  for (const p of progressList || []) {
+    const item = byUid.get(p.id) || {
+      uid: p.id,
+      name: "",
+      email: "",
+      enrolled: [],
+      completed: [],
+      credits: 0,
+      firstSeen: null,
+      lastActive: null,
+      certs: {},
+    };
     const completed = Array.isArray(p.completed) ? p.completed : [];
-    item.completed = completed.map(x => ({ id: x.id, ts: x.ts || null, score: x.score ?? null }));
+    item.completed = completed.map((x) => ({
+      id: x.id,
+      ts: x.ts || null,
+      score: x.score ?? null,
+    }));
     // credits from catalog
-    const catalog = (typeof getCourses === "function") ? (getCourses() || []) : [];
-    const creditMap = new Map(catalog.map(c => [c.id, Number(c.credits || 0)]));
-    item.credits = item.completed.reduce((sum, x) => sum + (creditMap.get(x.id) || 0), 0);
+    const catalog = typeof getCourses === "function" ? getCourses() || [] : [];
+    const creditMap = new Map(
+      catalog.map((c) => [c.id, Number(c.credits || 0)])
+    );
+    item.credits = item.completed.reduce(
+      (sum, x) => sum + (creditMap.get(x.id) || 0),
+      0
+    );
     item.certs = p.certs || {};
     // activity
-    const lastTs = Math.max(...item.completed.map(x => x.ts || 0), p.ts || 0, item.lastActive || 0);
+    const lastTs = Math.max(
+      ...item.completed.map((x) => x.ts || 0),
+      p.ts || 0,
+      item.lastActive || 0
+    );
     item.lastActive = lastTs || item.lastActive;
     item.firstSeen = item.firstSeen ?? (p.ts || null);
     byUid.set(p.id, item);
   }
 
   // finalize array
-  return Array.from(byUid.values()).sort((a,b) => (b.lastActive||0) - (a.lastActive||0));
+  return Array.from(byUid.values()).sort(
+    (a, b) => (b.lastActive || 0) - (a.lastActive || 0)
+  );
 }
 
-function _fmtDate(ts){ if(!ts) return "—"; try{ return new Date(ts).toLocaleDateString(); }catch{ return "—"; } }
-function _esc(s){ return (s==null?"":String(s)).replace(/[&<>\"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
+function _fmtDate(ts) {
+  if (!ts) return "—";
+  try {
+    return new Date(ts).toLocaleDateString();
+  } catch {
+    return "—";
+  }
+}
+function _esc(s) {
+  return (s == null ? "" : String(s)).replace(
+    /[&<>\"']/g,
+    (m) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[
+        m
+      ])
+  );
+}
 
 async function buildAnalyticsData() {
   // Try Firestore (admin). If not readable, fallback to current user only.
-  const [progressList, enrollList, userList] = await Promise.all([_tryGetAllProgress(), _tryGetAllEnrolls(), _tryGetAllUsers()]);
+  const [progressList, enrollList, userList] = await Promise.all([
+    _tryGetAllProgress(),
+    _tryGetAllEnrolls(),
+    _tryGetAllUsers(),
+  ]);
   if (progressList && enrollList) {
-    return _buildIndex({progressList, enrollList, userList});
+    return _buildIndex({ progressList, enrollList, userList });
   }
   // Fallback (limited): current user only
-  const me = (auth && auth.currentUser) ? auth.currentUser : null;
-  const p = (typeof getProgress === "function") ? (getProgress() || {}) : {};
-  const e = (typeof getEnrolls === "function") ? Array.from(getEnrolls() || new Set()) : [];
+  const me = auth && auth.currentUser ? auth.currentUser : null;
+  const p = typeof getProgress === "function" ? getProgress() || {} : {};
+  const e =
+    typeof getEnrolls === "function"
+      ? Array.from(getEnrolls() || new Set())
+      : [];
   const item = {
-    uid: me?.uid || (getUser?.()?.email || "me"),
+    uid: me?.uid || getUser?.()?.email || "me",
     name: getProfile?.()?.displayName || "",
     email: me?.email || getUser?.()?.email || "",
     enrolled: e,
-    completed: Array.isArray(p.completed)? p.completed : [],
+    completed: Array.isArray(p.completed) ? p.completed : [],
     credits: 0,
     firstSeen: p.ts || null,
     lastActive: p.ts || null,
-    certs: p.certs || {}
+    certs: p.certs || {},
   };
   // credits
-  const catalog = (typeof getCourses === "function") ? (getCourses() || []) : [];
-  const creditMap = new Map(catalog.map(c => [c.id, Number(c.credits || 0)]));
-  item.credits = item.completed.reduce((sum, x) => sum + (creditMap.get(x.id) || 0), 0);
+  const catalog = typeof getCourses === "function" ? getCourses() || [] : [];
+  const creditMap = new Map(catalog.map((c) => [c.id, Number(c.credits || 0)]));
+  item.credits = item.completed.reduce(
+    (sum, x) => sum + (creditMap.get(x.id) || 0),
+    0
+  );
   return [item];
 }
 
@@ -4384,32 +4644,36 @@ function fillYearOptions(arr) {
   if (!sel) return;
   const years = new Set();
   for (const s of arr) {
-    for (const c of (s.completed || [])) {
+    for (const c of s.completed || []) {
       if (c.ts) years.add(new Date(c.ts).getFullYear());
     }
   }
-  const list = Array.from(years).sort((a,b)=>b-a);
-  sel.innerHTML = `<option value="">All Years</option>` + list.map(y=>`<option value="${y}">${y}</option>`).join("");
+  const list = Array.from(years).sort((a, b) => b - a);
+  sel.innerHTML =
+    `<option value="">All Years</option>` +
+    list.map((y) => `<option value="${y}">${y}</option>`).join("");
 }
 
 function filterAnalytics(arr) {
   const ySel = document.getElementById("anYear")?.value || "";
   const mSel = document.getElementById("anMonth")?.value || "";
-  const q = (document.getElementById("anQuery")?.value || "").trim().toLowerCase();
+  const q = (document.getElementById("anQuery")?.value || "")
+    .trim()
+    .toLowerCase();
 
-  return arr.filter(s => {
+  return arr.filter((s) => {
     // name/email match
-    const matchQ = !q || [s.name,s.email].join(" ").toLowerCase().includes(q);
+    const matchQ = !q || [s.name, s.email].join(" ").toLowerCase().includes(q);
 
     // year/month by any completed ts
     let matchYM = true;
     if (ySel || mSel) {
-      const mi = mSel ? (M2I[mSel] ?? -1) : -1;
-      matchYM = (s.completed || []).some(c => {
+      const mi = mSel ? M2I[mSel] ?? -1 : -1;
+      matchYM = (s.completed || []).some((c) => {
         if (!c.ts) return false;
         const d = new Date(c.ts);
-        const yOk = ySel ? (String(d.getFullYear()) === String(ySel)) : true;
-        const mOk = mSel ? (d.getMonth() === mi) : true;
+        const yOk = ySel ? String(d.getFullYear()) === String(ySel) : true;
+        const mOk = mSel ? d.getMonth() === mi : true;
         return yOk && mOk;
       });
     }
@@ -4424,81 +4688,128 @@ function renderAnalyticsTable(arr) {
     tb.innerHTML = `<tr><td colspan="7" class="muted">No data</td></tr>`;
     return;
   }
-  tb.innerHTML = arr.map(s => `
+  tb.innerHTML = arr
+    .map(
+      (s) => `
     <tr data-uid="${_esc(s.uid)}">
       <td>${_esc(s.name || "—")}</td>
       <td>${_esc(s.email || "—")}</td>
-      <td>${(s.enrolled||[]).length}</td>
-      <td>${(s.completed||[]).length}</td>
+      <td>${(s.enrolled || []).length}</td>
+      <td>${(s.completed || []).length}</td>
       <td>${s.credits || 0}</td>
       <td>${_fmtDate(s.firstSeen)}</td>
       <td>${_fmtDate(s.lastActive)}</td>
     </tr>
-  `).join("");
+  `
+    )
+    .join("");
 
-  tb.querySelectorAll("tr").forEach(tr => {
+  tb.querySelectorAll("tr").forEach((tr) => {
     tr.onclick = () => openStudentDrawer(tr.getAttribute("data-uid"), arr);
   });
 }
 
-function openStudentDrawer(uid, arr){
-  const s = arr.find(x=>x.uid===uid);
+function openStudentDrawer(uid, arr) {
+  const s = arr.find((x) => x.uid === uid);
   const el = document.getElementById("studentDrawer");
   const box = document.getElementById("sdContent");
   const title = document.getElementById("sdTitle");
   if (!s || !el || !box) return;
-  title.textContent = (s.name || s.email || s.uid);
-  const catalog = (typeof getCourses === "function") ? (getCourses() || []) : [];
-  const byId = new Map(catalog.map(c=>[c.id,c]));
-  const enrollList = (s.enrolled||[]).map(id => byId.get(id)?.title || id);
-  const compList = (s.completed||[]).map(x => {
+  title.textContent = s.name || s.email || s.uid;
+  const catalog = typeof getCourses === "function" ? getCourses() || [] : [];
+  const byId = new Map(catalog.map((c) => [c.id, c]));
+  const enrollList = (s.enrolled || []).map((id) => byId.get(id)?.title || id);
+  const compList = (s.completed || []).map((x) => {
     const t = byId.get(x.id)?.title || x.id;
     const dt = _fmtDate(x.ts);
-    const sc = (x.score==null?"—": Math.round(x.score*100)+"%");
+    const sc = x.score == null ? "—" : Math.round(x.score * 100) + "%";
     return `${t} — ${dt} — ${sc}`;
   });
 
   const certs = s.certs || {};
-  const certRows = Object.entries(certs).map(([k,v]) => {
-    const cid = (typeof v === "object" && v?.id) ? v.id : k;
-    const issued = (typeof v === "object" && v?.issuedAt) ? _fmtDate(v.issuedAt) : "—";
-    return `<li><code>${_esc(cid)}</code> <span class="muted">(${issued})</span></li>`;
-  }).join("");
+  const certRows = Object.entries(certs)
+    .map(([k, v]) => {
+      const cid = typeof v === "object" && v?.id ? v.id : k;
+      const issued =
+        typeof v === "object" && v?.issuedAt ? _fmtDate(v.issuedAt) : "—";
+      return `<li><code>${_esc(
+        cid
+      )}</code> <span class="muted">(${issued})</span></li>`;
+    })
+    .join("");
 
   box.innerHTML = `
     <div class="muted">UID: <code>${_esc(s.uid)}</code></div>
-    <div>Email: <b>${_esc(s.email||"—")}</b></div>
-    <div>Name: <b>${_esc(s.name||"—")}</b></div>
+    <div>Email: <b>${_esc(s.email || "—")}</b></div>
+    <div>Name: <b>${_esc(s.name || "—")}</b></div>
     <hr>
-    <div><b>Enrolled (${(s.enrolled||[]).length})</b><br>${enrollList.length?("<ul>"+enrollList.map(x=>`<li>${_esc(x)}</li>`).join("")+"</ul>"):"<span class='muted'>—</span>"}</div>
-    <div style="margin-top:.5rem"><b>Completed (${(s.completed||[]).length})</b><br>${compList.length?("<ul>"+compList.map(x=>`<li>${_esc(x)}</li>`).join("")+"</ul>"):"<span class='muted'>—</span>"}</div>
-    <div style="margin-top:.5rem"><b>Certificates</b><br>${certRows?("<ul>"+certRows+"</ul>"):"<span class='muted'>—</span>"}</div>
-    <div style="margin-top:.5rem"><b>Total Credits:</b> ${s.credits||0}</div>
+    <div><b>Enrolled (${(s.enrolled || []).length})</b><br>${
+    enrollList.length
+      ? "<ul>" + enrollList.map((x) => `<li>${_esc(x)}</li>`).join("") + "</ul>"
+      : "<span class='muted'>—</span>"
+  }</div>
+    <div style="margin-top:.5rem"><b>Completed (${
+      (s.completed || []).length
+    })</b><br>${
+    compList.length
+      ? "<ul>" + compList.map((x) => `<li>${_esc(x)}</li>`).join("") + "</ul>"
+      : "<span class='muted'>—</span>"
+  }</div>
+    <div style="margin-top:.5rem"><b>Certificates</b><br>${
+      certRows ? "<ul>" + certRows + "</ul>" : "<span class='muted'>—</span>"
+    }</div>
+    <div style="margin-top:.5rem"><b>Total Credits:</b> ${s.credits || 0}</div>
   `;
   el.classList.add("open");
 }
-function closeStudentDrawer(){
+function closeStudentDrawer() {
   document.getElementById("studentDrawer")?.classList.remove("open");
 }
-document.getElementById("sdClose")?.addEventListener("click", closeStudentDrawer);
-document.getElementById("studentDrawer")?.addEventListener("click", (e)=>{ if(e.target.id==="studentDrawer") closeStudentDrawer(); });
+document
+  .getElementById("sdClose")
+  ?.addEventListener("click", closeStudentDrawer);
+document.getElementById("studentDrawer")?.addEventListener("click", (e) => {
+  if (e.target.id === "studentDrawer") closeStudentDrawer();
+});
 
-function exportAnalyticsCSV(arr){
+function exportAnalyticsCSV(arr) {
   const rows = [
-    ["uid","name","email","enrolled_count","completed_count","credits","first_seen","last_active"]
+    [
+      "uid",
+      "name",
+      "email",
+      "enrolled_count",
+      "completed_count",
+      "credits",
+      "first_seen",
+      "last_active",
+    ],
   ];
   for (const s of arr) {
-    rows.push([s.uid, s.name||"", s.email||"", (s.enrolled||[]).length, (s.completed||[]).length, s.credits||0, _fmtDate(s.firstSeen), _fmtDate(s.lastActive)]);
+    rows.push([
+      s.uid,
+      s.name || "",
+      s.email || "",
+      (s.enrolled || []).length,
+      (s.completed || []).length,
+      s.credits || 0,
+      _fmtDate(s.firstSeen),
+      _fmtDate(s.lastActive),
+    ]);
   }
-  const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const csv = rows
+    .map((r) => r.map((x) => `"${String(x).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = "student_analytics.csv"; a.click();
+  a.href = url;
+  a.download = "student_analytics.csv";
+  a.click();
   URL.revokeObjectURL(url);
 }
 
-async function initAdminAnalytics(){
+async function initAdminAnalytics() {
   const card = document.getElementById("admin-analytics");
   if (!card) return;
   try {
@@ -4510,21 +4821,28 @@ async function initAdminAnalytics(){
     renderAnalyticsTable(view);
 
     // wire controls
-    const rerun = ()=>{
+    const rerun = () => {
       view = filterAnalytics(data);
       renderAnalyticsTable(view);
     };
     document.getElementById("anSearch")?.addEventListener("click", rerun);
-    document.getElementById("anReset")?.addEventListener("click", ()=>{
-      if (document.getElementById("anYear")) document.getElementById("anYear").value = "";
-      if (document.getElementById("anMonth")) document.getElementById("anMonth").value = "";
-      if (document.getElementById("anQuery")) document.getElementById("anQuery").value = "";
+    document.getElementById("anReset")?.addEventListener("click", () => {
+      if (document.getElementById("anYear"))
+        document.getElementById("anYear").value = "";
+      if (document.getElementById("anMonth"))
+        document.getElementById("anMonth").value = "";
+      if (document.getElementById("anQuery"))
+        document.getElementById("anQuery").value = "";
       rerun();
     });
     document.getElementById("anYear")?.addEventListener("change", rerun);
     document.getElementById("anMonth")?.addEventListener("change", rerun);
-    document.getElementById("anQuery")?.addEventListener("keydown", (e)=>{ if(e.key==="Enter") rerun(); });
-    document.getElementById("anExport")?.addEventListener("click", ()=> exportAnalyticsCSV(view));
+    document.getElementById("anQuery")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") rerun();
+    });
+    document
+      .getElementById("anExport")
+      ?.addEventListener("click", () => exportAnalyticsCSV(view));
   } catch (e) {
     console.warn("Analytics init failed:", e);
   }
@@ -4536,17 +4854,19 @@ document.addEventListener("DOMContentLoaded", initAdminAnalytics);
 // Load all users from Firestore, cache to localStorage for search
 async function loadUsersCloudToLocal() {
   if (!window.db) return [];
-  const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const { getDocs, collection } = await import(
+    "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+  );
   const snap = await getDocs(collection(db, "users"));
   const arr = [];
-  snap.forEach(doc => {
+  snap.forEach((doc) => {
     const d = doc.data() || {};
     arr.push({
       id: doc.id,
       email: (d.email || "").toLowerCase(),
       displayName: d.displayName || "",
       role: d.role || "student",
-      ts: d.ts || null
+      ts: d.ts || null,
     });
   });
   localStorage.setItem("users", JSON.stringify(arr));
@@ -4584,96 +4904,118 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Gate chat inputs and keep in sync
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
-  // Auth state → UI (register once here)
-  onAuthStateChanged(auth, async (u) => {
-    IS_AUTHED = !!u;
-    setAppLocked(!IS_AUTHED);
+    // Auth state → UI (register once here)
+    onAuthStateChanged(auth, async (u) => {
+      IS_AUTHED = !!u;
+      setAppLocked(!IS_AUTHED);
 
-    if (u) {
-      // 🔑 role ကို Firestore (သို့) fallback map က resolve
-      let role = "student";
-      try {
-        role = await resolveUserRole(u) || "student";
-        if (role === "owner" || role === "admin") {
-  try {
-    await loadUsersCloudToLocal();
-    // search index ကို refresh ဖို့: (သင့် project မှာ setupGlobalSearch/runSearch အတိုင်း)
-    // easiest: input တန်ဖိုးကို အပြန်တမ်းတင်ပေးပါ
-    const si = document.getElementById("topSearch");
-    if (si && si.value) {
-      const v = si.value; si.value = ""; si.value = v;  // trigger input event if you handle it
-      si.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-  } catch (e) {
-    console.warn("users cloud load failed", e);
-  }
-}
-        await ensureUserDoc(u, role);
-      } catch {}
-      setUser({ email: u.email || "", role });
-      setLogged(true, u.email || "");
+      if (u) {
+        // 🔑 role ကို Firestore (သို့) fallback map က resolve
+        let role = "student";
+        try {
+          role = (await resolveUserRole(u)) || "student";
+          if (role === "owner" || role === "admin") {
+            try {
+              await loadUsersCloudToLocal();
+              // after await loadUsersCloudToLocal();
+              document
+                .getElementById("topSearch")
+                ?.dispatchEvent(new Event("focus")); // rebuild index
+              document
+                .getElementById("topSearch")
+                ?.dispatchEvent(new Event("input", { bubbles: true })); // render with current text
+              // search index ကို refresh ဖို့: (သင့် project မှာ setupGlobalSearch/runSearch အတိုင်း)
+              // easiest: input တန်ဖိုးကို အပြန်တမ်းတင်ပေးပါ
+              const si = document.getElementById("topSearch");
+              if (si && si.value) {
+                const v = si.value;
+                si.value = "";
+                si.value = v; // trigger input event if you handle it
+                si.dispatchEvent(new Event("input", { bubbles: true }));
+              }
+            } catch (e) {
+              console.warn("users cloud load failed", e);
+            }
+          }
+          await ensureUserDoc(u, role);
+        } catch {}
+        setUser({ email: u.email || "", role });
+        setLogged(true, u.email || "");
 
-      // ... rest sync ...
-      try {
-  // 1) migrate profile (if the helper exists)
-  await Promise.resolve(migrateProfileToScopedOnce?.());
-  // if (typeof migrateProfileToScopedOnce === "function") {
-  //   await migrateProfileToScopedOnce();
-  // }
+        // ... rest sync ...
+        try {
+          // 1) migrate profile (if the helper exists)
+          await Promise.resolve(migrateProfileToScopedOnce?.());
+          // if (typeof migrateProfileToScopedOnce === "function") {
+          //   await migrateProfileToScopedOnce();
+          // }
 
-  // 2) Run in parallel for speed:
-  const tasks = [];
+          // 2) Run in parallel for speed:
+          const tasks = [];
 
-  // 2a) Cloud profile load
-  let cloudProfilePromise = null;
-  if (typeof loadProfileCloud === "function") {
-    cloudProfilePromise = loadProfileCloud();
-    tasks.push(cloudProfilePromise);
-  }
+          // 2a) Cloud profile load
+          let cloudProfilePromise = null;
+          if (typeof loadProfileCloud === "function") {
+            cloudProfilePromise = loadProfileCloud();
+            tasks.push(cloudProfilePromise);
+          }
 
-  // 2b) Enroll migrations + sync
-  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
-    const enrollTask = (async () => {
-      if (typeof migrateEnrollsToScopedOnce === "function") {
-        await migrateEnrollsToScopedOnce();
+          // 2b) Enroll migrations + sync
+          if (
+            typeof migrateEnrollsToScopedOnce === "function" ||
+            typeof syncEnrollsBothWays === "function"
+          ) {
+            const enrollTask = (async () => {
+              if (typeof migrateEnrollsToScopedOnce === "function") {
+                await migrateEnrollsToScopedOnce();
+              }
+              if (typeof syncEnrollsBothWays === "function") {
+                await syncEnrollsBothWays(); // one time is enough
+              }
+            })();
+            tasks.push(enrollTask);
+          }
+
+          // 3) Wait for all
+          const results = await Promise.all(tasks);
+
+          // 4) Merge cloud profile → local (cloud overwrites local)
+          if (cloudProfilePromise) {
+            const cloudP = results[0]; // first pushed
+            if (cloudP) {
+              const localP =
+                typeof getProfile === "function" ? getProfile() || {} : {};
+              if (typeof setProfile === "function") {
+                setProfile({ ...localP, ...cloudP });
+              }
+            }
+          }
+
+          // 5) UI updates (call only if they exist)
+          if (typeof renderCatalog === "function") renderCatalog();
+          if (
+            typeof window !== "undefined" &&
+            typeof window.renderMyLearning === "function"
+          )
+            window.renderMyLearning();
+          if (typeof renderProfilePanel === "function") renderProfilePanel();
+          if (
+            typeof window !== "undefined" &&
+            typeof window.renderGradebook === "function"
+          )
+            window.renderGradebook();
+        } catch (syncErr) {
+          console.warn(
+            "Post-login sync failed:",
+            syncErr && syncErr.message ? syncErr.message : syncErr
+          );
+        }
+      } else {
+        setUser(null);
+        setLogged(false);
       }
-      if (typeof syncEnrollsBothWays === "function") {
-        await syncEnrollsBothWays(); // one time is enough
-      }
-    })();
-    tasks.push(enrollTask);
+    });
   }
-
-  // 3) Wait for all
-  const results = await Promise.all(tasks);
-
-  // 4) Merge cloud profile → local (cloud overwrites local)
-  if (cloudProfilePromise) {
-    const cloudP = results[0]; // first pushed
-    if (cloudP) {
-      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
-      if (typeof setProfile === "function") {
-        setProfile({ ...localP, ...cloudP });
-      }
-    }
-  }
-
-  // 5) UI updates (call only if they exist)
-  if (typeof renderCatalog === "function") renderCatalog();
-  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
-  if (typeof renderProfilePanel === "function") renderProfilePanel();
-  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
-
-} catch (syncErr) {
-  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
-}
-
-    } else {
-      setUser(null);
-      setLogged(false);
-    }
-  });
-}
 
   // UI
   initSidebar();
