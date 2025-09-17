@@ -4861,20 +4861,13 @@ function fillYearOptions(arr) {
 function filterAnalytics(arr) {
   const ySel = document.getElementById("anYear")?.value || "";
   const mSel = document.getElementById("anMonth")?.value || "";
-  const qRaw = (document.getElementById("anQuery")?.value || "")
-    .trim()
-    .toLowerCase();
-
+  const qRaw = (document.getElementById("anQuery")?.value || "").trim().toLowerCase();
   const tokens = qRaw ? qRaw.split(/\s+/).filter(Boolean) : [];
 
   return arr.filter((s) => {
-    // name/email/uid haystack
-    const hay = [s.name, s.email, s.uid].join(" ").toLowerCase();
-
-    // AND-match across tokens
+    const hay = [s.name, s.email, s.uid].join(" ").toLowerCase(); // ✅ uid ထည့်
     const matchQ = !tokens.length || tokens.every((t) => hay.includes(t));
 
-    // year/month by any completed ts
     let matchYM = true;
     if (ySel || mSel) {
       const mi = mSel ? M2I[mSel] ?? -1 : -1;
