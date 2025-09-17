@@ -4840,25 +4840,73 @@ async function initAdminAnalytics() {
 document.addEventListener("DOMContentLoaded", initAdminAnalytics);
 
 // Load all users from Firestore, cache to localStorage for search
+// ⬇️ DROP-IN REPLACE
 async function loadUsersCloudToLocal() {
   if (!window.db) return [];
-  const { getDocs, collection } = await import(
+
+  const { getDocs, collection, doc, getDoc } = await import(
     "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
   );
-  const snap = await getDocs(collection(db, "users"));
-  const arr = [];
-  snap.forEach((doc) => {
-    const d = doc.data() || {};
-    arr.push({
-      id: doc.id,
-      email: (d.email || "").toLowerCase(),
-      displayName: d.displayName || "",
-      role: d.role || "student",
-      ts: d.ts || null,
+
+  // 1) try primary source: users/*
+  const usersArr = [];
+  try {
+    const usnap = await getDocs(collection(db, "users"));
+    usnap.forEach((d) => {
+      const v = d.data() || {};
+      usersArr.push({
+        id: d.id,
+        email: (v.email || "").toLowerCase(),
+        displayName: v.displayName || v.name || "",
+        role: v.role || "student",
+        ts: v.ts || null,
+      });
     });
-  });
-  localStorage.setItem("users", JSON.stringify(arr));
-  return arr;
+  } catch (e) {
+    console.warn("read users/* failed:", e);
+  }
+
+  // 2) fallback: mine enrolls/* and progress/* to infer users
+  const byEmail = new Map();
+  for (const u of usersArr) if (u.email) byEmail.set(u.email, u);
+
+  async function harvest(coll) {
+    try {
+      const snap = await getDocs(collection(db, coll));
+      snap.forEach((d) => {
+        const v = d.data() || {};
+        // try to find email fields we store
+        const email = (
+          v.email ||
+          v.userEmail ||
+          v.ownerEmail ||
+          ""
+        ).toLowerCase();
+        const displayName = v.displayName || v.name || "";
+        if (email && !byEmail.has(email)) {
+          byEmail.set(email, {
+            id: d.id,
+            email,
+            displayName,
+            role: "student",
+            ts: v.ts || null,
+          });
+        }
+      });
+    } catch (e) {
+      console.warn(`read ${coll}/* failed:`, e);
+    }
+  }
+
+  if (usersArr.length === 0) {
+    await harvest("enrolls");
+    await harvest("progress");
+  }
+
+  // 3) merge + persist
+  const merged = usersArr.length ? usersArr : Array.from(byEmail.values());
+  localStorage.setItem("users", JSON.stringify(merged));
+  return merged;
 }
 
 /* ---------- Boot ---------- */
@@ -5008,21 +5056,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Remove Finals from UI if present (robust no-op if missing)
   stripFinalsUI();
 
-  document.getElementById("anReloadUsers")?.addEventListener("click", async () => {
-    try {
-      const list = await loadUsersCloudToLocal();
-      console.log("Users cached:", list.length);
+  document
+    .getElementById("anReloadUsers")
+    ?.addEventListener("click", async () => {
+      try {
+        const list = await loadUsersCloudToLocal();
+        console.log("Users cached:", list.length);
 
-      const si = document.getElementById("topSearch");
-      si?.dispatchEvent(new Event("focus"));
-      if (si?.value) si.dispatchEvent(new Event("input", { bubbles: true }));
+        const si = document.getElementById("topSearch");
+        si?.dispatchEvent(new Event("focus"));
+        if (si?.value) si.dispatchEvent(new Event("input", { bubbles: true }));
 
-      toast?.(`Users reloaded: ${list.length}`);
-    } catch (e) {
-      console.warn("Reload users failed:", e);
-      toast?.("Reload users failed");
-    }
-  });
+        toast?.(`Users reloaded: ${list.length}`);
+      } catch (e) {
+        console.warn("Reload users failed:", e);
+        toast?.("Reload users failed");
+      }
+    });
 
   // defensive: keep auth-required items clickable (CSS gates by JS)
   document.querySelectorAll("[data-requires-auth]").forEach((el) => {

@@ -1,8 +1,23 @@
 // functions/index.js
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { getDatabase } = require("firebase-admin/database");
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 admin.initializeApp();
+
+exports.onAuthUserCreate = functions.auth.user().onCreate(async (user) => {
+  const db = admin.firestore();
+  const ref = db.doc(`users/${user.uid}`);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    await ref.set({
+      email: (user.email || "").toLowerCase(),
+      displayName: user.displayName || "",
+      role: "student",
+      ts: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
+});
 
 const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
 
