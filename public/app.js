@@ -4125,38 +4125,38 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
   URL.revokeObjectURL(url);
 });
 
-function buildDevGuideMarkdownAddendum() {
-  return `
-<!-- Append-only addendum; keep your existing MD as-is -->
-# OpenLearn – Developer Guide Addendum (Sep 2025)
+// function buildDevGuideMarkdownAddendum() {
+//   return `
+// <!-- Append-only addendum; keep your existing MD as-is -->
+// # OpenLearn – Developer Guide Addendum (Sep 2025)
 
-## Auth & Roles (Stabilized)
-- Register **one** \`onAuthStateChanged(auth, ...)\`
-- After login/signup/state change:
-  - \`role = await resolveUserRole(user) || "student"\`
-  - \`await ensureUserDoc(user, role)\` (merge create; don't overwrite existing admin/owner)
-  - \`setUser({ email, role })\` (❌ no hard "student")
+// ## Auth & Roles (Stabilized)
+// - Register **one** \`onAuthStateChanged(auth, ...)\`
+// - After login/signup/state change:
+//   - \`role = await resolveUserRole(user) || "student"\`
+//   - \`await ensureUserDoc(user, role)\` (merge create; don't overwrite existing admin/owner)
+//   - \`setUser({ email, role })\` (❌ no hard "student")
 
-## Enroll Sync (Per User)
-- Firestore: \`enrolls/{uid}\`
-- Local: \`ol_enrolls::<uid>\`
-- \`syncEnrollsBothWays()\` runs once on login; Cloud → Local overwrite
+// ## Enroll Sync (Per User)
+// - Firestore: \`enrolls/{uid}\`
+// - Local: \`ol_enrolls::<uid>\`
+// - \`syncEnrollsBothWays()\` runs once on login; Cloud → Local overwrite
 
-## Chat
-- RTDB rooms: \`/chats/global\`, \`/chats/{courseId}\`
-- Fallback to local if RTDB disabled
-- TTL prune ~10 days (client-side)
+// ## Chat
+// - RTDB rooms: \`/chats/global\`, \`/chats/{courseId}\`
+// - Fallback to local if RTDB disabled
+// - TTL prune ~10 days (client-side)
 
-## Quizzes
-- Types: single / multiple / short answer
-- Pass ≥ 0.70 (config: \`QUIZ_PASS\`)
-- Finish → \`ensureCertIssued\` → Transcript
+// ## Quizzes
+// - Types: single / multiple / short answer
+// - Pass ≥ 0.70 (config: \`QUIZ_PASS\`)
+// - Finish → \`ensureCertIssued\` → Transcript
 
-## Help & Guide (Refreshless)
-- \`renderHelpGuideEnhanced()\` appends cards/images into \`#helpDoc\`
-- Settings click triggers render; no manual refresh required
-`;
-}
+// ## Help & Guide (Refreshless)
+// - \`renderHelpGuideEnhanced()\` appends cards/images into \`#helpDoc\`
+// - Settings click triggers render; no manual refresh required
+// `;
+// }
 
 // Settings စာမျက်နှာပြသတိုင်း render
 (function wireSettingsHelp() {
@@ -4207,6 +4207,20 @@ function buildDevGuideMarkdownAddendum() {
   }
 
   // Build a small index from courses (title, summary, category, level)
+  // helpers
+  function _esc(s) {
+    return (s == null ? "" : String(s)).replace(
+      /[&<>"']/g,
+      (m) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        }[m])
+    );
+  }
   function getUsersLocal() {
     try {
       return JSON.parse(localStorage.getItem("users") || "[]");
@@ -4215,9 +4229,9 @@ function buildDevGuideMarkdownAddendum() {
     }
   }
 
-  // ⬇️ DROP-IN REPLACE THIS WHOLE FUNCTION
+  // DROP-IN REPLACE
   function buildSearchIndex() {
-    // Courses
+    // courses
     let courses = [];
     try {
       courses =
@@ -4229,8 +4243,6 @@ function buildDevGuideMarkdownAddendum() {
     }
 
     const idx = [];
-
-    // course → index
     for (const c of courses) {
       idx.push({
         type: "course",
@@ -4245,39 +4257,25 @@ function buildDevGuideMarkdownAddendum() {
       });
     }
 
-    // users → index (from localStorage 'users', populated by loadUsersCloudToLocal)
+    // users from localStorage (filled by loadUsersCloudToLocal when admin logs in)
     const users = getUsersLocal();
     for (const u of users) {
-      const name = u.displayName || "";
       const email = (u.email || "").toLowerCase();
+      const name = u.displayName || u.name || "";
       const role = u.role || "student";
       if (!email) continue;
       idx.push({
         type: "user",
-        page: "settings", // click → Settings page (သင်လိုချင်တဲ့ page နဲ့ပြောင်းလို့ရ)
+        page: "settings",
         userEmail: email,
-        title: name || email, // search result title
-        subtitle: role, // role badge
+        title: name || email,
+        subtitle: role,
         haystack: [name, email, role].join(" ").toLowerCase(),
       });
     }
 
     return idx;
   }
-  // function buildSearchIndex() {
-  //   let courses = [];
-  //   try {
-  //     courses = (typeof getCourses === "function") ? (getCourses() || []) : (window.ALL || []);
-  //   } catch { courses = []; }
-  //   return courses.map(c => ({
-  //     type: "course",
-  //     page: "courses",
-  //     courseId: c.id,
-  //     title: c.title || "",
-  //     subtitle: [c.category, c.level].filter(Boolean).join(" • "),
-  //     haystack: [c.title, c.summary, c.category, c.level].filter(Boolean).join(" ").toLowerCase()
-  //   }));
-  // }
 
   // Simple contains search with basic scoring (title boost)
   function runSearch(index, q, limit = 10) {
@@ -4299,40 +4297,49 @@ function buildDevGuideMarkdownAddendum() {
 
   // Render dropdown
   function renderResults(results) {
-    const box = ensureSearchNodes();
+    const box =
+      document.getElementById("searchResults") ||
+      (() => {
+        const b = document.createElement("div");
+        b.id = "searchResults";
+        b.className = "search-results";
+        document.getElementById("topSearch")?.after(b);
+        return b;
+      })();
     if (!results.length) {
       box.innerHTML = "";
       box.style.display = "none";
       return;
     }
+
     box.innerHTML = results
       .map(
         (r) => `
-      <div class="search-item" data-type="${_esc(r.type)}" data-page="${_esc(
-          r.page
-        )}" data-course="${_esc(r.courseId || "")}">
-        <div class="si-title">${_esc(r.title)}</div>
-        ${r.subtitle ? `<div class="si-sub">${_esc(r.subtitle)}</div>` : ""}
-      </div>
-    `
+    <div class="search-item"
+         data-type="${_esc(r.type)}"
+         data-page="${_esc(r.page)}"
+         data-course="${_esc(r.courseId || "")}">
+      <div class="si-title">${_esc(r.title)}</div>
+      ${r.subtitle ? `<div class="si-sub">${_esc(r.subtitle)}</div>` : ""}
+    </div>
+  `
       )
       .join("");
     box.style.display = "block";
 
-    // Click → route
     box.querySelectorAll(".search-item").forEach((el) => {
       el.onclick = () => {
         const page = el.getAttribute("data-page");
         const cid = el.getAttribute("data-course");
         const typ = el.getAttribute("data-type");
 
-        // Route to target page first
-        if (page) {
-          if (typeof showPage === "function") showPage(page);
-          else location.hash = `#${page}`;
-        }
+        // go page
+        if (page)
+          typeof showPage === "function"
+            ? showPage(page)
+            : (location.hash = "#" + page);
 
-        // Course → open details
+        // open course details
         if (page === "courses" && cid) {
           if (typeof openDetails === "function") openDetails(cid);
           else
@@ -4341,12 +4348,12 @@ function buildDevGuideMarkdownAddendum() {
             );
         }
 
-        // User → go Settings (and auto-fill admin analytics search if available)
+        // user route
         if (typ === "user") {
-          if (!page) {
-            if (typeof showPage === "function") showPage("settings");
-            else location.hash = "#settings";
-          }
+          if (!page)
+            typeof showPage === "function"
+              ? showPage("settings")
+              : (location.hash = "#settings");
           const q = el.querySelector(".si-title")?.textContent || "";
           const field =
             document.getElementById("anQuery") ||
@@ -4358,14 +4365,11 @@ function buildDevGuideMarkdownAddendum() {
           }
         }
 
-        // clear dropdown & box text
+        // clear
         const input = document.getElementById("topSearch");
         if (input) input.value = "";
-        const resultsBox = document.getElementById("searchResults");
-        if (resultsBox) {
-          resultsBox.innerHTML = "";
-          resultsBox.style.display = "none";
-        }
+        box.innerHTML = "";
+        box.style.display = "none";
       };
     });
   }
@@ -4375,27 +4379,24 @@ function buildDevGuideMarkdownAddendum() {
     const input = document.getElementById("topSearch");
     if (!input) return;
 
-    let idx = []; // <-- start empty
+    let idx = [];
     const rebuild = () => {
       idx = buildSearchIndex();
     };
 
-    // build index when the user focuses or types (users cache may have been updated after login)
     input.addEventListener("focus", rebuild);
-    input.addEventListener("click", rebuild); // click to refresh too
+    input.addEventListener("click", rebuild);
     input.addEventListener("input", () => {
-      // ensure we are using the latest users/courses
       rebuild();
       const q = input.value || "";
       const res = runSearch(idx, q, 12);
       renderResults(res);
     });
 
-    // enter to open top hit
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        const box = ensureSearchNodes();
-        const first = box.querySelector(".search-item");
+        const box = document.getElementById("searchResults");
+        const first = box?.querySelector(".search-item");
         if (first) first.click();
       } else if (e.key === "Escape") {
         const box = document.getElementById("searchResults");
@@ -4406,14 +4407,11 @@ function buildDevGuideMarkdownAddendum() {
       }
     });
 
-    // click outside to close
     document.addEventListener(
       "click",
       (e) => {
         const box = document.getElementById("searchResults");
-        const hit = e.target.closest
-          ? e.target.closest("#searchResults, #topSearch")
-          : null;
+        const hit = e.target.closest?.("#searchResults, #topSearch");
         if (box && !hit) {
           box.innerHTML = "";
           box.style.display = "none";
@@ -4594,15 +4592,15 @@ function _fmtDate(ts) {
     return "—";
   }
 }
-function _esc(s) {
-  return (s == null ? "" : String(s)).replace(
-    /[&<>\"']/g,
-    (m) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[
-        m
-      ])
-  );
-}
+// function _esc(s) {
+//   return (s == null ? "" : String(s)).replace(
+//     /[&<>\"']/g,
+//     (m) =>
+//       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[
+//         m
+//       ])
+//   );
+// }
 
 async function buildAnalyticsData() {
   // Try Firestore (admin). If not readable, fallback to current user only.
@@ -4912,22 +4910,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     onAuthStateChanged(auth, async (u) => {
       IS_AUTHED = !!u;
       setAppLocked(!IS_AUTHED);
-
       if (!u) {
         setUser(null);
         setLogged(false);
         return;
       }
 
-      // ----- signed-in -----
       let role = "student";
       try {
-        // resolve role once
         role = (await resolveUserRole(u)) || "student";
-        // ensure users/{uid} doc once (avoid duplicate call below)
         await ensureUserDoc(u, role);
 
-        // cache users for search when admin/owner
         if (role === "owner" || role === "admin") {
           try {
             const list = await loadUsersCloudToLocal();
@@ -4935,14 +4928,10 @@ document.addEventListener("DOMContentLoaded", async () => {
               "users cached:",
               Array.isArray(list) ? list.length : 0
             );
-
-            // refresh global-search index (wireGlobalSearch should rebuild on focus/input)
             const si = document.getElementById("topSearch");
-            if (si) {
-              si.dispatchEvent(new Event("focus")); // rebuild index
-              if (si.value)
-                si.dispatchEvent(new Event("input", { bubbles: true })); // re-render if text already typed
-            }
+            si?.dispatchEvent(new Event("focus")); // → rebuild index
+            if (si?.value)
+              si.dispatchEvent(new Event("input", { bubbles: true }));
           } catch (e) {
             console.warn("users cloud load failed:", e);
           }
