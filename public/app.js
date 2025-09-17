@@ -1391,11 +1391,11 @@ async function ensureUserDoc(u, role) {
   }
 }
 
-function safeCloseModal(modalRef) {
-  try {
-    modalRef?.close?.();
-  } catch {}
-}
+// function safeCloseModal(modalRef) {
+//   try {
+//     modalRef?.close?.();
+//   } catch {}
+// }
 
 /* ---------- Page-level role guard ---------- */
 const PAGE_ROLE_MIN = {
