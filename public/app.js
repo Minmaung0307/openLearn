@@ -4207,20 +4207,6 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
   }
 
   // Build a small index from courses (title, summary, category, level)
-  // helpers
-  // function _escape(s) {
-  //   return (s == null ? "" : String(s)).replace(
-  //     /[&<>"']/g,
-  //     (m) =>
-  //       ({
-  //         "&": "&amp;",
-  //         "<": "&lt;",
-  //         ">": "&gt;",
-  //         '"': "&quot;",
-  //         "'": "&#39;",
-  //       }[m])
-  //   );
-  // }
   function getUsersLocal() {
     try {
       return JSON.parse(localStorage.getItem("users") || "[]");
@@ -4231,7 +4217,7 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
 
   // DROP-IN REPLACE
   function buildSearchIndex() {
-    // courses
+    // Courses
     let courses = [];
     try {
       courses =
@@ -4243,6 +4229,8 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
     }
 
     const idx = [];
+
+    // course → index
     for (const c of courses) {
       idx.push({
         type: "course",
@@ -4257,7 +4245,7 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
       });
     }
 
-    // users from localStorage (filled by loadUsersCloudToLocal when admin logs in)
+    // user → index (from localStorage 'users')
     const users = getUsersLocal();
     for (const u of users) {
       const email = (u.email || "").toLowerCase();
@@ -4268,9 +4256,9 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
         type: "user",
         page: "settings",
         userEmail: email,
-        title: name || email,
-        subtitle: role,
-        haystack: [name, email, role].join(" ").toLowerCase(),
+        title: name || email, // UI title
+        subtitle: role, // badge
+        haystack: [name, email, role].join(" ").toLowerCase(), // 🔎 email 포함
       });
     }
 
@@ -4395,9 +4383,8 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        const box = document.getElementById("searchResults");
-        const first = box?.querySelector(".search-item");
-        if (first) first.click();
+        const first = document.querySelector("#searchResults .search-item");
+        first?.click();
       } else if (e.key === "Escape") {
         const box = document.getElementById("searchResults");
         if (box) {
@@ -4410,8 +4397,8 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
     document.addEventListener(
       "click",
       (e) => {
-        const box = document.getElementById("searchResults");
         const hit = e.target.closest?.("#searchResults, #topSearch");
+        const box = document.getElementById("searchResults");
         if (box && !hit) {
           box.innerHTML = "";
           box.style.display = "none";
@@ -4924,14 +4911,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (role === "owner" || role === "admin") {
           try {
             const list = await loadUsersCloudToLocal();
+            const si = document.getElementById("topSearch");
+            si?.dispatchEvent(new Event("focus")); // rebuild index
+            if (si?.value)
+              si.dispatchEvent(new Event("input", { bubbles: true })); // re-render if typed
             console.debug(
               "users cached:",
               Array.isArray(list) ? list.length : 0
             );
-            const si = document.getElementById("topSearch");
-            si?.dispatchEvent(new Event("focus")); // → rebuild index
-            if (si?.value)
-              si.dispatchEvent(new Event("input", { bubbles: true }));
           } catch (e) {
             console.warn("users cloud load failed:", e);
           }
