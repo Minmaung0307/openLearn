@@ -4908,114 +4908,99 @@ document.addEventListener("DOMContentLoaded", async () => {
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
     // Auth state → UI (register once here)
+    // === DROP-IN REPLACE: onAuthStateChanged callback ===
     onAuthStateChanged(auth, async (u) => {
       IS_AUTHED = !!u;
       setAppLocked(!IS_AUTHED);
 
-      if (u) {
-        // 🔑 role ကို Firestore (သို့) fallback map က resolve
-        let role = "student";
-        try {
-          role = (await resolveUserRole(u)) || "student";
-          if (role === "owner" || role === "admin") {
-            try {
-              await loadUsersCloudToLocal();
-              // after await loadUsersCloudToLocal();
-              document
-                .getElementById("topSearch")
-                ?.dispatchEvent(new Event("focus")); // rebuild index
-              document
-                .getElementById("topSearch")
-                ?.dispatchEvent(new Event("input", { bubbles: true })); // render with current text
-              // search index ကို refresh ဖို့: (သင့် project မှာ setupGlobalSearch/runSearch အတိုင်း)
-              // easiest: input တန်ဖိုးကို အပြန်တမ်းတင်ပေးပါ
-              const si = document.getElementById("topSearch");
-              if (si && si.value) {
-                const v = si.value;
-                si.value = "";
-                si.value = v; // trigger input event if you handle it
-                si.dispatchEvent(new Event("input", { bubbles: true }));
-              }
-            } catch (e) {
-              console.warn("users cloud load failed", e);
-            }
-          }
-          await ensureUserDoc(u, role);
-        } catch {}
-        setUser({ email: u.email || "", role });
-        setLogged(true, u.email || "");
-
-        // ... rest sync ...
-        try {
-          // 1) migrate profile (if the helper exists)
-          await Promise.resolve(migrateProfileToScopedOnce?.());
-          // if (typeof migrateProfileToScopedOnce === "function") {
-          //   await migrateProfileToScopedOnce();
-          // }
-
-          // 2) Run in parallel for speed:
-          const tasks = [];
-
-          // 2a) Cloud profile load
-          let cloudProfilePromise = null;
-          if (typeof loadProfileCloud === "function") {
-            cloudProfilePromise = loadProfileCloud();
-            tasks.push(cloudProfilePromise);
-          }
-
-          // 2b) Enroll migrations + sync
-          if (
-            typeof migrateEnrollsToScopedOnce === "function" ||
-            typeof syncEnrollsBothWays === "function"
-          ) {
-            const enrollTask = (async () => {
-              if (typeof migrateEnrollsToScopedOnce === "function") {
-                await migrateEnrollsToScopedOnce();
-              }
-              if (typeof syncEnrollsBothWays === "function") {
-                await syncEnrollsBothWays(); // one time is enough
-              }
-            })();
-            tasks.push(enrollTask);
-          }
-
-          // 3) Wait for all
-          const results = await Promise.all(tasks);
-
-          // 4) Merge cloud profile → local (cloud overwrites local)
-          if (cloudProfilePromise) {
-            const cloudP = results[0]; // first pushed
-            if (cloudP) {
-              const localP =
-                typeof getProfile === "function" ? getProfile() || {} : {};
-              if (typeof setProfile === "function") {
-                setProfile({ ...localP, ...cloudP });
-              }
-            }
-          }
-
-          // 5) UI updates (call only if they exist)
-          if (typeof renderCatalog === "function") renderCatalog();
-          if (
-            typeof window !== "undefined" &&
-            typeof window.renderMyLearning === "function"
-          )
-            window.renderMyLearning();
-          if (typeof renderProfilePanel === "function") renderProfilePanel();
-          if (
-            typeof window !== "undefined" &&
-            typeof window.renderGradebook === "function"
-          )
-            window.renderGradebook();
-        } catch (syncErr) {
-          console.warn(
-            "Post-login sync failed:",
-            syncErr && syncErr.message ? syncErr.message : syncErr
-          );
-        }
-      } else {
+      if (!u) {
         setUser(null);
         setLogged(false);
+        return;
+      }
+
+      // ----- signed-in -----
+      let role = "student";
+      try {
+        // resolve role once
+        role = (await resolveUserRole(u)) || "student";
+        // ensure users/{uid} doc once (avoid duplicate call below)
+        await ensureUserDoc(u, role);
+
+        // cache users for search when admin/owner
+        if (role === "owner" || role === "admin") {
+          try {
+            const list = await loadUsersCloudToLocal();
+            console.debug(
+              "users cached:",
+              Array.isArray(list) ? list.length : 0
+            );
+
+            // refresh global-search index (wireGlobalSearch should rebuild on focus/input)
+            const si = document.getElementById("topSearch");
+            if (si) {
+              si.dispatchEvent(new Event("focus")); // rebuild index
+              if (si.value)
+                si.dispatchEvent(new Event("input", { bubbles: true })); // re-render if text already typed
+            }
+          } catch (e) {
+            console.warn("users cloud load failed:", e);
+          }
+        }
+      } catch (e) {
+        console.warn("role resolve / ensureUserDoc failed:", e);
+      }
+
+      setUser({ email: u.email || "", role });
+      setLogged(true, u.email || "");
+
+      // --- post-login sync (kept same logic, slightly tidied) ---
+      try {
+        // 1) migrate profile (safe-await even if function is sync/missing)
+        await Promise.resolve(migrateProfileToScopedOnce?.());
+
+        // 2) parallel tasks
+        const tasks = [];
+
+        // 2a) cloud profile
+        let cloudProfilePromise = null;
+        if (typeof loadProfileCloud === "function") {
+          cloudProfilePromise = loadProfileCloud();
+          tasks.push(cloudProfilePromise);
+        }
+
+        // 2b) enroll migrations + sync
+        if (
+          typeof migrateEnrollsToScopedOnce === "function" ||
+          typeof syncEnrollsBothWays === "function"
+        ) {
+          const enrollTask = (async () => {
+            await Promise.resolve(migrateEnrollsToScopedOnce?.());
+            await Promise.resolve(syncEnrollsBothWays?.());
+          })();
+          tasks.push(enrollTask);
+        }
+
+        // 3) wait all
+        const results = await Promise.all(tasks);
+
+        // 4) merge cloud profile → local
+        if (cloudProfilePromise) {
+          const cloudP = results[0];
+          if (cloudP && typeof setProfile === "function") {
+            const localP =
+              typeof getProfile === "function" ? getProfile() || {} : {};
+            setProfile({ ...localP, ...cloudP });
+          }
+        }
+
+        // 5) UI refresh (if present)
+        renderCatalog?.();
+        (typeof window !== "undefined" && window.renderMyLearning)?.();
+        renderProfilePanel?.();
+        (typeof window !== "undefined" && window.renderGradebook)?.();
+      } catch (syncErr) {
+        console.warn("Post-login sync failed:", syncErr?.message || syncErr);
       }
     });
   }
