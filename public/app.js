@@ -561,149 +561,122 @@ function safeCloseModal(mod) {
   }
 }
 
-// === AUTH: wire once via form submit (prevents double events) ===
-(function wireAuthOnce() {
-  window.__OL_ONCE__ = window.__OL_ONCE__ || {};
+// Wire auth forms ONCE to avoid double-fire
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const loginForm = $("#authLogin");
+  const signupForm = $("#authSignup");
 
-  const loginForm = document.getElementById("authLogin");
-  const signupForm = document.getElementById("authSignup");
+  // Helper: only handle if this pane is currently visible (not .ol-hidden)
+  const isVisible = (el) => el && !el.classList.contains("ol-hidden");
 
-  // ----- LOGIN -----
-  if (loginForm && !window.__OL_ONCE__.wiredLogin) {
-    window.__OL_ONCE__.wiredLogin = true;
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const em = (document.getElementById("loginEmail")?.value || "")
-        .trim()
-        .toLowerCase();
-      const pw = document.getElementById("loginPass")?.value || "";
-      if (!em || !pw) {
-        toast?.("Fill email/password");
-        return;
-      }
+  // LOGIN via form submit
+  loginForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!isVisible(loginForm)) return; // guard against wrong pane submit
+    const em = ($("#loginEmail")?.value || "").trim().toLowerCase();
+    const pw = $("#loginPass")?.value || "";
+    if (!em || !pw) return toast?.("Fill email/password");
 
-      const btn = document.getElementById("doLogin");
-      btn?.setAttribute("disabled", "true");
+    const btn = $("#doLogin");
+    btn?.setAttribute("disabled", "true");
+    try {
+      const cred = await signInWithEmailAndPassword(auth, em, pw);
+      let role = "student";
       try {
-        const cred = await signInWithEmailAndPassword(auth, em, pw);
-        let role = "student";
-        try {
-          role = (await resolveUserRole?.(cred.user)) || "student";
-          await ensureUserDoc?.(cred.user, role);
-        } catch (e) {
-          console.warn("role/ensureUserDoc failed (non-blocking):", e);
-        }
-        setUser?.({ email: em, role });
-        setLogged?.(true, em);
-        toast?.("Welcome back");
-
-        safeCloseModal(); // <- close auth modal robustly
-        gateChatUI?.();
-
-        try {
-          await Promise.resolve(migrateProfileToScopedOnce?.());
-          const tasks = [];
-          if (typeof loadProfileCloud === "function")
-            tasks.push(loadProfileCloud());
-          if (
-            typeof migrateEnrollsToScopedOnce === "function" ||
-            typeof syncEnrollsBothWays === "function"
-          ) {
-            tasks.push(
-              (async () => {
-                await Promise.resolve(migrateEnrollsToScopedOnce?.());
-                await Promise.resolve(syncEnrollsBothWays?.());
-              })()
-            );
-          }
-          await Promise.allSettled(tasks);
-          renderCatalog?.();
-          window.renderMyLearning?.();
-          renderProfilePanel?.();
-          window.renderGradebook?.();
-        } catch (syncErr) {
-          console.warn("Post-login sync failed:", syncErr?.message || syncErr);
-        }
-
-        safeCloseModal(document.getElementById("authModal"));
-        gateChatUI?.();
-      } catch (err) {
-        showAuthError(err);
-      } finally {
-        btn?.removeAttribute("disabled");
+        role = (await resolveUserRole?.(cred.user)) || "student";
+        await ensureUserDoc?.(cred.user, role);
+      } catch (e2) {
+        console.warn("role/ensureUserDoc failed (non-blocking):", e2);
       }
-    });
-  }
+      setUser?.({ email: em, role });
+      setLogged?.(true, em);
+      toast?.("Welcome back");
 
-  // ----- SIGNUP -----
-  if (signupForm && !window.__OL_ONCE__.wiredSignup) {
-    window.__OL_ONCE__.wiredSignup = true;
-    signupForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const em = (document.getElementById("signupEmail")?.value || "")
-        .trim()
-        .toLowerCase();
-      const pw = document.getElementById("signupPass")?.value || "";
-      if (!em || !pw) {
-        toast?.("Fill email/password");
-        return;
+      await Promise.resolve(migrateProfileToScopedOnce?.());
+      const tasks = [];
+      if (typeof loadProfileCloud === "function")
+        tasks.push(loadProfileCloud());
+      if (
+        typeof migrateEnrollsToScopedOnce === "function" ||
+        typeof syncEnrollsBothWays === "function"
+      ) {
+        tasks.push(
+          (async () => {
+            await Promise.resolve(migrateEnrollsToScopedOnce?.());
+            await Promise.resolve(syncEnrollsBothWays?.());
+          })()
+        );
       }
+      await Promise.allSettled(tasks);
+      renderCatalog?.();
+      window.renderMyLearning?.();
+      renderProfilePanel?.();
+      window.renderGradebook?.();
 
-      const btn = document.getElementById("doSignup");
-      btn?.setAttribute("disabled", "true");
+      safeCloseModal();
+      gateChatUI?.();
+    } catch (err) {
+      showAuthError(err);
+    } finally {
+      btn?.removeAttribute("disabled");
+    }
+  });
+
+  // SIGNUP via form submit
+  signupForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!isVisible(signupForm)) return; // guard against wrong pane submit
+    const em = ($("#signupEmail")?.value || "").trim().toLowerCase();
+    const pw = $("#signupPass")?.value || "";
+    if (!em || !pw) return toast?.("Fill email/password");
+
+    const btn = $("#doSignup");
+    btn?.setAttribute("disabled", "true");
+    try {
+      // ✅ create, not sign-in
+      const cred = await createUserWithEmailAndPassword(auth, em, pw);
+
+      let role = "student";
       try {
-        // create user ONE TIME
-        const cred = await createUserWithEmailAndPassword(auth, em, pw);
-
-        let role = "student";
-        try {
-          role = (await resolveUserRole?.(cred.user)) || "student";
-          await ensureUserDoc?.(cred.user, role);
-        } catch (e) {
-          console.warn("role/ensureUserDoc failed (non-blocking):", e);
-        }
-
-        setUser?.({ email: em, role });
-        setLogged?.(true, em);
-        toast?.("Account created");
-
-        safeCloseModal(); // <- close auth modal robustly
-        gateChatUI?.();
-
-        try {
-          await Promise.resolve(migrateProfileToScopedOnce?.());
-          const tasks = [];
-          if (typeof loadProfileCloud === "function")
-            tasks.push(loadProfileCloud());
-          if (
-            typeof migrateEnrollsToScopedOnce === "function" ||
-            typeof syncEnrollsBothWays === "function"
-          ) {
-            tasks.push(
-              (async () => {
-                await Promise.resolve(migrateEnrollsToScopedOnce?.());
-                await Promise.resolve(syncEnrollsBothWays?.());
-              })()
-            );
-          }
-          await Promise.allSettled(tasks);
-          renderCatalog?.();
-          window.renderMyLearning?.();
-          renderProfilePanel?.();
-          window.renderGradebook?.();
-        } catch (syncErr) {
-          console.warn("Post-signup sync failed:", syncErr?.message || syncErr);
-        }
-
-        safeCloseModal(document.getElementById("authModal"));
-        gateChatUI?.();
-      } catch (err) {
-        showAuthError(err);
-      } finally {
-        btn?.removeAttribute("disabled");
+        role = (await resolveUserRole?.(cred.user)) || "student";
+        await ensureUserDoc?.(cred.user, role);
+      } catch (e2) {
+        console.warn("role/ensureUserDoc failed (non-blocking):", e2);
       }
-    });
-  }
+      setUser?.({ email: em, role });
+      setLogged?.(true, em);
+      toast?.("Account created");
+
+      await Promise.resolve(migrateProfileToScopedOnce?.());
+      const tasks = [];
+      if (typeof loadProfileCloud === "function")
+        tasks.push(loadProfileCloud());
+      if (
+        typeof migrateEnrollsToScopedOnce === "function" ||
+        typeof syncEnrollsBothWays === "function"
+      ) {
+        tasks.push(
+          (async () => {
+            await Promise.resolve(migrateEnrollsToScopedOnce?.());
+            await Promise.resolve(syncEnrollsBothWays?.());
+          })()
+        );
+      }
+      await Promise.allSettled(tasks);
+      renderCatalog?.();
+      window.renderMyLearning?.();
+      renderProfilePanel?.();
+      window.renderGradebook?.();
+
+      safeCloseModal();
+      gateChatUI?.();
+    } catch (err) {
+      showAuthError(err);
+    } finally {
+      btn?.removeAttribute("disabled");
+    }
+  });
 })();
 
 // ===== Quiz config (add this near the top) =====
@@ -4861,7 +4834,9 @@ function fillYearOptions(arr) {
 function filterAnalytics(arr) {
   const ySel = document.getElementById("anYear")?.value || "";
   const mSel = document.getElementById("anMonth")?.value || "";
-  const qRaw = (document.getElementById("anQuery")?.value || "").trim().toLowerCase();
+  const qRaw = (document.getElementById("anQuery")?.value || "")
+    .trim()
+    .toLowerCase();
   const tokens = qRaw ? qRaw.split(/\s+/).filter(Boolean) : [];
 
   return arr.filter((s) => {
