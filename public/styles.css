@@ -1424,3 +1424,16 @@ details.help+details.help { margin-top:10px; }
   filter: drop-shadow(0 1px 2px rgba(0,0,0,.06));
 }
 .help-news { border-left: 4px solid #06b6d4; }
+
+/* Admin analytics */
+.table-wrap { overflow:auto; border:1px solid var(--border,#e5e7eb); border-radius:12px; }
+.table { width:100%; border-collapse:collapse; font-size:.95rem; }
+.table thead th { position:sticky; top:0; background:#f9fafb; text-align:left; padding:.5rem .6rem; border-bottom:1px solid #e5e7eb; }
+.table tbody td { padding:.45rem .6rem; border-bottom:1px solid #f3f4f6; }
+.table tbody tr { cursor:pointer; }
+.table tbody tr:hover { background:#f9fafb; }
+
+.drawer { position:fixed; inset:0; display:none; background:rgba(0,0,0,.25); z-index:60; }
+.drawer.open { display:block; }
+.drawer-body { position:absolute; right:0; top:0; height:100%; width:min(520px,100%); background:#fff; padding:1rem; box-shadow:-8px 0 24px rgba(0,0,0,.12); overflow:auto; }
+#admin-analytics .input.small { padding:.35rem .45rem; }
