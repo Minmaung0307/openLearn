@@ -4627,36 +4627,25 @@ const M2I = Object.fromEntries(MONTHS.map((m, i) => [m, i]));
 async function _tryGetAllProgress() {
   try {
     if (!window.db) throw 0;
-    const { getDocs, collection } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
-    );
+    const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
     const snap = await getDocs(collection(db, "progress"));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  } catch {
-    return null; // permission denied → null
-  }
+  } catch { return null; }
 }
 
 async function _tryGetAllEnrolls() {
   try {
     if (!window.db) throw 0;
-    const { getDocs, collection } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
-    );
+    const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
     const snap = await getDocs(collection(db, "enrolls"));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function _tryGetAllUsers() {
   try {
-    // try Firestore directly first
     if (!window.db) throw 0;
-    const { getDocs, collection } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
-    );
+    const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
     const snap = await getDocs(collection(db, "users"));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch {
@@ -4664,9 +4653,7 @@ async function _tryGetAllUsers() {
     try {
       const raw = localStorage.getItem("users");
       return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   }
 }
 
@@ -4677,82 +4664,61 @@ function _buildIndex({ progressList, enrollList, userList }) {
   // seed from users
   for (const u of userList || []) {
     const uid = u.id;
-    const item = byUid.get(uid) || {
+    const email = (u.email || "").toLowerCase();
+    const name  = u.displayName || u.name || (email.split("@")[0] || "");
+    byUid.set(uid, {
       uid,
-      name: u.displayName || "",
-      email: (u.email || "").toLowerCase(),
+      name,
+      email,
       enrolled: [],
       completed: [],
       credits: 0,
-      firstSeen: u.ts || null,
+      firstSeen: u.ts || u.createdAt || null,
       lastActive: u.updatedAt || u.ts || null,
       certs: {},
-    };
-    // normalize
-    item.name = item.name || u.displayName || "";
-    item.email = item.email || (u.email || "").toLowerCase();
-    byUid.set(uid, item);
+    });
   }
 
   // join enrolls
   for (const e of enrollList || []) {
     const uid = e.id;
     const item = byUid.get(uid) || {
-      uid,
-      name: "",
-      email: "",
-      enrolled: [],
-      completed: [],
-      credits: 0,
-      firstSeen: null,
-      lastActive: null,
-      certs: {},
+      uid, name: "", email: "", enrolled: [], completed: [], credits: 0, firstSeen: null, lastActive: null, certs: {}
     };
-    const list = Array.isArray(e.list)
-      ? e.list
-      : Array.isArray(e.enrolled)
-      ? e.enrolled
-      : [];
-    item.enrolled = list;
+    const list = Array.isArray(e.list) ? e.list : (Array.isArray(e.enrolled) ? e.enrolled : []);
+    item.enrolled = list || [];
     item.firstSeen = item.firstSeen || e.ts || null;
     byUid.set(uid, item);
   }
 
-  // join progress (completed, certs, timestamps)
+  // join progress
   for (const p of progressList || []) {
     const uid = p.id;
     const item = byUid.get(uid) || {
-      uid,
-      name: "",
-      email: "",
-      enrolled: [],
-      completed: [],
-      credits: 0,
-      firstSeen: null,
-      lastActive: null,
-      certs: {},
+      uid, name: "", email: "", enrolled: [], completed: [], credits: 0, firstSeen: null, lastActive: null, certs: {}
     };
     const completed = Array.isArray(p.completed) ? p.completed : [];
     item.completed = completed;
-    item.certs = typeof p.certs === "object" && p.certs ? p.certs : item.certs;
+    item.certs = (p.certs && typeof p.certs === "object") ? p.certs : item.certs;
     item.firstSeen = item.firstSeen || p.ts || null;
-    item.lastActive = p.ts || item.lastActive;
+    // last active: prefer latest completion timestamp if available
+    const lastCompletionTs = completed.length ? Math.max(...completed.map(c => Number(c.ts)||0)) : 0;
+    item.lastActive = lastCompletionTs || item.lastActive || p.ts || item.firstSeen || null;
     byUid.set(uid, item);
   }
 
-  // credits calc
-  const catalog = typeof getCourses === "function" ? getCourses() || [] : [];
-  const creditMap = new Map(catalog.map((c) => [c.id, Number(c.credits || 0)]));
+  // credits
+  const catalog = typeof getCourses === "function" ? (getCourses() || []) : [];
+  const creditMap = new Map(catalog.map(c => [c.id, Number(c.credits || 0)]));
   for (const item of byUid.values()) {
-    item.credits = (item.completed || []).reduce(
-      (sum, x) => sum + (creditMap.get(x.id) || 0),
-      0
-    );
+    item.credits = (item.completed || []).reduce((sum, c) => sum + (creditMap.get(c.id) || 0), 0);
+    // tidy defaults for UI display
+    if (!item.name)  item.name  = item.email ? item.email.split("@")[0] : item.uid;
+    if (!item.email) item.email = ""; // keep empty rather than '-'
   }
 
-  return Array.from(byUid.values()).sort(
-    (a, b) => (b.lastActive || 0) - (a.lastActive || 0)
-  );
+  // sort by last active desc
+  return Array.from(byUid.values()).sort((a,b) => (b.lastActive||0) - (a.lastActive||0));
 }
 
 function _fmtDate(ts) {
@@ -4774,45 +4740,37 @@ function _esc(s) {
 }
 
 async function buildAnalyticsData() {
-  // Cloud-first (admin)
+  // Seed cache so _tryGetAllUsers can fall back if needed
+  await loadUsersCloudToLocal();
+
   const [progressList, enrollList, userList] = await Promise.all([
     _tryGetAllProgress(),
     _tryGetAllEnrolls(),
-    (async () => {
-      // ensure cache available even if Firestore users/* blocked
-      await loadUsersCloudToLocal();
-      return _tryGetAllUsers();
-    })(),
+    _tryGetAllUsers(),
   ]);
 
   if (progressList && enrollList) {
     return _buildIndex({ progressList, enrollList, userList });
   }
 
-  // Fallback: self-only (unchanged from your version)
-  const me = auth && auth.currentUser ? auth.currentUser : null;
+  // Fallback: self-only
+  const me = auth?.currentUser || null;
   const p = typeof getProgress === "function" ? getProgress() || {} : {};
-  const e =
-    typeof getEnrolls === "function"
-      ? Array.from(getEnrolls() || new Set())
-      : [];
+  const e = typeof getEnrolls === "function" ? Array.from(getEnrolls() || new Set()) : [];
+  const catalog = typeof getCourses === "function" ? (getCourses() || []) : [];
+  const creditMap = new Map(catalog.map(c => [c.id, Number(c.credits || 0)]));
+  const completed = Array.isArray(p.completed) ? p.completed : [];
   const item = {
     uid: me?.uid || getUser?.()?.email || "me",
-    name: getProfile?.()?.displayName || "",
+    name: getProfile?.()?.displayName || (me?.email ? me.email.split("@")[0] : ""),
     email: (me?.email || getUser?.()?.email || "").toLowerCase(),
     enrolled: e,
-    completed: Array.isArray(p.completed) ? p.completed : [],
-    credits: 0,
+    completed,
+    credits: completed.reduce((s,x)=>s+(creditMap.get(x.id)||0),0),
     firstSeen: p.ts || null,
-    lastActive: p.ts || null,
+    lastActive: (completed.length ? Math.max(...completed.map(c=>Number(c.ts)||0)) : 0) || p.ts || null,
     certs: p.certs || {},
   };
-  const catalog = typeof getCourses === "function" ? getCourses() || [] : [];
-  const creditMap = new Map(catalog.map((c) => [c.id, Number(c.credits || 0)]));
-  item.credits = item.completed.reduce(
-    (sum, x) => sum + (creditMap.get(x.id) || 0),
-    0
-  );
   return [item];
 }
 
@@ -4834,21 +4792,21 @@ function fillYearOptions(arr) {
 function filterAnalytics(arr) {
   const ySel = document.getElementById("anYear")?.value || "";
   const mSel = document.getElementById("anMonth")?.value || "";
-  const qRaw = (document.getElementById("anQuery")?.value || "")
-    .trim()
-    .toLowerCase();
+  const qRaw = (document.getElementById("anQuery")?.value || "").trim().toLowerCase();
   const tokens = qRaw ? qRaw.split(/\s+/).filter(Boolean) : [];
 
   return arr.filter((s) => {
-    const hay = [s.name, s.email, s.uid].join(" ").toLowerCase(); // ✅ uid ထည့်
-    const matchQ = !tokens.length || tokens.every((t) => hay.includes(t));
+    const hay = [s.name, s.email, s.uid].join(" ").toLowerCase();
+    const matchQ = !tokens.length || tokens.every(t => hay.includes(t));
 
     let matchYM = true;
     if (ySel || mSel) {
-      const mi = mSel ? M2I[mSel] ?? -1 : -1;
+      const M2I = window.M2I || {}; // your month map
+      const mi = mSel ? (M2I[mSel] ?? -1) : -1;
       matchYM = (s.completed || []).some((c) => {
-        if (!c.ts) return false;
-        const d = new Date(c.ts);
+        const ts = Number(c.ts) || 0;
+        if (!ts) return false;
+        const d = new Date(ts);
         const yOk = ySel ? String(d.getFullYear()) === String(ySel) : true;
         const mOk = mSel ? d.getMonth() === mi : true;
         return yOk && mOk;
@@ -5002,7 +4960,11 @@ async function initAdminAnalytics() {
       view = filterAnalytics(data);
       renderAnalyticsTable(view);
     };
-    document.getElementById("anSearch")?.addEventListener("click", rerun);
+    // Search
+document.getElementById("anSearch")?.addEventListener("click", async () => {
+  const data = await buildAnalyticsData();
+  renderAnalyticsTable(filterAnalytics(data));
+});
     document.getElementById("anReset")?.addEventListener("click", () => {
       if (document.getElementById("anYear"))
         document.getElementById("anYear").value = "";
@@ -5020,18 +4982,13 @@ async function initAdminAnalytics() {
     document
       .getElementById("anExport")
       ?.addEventListener("click", () => exportAnalyticsCSV(view));
-    // 🔄 Reload Users (admin only)
-    document
-      .getElementById("anReloadUsers")
-      ?.addEventListener("click", async () => {
-        // refresh users cache from Firestore (or fallback)
-        await loadUsersCloudToLocal();
-        // rebuild from cloud again
-        const data = await buildAnalyticsData();
-        fillYearOptions(data);
-        const view = filterAnalytics(data);
-        renderAnalyticsTable(view);
-      });
+    // Reload users (admin button)
+document.getElementById("anReloadUsers")?.addEventListener("click", async () => {
+  await loadUsersCloudToLocal();                 // refresh cache from Firestore
+  const data = await buildAnalyticsData();       // rebuild full index
+  fillYearOptions(data);
+  renderAnalyticsTable(filterAnalytics(data));
+});
   } catch (e) {
     console.warn("Analytics init failed:", e);
   }
