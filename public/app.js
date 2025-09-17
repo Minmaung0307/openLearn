@@ -523,12 +523,16 @@ function showAuthError(err) {
     "auth/wrong-password": "Wrong email or password.",
     "auth/invalid-credential": "Wrong email or password.",
     "auth/too-many-requests": "Too many attempts. Try later.",
-    "auth/operation-not-allowed": "Email/Password sign-in is disabled in Firebase console.",
-    "auth/web-internal-error": "Sign-in blocked (domain/recaptcha). Check Authorized domains.",
+    "auth/operation-not-allowed":
+      "Email/Password sign-in is disabled in Firebase console.",
+    "auth/web-internal-error":
+      "Sign-in blocked (domain/recaptcha). Check Authorized domains.",
     "auth/network-request-failed": "Network error. Check connection.",
   };
   console.warn("Auth error:", code, err?.message || err);
-  (typeof toast === "function" ? toast : console.log)(map[code] || `Login/Signup failed: ${code || "unknown error"}`);
+  (typeof toast === "function" ? toast : console.log)(
+    map[code] || `Login/Signup failed: ${code || "unknown error"}`
+  );
 }
 
 // Put this ONCE in your helpers area (and remove any duplicates elsewhere)
@@ -542,11 +546,13 @@ function safeCloseModal(mod) {
     mod.removeAttribute?.("open");
 
     // class-based modals
-    mod.classList?.remove("open","show");
+    mod.classList?.remove("open", "show");
     document.body.classList.remove("modal-open");
 
     // cleanup any backdrops your CSS/JS may have added
-    document.querySelectorAll(".modal-backdrop,.backdrop,.overlay").forEach(el => el.remove());
+    document
+      .querySelectorAll(".modal-backdrop,.backdrop,.overlay")
+      .forEach((el) => el.remove());
 
     // just in case some app lock remained
     if (typeof setAppLocked === "function") setAppLocked(false);
@@ -559,7 +565,7 @@ function safeCloseModal(mod) {
 (function wireAuthOnce() {
   window.__OL_ONCE__ = window.__OL_ONCE__ || {};
 
-  const loginForm  = document.getElementById("authLogin");
+  const loginForm = document.getElementById("authLogin");
   const signupForm = document.getElementById("authSignup");
 
   // ----- LOGIN -----
@@ -567,9 +573,14 @@ function safeCloseModal(mod) {
     window.__OL_ONCE__.wiredLogin = true;
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const em = (document.getElementById("loginEmail")?.value || "").trim().toLowerCase();
+      const em = (document.getElementById("loginEmail")?.value || "")
+        .trim()
+        .toLowerCase();
       const pw = document.getElementById("loginPass")?.value || "";
-      if (!em || !pw) { toast?.("Fill email/password"); return; }
+      if (!em || !pw) {
+        toast?.("Fill email/password");
+        return;
+      }
 
       const btn = document.getElementById("doLogin");
       btn?.setAttribute("disabled", "true");
@@ -586,18 +597,24 @@ function safeCloseModal(mod) {
         setLogged?.(true, em);
         toast?.("Welcome back");
 
-        safeCloseModal();          // <- close auth modal robustly
-gateChatUI?.();
+        safeCloseModal(); // <- close auth modal robustly
+        gateChatUI?.();
 
         try {
           await Promise.resolve(migrateProfileToScopedOnce?.());
           const tasks = [];
-          if (typeof loadProfileCloud === "function") tasks.push(loadProfileCloud());
-          if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
-            tasks.push((async () => {
-              await Promise.resolve(migrateEnrollsToScopedOnce?.());
-              await Promise.resolve(syncEnrollsBothWays?.());
-            })());
+          if (typeof loadProfileCloud === "function")
+            tasks.push(loadProfileCloud());
+          if (
+            typeof migrateEnrollsToScopedOnce === "function" ||
+            typeof syncEnrollsBothWays === "function"
+          ) {
+            tasks.push(
+              (async () => {
+                await Promise.resolve(migrateEnrollsToScopedOnce?.());
+                await Promise.resolve(syncEnrollsBothWays?.());
+              })()
+            );
           }
           await Promise.allSettled(tasks);
           renderCatalog?.();
@@ -610,7 +627,6 @@ gateChatUI?.();
 
         safeCloseModal(document.getElementById("authModal"));
         gateChatUI?.();
-
       } catch (err) {
         showAuthError(err);
       } finally {
@@ -624,9 +640,14 @@ gateChatUI?.();
     window.__OL_ONCE__.wiredSignup = true;
     signupForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const em = (document.getElementById("signupEmail")?.value || "").trim().toLowerCase();
+      const em = (document.getElementById("signupEmail")?.value || "")
+        .trim()
+        .toLowerCase();
       const pw = document.getElementById("signupPass")?.value || "";
-      if (!em || !pw) { toast?.("Fill email/password"); return; }
+      if (!em || !pw) {
+        toast?.("Fill email/password");
+        return;
+      }
 
       const btn = document.getElementById("doSignup");
       btn?.setAttribute("disabled", "true");
@@ -646,18 +667,24 @@ gateChatUI?.();
         setLogged?.(true, em);
         toast?.("Account created");
 
-        safeCloseModal();          // <- close auth modal robustly
-gateChatUI?.();
+        safeCloseModal(); // <- close auth modal robustly
+        gateChatUI?.();
 
         try {
           await Promise.resolve(migrateProfileToScopedOnce?.());
           const tasks = [];
-          if (typeof loadProfileCloud === "function") tasks.push(loadProfileCloud());
-          if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
-            tasks.push((async () => {
-              await Promise.resolve(migrateEnrollsToScopedOnce?.());
-              await Promise.resolve(syncEnrollsBothWays?.());
-            })());
+          if (typeof loadProfileCloud === "function")
+            tasks.push(loadProfileCloud());
+          if (
+            typeof migrateEnrollsToScopedOnce === "function" ||
+            typeof syncEnrollsBothWays === "function"
+          ) {
+            tasks.push(
+              (async () => {
+                await Promise.resolve(migrateEnrollsToScopedOnce?.());
+                await Promise.resolve(syncEnrollsBothWays?.());
+              })()
+            );
           }
           await Promise.allSettled(tasks);
           renderCatalog?.();
@@ -670,7 +697,6 @@ gateChatUI?.();
 
         safeCloseModal(document.getElementById("authModal"));
         gateChatUI?.();
-
       } catch (err) {
         showAuthError(err);
       } finally {
@@ -1370,17 +1396,20 @@ async function ensureUserDoc(u, role) {
   if (!db || !u?.uid) return;
   const uref = doc(db, "users", u.uid);
   const snap = await getDoc(uref);
-  if (!snap.exists()) {
-    await setDoc(
-      uref,
-      {
-        email: (u.email || "").toLowerCase(),
-        role: role || "student",
-        createdAt: Date.now(),
-      },
-      { merge: true }
-    ); // don't overwrite future admin/owner fields
-  }
+  const now = Date.now();
+  // merge-only to avoid clobbering future changes
+  await setDoc(
+    uref,
+    {
+      email: (u.email || "").toLowerCase(),
+      displayName: u.displayName || "", // 🔹 add
+      role:
+        role || (snap.exists() ? snap.data()?.role || "student" : "student"),
+      ts: snap.exists() ? snap.data()?.ts || now : now, // 🔹 first seen
+      updatedAt: now, // 🔹 last active-ish
+    },
+    { merge: true }
+  );
 }
 
 // function safeCloseModal(modalRef) {
@@ -1544,229 +1573,229 @@ function initAuthModal() {
     showPane("authLogin");
   });
 
-//   $("#doLogin")?.addEventListener("click", async (e) => {
-//     e.preventDefault();
-//     const em = $("#loginEmail")?.value.trim();
-//     const pw = $("#loginPass")?.value;
-//     if (!em || !pw) return toast("Fill email/password");
+  //   $("#doLogin")?.addEventListener("click", async (e) => {
+  //     e.preventDefault();
+  //     const em = $("#loginEmail")?.value.trim();
+  //     const pw = $("#loginPass")?.value;
+  //     if (!em || !pw) return toast("Fill email/password");
 
-//     const btn = $("#doLogin");
-//     btn?.setAttribute("disabled", "true");
-//     try {
-//       // LOGIN (replace your current handler body with this shape)
-//       const cred = await signInWithEmailAndPassword(auth, em, pw);
+  //     const btn = $("#doLogin");
+  //     btn?.setAttribute("disabled", "true");
+  //     try {
+  //       // LOGIN (replace your current handler body with this shape)
+  //       const cred = await signInWithEmailAndPassword(auth, em, pw);
 
-//       // 🔑 resolve role (Firestore > fallback map), ensure users/{uid} exists
-//       let role = "student";
-//       try {
-//         role = (await resolveUserRole(cred.user)) || "student";
-//         await ensureUserDoc(cred.user, role); // merge create if missing
-//       } catch {}
-//       setUser({ email: em.toLowerCase(), role }); // <-- NO hard "student"
-//       setLogged(true, em);
-//       toast("Welcome back");
+  //       // 🔑 resolve role (Firestore > fallback map), ensure users/{uid} exists
+  //       let role = "student";
+  //       try {
+  //         role = (await resolveUserRole(cred.user)) || "student";
+  //         await ensureUserDoc(cred.user, role); // merge create if missing
+  //       } catch {}
+  //       setUser({ email: em.toLowerCase(), role }); // <-- NO hard "student"
+  //       setLogged(true, em);
+  //       toast("Welcome back");
 
-//       // success path (close modal + refresh chat UI)
-// safeCloseModal();          // <- close auth modal robustly
-// gateChatUI?.();
+  //       // success path (close modal + refresh chat UI)
+  // safeCloseModal();          // <- close auth modal robustly
+  // gateChatUI?.();
 
-//       // ── Post-auth sync (don’t break login UX if fails)
-//       try {
-//         // 1) migrate profile (if the helper exists)
-//         if (typeof migrateProfileToScopedOnce === "function") {
-//           await migrateProfileToScopedOnce();
-//         }
+  //       // ── Post-auth sync (don’t break login UX if fails)
+  //       try {
+  //         // 1) migrate profile (if the helper exists)
+  //         if (typeof migrateProfileToScopedOnce === "function") {
+  //           await migrateProfileToScopedOnce();
+  //         }
 
-//         // 2) Run in parallel for speed:
-//         const tasks = [];
+  //         // 2) Run in parallel for speed:
+  //         const tasks = [];
 
-//         // 2a) Cloud profile load
-//         let cloudProfilePromise = null;
-//         if (typeof loadProfileCloud === "function") {
-//           cloudProfilePromise = loadProfileCloud();
-//           tasks.push(cloudProfilePromise);
-//         }
+  //         // 2a) Cloud profile load
+  //         let cloudProfilePromise = null;
+  //         if (typeof loadProfileCloud === "function") {
+  //           cloudProfilePromise = loadProfileCloud();
+  //           tasks.push(cloudProfilePromise);
+  //         }
 
-//         // 2b) Enroll migrations + sync
-//         if (
-//           typeof migrateEnrollsToScopedOnce === "function" ||
-//           typeof syncEnrollsBothWays === "function"
-//         ) {
-//           const enrollTask = (async () => {
-//             if (typeof migrateEnrollsToScopedOnce === "function") {
-//               await migrateEnrollsToScopedOnce();
-//             }
-//             if (typeof syncEnrollsBothWays === "function") {
-//               await syncEnrollsBothWays(); // one time is enough
-//             }
-//           })();
-//           tasks.push(enrollTask);
-//         }
+  //         // 2b) Enroll migrations + sync
+  //         if (
+  //           typeof migrateEnrollsToScopedOnce === "function" ||
+  //           typeof syncEnrollsBothWays === "function"
+  //         ) {
+  //           const enrollTask = (async () => {
+  //             if (typeof migrateEnrollsToScopedOnce === "function") {
+  //               await migrateEnrollsToScopedOnce();
+  //             }
+  //             if (typeof syncEnrollsBothWays === "function") {
+  //               await syncEnrollsBothWays(); // one time is enough
+  //             }
+  //           })();
+  //           tasks.push(enrollTask);
+  //         }
 
-//         // 3) Wait for all
-//         const results = await Promise.all(tasks);
+  //         // 3) Wait for all
+  //         const results = await Promise.all(tasks);
 
-//         // 4) Merge cloud profile → local (cloud overwrites local)
-//         if (cloudProfilePromise) {
-//           const cloudP = results[0]; // first pushed
-//           if (cloudP) {
-//             const localP =
-//               typeof getProfile === "function" ? getProfile() || {} : {};
-//             if (typeof setProfile === "function") {
-//               setProfile({ ...localP, ...cloudP });
-//             }
-//           }
-//         }
+  //         // 4) Merge cloud profile → local (cloud overwrites local)
+  //         if (cloudProfilePromise) {
+  //           const cloudP = results[0]; // first pushed
+  //           if (cloudP) {
+  //             const localP =
+  //               typeof getProfile === "function" ? getProfile() || {} : {};
+  //             if (typeof setProfile === "function") {
+  //               setProfile({ ...localP, ...cloudP });
+  //             }
+  //           }
+  //         }
 
-//         // 5) UI updates (call only if they exist)
-//         if (typeof renderCatalog === "function") renderCatalog();
-//         if (
-//           typeof window !== "undefined" &&
-//           typeof window.renderMyLearning === "function"
-//         )
-//           window.renderMyLearning();
-//         if (typeof renderProfilePanel === "function") renderProfilePanel();
-//         if (
-//           typeof window !== "undefined" &&
-//           typeof window.renderGradebook === "function"
-//         )
-//           window.renderGradebook();
-//       } catch (syncErr) {
-//         console.warn(
-//           "Post-login sync failed:",
-//           syncErr && syncErr.message ? syncErr.message : syncErr
-//         );
-//       }
+  //         // 5) UI updates (call only if they exist)
+  //         if (typeof renderCatalog === "function") renderCatalog();
+  //         if (
+  //           typeof window !== "undefined" &&
+  //           typeof window.renderMyLearning === "function"
+  //         )
+  //           window.renderMyLearning();
+  //         if (typeof renderProfilePanel === "function") renderProfilePanel();
+  //         if (
+  //           typeof window !== "undefined" &&
+  //           typeof window.renderGradebook === "function"
+  //         )
+  //           window.renderGradebook();
+  //       } catch (syncErr) {
+  //         console.warn(
+  //           "Post-login sync failed:",
+  //           syncErr && syncErr.message ? syncErr.message : syncErr
+  //         );
+  //       }
 
-//       // UI finalize
-//       safeCloseModal(window.modal || $("#authModal"));
-//       gateChatUI?.();
-//     } catch (err) {
-//       const code = err?.code || "";
-//       if (
-//         code.includes("invalid-credential") ||
-//         code.includes("user-not-found") ||
-//         code.includes("wrong-password")
-//       ) {
-//         toast("Wrong email or password");
-//       } else if (code.includes("too-many-requests")) {
-//         toast("Too many attempts. Please try again later.");
-//       } else {
-//         toast("Login failed");
-//       }
-//     } finally {
-//       btn?.removeAttribute("disabled");
-//     }
-//   });
+  //       // UI finalize
+  //       safeCloseModal(window.modal || $("#authModal"));
+  //       gateChatUI?.();
+  //     } catch (err) {
+  //       const code = err?.code || "";
+  //       if (
+  //         code.includes("invalid-credential") ||
+  //         code.includes("user-not-found") ||
+  //         code.includes("wrong-password")
+  //       ) {
+  //         toast("Wrong email or password");
+  //       } else if (code.includes("too-many-requests")) {
+  //         toast("Too many attempts. Please try again later.");
+  //       } else {
+  //         toast("Login failed");
+  //       }
+  //     } finally {
+  //       btn?.removeAttribute("disabled");
+  //     }
+  //   });
 
-//   $("#doSignup")?.addEventListener("click", async (e) => {
-//     e.preventDefault();
-//     const em = $("#signupEmail")?.value.trim();
-//     const pw = $("#signupPass")?.value;
-//     if (!em || !pw) return toast("Fill email/password");
+  //   $("#doSignup")?.addEventListener("click", async (e) => {
+  //     e.preventDefault();
+  //     const em = $("#signupEmail")?.value.trim();
+  //     const pw = $("#signupPass")?.value;
+  //     if (!em || !pw) return toast("Fill email/password");
 
-//     const btn = $("#doSignup");
-//     btn?.setAttribute("disabled", "true");
-//     try {
-//       // SIGNUP (similar change)
-//       const cred = await createUserWithEmailAndPassword(auth, em, pw);
-//       let role = "student";
-//       try {
-//         role = (await resolveUserRole(cred.user)) || "student";
-//         await ensureUserDoc(cred.user, role);
-//       } catch {}
-//       setUser({ email: em.toLowerCase(), role });
-//       setLogged(true, em);
-//       toast("Account created");
+  //     const btn = $("#doSignup");
+  //     btn?.setAttribute("disabled", "true");
+  //     try {
+  //       // SIGNUP (similar change)
+  //       const cred = await createUserWithEmailAndPassword(auth, em, pw);
+  //       let role = "student";
+  //       try {
+  //         role = (await resolveUserRole(cred.user)) || "student";
+  //         await ensureUserDoc(cred.user, role);
+  //       } catch {}
+  //       setUser({ email: em.toLowerCase(), role });
+  //       setLogged(true, em);
+  //       toast("Account created");
 
-//       // success path (close modal + refresh chat UI)
-// safeCloseModal();          // <- close auth modal robustly
-// gateChatUI?.();
+  //       // success path (close modal + refresh chat UI)
+  // safeCloseModal();          // <- close auth modal robustly
+  // gateChatUI?.();
 
-//       // ── Post-signup init/sync
-//       try {
-//         // 1) migrate profile (if the helper exists)
-//         if (typeof migrateProfileToScopedOnce === "function") {
-//           await migrateProfileToScopedOnce();
-//         }
+  //       // ── Post-signup init/sync
+  //       try {
+  //         // 1) migrate profile (if the helper exists)
+  //         if (typeof migrateProfileToScopedOnce === "function") {
+  //           await migrateProfileToScopedOnce();
+  //         }
 
-//         // 2) Run in parallel for speed:
-//         const tasks = [];
+  //         // 2) Run in parallel for speed:
+  //         const tasks = [];
 
-//         // 2a) Cloud profile load
-//         let cloudProfilePromise = null;
-//         if (typeof loadProfileCloud === "function") {
-//           cloudProfilePromise = loadProfileCloud();
-//           tasks.push(cloudProfilePromise);
-//         }
+  //         // 2a) Cloud profile load
+  //         let cloudProfilePromise = null;
+  //         if (typeof loadProfileCloud === "function") {
+  //           cloudProfilePromise = loadProfileCloud();
+  //           tasks.push(cloudProfilePromise);
+  //         }
 
-//         // 2b) Enroll migrations + sync
-//         if (
-//           typeof migrateEnrollsToScopedOnce === "function" ||
-//           typeof syncEnrollsBothWays === "function"
-//         ) {
-//           const enrollTask = (async () => {
-//             if (typeof migrateEnrollsToScopedOnce === "function") {
-//               await migrateEnrollsToScopedOnce();
-//             }
-//             if (typeof syncEnrollsBothWays === "function") {
-//               await syncEnrollsBothWays(); // one time is enough
-//             }
-//           })();
-//           tasks.push(enrollTask);
-//         }
+  //         // 2b) Enroll migrations + sync
+  //         if (
+  //           typeof migrateEnrollsToScopedOnce === "function" ||
+  //           typeof syncEnrollsBothWays === "function"
+  //         ) {
+  //           const enrollTask = (async () => {
+  //             if (typeof migrateEnrollsToScopedOnce === "function") {
+  //               await migrateEnrollsToScopedOnce();
+  //             }
+  //             if (typeof syncEnrollsBothWays === "function") {
+  //               await syncEnrollsBothWays(); // one time is enough
+  //             }
+  //           })();
+  //           tasks.push(enrollTask);
+  //         }
 
-//         // 3) Wait for all
-//         const results = await Promise.all(tasks);
+  //         // 3) Wait for all
+  //         const results = await Promise.all(tasks);
 
-//         // 4) Merge cloud profile → local (cloud overwrites local)
-//         if (cloudProfilePromise) {
-//           const cloudP = results[0]; // first pushed
-//           if (cloudP) {
-//             const localP =
-//               typeof getProfile === "function" ? getProfile() || {} : {};
-//             if (typeof setProfile === "function") {
-//               setProfile({ ...localP, ...cloudP });
-//             }
-//           }
-//         }
+  //         // 4) Merge cloud profile → local (cloud overwrites local)
+  //         if (cloudProfilePromise) {
+  //           const cloudP = results[0]; // first pushed
+  //           if (cloudP) {
+  //             const localP =
+  //               typeof getProfile === "function" ? getProfile() || {} : {};
+  //             if (typeof setProfile === "function") {
+  //               setProfile({ ...localP, ...cloudP });
+  //             }
+  //           }
+  //         }
 
-//         // 5) UI updates (call only if they exist)
-//         if (typeof renderCatalog === "function") renderCatalog();
-//         if (
-//           typeof window !== "undefined" &&
-//           typeof window.renderMyLearning === "function"
-//         )
-//           window.renderMyLearning();
-//         if (typeof renderProfilePanel === "function") renderProfilePanel();
-//         if (
-//           typeof window !== "undefined" &&
-//           typeof window.renderGradebook === "function"
-//         )
-//           window.renderGradebook();
-//       } catch (syncErr) {
-//         console.warn(
-//           "Post-login sync failed:",
-//           syncErr && syncErr.message ? syncErr.message : syncErr
-//         );
-//       }
+  //         // 5) UI updates (call only if they exist)
+  //         if (typeof renderCatalog === "function") renderCatalog();
+  //         if (
+  //           typeof window !== "undefined" &&
+  //           typeof window.renderMyLearning === "function"
+  //         )
+  //           window.renderMyLearning();
+  //         if (typeof renderProfilePanel === "function") renderProfilePanel();
+  //         if (
+  //           typeof window !== "undefined" &&
+  //           typeof window.renderGradebook === "function"
+  //         )
+  //           window.renderGradebook();
+  //       } catch (syncErr) {
+  //         console.warn(
+  //           "Post-login sync failed:",
+  //           syncErr && syncErr.message ? syncErr.message : syncErr
+  //         );
+  //       }
 
-//       // UI finalize
-//       safeCloseModal(window.modal || $("#authModal"));
-//       gateChatUI?.();
-//     } catch (err) {
-//       const code = err?.code || "";
-//       if (code.includes("email-already-in-use")) {
-//         toast("This email is already in use");
-//       } else if (code.includes("weak-password")) {
-//         toast("Password is too weak");
-//       } else {
-//         toast("Signup failed");
-//       }
-//     } finally {
-//       btn?.removeAttribute("disabled");
-//     }
-//   });
+  //       // UI finalize
+  //       safeCloseModal(window.modal || $("#authModal"));
+  //       gateChatUI?.();
+  //     } catch (err) {
+  //       const code = err?.code || "";
+  //       if (code.includes("email-already-in-use")) {
+  //         toast("This email is already in use");
+  //       } else if (code.includes("weak-password")) {
+  //         toast("Password is too weak");
+  //       } else {
+  //         toast("Signup failed");
+  //       }
+  //     } finally {
+  //       btn?.removeAttribute("disabled");
+  //     }
+  //   });
 
   $("#doForgot")?.addEventListener("click", (e) => {
     e.preventDefault();
@@ -4624,19 +4653,20 @@ const M2I = Object.fromEntries(MONTHS.map((m, i) => [m, i]));
 // Firestore helpers (optional presence-safe)
 async function _tryGetAllProgress() {
   try {
-    if (!window.db || typeof window.db !== "object") throw 0;
+    if (!window.db) throw 0;
     const { getDocs, collection } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
     );
     const snap = await getDocs(collection(db, "progress"));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch {
-    return null;
+    return null; // permission denied → null
   }
 }
+
 async function _tryGetAllEnrolls() {
   try {
-    if (!window.db || typeof window.db !== "object") throw 0;
+    if (!window.db) throw 0;
     const { getDocs, collection } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
     );
@@ -4646,16 +4676,24 @@ async function _tryGetAllEnrolls() {
     return null;
   }
 }
+
 async function _tryGetAllUsers() {
   try {
-    if (!window.db || typeof window.db !== "object") throw 0;
+    // try Firestore directly first
+    if (!window.db) throw 0;
     const { getDocs, collection } = await import(
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
     );
     const snap = await getDocs(collection(db, "users"));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch {
-    return [];
+    // fallback to cache populated by loadUsersCloudToLocal()
+    try {
+      const raw = localStorage.getItem("users");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
   }
 }
 
@@ -4663,28 +4701,31 @@ async function _tryGetAllUsers() {
 function _buildIndex({ progressList, enrollList, userList }) {
   const byUid = new Map();
 
-  // seed from users (names/emails)
+  // seed from users
   for (const u of userList || []) {
-    const item = byUid.get(u.id) || {
-      uid: u.id,
+    const uid = u.id;
+    const item = byUid.get(uid) || {
+      uid,
       name: u.displayName || "",
-      email: u.email || "",
+      email: (u.email || "").toLowerCase(),
       enrolled: [],
       completed: [],
       credits: 0,
-      firstSeen: null,
-      lastActive: null,
+      firstSeen: u.ts || null,
+      lastActive: u.updatedAt || u.ts || null,
       certs: {},
     };
+    // normalize
     item.name = item.name || u.displayName || "";
-    item.email = item.email || u.email || "";
-    byUid.set(u.id, item);
+    item.email = item.email || (u.email || "").toLowerCase();
+    byUid.set(uid, item);
   }
 
-  // enrolls
+  // join enrolls
   for (const e of enrollList || []) {
-    const item = byUid.get(e.id) || {
-      uid: e.id,
+    const uid = e.id;
+    const item = byUid.get(uid) || {
+      uid,
       name: "",
       email: "",
       enrolled: [],
@@ -4694,18 +4735,21 @@ function _buildIndex({ progressList, enrollList, userList }) {
       lastActive: null,
       certs: {},
     };
-    const arr = Array.isArray(e.courses) ? e.courses : [];
-    item.enrolled = Array.from(new Set([...(item.enrolled || []), ...arr]));
-    item.firstSeen = item.firstSeen ?? (e.ts || null);
-    item.lastActive =
-      Math.max(item.lastActive || 0, e.ts || 0) || item.lastActive;
-    byUid.set(e.id, item);
+    const list = Array.isArray(e.list)
+      ? e.list
+      : Array.isArray(e.enrolled)
+      ? e.enrolled
+      : [];
+    item.enrolled = list;
+    item.firstSeen = item.firstSeen || e.ts || null;
+    byUid.set(uid, item);
   }
 
-  // progress
+  // join progress (completed, certs, timestamps)
   for (const p of progressList || []) {
-    const item = byUid.get(p.id) || {
-      uid: p.id,
+    const uid = p.id;
+    const item = byUid.get(uid) || {
+      uid,
       name: "",
       email: "",
       enrolled: [],
@@ -4716,33 +4760,23 @@ function _buildIndex({ progressList, enrollList, userList }) {
       certs: {},
     };
     const completed = Array.isArray(p.completed) ? p.completed : [];
-    item.completed = completed.map((x) => ({
-      id: x.id,
-      ts: x.ts || null,
-      score: x.score ?? null,
-    }));
-    // credits from catalog
-    const catalog = typeof getCourses === "function" ? getCourses() || [] : [];
-    const creditMap = new Map(
-      catalog.map((c) => [c.id, Number(c.credits || 0)])
-    );
-    item.credits = item.completed.reduce(
+    item.completed = completed;
+    item.certs = typeof p.certs === "object" && p.certs ? p.certs : item.certs;
+    item.firstSeen = item.firstSeen || p.ts || null;
+    item.lastActive = p.ts || item.lastActive;
+    byUid.set(uid, item);
+  }
+
+  // credits calc
+  const catalog = typeof getCourses === "function" ? getCourses() || [] : [];
+  const creditMap = new Map(catalog.map((c) => [c.id, Number(c.credits || 0)]));
+  for (const item of byUid.values()) {
+    item.credits = (item.completed || []).reduce(
       (sum, x) => sum + (creditMap.get(x.id) || 0),
       0
     );
-    item.certs = p.certs || {};
-    // activity
-    const lastTs = Math.max(
-      ...item.completed.map((x) => x.ts || 0),
-      p.ts || 0,
-      item.lastActive || 0
-    );
-    item.lastActive = lastTs || item.lastActive;
-    item.firstSeen = item.firstSeen ?? (p.ts || null);
-    byUid.set(p.id, item);
   }
 
-  // finalize array
   return Array.from(byUid.values()).sort(
     (a, b) => (b.lastActive || 0) - (a.lastActive || 0)
   );
@@ -4767,16 +4801,22 @@ function _esc(s) {
 }
 
 async function buildAnalyticsData() {
-  // Try Firestore (admin). If not readable, fallback to current user only.
+  // Cloud-first (admin)
   const [progressList, enrollList, userList] = await Promise.all([
     _tryGetAllProgress(),
     _tryGetAllEnrolls(),
-    _tryGetAllUsers(),
+    (async () => {
+      // ensure cache available even if Firestore users/* blocked
+      await loadUsersCloudToLocal();
+      return _tryGetAllUsers();
+    })(),
   ]);
+
   if (progressList && enrollList) {
     return _buildIndex({ progressList, enrollList, userList });
   }
-  // Fallback (limited): current user only
+
+  // Fallback: self-only (unchanged from your version)
   const me = auth && auth.currentUser ? auth.currentUser : null;
   const p = typeof getProgress === "function" ? getProgress() || {} : {};
   const e =
@@ -4786,7 +4826,7 @@ async function buildAnalyticsData() {
   const item = {
     uid: me?.uid || getUser?.()?.email || "me",
     name: getProfile?.()?.displayName || "",
-    email: me?.email || getUser?.()?.email || "",
+    email: (me?.email || getUser?.()?.email || "").toLowerCase(),
     enrolled: e,
     completed: Array.isArray(p.completed) ? p.completed : [],
     credits: 0,
@@ -4794,7 +4834,6 @@ async function buildAnalyticsData() {
     lastActive: p.ts || null,
     certs: p.certs || {},
   };
-  // credits
   const catalog = typeof getCourses === "function" ? getCourses() || [] : [];
   const creditMap = new Map(catalog.map((c) => [c.id, Number(c.credits || 0)]));
   item.credits = item.completed.reduce(
@@ -4822,13 +4861,18 @@ function fillYearOptions(arr) {
 function filterAnalytics(arr) {
   const ySel = document.getElementById("anYear")?.value || "";
   const mSel = document.getElementById("anMonth")?.value || "";
-  const q = (document.getElementById("anQuery")?.value || "")
+  const qRaw = (document.getElementById("anQuery")?.value || "")
     .trim()
     .toLowerCase();
 
+  const tokens = qRaw ? qRaw.split(/\s+/).filter(Boolean) : [];
+
   return arr.filter((s) => {
-    // name/email match
-    const matchQ = !q || [s.name, s.email].join(" ").toLowerCase().includes(q);
+    // name/email/uid haystack
+    const hay = [s.name, s.email, s.uid].join(" ").toLowerCase();
+
+    // AND-match across tokens
+    const matchQ = !tokens.length || tokens.every((t) => hay.includes(t));
 
     // year/month by any completed ts
     let matchYM = true;
@@ -5008,6 +5052,18 @@ async function initAdminAnalytics() {
     document
       .getElementById("anExport")
       ?.addEventListener("click", () => exportAnalyticsCSV(view));
+    // 🔄 Reload Users (admin only)
+    document
+      .getElementById("anReloadUsers")
+      ?.addEventListener("click", async () => {
+        // refresh users cache from Firestore (or fallback)
+        await loadUsersCloudToLocal();
+        // rebuild from cloud again
+        const data = await buildAnalyticsData();
+        fillYearOptions(data);
+        const view = filterAnalytics(data);
+        renderAnalyticsTable(view);
+      });
   } catch (e) {
     console.warn("Analytics init failed:", e);
   }
@@ -5018,14 +5074,15 @@ document.addEventListener("DOMContentLoaded", initAdminAnalytics);
 
 // Load all users from Firestore, cache to localStorage for search
 // ⬇️ DROP-IN REPLACE
+// Load all users from Firestore; fallback to enrolls/progress if /users blocked
 async function loadUsersCloudToLocal() {
   if (!window.db) return [];
 
-  const { getDocs, collection, doc, getDoc } = await import(
+  const { getDocs, collection } = await import(
     "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
   );
 
-  // 1) try primary source: users/*
+  // 1) primary: users/*
   const usersArr = [];
   try {
     const usnap = await getDocs(collection(db, "users"));
@@ -5043,7 +5100,7 @@ async function loadUsersCloudToLocal() {
     console.warn("read users/* failed:", e);
   }
 
-  // 2) fallback: mine enrolls/* and progress/* to infer users
+  // 2) fallback: harvest from enrolls/* and progress/*
   const byEmail = new Map();
   for (const u of usersArr) if (u.email) byEmail.set(u.email, u);
 
@@ -5052,7 +5109,6 @@ async function loadUsersCloudToLocal() {
       const snap = await getDocs(collection(db, coll));
       snap.forEach((d) => {
         const v = d.data() || {};
-        // try to find email fields we store
         const email = (
           v.email ||
           v.userEmail ||
@@ -5062,7 +5118,7 @@ async function loadUsersCloudToLocal() {
         const displayName = v.displayName || v.name || "";
         if (email && !byEmail.has(email)) {
           byEmail.set(email, {
-            id: d.id,
+            id: d.id, // usually uid = doc id for these collections
             email,
             displayName,
             role: "student",
@@ -5080,7 +5136,6 @@ async function loadUsersCloudToLocal() {
     await harvest("progress");
   }
 
-  // 3) merge + persist
   const merged = usersArr.length ? usersArr : Array.from(byEmail.values());
   localStorage.setItem("users", JSON.stringify(merged));
   return merged;
