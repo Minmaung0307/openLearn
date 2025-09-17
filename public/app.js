@@ -4533,6 +4533,26 @@ async function initAdminAnalytics(){
 // boot
 document.addEventListener("DOMContentLoaded", initAdminAnalytics);
 
+// Load all users from Firestore, cache to localStorage for search
+async function loadUsersCloudToLocal() {
+  if (!window.db) return [];
+  const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const snap = await getDocs(collection(db, "users"));
+  const arr = [];
+  snap.forEach(doc => {
+    const d = doc.data() || {};
+    arr.push({
+      id: doc.id,
+      email: (d.email || "").toLowerCase(),
+      displayName: d.displayName || "",
+      role: d.role || "student",
+      ts: d.ts || null
+    });
+  });
+  localStorage.setItem("users", JSON.stringify(arr));
+  return arr;
+}
+
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
   // Theme / font
@@ -4574,6 +4594,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       let role = "student";
       try {
         role = await resolveUserRole(u) || "student";
+        if (role === "owner" || role === "admin") {
+  try {
+    await loadUsersCloudToLocal();
+    // search index ကို refresh ဖို့: (သင့် project မှာ setupGlobalSearch/runSearch အတိုင်း)
+    // easiest: input တန်ဖိုးကို အပြန်တမ်းတင်ပေးပါ
+    const si = document.getElementById("topSearch");
+    if (si && si.value) {
+      const v = si.value; si.value = ""; si.value = v;  // trigger input event if you handle it
+      si.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  } catch (e) {
+    console.warn("users cloud load failed", e);
+  }
+}
         await ensureUserDoc(u, role);
       } catch {}
       setUser({ email: u.email || "", role });
