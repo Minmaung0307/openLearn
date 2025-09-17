@@ -4208,19 +4208,19 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
 
   // Build a small index from courses (title, summary, category, level)
   // helpers
-  function _escape(s) {
-    return (s == null ? "" : String(s)).replace(
-      /[&<>"']/g,
-      (m) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        }[m])
-    );
-  }
+  // function _escape(s) {
+  //   return (s == null ? "" : String(s)).replace(
+  //     /[&<>"']/g,
+  //     (m) =>
+  //       ({
+  //         "&": "&amp;",
+  //         "<": "&lt;",
+  //         ">": "&gt;",
+  //         '"': "&quot;",
+  //         "'": "&#39;",
+  //       }[m])
+  //   );
+  // }
   function getUsersLocal() {
     try {
       return JSON.parse(localStorage.getItem("users") || "[]");
