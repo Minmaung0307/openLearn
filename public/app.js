@@ -4111,6 +4111,166 @@ function buildDevGuideMarkdownAddendum() {
   });
 })();
 
+/* ========= Global Search: drop-in wire ========= */
+
+(function () {
+  // tiny esc util (avoid XSS in titles)
+  const _esc = (s) => (s == null ? "" : String(s)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;"));
+
+  // Ensure containers exist
+  function ensureSearchNodes() {
+    let box = document.getElementById("searchResults");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "searchResults";
+      box.className = "search-results";
+      // try to insert right after the input; else body end
+      const input = document.getElementById("topSearch");
+      if (input && input.parentNode) {
+        input.parentNode.insertBefore(box, input.nextSibling);
+      } else {
+        document.body.appendChild(box);
+      }
+    }
+    return box;
+  }
+
+  // Build a small index from courses (title, summary, category, level)
+  function buildSearchIndex() {
+    let courses = [];
+    try {
+      courses = (typeof getCourses === "function") ? (getCourses() || []) : (window.ALL || []);
+    } catch { courses = []; }
+    return courses.map(c => ({
+      type: "course",
+      page: "courses",
+      courseId: c.id,
+      title: c.title || "",
+      subtitle: [c.category, c.level].filter(Boolean).join(" • "),
+      haystack: [c.title, c.summary, c.category, c.level].filter(Boolean).join(" ").toLowerCase()
+    }));
+  }
+
+  // Simple contains search with basic scoring (title boost)
+  function runSearch(index, q, limit = 10) {
+    if (!q) return [];
+    const needle = q.trim().toLowerCase();
+    if (!needle) return [];
+    const scored = [];
+    for (const r of index) {
+      const inTitle = (r.title || "").toLowerCase().includes(needle);
+      const inBody  = r.haystack.includes(needle);
+      if (inTitle || inBody) {
+        const score = (inTitle ? 2 : 0) + (inBody ? 1 : 0);
+        scored.push({ ...r, score });
+      }
+    }
+    scored.sort((a,b) => b.score - a.score || a.title.localeCompare(b.title));
+    return scored.slice(0, limit);
+  }
+
+  // Render dropdown
+  function renderResults(results) {
+    const box = ensureSearchNodes();
+    if (!results.length) {
+      box.innerHTML = "";
+      box.style.display = "none";
+      return;
+    }
+    box.innerHTML = results.map(r => `
+      <div class="search-item" data-type="${_esc(r.type)}" data-page="${_esc(r.page)}" data-course="${_esc(r.courseId || "")}">
+        <div class="si-title">${_esc(r.title)}</div>
+        ${r.subtitle ? `<div class="si-sub">${_esc(r.subtitle)}</div>` : ""}
+      </div>
+    `).join("");
+    box.style.display = "block";
+
+    // Click → route
+    box.querySelectorAll(".search-item").forEach(el => {
+      el.onclick = () => {
+        const page = el.getAttribute("data-page");
+        const cid  = el.getAttribute("data-course");
+
+        // Route to page
+        if (typeof showPage === "function" && page) {
+          showPage(page);
+        } else if (page) {
+          // fallback: update hash
+          location.hash = `#${page}`;
+        }
+
+        // Course details if provided
+        if (page === "courses" && cid) {
+          if (typeof openDetails === "function") {
+            openDetails(cid);
+          } else {
+            // fallback: emit a custom event for your code to catch
+            document.dispatchEvent(new CustomEvent("open-course-details", { detail: { id: cid }}));
+          }
+        }
+
+        // clear dropdown & search box
+        const input = document.getElementById("topSearch");
+        if (input) input.value = "";
+        const resultsBox = document.getElementById("searchResults");
+        if (resultsBox) { resultsBox.innerHTML = ""; resultsBox.style.display = "none"; }
+      };
+    });
+  }
+
+  // Wire input listeners
+  function wireGlobalSearch() {
+    const input = document.getElementById("topSearch");
+    if (!input) return;
+    const idx = buildSearchIndex();
+
+    // search on input
+    input.addEventListener("input", () => {
+      const q = input.value || "";
+      const res = runSearch(idx, q, 12);
+      renderResults(res);
+    });
+
+    // enter to open top hit
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const box = ensureSearchNodes();
+        const first = box.querySelector(".search-item");
+        if (first) first.click();
+      } else if (e.key === "Escape") {
+        const box = document.getElementById("searchResults");
+        if (box) { box.innerHTML = ""; box.style.display = "none"; }
+      }
+    });
+
+    // click outside to close
+    document.addEventListener("click", (e) => {
+      const box = document.getElementById("searchResults");
+      const hit = e.target.closest ? e.target.closest("#searchResults, #topSearch") : null;
+      if (box && !hit) { box.innerHTML = ""; box.style.display = "none"; }
+    }, { capture: true });
+  }
+
+  // Boot after DOM ready
+  document.addEventListener("DOMContentLoaded", wireGlobalSearch);
+})();
+
+// app.js အဆုံး (other functions/boot ကုဒ်တွေပြီးတာနဲ့)
+document.addEventListener("open-course-details", (e) => {
+  const id = e.detail.id;
+  // သင့် app.js ထဲမှာ already ရှိတဲ့ function ကိုခေါ်
+  if (typeof openDetails === "function") {
+    openDetails(id);
+  } else {
+    console.warn("openDetails() not found, course id:", id);
+  }
+});
+
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
   // Theme / font

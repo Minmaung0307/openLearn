@@ -265,27 +265,193 @@ To extend, add your new collection to `buildIndex()`.
 - Auth gating exceptions: `ALLOW_PAGES_WHEN_LOCKED` in Part 5/6.
 - Global search sources: `setupGlobalSearch()` → `buildIndex()`.
 
----
-
-## 16) Troubleshooting
-
-- **Login works but clicks are disabled** → Confirm `onAuthStateChanged` fires and `IS_AUTHED` flips true. Check console warnings.
-- **Catalog empty** → Verify `/data/catalog.json` reachable (Network tab); otherwise fallback seed is used.
-- **Certificates not printing** → `hardCloseCert()` resets stuck print/backdrop states.
-- **Review not showing** → Ensure the “cloud-first label adjust” block is present at the end of `renderMyLearning()`.
 
 ---
 
-**Happy building!**  
-If you need additional architecture diagrams or code walkthroughs, drop them into `/docs/` and link from Settings → Help.
+## 18) Creating & Structuring Courses
 
-## 17) Addendum – Stabilizations (Sep 2025)
+This section explains **how to build a full course** that shows up on the **Courses page**, allows learners to **enroll**, **read lessons**, **take quizzes/projects**, and **receive certificates**.
 
-### Auth Listener (Singleton)
-- Keep a single `onAuthStateChanged(auth, ...)` registration.
-- In the callback:
-  ```js
-  const role = await resolveUserRole(u) || "student";
-  await ensureUserDoc(u, role);          // merge create only
-  setUser({ email: u.email || "", role }); // no hard "student"
-  setLogged(true, u.email || "");
+---
+
+### 📂 Folder & File Layout
+
+All course content lives under:
+
+```
+public/data/courses/<courseId>/
+```
+
+Where `<courseId>` is a short, unique identifier (e.g. `js-essentials`, `pali-basics`, `web-foundations`).
+
+A typical course folder contains:
+
+```
+/public/data/courses/js-essentials/
+│
+├── meta.json           # course manifest (modules & lessons)
+├── quiz1.json          # quiz question bank(s)
+├── lesson1.html        # HTML lesson content
+├── lesson2.html        # more lessons
+├── cover.png           # optional course cover image
+└── assets/             # optional images/media for lessons
+```
+
+---
+
+### 🗂 Step 1: Add to `catalog.json`
+
+The course must appear in the global catalog:
+
+**`public/data/catalog.json`**
+```json
+{
+  "items": [
+    {
+      "id": "js-essentials",
+      "title": "JavaScript Essentials",
+      "category": "Web",
+      "level": "Beginner",
+      "price": 0,
+      "rating": 4.7,
+      "hours": 10,
+      "credits": 3,
+      "summary": "Start JavaScript from zero.",
+      "image": "/data/courses/js-essentials/cover.png"
+    },
+    {
+      "id": "pali-basics",
+      "title": "Pali Basics",
+      "category": "Languages",
+      "level": "Beginner",
+      "price": 0,
+      "rating": 4.5,
+      "hours": 8,
+      "credits": 2,
+      "summary": "Introduction to the Pali language.",
+      "image": "/data/courses/pali-basics/cover.png"
+    }
+  ]
+}
+```
+
+---
+
+### 🗂 Step 2: Create `meta.json`
+
+Every course folder must have a `meta.json`. This tells the app what lessons/quizzes to show.
+
+**`public/data/courses/js-essentials/meta.json`**
+```json
+{
+  "cover": "/data/courses/js-essentials/cover.png",
+  "description": "Full introduction to JavaScript programming.",
+  "modules": [
+    {
+      "title": "Getting Started",
+      "lessons": [
+        { "type": "html", "src": "lesson1.html", "title": "Hello JavaScript" },
+        { "type": "html", "src": "lesson2.html", "title": "Variables & Types" },
+        { "type": "quiz", "src": "quiz1.json", "title": "Quiz: Basics" }
+      ]
+    },
+    {
+      "title": "Control Flow",
+      "lessons": [
+        { "type": "html", "src": "lesson3.html", "title": "If/Else & Loops" },
+        { "type": "quiz", "src": "quiz2.json", "title": "Quiz: Control Flow" }
+      ]
+    }
+  ]
+}
+```
+
+- **modules[]**: groups of lessons  
+- **lessons[]**: can be `"html"`, `"quiz"`, or `"project"`  
+- **src**: filename inside the course folder  
+- **title**: shown in Reader navigation  
+
+---
+
+### 🗂 Step 3: Lesson Files
+
+Each lesson is just an HTML snippet.
+
+**`public/data/courses/js-essentials/lesson1.html`**
+```html
+<h2>Hello JavaScript</h2>
+<p>JavaScript is the language of the web. Let's begin with a simple example:</p>
+<pre><code>console.log("Hello, world!");</code></pre>
+```
+
+---
+
+### 🗂 Step 4: Quiz Files
+
+Quizzes can be single/multiple choice or short answers.
+
+**`public/data/courses/js-essentials/quiz1.json`**
+```json
+[
+  {
+    "q": "What keyword declares a variable in JavaScript?",
+    "options": ["var", "let", "const", "all of the above"],
+    "answer": [3]
+  },
+  {
+    "q": "What will `console.log(2 + '2')` print?",
+    "options": ["22", "4", "NaN"],
+    "answer": [0]
+  }
+]
+```
+
+- `"answer": [index]` ⇒ array of correct option indexes  
+- Multiple correct answers allowed: `"answer": [0,2]`  
+
+---
+
+### 🗂 Step 5: Projects (optional)
+
+For practice tasks where learners must upload a file:
+
+```json
+{ "type": "project", "title": "Final Project" }
+```
+
+The app will enforce “Upload before Finish”.
+
+---
+
+### 🔄 How it Works in the App
+
+1. **Courses Page** → app reads `catalog.json`, renders course cards with title, category, level, etc.  
+2. **Enroll** → click *Enroll* → adds course to user’s enrollments (stored in Firestore/Local).  
+3. **Reader** → when opening course:
+   - loads `meta.json`
+   - builds navigation (Prev/Next buttons)
+   - loads each lesson (`html`), quiz (`quiz.json`), or project  
+4. **Quizzes** → scored; must pass ≥70% (default) to continue  
+5. **Completion** → when all lessons passed, certificate auto-issued (with QR + cert no.)  
+6. **Transcript** → Profile → Transcript lists completed courses, credits, scores  
+
+---
+
+### 📂 Example Course Folders You Already Have
+
+- `public/data/courses/js-essentials/`  
+- `public/data/courses/pali-basics/`  
+- `public/data/courses/web-foundations/`  
+
+Each should follow the **same pattern**:  
+`meta.json` → lesson HTMLs → quiz JSONs → optional cover image.
+
+---
+
+### ✅ Checklist to Add a New Course
+
+1. Make a new folder under `/public/data/courses/<courseId>/`  
+2. Add `meta.json`, lesson HTMLs, quizzes  
+3. Add cover image (optional but recommended)  
+4. Add entry to `catalog.json`  
+5. Hard refresh → New course appears on Courses page
