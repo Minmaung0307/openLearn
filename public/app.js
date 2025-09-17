@@ -1391,7 +1391,7 @@ async function ensureUserDoc(u, role) {
 
 /* ---------- Page-level role guard ---------- */
 const PAGE_ROLE_MIN = {
-  admin: "instructor", // admin page requires instructor+
+  admin: "admin", // admin page requires instructor+
   gradebook: "instructor", // gradebook requires instructor+
   // လိုသလို ထပ်ထည့်ပါ: dashboard: "ta", etc.
 };
