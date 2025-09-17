@@ -1100,14 +1100,17 @@ function initSearch() {
         page: "cogs",
       })
     );
-    users.forEach((u) =>
+    users.forEach((u) => {
+      const email = (u.email || "").toLowerCase();
+      const name = u.displayName || u.name || "";
+      const role = u.role || "student";
       INDEX.push({
         type: "Users",
-        title: u.name || u.email,
-        body: u.role,
+        title: name || email, // UI title
+        body: `${email} ${name} ${role}`.trim(), // 🔎 search haystack → email INCLUDED
         page: "settings",
-      })
-    );
+      });
+    });
   }
 
   function search(q) {
