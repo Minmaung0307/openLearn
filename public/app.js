@@ -4208,7 +4208,7 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
 
   // Build a small index from courses (title, summary, category, level)
   // helpers
-  function _esc(s) {
+  function _escape(s) {
     return (s == null ? "" : String(s)).replace(
       /[&<>"']/g,
       (m) =>
@@ -4592,15 +4592,15 @@ function _fmtDate(ts) {
     return "—";
   }
 }
-// function _esc(s) {
-//   return (s == null ? "" : String(s)).replace(
-//     /[&<>\"']/g,
-//     (m) =>
-//       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[
-//         m
-//       ])
-//   );
-// }
+function _esc(s) {
+  return (s == null ? "" : String(s)).replace(
+    /[&<>\"']/g,
+    (m) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[
+        m
+      ])
+  );
+}
 
 async function buildAnalyticsData() {
   // Try Firestore (admin). If not readable, fallback to current user only.
