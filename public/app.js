@@ -4013,55 +4013,8 @@ function renderSettingsHelp() {
         </ul>
       </div>
     </div>
-
-    <details class="help">
-      <summary><b>🛠️ Troubleshooting</b></summary>
-      <ul class="help-list" style="margin-top:.4rem">
-        <li>Login ပြီးလည်း clicks မဖြစ်ဘူး → အင်တာနက်/Cache ပြန် refresh</li>
-        <li>Courses မထွက်ဘူး → <span class="kbd">/data/catalog.json</span> ရနိုင်မရနိုင် စစ်ပါ</li>
-        <li>Certificate မထုတ်/မပေါ် → Course ကို Finish ပြီး Transcript မှာစစ်ပါ</li>
-        <li>Firefox မှာ “Review” မပေါ်ဘူး → ခဏစောင့်ပြီး My Learning ပြန်ဝင်ကြည့်ပါ (Chrome/Edge/Safari recommend)</li>
-      </ul>
-    </details>
-  `;
-
-  // 2) Wire: Developer Guide (MD) → fetch real file then force download
-  const devA = box.querySelector("#devGuideLink");
-  if (devA && !devA._wired) {
-    devA._wired = true;
-    devA.addEventListener("click", async (e) => {
-      e.preventDefault();
-      const href = devA.getAttribute("href") || "./settingUpDetails.md";
-      try {
-        const res = await fetch(`${href}?t=${Date.now()}`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = await res.text();
-
-        const blob = new Blob([text], { type: "text/markdown" });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement("a");
-        a.href = url;
-        a.download = "settingUpDetails.md";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        toast?.("Developer Guide downloaded.");
-      } catch (err) {
-        console.error("Download guide failed:", err);
-        toast?.("Failed to download Developer Guide (MD)");
-      }
-    });
-  }
-
-  // 3) Enhanced append (run-once guard)
-  if (box.dataset.enhanced !== "1") {
-    box.dataset.enhanced = "1";
-
-    const whatsNew = document.createElement("div");
-    whatsNew.className = "help-card help-news";
-    whatsNew.innerHTML = `
-      <b>🆕 What's New (Sep 2025)</b>
+    <div class="help-card">
+    <b>🆕 What's New (Sep 2025)</b>
       <ul class="help-list">
         <li><b>Auth</b>: <code>onAuthStateChanged</code> Singleton + Role resolve from Firestore</li>
         <li><b>Role Cache Fix</b>: admin/owner/instructor/ta UI gating မှန်</li>
@@ -4071,13 +4024,8 @@ function renderSettingsHelp() {
         <li><b>Quiz Types</b>: Single/Multiple/Short-answer + Pass ≥ 70% + Retake</li>
         <li><b>Certificates/Transcript</b>: Finish ပြီး auto-issue</li>
       </ul>
-    `;
-    box.appendChild(whatsNew);
-
-    const tips = document.createElement("div");
-    tips.className = "help-grid icons-row";
-    tips.innerHTML = `
-      <div class="help-card img-tip">
+    </div>
+    <div class="help-card img-tip">
         <img src="./images/help/auth.png" alt="Auth" onerror="this.style.display='none'">
         <b>Auth & Roles</b>
         <p>Role ကို Firestore <code>users/{uid}.role</code> ကနေပဲ ယူပေးတယ်</p>
@@ -4097,13 +4045,9 @@ function renderSettingsHelp() {
         <b>Quizzes</b>
         <p>Single/Multiple/Short – Pass ≥ 70%, Retake, Finish → Cert</p>
       </div>
-    `;
-    box.appendChild(tips);
-
-    const dev = document.createElement("div");
-    dev.className = "help-card";
-    dev.innerHTML = `
-      <b>👨‍💻 Developer Notes (Quick)</b>
+    </div>
+    <div class="help-card">
+    <b>👨‍💻 Developer Notes (Quick)</b>
       <ul class="help-list">
         <li><code>onAuthStateChanged</code> ကို တစ်ခါတည်း register</li>
         <li><code>resolveUserRole(u)</code> → Firestore first, fallback map later</li>
@@ -4111,10 +4055,20 @@ function renderSettingsHelp() {
         <li><code>syncEnrollsBothWays()</code> → Cloud→Local one-shot sync</li>
         <li><code>renderSettingsHelp()</code> ကို Settings page ခေါ်</li>
       </ul>
-    `;
+    </div>
+
+    <details class="help">
+      <summary><b>🛠️ Troubleshooting</b></summary>
+      <ul class="help-list" style="margin-top:.4rem">
+        <li>Login ပြီးလည်း clicks မဖြစ်ဘူး → အင်တာနက်/Cache ပြန် refresh</li>
+        <li>Courses မထွက်ဘူး → <span class="kbd">/data/catalog.json</span> ရနိုင်မရနိုင် စစ်ပါ</li>
+        <li>Certificate မထုတ်/မပေါ် → Course ကို Finish ပြီး Transcript မှာစစ်ပါ</li>
+        <li>Firefox မှာ “Review” မပေါ်ဘူး → ခဏစောင့်ပြီး My Learning ပြန်ဝင်ကြည့်ပါ (Chrome/Edge/Safari recommend)</li>
+      </ul>
+    </details>
+  `;
     box.appendChild(dev);
   }
-}
 
 // === Wire: Settings tab click → show settings page + render help (no full refresh) ===
 // document.getElementById("navSettings")?.addEventListener("click", () => {
@@ -4132,19 +4086,19 @@ function renderSettingsHelp() {
 // });
 
 // === Dev Guide (MD) download ===
-document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
-  e.preventDefault();
-  const md = buildDevGuideMarkdownAddendum();
-  const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "DEVELOPER_GUIDE_addendum.md";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-});
+// document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
+//   e.preventDefault();
+//   const md = buildDevGuideMarkdownAddendum();
+//   const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+//   const url = URL.createObjectURL(blob);
+//   const a = document.createElement("a");
+//   a.href = url;
+//   a.download = "DEVELOPER_GUIDE_addendum.md";
+//   document.body.appendChild(a);
+//   a.click();
+//   a.remove();
+//   URL.revokeObjectURL(url);
+// });
 
 // function buildDevGuideMarkdownAddendum() {
 //   return `
