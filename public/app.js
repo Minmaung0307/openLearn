@@ -4117,19 +4117,19 @@ function renderSettingsHelp() {
 }
 
 // === Wire: Settings tab click → show settings page + render help (no full refresh) ===
-document.getElementById("navSettings")?.addEventListener("click", () => {
-  if (typeof showPage === "function") showPage("settings");
-  // existing Help content မဖျက်ပဲ append
-  renderHelpGuideEnhanced();
-});
+// document.getElementById("navSettings")?.addEventListener("click", () => {
+//   if (typeof showPage === "function") showPage("settings");
+//   // existing Help content မဖျက်ပဲ append
+//   renderHelpGuideEnhanced();
+// });
 
 // Also render once after DOM ready if already on settings
-document.addEventListener("DOMContentLoaded", () => {
-  if (document.getElementById("settings-help")) {
-    // run after minimal delay to ensure existing content rendered
-    setTimeout(renderHelpGuideEnhanced, 0);
-  }
-});
+// document.addEventListener("DOMContentLoaded", () => {
+//   if (document.getElementById("settings-help")) {
+//     // run after minimal delay to ensure existing content rendered
+//     setTimeout(renderHelpGuideEnhanced, 0);
+//   }
+// });
 
 // === Dev Guide (MD) download ===
 document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
