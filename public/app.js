@@ -4146,38 +4146,38 @@ document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
   URL.revokeObjectURL(url);
 });
 
-function buildDevGuideMarkdownAddendum() {
-  return `
-<!-- Append-only addendum; keep your existing MD as-is -->
-# OpenLearn – Developer Guide Addendum (Sep 2025)
+// function buildDevGuideMarkdownAddendum() {
+//   return `
+// <!-- Append-only addendum; keep your existing MD as-is -->
+// # OpenLearn – Developer Guide Addendum (Sep 2025)
 
-## Auth & Roles (Stabilized)
-- Register **one** \`onAuthStateChanged(auth, ...)\`
-- After login/signup/state change:
-  - \`role = await resolveUserRole(user) || "student"\`
-  - \`await ensureUserDoc(user, role)\` (merge create; don't overwrite existing admin/owner)
-  - \`setUser({ email, role })\` (❌ no hard "student")
+// ## Auth & Roles (Stabilized)
+// - Register **one** \`onAuthStateChanged(auth, ...)\`
+// - After login/signup/state change:
+//   - \`role = await resolveUserRole(user) || "student"\`
+//   - \`await ensureUserDoc(user, role)\` (merge create; don't overwrite existing admin/owner)
+//   - \`setUser({ email, role })\` (❌ no hard "student")
 
-## Enroll Sync (Per User)
-- Firestore: \`enrolls/{uid}\`
-- Local: \`ol_enrolls::<uid>\`
-- \`syncEnrollsBothWays()\` runs once on login; Cloud → Local overwrite
+// ## Enroll Sync (Per User)
+// - Firestore: \`enrolls/{uid}\`
+// - Local: \`ol_enrolls::<uid>\`
+// - \`syncEnrollsBothWays()\` runs once on login; Cloud → Local overwrite
 
-## Chat
-- RTDB rooms: \`/chats/global\`, \`/chats/{courseId}\`
-- Fallback to local if RTDB disabled
-- TTL prune ~10 days (client-side)
+// ## Chat
+// - RTDB rooms: \`/chats/global\`, \`/chats/{courseId}\`
+// - Fallback to local if RTDB disabled
+// - TTL prune ~10 days (client-side)
 
-## Quizzes
-- Types: single / multiple / short answer
-- Pass ≥ 0.70 (config: \`QUIZ_PASS\`)
-- Finish → \`ensureCertIssued\` → Transcript
+// ## Quizzes
+// - Types: single / multiple / short answer
+// - Pass ≥ 0.70 (config: \`QUIZ_PASS\`)
+// - Finish → \`ensureCertIssued\` → Transcript
 
-## Help & Guide (Refreshless)
-- \`renderHelpGuideEnhanced()\` appends cards/images into \`#helpDoc\`
-- Settings click triggers render; no manual refresh required
-`;
-}
+// ## Help & Guide (Refreshless)
+// - \`renderHelpGuideEnhanced()\` appends cards/images into \`#helpDoc\`
+// - Settings click triggers render; no manual refresh required
+// `;
+// }
 
 // Settings စာမျက်နှာပြသတိုင်း render
 (function wireSettingsHelp() {
