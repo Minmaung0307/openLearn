@@ -3921,13 +3921,14 @@ $("#fontSel")?.addEventListener("change", (e) => {
   applyFont(e.target.value);
 });
 
+// === Settings → Help/Guide (merged + enhanced) ===
 function renderSettingsHelp() {
   const box = document.getElementById("helpDoc");
   if (!box) return;
 
-  // 1) HTML ကို ပထမလုပ် — link ကို template ထဲမှာပဲ တိုးထည့်
+  // 1) Base help content (original cards) + Dev Guide button
   box.innerHTML = `
-    <div class="help-top">
+    <div class="help-top" style="margin: .5rem 0 1rem;">
       <a id="devGuideLink"
          href="/docs/settingUpDetails.md"
          download="settingUpDetails.md"
@@ -3937,102 +3938,101 @@ function renderSettingsHelp() {
     </div>
 
     <div class="help-grid">
-    <div class="help-card">
-      <b>🔐 Login & Account</b>
-      <ul class="help-list">
-        <li><b>Login</b>: Topbar → <span class="kbd">Login</span> (Email/Password)</li>
-        <li><b>Profile</b>: Settings → Edit Profile (Name, Photo, Bio, Skills)</li>
-        <li><b>Theme/Font</b>: Settings → Theme & Font</li>
-      </ul>
-    </div>
-    <div class="help-card">
-      <b>📚 Courses</b>
-      <ul class="help-list">
-        <li><b>Browse/Filter</b>: Courses စာမျက်နှာမှာ Category/Level/Sort</li>
-        <li><b>Enroll</b>: Free → Enroll, Paid → Pay (or MMK Paid)</li>
-        <li><b>My Learning</b>: သင်ယူနေ/ပြီးသား Courses များ စုစည်းပြ</li>
-      </ul>
+      <div class="help-card">
+        <b>🔐 Login & Account</b>
+        <ul class="help-list">
+          <li><b>Login</b>: Topbar → <span class="kbd">Login</span> (Email/Password)</li>
+          <li><b>Profile</b>: Settings → Edit Profile (Name, Photo, Bio, Skills)</li>
+          <li><b>Theme/Font</b>: Settings → Theme & Font</li>
+        </ul>
+      </div>
+      <div class="help-card">
+        <b>📚 Courses</b>
+        <ul class="help-list">
+          <li><b>Browse/Filter</b>: Courses စာမျက်နှာမှာ Category/Level/Sort</li>
+          <li><b>Enroll</b>: Free → Enroll, Paid → Pay (or MMK Paid)</li>
+          <li><b>My Learning</b>: သင်ယူနေ/ပြီးသား Courses များ စုစည်းပြ</li>
+        </ul>
+      </div>
+
+      <div class="help-card">
+        <b>📖 Reader Controls</b>
+        <ul class="help-list">
+          <li><span class="kbd">Prev</span>/<span class="kbd">Next</span> နဲ့ စာမျက်နှာပက်ကြ</li>
+          <li><span class="kbd">🔖</span> Bookmark, <span class="kbd">📝</span> Note (UI ထဲ)</li>
+          <li><b>Finish</b>: နောက်ဆုံးစာမျက်နှာမှာ ပြင်ဆင်ပြီး <span class="kbd">Finish Course</span></li>
+        </ul>
+      </div>
+      <div class="help-card">
+        <b>🧪 Quizzes & Projects</b>
+        <ul class="help-list">
+          <li><b>Pass</b> ≥ 70% (default). မဖြတ်ကျော်နိုင်ရင် Retake နဲ့ပြန်လုပ်</li>
+          <li><b>Project</b>: File upload လုပ်မှ Next/Finish ပွင့်</li>
+          <li><b>Review</b>: Pass/Complete ဖြစ်ပြီးလျှင် My Learning မှာ “Review” ပေါ်မယ်</li>
+        </ul>
+      </div>
+
+      <div class="help-card">
+        <b>🎓 Certificates</b>
+        <ul class="help-list">
+          <li>Course ပြီးလျှင် Certificate auto-issue</li>
+          <li><b>Profile → Transcript</b> မှာ View/Print PDF လုပ်နိုင်</li>
+        </ul>
+      </div>
+      <div class="help-card">
+        <b>📣 Announcements</b>
+        <ul class="help-list">
+          <li>Dashboard တွင် Post များကြည့်ရန်</li>
+          <li>Topbar ထဲ Ann badge ကနေရေတွက်ချက်များပြ</li>
+        </ul>
+      </div>
+
+      <div class="help-card">
+        <b>💬 Live Chat</b>
+        <ul class="help-list">
+          <li><b>Global</b> & <b>Course Chat</b> နှစ်မျိုးရှိ</li>
+          <li>Login လုပ်ပြီးမှ ရိုက်ပို့နိုင်</li>
+          <li>စကားဝိုင်း Messages များကို ၁၀ ရက်ကျော်လျှင် auto-delete</li>
+        </ul>
+      </div>
+      <div class="help-card">
+        <b>🔎 Global Search</b>
+        <ul class="help-list">
+          <li>Topbar လိုင်မှာ အချက်အလက်အားလုံးကို ရှာနိုင်</li>
+          <li>Result ကိုနှိပ်ရင် သက်ဆိုင်ရာ Page သို့ Auto-Navigate</li>
+        </ul>
+      </div>
+      <div class="help-card">
+        <b>User Role များနှင့် အခွင့်အရေးများ</b>
+        <ul class="help-list">
+          <li>Owner – အားလုံး: Settings, Admin, Import/Export, Announcements CRUD, Course CRUD, Payments test, etc.</li>
+          <li>Admin – owner နှင့် ဆင်တူ; org-level manage</li>
+          <li>Instructor – Course CRUD, Announcements create/edit, Gradebook read</li>
+          <li>TA – Instructor subset</li>
+          <li>Student – Catalog, enroll, reader/quiz/project, chat, profile, certificate</li>
+        </ul>
+      </div>
     </div>
 
-    <div class="help-card">
-      <b>📖 Reader Controls</b>
-      <ul class="help-list">
-        <li><span class="kbd">Prev</span>/<span class="kbd">Next</span> နဲ့ စာမျက်နှာပက်ကြ</li>
-        <li><span class="kbd">🔖</span> Bookmark, <span class="kbd">📝</span> Note (UI ထဲ)</li>
-        <li><b>Finish</b>: နောက်ဆုံးစာမျက်နှာမှာ ပြင်ဆင်ပြီး <span class="kbd">Finish Course</span></li>
+    <details class="help">
+      <summary><b>🛠️ Troubleshooting</b></summary>
+      <ul class="help-list" style="margin-top:.4rem">
+        <li>Login ပြီးလည်း clicks မဖြစ်ဘူး → အင်တာနက်/Cache ပြန် refresh</li>
+        <li>Courses မထွက်ဘူး → <span class="kbd">/data/catalog.json</span> ရနိုင်မရနိုင် စစ်ပါ</li>
+        <li>Certificate မထုတ်/မပေါ် → Course ကို Finish ပြီး Transcript မှာစစ်ပါ</li>
+        <li>Firefox မှာ “Review” မပေါ်ဘူး → ခဏစောင့်ပြီး My Learning ပြန်ဝင်ကြည့်ပါ (Chrome/Edge/Safari recommend)</li>
       </ul>
-    </div>
-    <div class="help-card">
-      <b>🧪 Quizzes & Projects</b>
-      <ul class="help-list">
-        <li><b>Pass</b> ≥ 70% (default). မဖြတ်ကျော်နိုင်ရင် Retake နဲ့ပြန်လုပ်</li>
-        <li><b>Project</b>: File upload လုပ်မှ Next/Finish ပွင့်</li>
-        <li><b>Review</b>: Pass/Complete ဖြစ်ပြီးလျှင် My Learning မှာ “Review” ပေါ်မယ်</li>
-      </ul>
-    </div>
-
-    <div class="help-card">
-      <b>🎓 Certificates</b>
-      <ul class="help-list">
-        <li>Course ပြီးလျှင် Certificate auto-issue</li>
-        <li><b>Profile → Transcript</b> မှာ View/Print PDF လုပ်နိုင်</li>
-      </ul>
-    </div>
-    <div class="help-card">
-      <b>📣 Announcements</b>
-      <ul class="help-list">
-        <li>Dashboard တွင် Post များကြည့်ရန်</li>
-        <li>Topbar ထဲ Ann badge ကနေရေတွက်ချက်များပြ</li>
-      </ul>
-    </div>
-
-    <div class="help-card">
-      <b>💬 Live Chat</b>
-      <ul class="help-list">
-        <li><b>Global</b> & <b>Course Chat</b> နှစ်မျိုးရှိ</li>
-        <li>Login လုပ်ပြီးမှ ရိုက်ပို့နိုင်</li>
-        <li>စကားဝိုင်း Messages များကို ၁၀ ရက်ကျော်လျှင် auto-delete</li>
-      </ul>
-    </div>
-    <div class="help-card">
-      <b>🔎 Global Search</b>
-      <ul class="help-list">
-        <li>Topbar လိုင်မှာ အချက်အလက်အားလုံးကို ရှာနိုင်</li>
-        <li>Result ကိုနှိပ်ရင် သက်ဆိုင်ရာ Page သို့ Auto-Navigate</li>
-      </ul>
-    </div>
-    <div class="help-card">
-      <b>User Role များနှင့် အခွင့်အရေးများ</b>
-      <ul class="help-list">
-        <li>Owner – အားလုံး: Settings, Admin, Import/Export, Announcements CRUD, Course CRUD, Payments test, etc.</li>
-        <li>Admin – owner နှင့် ဆင်တူ; org-level manage</li>
-        <li>Instructor – Course CRUD (သင်သင်ကြားမည့်တန်းသားများ), Announcements create/edit, Gradebook read</li>
-        <li>TA – Instructor အင်အား subset (announcements edit, grade assist)</li>
-        <li>Student – Catalog browse, enroll, reader/quiz/project, chat, profile, certificate</li>
-      </ul>
-    </div>
-  </div>
-
-  <details class="help">
-    <summary><b>🛠️ Troubleshooting</b></summary>
-    <ul class="help-list" style="margin-top:.4rem">
-      <li>Login ပြီးလည်း clicks မဖြစ်ဘူး → အင်တာနက်/Cache ပြန် refresh</li>
-      <li>Courses မထွက်ဘူး → <span class="kbd">/data/catalog.json</span> ရနိုင်မရနိုင် စစ်ပါ</li>
-      <li>Certificate မထုတ်/မပေါ် → Course ကို Finish ပြီး Transcript မှာစစ်ပါ</li>
-      <li>Firefox မှာ “Review” မပေါ်ဘူး → တစ်ခါတလဲ ခဏစောင့်ပြီး My Learning ပြန်ဝင်ကြည့်ပါ။ Chrome/Edge/Safari recommend.</li>
-    </ul>
-  </details>
+    </details>
   `;
 
-  // 2) link ကို click မှာ fetch → blob → forced-download
+  // 2) Wire: Developer Guide (MD) → fetch real file then force download
   const devA = box.querySelector("#devGuideLink");
   if (devA && !devA._wired) {
     devA._wired = true;
     devA.addEventListener("click", async (e) => {
       e.preventDefault();
-      const href = devA.getAttribute("href") || "/docs/settingUpDetails.md";
+      const href = devA.getAttribute("href") || "./settingUpDetails.md";
       try {
-        // cache busting
         const res = await fetch(`${href}?t=${Date.now()}`, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
@@ -4053,176 +4053,67 @@ function renderSettingsHelp() {
       }
     });
   }
-}
 
-// function renderSettingsHelp() {
-//   const box = document.getElementById("helpDoc");
-//   if (!box) return;
+  // 3) Enhanced append (run-once guard)
+  if (box.dataset.enhanced !== "1") {
+    box.dataset.enhanced = "1";
 
-//   // Developer guide download link (app bundle ထဲကို မကြာခဏကူးထားပါ)
-//   const devA = document.getElementById("devGuideLink");
-//   if (devA && !devA._wired) {
-//     devA._wired = true;
-//     // project root/docs/settingUpDetails.md ထဲကို ဖိုင်တင်ပြီးရင် အောက်က href ပြောင်းပါ
-//     devA.href = "/docs/settingUpDetails.md";
-//   }
+    const whatsNew = document.createElement("div");
+    whatsNew.className = "help-card help-news";
+    whatsNew.innerHTML = `
+      <b>🆕 What's New (Sep 2025)</b>
+      <ul class="help-list">
+        <li><b>Auth</b>: <code>onAuthStateChanged</code> Singleton + Role resolve from Firestore</li>
+        <li><b>Role Cache Fix</b>: admin/owner/instructor/ta UI gating မှန်</li>
+        <li><b>Enroll Sync</b>: <code>enrolls/{uid}</code> ⇄ local scoped</li>
+        <li><b>Chat Fallback</b>: RTDB မရှိလည်း local fallback</li>
+        <li><b>Help Refreshless</b>: Settings နှိပ်တိုင်း auto-render</li>
+        <li><b>Quiz Types</b>: Single/Multiple/Short-answer + Pass ≥ 70% + Retake</li>
+        <li><b>Certificates/Transcript</b>: Finish ပြီး auto-issue</li>
+      </ul>
+    `;
+    box.appendChild(whatsNew);
 
-//   box.innerHTML = `
-//   <div class="help-grid">
-//     <div class="help-card">
-//       <b>🔐 Login & Account</b>
-//       <ul class="help-list">
-//         <li><b>Login</b>: Topbar → <span class="kbd">Login</span> (Email/Password)</li>
-//         <li><b>Profile</b>: Settings → Edit Profile (Name, Photo, Bio, Skills)</li>
-//         <li><b>Theme/Font</b>: Settings → Theme & Font</li>
-//       </ul>
-//     </div>
-//     <div class="help-card">
-//       <b>📚 Courses</b>
-//       <ul class="help-list">
-//         <li><b>Browse/Filter</b>: Courses စာမျက်နှာမှာ Category/Level/Sort</li>
-//         <li><b>Enroll</b>: Free → Enroll, Paid → Pay (or MMK Paid)</li>
-//         <li><b>My Learning</b>: သင်ယူနေ/ပြီးသား Courses များ စုစည်းပြ</li>
-//       </ul>
-//     </div>
+    const tips = document.createElement("div");
+    tips.className = "help-grid icons-row";
+    tips.innerHTML = `
+      <div class="help-card img-tip">
+        <img src="./images/help/auth.png" alt="Auth" onerror="this.style.display='none'">
+        <b>Auth & Roles</b>
+        <p>Role ကို Firestore <code>users/{uid}.role</code> ကနေပဲ ယူပေးတယ်</p>
+      </div>
+      <div class="help-card img-tip">
+        <img src="./images/help/enroll.png" alt="Enroll" onerror="this.style.display='none'">
+        <b>Per-User Enrolls</b>
+        <p><code>enrolls/{uid}</code> အနေနဲ့ သိမ်း → user မတူရင် courses မတူပေါ်</p>
+      </div>
+      <div class="help-card img-tip">
+        <img src="./images/help/chat.png" alt="Chat" onerror="this.style.display='none'">
+        <b>Chat</b>
+        <p>RTDB ရှိရင် realtime၊ မရှိရင် local fallback</p>
+      </div>
+      <div class="help-card img-tip">
+        <img src="./images/help/quiz.png" alt="Quiz" onerror="this.style.display='none'">
+        <b>Quizzes</b>
+        <p>Single/Multiple/Short – Pass ≥ 70%, Retake, Finish → Cert</p>
+      </div>
+    `;
+    box.appendChild(tips);
 
-//     <div class="help-card">
-//       <b>📖 Reader Controls</b>
-//       <ul class="help-list">
-//         <li><span class="kbd">Prev</span>/<span class="kbd">Next</span> နဲ့ စာမျက်နှာပက်ကြ</li>
-//         <li><span class="kbd">🔖</span> Bookmark, <span class="kbd">📝</span> Note (UI ထဲ)</li>
-//         <li><b>Finish</b>: နောက်ဆုံးစာမျက်နှာမှာ ပြင်ဆင်ပြီး <span class="kbd">Finish Course</span></li>
-//       </ul>
-//     </div>
-//     <div class="help-card">
-//       <b>🧪 Quizzes & Projects</b>
-//       <ul class="help-list">
-//         <li><b>Pass</b> ≥ 70% (default). မဖြတ်ကျော်နိုင်ရင် Retake နဲ့ပြန်လုပ်</li>
-//         <li><b>Project</b>: File upload လုပ်မှ Next/Finish ပွင့်</li>
-//         <li><b>Review</b>: Pass/Complete ဖြစ်ပြီးလျှင် My Learning မှာ “Review” ပေါ်မယ်</li>
-//       </ul>
-//     </div>
-
-//     <div class="help-card">
-//       <b>🎓 Certificates</b>
-//       <ul class="help-list">
-//         <li>Course ပြီးလျှင် Certificate auto-issue</li>
-//         <li><b>Profile → Transcript</b> မှာ View/Print PDF လုပ်နိုင်</li>
-//       </ul>
-//     </div>
-//     <div class="help-card">
-//       <b>📣 Announcements</b>
-//       <ul class="help-list">
-//         <li>Dashboard တွင် Post များကြည့်ရန်</li>
-//         <li>Topbar ထဲ Ann badge ကနေရေတွက်ချက်များပြ</li>
-//       </ul>
-//     </div>
-
-//     <div class="help-card">
-//       <b>💬 Live Chat</b>
-//       <ul class="help-list">
-//         <li><b>Global</b> & <b>Course Chat</b> နှစ်မျိုးရှိ</li>
-//         <li>Login လုပ်ပြီးမှ ရိုက်ပို့နိုင်</li>
-//         <li>စကားဝိုင်း Messages များကို ၁၀ ရက်ကျော်လျှင် auto-delete</li>
-//       </ul>
-//     </div>
-//     <div class="help-card">
-//       <b>🔎 Global Search</b>
-//       <ul class="help-list">
-//         <li>Topbar လိုင်မှာ အချက်အလက်အားလုံးကို ရှာနိုင်</li>
-//         <li>Result ကိုနှိပ်ရင် သက်ဆိုင်ရာ Page သို့ Auto-Navigate</li>
-//       </ul>
-//     </div>
-//     <div class="help-card">
-//       <b>User Role များနှင့် အခွင့်အရေးများ</b>
-//       <ul class="help-list">
-//         <li>Owner – အားလုံး: Settings, Admin, Import/Export, Announcements CRUD, Course CRUD, Payments test, etc.</li>
-//         <li>Admin – owner နှင့် ဆင်တူ; org-level manage</li>
-//         <li>Instructor – Course CRUD (သင်သင်ကြားမည့်တန်းသားများ), Announcements create/edit, Gradebook read</li>
-//         <li>TA – Instructor အင်အား subset (announcements edit, grade assist)</li>
-//         <li>Student – Catalog browse, enroll, reader/quiz/project, chat, profile, certificate</li>
-//       </ul>
-//     </div>
-//   </div>
-
-//   <details class="help">
-//     <summary><b>🛠️ Troubleshooting</b></summary>
-//     <ul class="help-list" style="margin-top:.4rem">
-//       <li>Login ပြီးလည်း clicks မဖြစ်ဘူး → အင်တာနက်/Cache ပြန် refresh</li>
-//       <li>Courses မထွက်ဘူး → <span class="kbd">/data/catalog.json</span> ရနိုင်မရနိုင် စစ်ပါ</li>
-//       <li>Certificate မထုတ်/မပေါ် → Course ကို Finish ပြီး Transcript မှာစစ်ပါ</li>
-//       <li>Firefox မှာ “Review” မပေါ်ဘူး → တစ်ခါတလဲ ခဏစောင့်ပြီး My Learning ပြန်ဝင်ကြည့်ပါ။ Chrome/Edge/Safari recommend.</li>
-//     </ul>
-//   </details>
-//   `;
-// }
-
-// === Help & Guide: enhanced render (append; won't delete your existing content) ===
-function renderHelpGuideEnhanced() {
-  const box = document.querySelector("#helpDoc");
-  if (!box) return;
-  // Guard: run-once per session
-  if (box.dataset.enhanced === "1") return;
-  box.dataset.enhanced = "1";
-
-  // 1) Append new “What’s New” (2025-09) section
-  const whatsNew = document.createElement("div");
-  whatsNew.className = "help-card help-news";
-  whatsNew.innerHTML = `
-    <b>🆕 What's New (Sep 2025)</b>
-    <ul class="help-list">
-      <li><b>Auth稳定化</b>: <code>onAuthStateChanged</code> ကို Singleton ပြီး Role ကို Firestore မှာ resolve</li>
-      <li><b>Role Cache Fix</b>: admin/owner/instructor/ta လိုအပ်ချက်များ UI မှန်ကန်ပြ</li>
-      <li><b>Enroll Sync</b>: <code>enrolls/{uid}</code> (cloud) ⇄ localStorage scoped, user ပိုင်းခြား</li>
-      <li><b>Chat Fallback</b>: RTDB ပိတ်ထားလည်း local fallback နဲ့ အလုပ်လုပ်</li>
-      <li><b>Help Refreshless</b>: Settings နှိပ်တာနဲ့ Help auto-render (manual refresh မလို)</li>
-      <li><b>Quiz Types</b>: Single/Multiple/Short-answer + Pass ≥ 70% + Retake</li>
-      <li><b>Certificates/Transcript</b>: Finish ပြီး auto-issue, Gradebook/Transcript မွာ ကြည့်/Print</li>
-    </ul>
-  `;
-  box.appendChild(whatsNew);
-
-  // 2) Tips with tiny icons (images optional; safe if not present)
-  const tips = document.createElement("div");
-  tips.className = "help-grid icons-row";
-  tips.innerHTML = `
-    <div class="help-card img-tip">
-      <img src="./images/help/auth.png" alt="Auth" onerror="this.style.display='none'">
-      <b>Auth & Roles</b>
-      <p>Login OK ဖြစ်သွားရင် Role ကို Firestore <code>users/{uid}.role</code> ကနေယူတယ်—local default မသုံးတော့ပါ</p>
-    </div>
-    <div class="help-card img-tip">
-      <img src="./images/help/enroll.png" alt="Enroll" onerror="this.style.display='none'">
-      <b>Per-User Enrolls</b>
-      <p><code>enrolls/{uid}</code> အနေနဲ့ သိမ်း → user မတူရင် courses မတူပေါ်</p>
-    </div>
-    <div class="help-card img-tip">
-      <img src="./images/help/chat.png" alt="Chat" onerror="this.style.display='none'">
-      <b>Chat</b>
-      <p>RTDB ရှိရင် realtime၊ မရှိရင် local fallback နဲ့ history တည်</p>
-    </div>
-    <div class="help-card img-tip">
-      <img src="./images/help/quiz.png" alt="Quiz" onerror="this.style.display='none'">
-      <b>Quizzes</b>
-      <p>Single/Multiple/Short – Pass ≥ 70%, Retake, Finish → Cert</p>
-    </div>
-  `;
-  box.appendChild(tips);
-
-  // 3) Developer quick refs
-  const dev = document.createElement("div");
-  dev.className = "help-card";
-  dev.innerHTML = `
-    <b>👨‍💻 Developer Notes (Quick)</b>
-    <ul class="help-list">
-      <li><code>onAuthStateChanged</code> ကို တစ်ခါတည်း register</li>
-      <li><code>resolveUserRole(u)</code> → Firestore doc 优先，fallback map 次要</li>
-      <li><code>ensureUserDoc(u, role)</code> → merge create (role overwrite မလုပ်)</li>
-      <li><code>syncEnrollsBothWays()</code> → Cloud→Local overwrite one-shot</li>
-      <li><code>renderHelpGuideEnhanced()</code> ကို Settings click မှာ ခေါ်</li>
-    </ul>
-  `;
-  box.appendChild(dev);
+    const dev = document.createElement("div");
+    dev.className = "help-card";
+    dev.innerHTML = `
+      <b>👨‍💻 Developer Notes (Quick)</b>
+      <ul class="help-list">
+        <li><code>onAuthStateChanged</code> ကို တစ်ခါတည်း register</li>
+        <li><code>resolveUserRole(u)</code> → Firestore first, fallback map later</li>
+        <li><code>ensureUserDoc(u, role)</code> → merge create (role မသက်သက်မပျောက်)</li>
+        <li><code>syncEnrollsBothWays()</code> → Cloud→Local one-shot sync</li>
+        <li><code>renderSettingsHelp()</code> ကို Settings page ခေါ်</li>
+      </ul>
+    `;
+    box.appendChild(dev);
+  }
 }
 
 // === Wire: Settings tab click → show settings page + render help (no full refresh) ===
