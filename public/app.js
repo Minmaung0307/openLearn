@@ -3930,7 +3930,7 @@ function renderSettingsHelp() {
   box.innerHTML = `
     <div class="help-top" style="margin: .5rem 0 1rem;">
       <a id="devGuideLink"
-         href="/docs/settingUpDetails.md"
+         href="./settingUpDetails.md"
          download="settingUpDetails.md"
          class="btn btn-sm">
         ⬇️ Developer Guide (MD)
