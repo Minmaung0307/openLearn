@@ -701,13 +701,11 @@ function sortCourses(list, sort) {
 }
 
 // helpers (normalize text, and safe category match)
-function _norm(s) {
-  return (s || "").toString().trim().toLowerCase();
-}
-function _hasCategory(course, wanted) {
+function _norm(s){ return (s || "").toString().trim().toLowerCase(); }
+function _hasCategory(course, wanted){
   // support single string or array on course.category
   const cat = course.category;
-  if (Array.isArray(cat)) return cat.some((c) => _norm(c) === _norm(wanted));
+  if (Array.isArray(cat)) return cat.some(c => _norm(c) === _norm(wanted));
   return _norm(cat) === _norm(wanted);
 }
 
@@ -719,15 +717,11 @@ function renderCatalog() {
   // ---- build category options ONCE (don’t reset user selection) ----
   const sel = $("#filterCategory");
   if (sel && !sel.dataset.built) {
-    const cats = Array.from(
-      new Set(
-        ALL.flatMap((c) =>
-          Array.isArray(c.category) ? c.category : [c.category]
-        )
-          .map((c) => (c || "").toString().trim())
-          .filter(Boolean)
-      )
-    ).sort((a, b) => a.localeCompare(b));
+    const cats = Array.from(new Set(
+      ALL.flatMap(c => Array.isArray(c.category) ? c.category : [c.category])
+        .map(c => (c || "").toString().trim())
+        .filter(Boolean)
+    )).sort((a,b) => a.localeCompare(b));
     sel.innerHTML =
       `<option value="">All Categories</option>` +
       cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
@@ -735,18 +729,18 @@ function renderCatalog() {
   }
 
   // ---- read filters (treat "", "All", "all categories" as ALL) ----
-  const rawCat = $("#filterCategory")?.value || "";
-  const rawLvl = $("#filterLevel")?.value || "";
-  const sort = ($("#sortBy")?.value || "").trim();
+  const rawCat  = ($("#filterCategory")?.value || "");
+  const rawLvl  = ($("#filterLevel")?.value || "");
+  const sort    = ($("#sortBy")?.value || "").trim();
 
   const cat = _norm(rawCat);
   const lvl = _norm(rawLvl);
-  const isAllCat = cat === "" || cat === "all" || cat === "all categories";
+  const isAllCat = (cat === "" || cat === "all" || cat === "all categories");
 
   // ---- filter ----
-  let list = ALL.filter((c) => {
+  let list = ALL.filter(c => {
     const okCat = isAllCat ? true : _hasCategory(c, rawCat);
-    const okLvl = lvl === "" ? true : _norm(c.level) === lvl;
+    const okLvl = (lvl === "" ? true : _norm(c.level) === lvl);
     return okCat && okLvl;
   });
 
@@ -757,50 +751,29 @@ function renderCatalog() {
     return;
   }
 
-  grid.innerHTML = list
-    .map((c) => {
-      const r = Number(c.rating || 4.6);
-      const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
-      const search = [
-        c.title,
-        c.summary,
-        Array.isArray(c.category) ? c.category.join(", ") : c.category,
-        c.level,
-      ].join(" ");
-      const enrolled = getEnrolls().has(c.id);
-      return `<div class="card course" data-id="${c.id}" data-search="${esc(
-        search
-      )}">
-      <img class="course-cover" src="${esc(
-        c.image || `https://picsum.photos/seed/${c.id}/640/360`
-      )}" alt="">
+  grid.innerHTML = list.map((c) => {
+    const r = Number(c.rating || 4.6);
+    const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+    const search = [c.title, c.summary, (Array.isArray(c.category)?c.category.join(", "):c.category), c.level].join(" ");
+    const enrolled = getEnrolls().has(c.id);
+    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
+      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(
-          Array.isArray(c.category) ? c.category.join(", ") : c.category || ""
-        )} • ${esc(c.level || "")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
+        <div class="small muted">${esc(Array.isArray(c.category)?c.category.join(", "):(c.category || ""))} • ${esc(c.level || "")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
         <div class="muted">${esc(c.summary || "")}</div>
         <div class="row" style="justify-content:flex-end; gap:8px">
           <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${
-        enrolled ? "Enrolled" : "Enroll"
-      }</button>
+          <button class="btn primary" data-enroll="${c.id}">${enrolled ? "Enrolled" : "Enroll"}</button>
         </div>
       </div>
     </div>`;
-    })
-    .join("");
+  }).join("");
 
-  grid
-    .querySelectorAll("[data-enroll]")
-    .forEach(
-      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
-    );
-  grid
-    .querySelectorAll("[data-details]")
-    .forEach(
-      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
-    );
+  grid.querySelectorAll("[data-enroll]")
+    .forEach((b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll"))));
+  grid.querySelectorAll("[data-details]")
+    .forEach((b) => (b.onclick = () => openDetails(b.getAttribute("data-details"))));
 }
 
 // default option before data arrives (kept)
@@ -1395,71 +1368,57 @@ function initAuthModal() {
 
       // ── Post-auth sync (don’t break login UX if fails)
       try {
-        // 1) migrate profile (if the helper exists)
-        if (typeof migrateProfileToScopedOnce === "function") {
-          await migrateProfileToScopedOnce();
-        }
+  // 1) migrate profile (if the helper exists)
+  if (typeof migrateProfileToScopedOnce === "function") {
+    await migrateProfileToScopedOnce();
+  }
 
-        // 2) Run in parallel for speed:
-        const tasks = [];
+  // 2) Run in parallel for speed:
+  const tasks = [];
 
-        // 2a) Cloud profile load
-        let cloudProfilePromise = null;
-        if (typeof loadProfileCloud === "function") {
-          cloudProfilePromise = loadProfileCloud();
-          tasks.push(cloudProfilePromise);
-        }
+  // 2a) Cloud profile load
+  let cloudProfilePromise = null;
+  if (typeof loadProfileCloud === "function") {
+    cloudProfilePromise = loadProfileCloud();
+    tasks.push(cloudProfilePromise);
+  }
 
-        // 2b) Enroll migrations + sync
-        if (
-          typeof migrateEnrollsToScopedOnce === "function" ||
-          typeof syncEnrollsBothWays === "function"
-        ) {
-          const enrollTask = (async () => {
-            if (typeof migrateEnrollsToScopedOnce === "function") {
-              await migrateEnrollsToScopedOnce();
-            }
-            if (typeof syncEnrollsBothWays === "function") {
-              await syncEnrollsBothWays(); // one time is enough
-            }
-          })();
-          tasks.push(enrollTask);
-        }
-
-        // 3) Wait for all
-        const results = await Promise.all(tasks);
-
-        // 4) Merge cloud profile → local (cloud overwrites local)
-        if (cloudProfilePromise) {
-          const cloudP = results[0]; // first pushed
-          if (cloudP) {
-            const localP =
-              typeof getProfile === "function" ? getProfile() || {} : {};
-            if (typeof setProfile === "function") {
-              setProfile({ ...localP, ...cloudP });
-            }
-          }
-        }
-
-        // 5) UI updates (call only if they exist)
-        if (typeof renderCatalog === "function") renderCatalog();
-        if (
-          typeof window !== "undefined" &&
-          typeof window.renderMyLearning === "function"
-        )
-          window.renderMyLearning();
-        if (typeof renderProfilePanel === "function") renderProfilePanel();
-        if (
-          typeof window !== "undefined" &&
-          typeof window.renderGradebook === "function"
-        )
-          window.renderGradebook();
-      } catch (syncErr) {
-        console.warn(
-          "Post-login sync failed:",
-          syncErr && syncErr.message ? syncErr.message : syncErr
-        );
+  // 2b) Enroll migrations + sync
+  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
+    const enrollTask = (async () => {
+      if (typeof migrateEnrollsToScopedOnce === "function") {
+        await migrateEnrollsToScopedOnce();
       }
+      if (typeof syncEnrollsBothWays === "function") {
+        await syncEnrollsBothWays(); // one time is enough
+      }
+    })();
+    tasks.push(enrollTask);
+  }
+
+  // 3) Wait for all
+  const results = await Promise.all(tasks);
+
+  // 4) Merge cloud profile → local (cloud overwrites local)
+  if (cloudProfilePromise) {
+    const cloudP = results[0]; // first pushed
+    if (cloudP) {
+      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
+      if (typeof setProfile === "function") {
+        setProfile({ ...localP, ...cloudP });
+      }
+    }
+  }
+
+  // 5) UI updates (call only if they exist)
+  if (typeof renderCatalog === "function") renderCatalog();
+  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
+  if (typeof renderProfilePanel === "function") renderProfilePanel();
+  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
+
+} catch (syncErr) {
+  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
+}
 
       // UI finalize
       safeCloseModal(window.modal || $("#authModal"));
@@ -1504,71 +1463,57 @@ function initAuthModal() {
 
       // ── Post-signup init/sync
       try {
-        // 1) migrate profile (if the helper exists)
-        if (typeof migrateProfileToScopedOnce === "function") {
-          await migrateProfileToScopedOnce();
-        }
+  // 1) migrate profile (if the helper exists)
+  if (typeof migrateProfileToScopedOnce === "function") {
+    await migrateProfileToScopedOnce();
+  }
 
-        // 2) Run in parallel for speed:
-        const tasks = [];
+  // 2) Run in parallel for speed:
+  const tasks = [];
 
-        // 2a) Cloud profile load
-        let cloudProfilePromise = null;
-        if (typeof loadProfileCloud === "function") {
-          cloudProfilePromise = loadProfileCloud();
-          tasks.push(cloudProfilePromise);
-        }
+  // 2a) Cloud profile load
+  let cloudProfilePromise = null;
+  if (typeof loadProfileCloud === "function") {
+    cloudProfilePromise = loadProfileCloud();
+    tasks.push(cloudProfilePromise);
+  }
 
-        // 2b) Enroll migrations + sync
-        if (
-          typeof migrateEnrollsToScopedOnce === "function" ||
-          typeof syncEnrollsBothWays === "function"
-        ) {
-          const enrollTask = (async () => {
-            if (typeof migrateEnrollsToScopedOnce === "function") {
-              await migrateEnrollsToScopedOnce();
-            }
-            if (typeof syncEnrollsBothWays === "function") {
-              await syncEnrollsBothWays(); // one time is enough
-            }
-          })();
-          tasks.push(enrollTask);
-        }
-
-        // 3) Wait for all
-        const results = await Promise.all(tasks);
-
-        // 4) Merge cloud profile → local (cloud overwrites local)
-        if (cloudProfilePromise) {
-          const cloudP = results[0]; // first pushed
-          if (cloudP) {
-            const localP =
-              typeof getProfile === "function" ? getProfile() || {} : {};
-            if (typeof setProfile === "function") {
-              setProfile({ ...localP, ...cloudP });
-            }
-          }
-        }
-
-        // 5) UI updates (call only if they exist)
-        if (typeof renderCatalog === "function") renderCatalog();
-        if (
-          typeof window !== "undefined" &&
-          typeof window.renderMyLearning === "function"
-        )
-          window.renderMyLearning();
-        if (typeof renderProfilePanel === "function") renderProfilePanel();
-        if (
-          typeof window !== "undefined" &&
-          typeof window.renderGradebook === "function"
-        )
-          window.renderGradebook();
-      } catch (syncErr) {
-        console.warn(
-          "Post-login sync failed:",
-          syncErr && syncErr.message ? syncErr.message : syncErr
-        );
+  // 2b) Enroll migrations + sync
+  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
+    const enrollTask = (async () => {
+      if (typeof migrateEnrollsToScopedOnce === "function") {
+        await migrateEnrollsToScopedOnce();
       }
+      if (typeof syncEnrollsBothWays === "function") {
+        await syncEnrollsBothWays(); // one time is enough
+      }
+    })();
+    tasks.push(enrollTask);
+  }
+
+  // 3) Wait for all
+  const results = await Promise.all(tasks);
+
+  // 4) Merge cloud profile → local (cloud overwrites local)
+  if (cloudProfilePromise) {
+    const cloudP = results[0]; // first pushed
+    if (cloudP) {
+      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
+      if (typeof setProfile === "function") {
+        setProfile({ ...localP, ...cloudP });
+      }
+    }
+  }
+
+  // 5) UI updates (call only if they exist)
+  if (typeof renderCatalog === "function") renderCatalog();
+  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
+  if (typeof renderProfilePanel === "function") renderProfilePanel();
+  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
+
+} catch (syncErr) {
+  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
+}
 
       // UI finalize
       safeCloseModal(window.modal || $("#authModal"));
@@ -2606,49 +2551,47 @@ function renderPage() {
   }
 
   // --- Navigation ---
-  const btnPrev = $("#rdPrev"),
-    btnNext = $("#rdNext");
+const btnPrev = $("#rdPrev"),
+      btnNext = $("#rdNext");
 
-  // Prev: enable/disable + handler
-  if (btnPrev) {
-    btnPrev.disabled = RD.i <= 0;
-    btnPrev.onclick = () => {
-      if (RD.i <= 0) return;
-      RD.i = Math.max(0, RD.i - 1);
-      renderPage();
-    };
-  }
+// Prev: enable/disable + handler
+if (btnPrev) {
+  btnPrev.disabled = RD.i <= 0;
+  btnPrev.onclick = () => {
+    if (RD.i <= 0) return;
+    RD.i = Math.max(0, RD.i - 1);
+    renderPage();
+  };
+}
 
-  // Next: enable/disable + guard for quiz/project
-  if (btnNext) {
-    btnNext.disabled = RD.i >= RD.pages.length - 1;
-    btnNext.onclick = () => {
-      const p = RD.pages[RD.i];
+// Next: enable/disable + guard for quiz/project
+if (btnNext) {
+  btnNext.disabled = RD.i >= RD.pages.length - 1;
+  btnNext.onclick = () => {
+    const p = RD.pages[RD.i];
 
-      // Guard: quiz must be passed (either already passed or current LAST_QUIZ_SCORE >= QUIZ_PASS)
-      if (p?.type === "quiz") {
-        const passed =
-          (typeof hasPassedQuiz === "function" &&
-            hasPassedQuiz(RD.cid, RD.i)) ||
-          (typeof LAST_QUIZ_SCORE !== "undefined" &&
-            LAST_QUIZ_SCORE >= QUIZ_PASS);
-        if (!passed) {
-          toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% to continue`);
-          return;
-        }
-      }
-
-      // Guard: project must be uploaded
-      if (p?.type === "project" && !PROJECT_UPLOADED) {
-        toast("Please upload your project file first");
+    // Guard: quiz must be passed (either already passed or current LAST_QUIZ_SCORE >= QUIZ_PASS)
+    if (p?.type === "quiz") {
+      const passed =
+        (typeof hasPassedQuiz === "function" && hasPassedQuiz(RD.cid, RD.i)) ||
+        (typeof LAST_QUIZ_SCORE !== "undefined" && LAST_QUIZ_SCORE >= QUIZ_PASS);
+      if (!passed) {
+        toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% to continue`);
         return;
       }
+    }
 
-      // Advance
-      RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
-      renderPage();
-    };
-  }
+    // Guard: project must be uploaded
+    if (p?.type === "project" && !PROJECT_UPLOADED) {
+      toast("Please upload your project file first");
+      return;
+    }
+
+    // Advance
+    RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+    renderPage();
+  };
+}
 
   // --- Finish button on LAST page only ---
   const isLast = RD.i === RD.pages.length - 1;
@@ -3501,9 +3444,7 @@ function renderAnnouncements() {
   updateAnnBadge();
   enforceRoleGates?.(); // 🔒 re-check after DOM updates
 }
-{
-  /* <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div> */
-}
+{/* <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div> */}
 window.renderAnnouncements = renderAnnouncements;
 
 function wireAnnouncementEditButtons() {
@@ -3921,217 +3862,238 @@ $("#fontSel")?.addEventListener("change", (e) => {
   applyFont(e.target.value);
 });
 
-// === Settings → Help/Guide (merged + enhanced) ===
 function renderSettingsHelp() {
   const box = document.getElementById("helpDoc");
   if (!box) return;
 
-  // 1) Base help content (original cards) + Dev Guide button
-  box.innerHTML = `
-    <div class="help-top" style="margin: .5rem 0 1rem;">
-      <a id="devGuideLink"
-         href="./settingUpDetails.md"
-         download="settingUpDetails.md"
-         class="btn btn-sm">
-        ⬇️ Developer Guide (MD)
-      </a>
-    </div>
-
-    <div class="help-grid">
-      <div class="help-card">
-        <b>🔐 Login & Account</b>
-        <ul class="help-list">
-          <li><b>Login</b>: Topbar → <span class="kbd">Login</span> (Email/Password)</li>
-          <li><b>Profile</b>: Settings → Edit Profile (Name, Photo, Bio, Skills)</li>
-          <li><b>Theme/Font</b>: Settings → Theme & Font</li>
-        </ul>
-      </div>
-      <div class="help-card">
-        <b>📚 Courses</b>
-        <ul class="help-list">
-          <li><b>Browse/Filter</b>: Courses စာမျက်နှာမှာ Category/Level/Sort</li>
-          <li><b>Enroll</b>: Free → Enroll, Paid → Pay (or MMK Paid)</li>
-          <li><b>My Learning</b>: သင်ယူနေ/ပြီးသား Courses များ စုစည်းပြ</li>
-        </ul>
-      </div>
-
-      <div class="help-card">
-        <b>📖 Reader Controls</b>
-        <ul class="help-list">
-          <li><span class="kbd">Prev</span>/<span class="kbd">Next</span> နဲ့ စာမျက်နှာပက်ကြ</li>
-          <li><span class="kbd">🔖</span> Bookmark, <span class="kbd">📝</span> Note (UI ထဲ)</li>
-          <li><b>Finish</b>: နောက်ဆုံးစာမျက်နှာမှာ ပြင်ဆင်ပြီး <span class="kbd">Finish Course</span></li>
-        </ul>
-      </div>
-      <div class="help-card">
-        <b>🧪 Quizzes & Projects</b>
-        <ul class="help-list">
-          <li><b>Pass</b> ≥ 70% (default). မဖြတ်ကျော်နိုင်ရင် Retake နဲ့ပြန်လုပ်</li>
-          <li><b>Project</b>: File upload လုပ်မှ Next/Finish ပွင့်</li>
-          <li><b>Review</b>: Pass/Complete ဖြစ်ပြီးလျှင် My Learning မှာ “Review” ပေါ်မယ်</li>
-        </ul>
-      </div>
-
-      <div class="help-card">
-        <b>🎓 Certificates</b>
-        <ul class="help-list">
-          <li>Course ပြီးလျှင် Certificate auto-issue</li>
-          <li><b>Profile → Transcript</b> မှာ View/Print PDF လုပ်နိုင်</li>
-        </ul>
-      </div>
-      <div class="help-card">
-        <b>📣 Announcements</b>
-        <ul class="help-list">
-          <li>Dashboard တွင် Post များကြည့်ရန်</li>
-          <li>Topbar ထဲ Ann badge ကနေရေတွက်ချက်များပြ</li>
-        </ul>
-      </div>
-
-      <div class="help-card">
-        <b>💬 Live Chat</b>
-        <ul class="help-list">
-          <li><b>Global</b> & <b>Course Chat</b> နှစ်မျိုးရှိ</li>
-          <li>Login လုပ်ပြီးမှ ရိုက်ပို့နိုင်</li>
-          <li>စကားဝိုင်း Messages များကို ၁၀ ရက်ကျော်လျှင် auto-delete</li>
-        </ul>
-      </div>
-      <div class="help-card">
-        <b>🔎 Global Search</b>
-        <ul class="help-list">
-          <li>Topbar လိုင်မှာ အချက်အလက်အားလုံးကို ရှာနိုင်</li>
-          <li>Result ကိုနှိပ်ရင် သက်ဆိုင်ရာ Page သို့ Auto-Navigate</li>
-        </ul>
-      </div>
-      <div class="help-card">
-        <b>User Role များနှင့် အခွင့်အရေးများ</b>
-        <ul class="help-list">
-          <li>Owner – အားလုံး: Settings, Admin, Import/Export, Announcements CRUD, Course CRUD, Payments test, etc.</li>
-          <li>Admin – owner နှင့် ဆင်တူ; org-level manage</li>
-          <li>Instructor – Course CRUD, Announcements create/edit, Gradebook read</li>
-          <li>TA – Instructor subset</li>
-          <li>Student – Catalog, enroll, reader/quiz/project, chat, profile, certificate</li>
-        </ul>
-      </div>
-    </div>
-    <div class="help-card">
-    <b>🆕 What's New (Sep 2025)</b>
-      <ul class="help-list">
-        <li><b>Auth</b>: <code>onAuthStateChanged</code> Singleton + Role resolve from Firestore</li>
-        <li><b>Role Cache Fix</b>: admin/owner/instructor/ta UI gating မှန်</li>
-        <li><b>Enroll Sync</b>: <code>enrolls/{uid}</code> ⇄ local scoped</li>
-        <li><b>Chat Fallback</b>: RTDB မရှိလည်း local fallback</li>
-        <li><b>Help Refreshless</b>: Settings နှိပ်တိုင်း auto-render</li>
-        <li><b>Quiz Types</b>: Single/Multiple/Short-answer + Pass ≥ 70% + Retake</li>
-        <li><b>Certificates/Transcript</b>: Finish ပြီး auto-issue</li>
-      </ul>
-    </div>
-    <div class="help-card img-tip">
-        <img src="./images/help/auth.png" alt="Auth" onerror="this.style.display='none'">
-        <b>Auth & Roles</b>
-        <p>Role ကို Firestore <code>users/{uid}.role</code> ကနေပဲ ယူပေးတယ်</p>
-      </div>
-      <div class="help-card img-tip">
-        <img src="./images/help/enroll.png" alt="Enroll" onerror="this.style.display='none'">
-        <b>Per-User Enrolls</b>
-        <p><code>enrolls/{uid}</code> အနေနဲ့ သိမ်း → user မတူရင် courses မတူပေါ်</p>
-      </div>
-      <div class="help-card img-tip">
-        <img src="./images/help/chat.png" alt="Chat" onerror="this.style.display='none'">
-        <b>Chat</b>
-        <p>RTDB ရှိရင် realtime၊ မရှိရင် local fallback</p>
-      </div>
-      <div class="help-card img-tip">
-        <img src="./images/help/quiz.png" alt="Quiz" onerror="this.style.display='none'">
-        <b>Quizzes</b>
-        <p>Single/Multiple/Short – Pass ≥ 70%, Retake, Finish → Cert</p>
-      </div>
-    </div>
-    <div class="help-card">
-    <b>👨‍💻 Developer Notes (Quick)</b>
-      <ul class="help-list">
-        <li><code>onAuthStateChanged</code> ကို တစ်ခါတည်း register</li>
-        <li><code>resolveUserRole(u)</code> → Firestore first, fallback map later</li>
-        <li><code>ensureUserDoc(u, role)</code> → merge create (role မသက်သက်မပျောက်)</li>
-        <li><code>syncEnrollsBothWays()</code> → Cloud→Local one-shot sync</li>
-        <li><code>renderSettingsHelp()</code> ကို Settings page ခေါ်</li>
-      </ul>
-    </div>
-
-    <details class="help">
-      <summary><b>🛠️ Troubleshooting</b></summary>
-      <ul class="help-list" style="margin-top:.4rem">
-        <li>Login ပြီးလည်း clicks မဖြစ်ဘူး → အင်တာနက်/Cache ပြန် refresh</li>
-        <li>Courses မထွက်ဘူး → <span class="kbd">/data/catalog.json</span> ရနိုင်မရနိုင် စစ်ပါ</li>
-        <li>Certificate မထုတ်/မပေါ် → Course ကို Finish ပြီး Transcript မှာစစ်ပါ</li>
-        <li>Firefox မှာ “Review” မပေါ်ဘူး → ခဏစောင့်ပြီး My Learning ပြန်ဝင်ကြည့်ပါ (Chrome/Edge/Safari recommend)</li>
-      </ul>
-    </details>
-  `;
-    box.appendChild(dev);
+  // Developer guide download link (app bundle ထဲကို မကြာခဏကူးထားပါ)
+  const devA = document.getElementById("devGuideLink");
+  if (devA && !devA._wired) {
+    devA._wired = true;
+    // project root/docs/settingUpDetails.md ထဲကို ဖိုင်တင်ပြီးရင် အောက်က href ပြောင်းပါ
+    devA.href = "/docs/settingUpDetails.md";
   }
 
+  box.innerHTML = `
+  <div class="help-grid">
+    <div class="help-card">
+      <b>🔐 Login & Account</b>
+      <ul class="help-list">
+        <li><b>Login</b>: Topbar → <span class="kbd">Login</span> (Email/Password)</li>
+        <li><b>Profile</b>: Settings → Edit Profile (Name, Photo, Bio, Skills)</li>
+        <li><b>Theme/Font</b>: Settings → Theme & Font</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <b>📚 Courses</b>
+      <ul class="help-list">
+        <li><b>Browse/Filter</b>: Courses စာမျက်နှာမှာ Category/Level/Sort</li>
+        <li><b>Enroll</b>: Free → Enroll, Paid → Pay (or MMK Paid)</li>
+        <li><b>My Learning</b>: သင်ယူနေ/ပြီးသား Courses များ စုစည်းပြ</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <b>📖 Reader Controls</b>
+      <ul class="help-list">
+        <li><span class="kbd">Prev</span>/<span class="kbd">Next</span> နဲ့ စာမျက်နှာပက်ကြ</li>
+        <li><span class="kbd">🔖</span> Bookmark, <span class="kbd">📝</span> Note (UI ထဲ)</li>
+        <li><b>Finish</b>: နောက်ဆုံးစာမျက်နှာမှာ ပြင်ဆင်ပြီး <span class="kbd">Finish Course</span></li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <b>🧪 Quizzes & Projects</b>
+      <ul class="help-list">
+        <li><b>Pass</b> ≥ 70% (default). မဖြတ်ကျော်နိုင်ရင် Retake နဲ့ပြန်လုပ်</li>
+        <li><b>Project</b>: File upload လုပ်မှ Next/Finish ပွင့်</li>
+        <li><b>Review</b>: Pass/Complete ဖြစ်ပြီးလျှင် My Learning မှာ “Review” ပေါ်မယ်</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <b>🎓 Certificates</b>
+      <ul class="help-list">
+        <li>Course ပြီးလျှင် Certificate auto-issue</li>
+        <li><b>Profile → Transcript</b> မှာ View/Print PDF လုပ်နိုင်</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <b>📣 Announcements</b>
+      <ul class="help-list">
+        <li>Dashboard တွင် Post များကြည့်ရန်</li>
+        <li>Topbar ထဲ Ann badge ကနေရေတွက်ချက်များပြ</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <b>💬 Live Chat</b>
+      <ul class="help-list">
+        <li><b>Global</b> & <b>Course Chat</b> နှစ်မျိုးရှိ</li>
+        <li>Login လုပ်ပြီးမှ ရိုက်ပို့နိုင်</li>
+        <li>စကားဝိုင်း Messages များကို ၁၀ ရက်ကျော်လျှင် auto-delete</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <b>🔎 Global Search</b>
+      <ul class="help-list">
+        <li>Topbar လိုင်မှာ အချက်အလက်အားလုံးကို ရှာနိုင်</li>
+        <li>Result ကိုနှိပ်ရင် သက်ဆိုင်ရာ Page သို့ Auto-Navigate</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <b>User Role များနှင့် အခွင့်အရေးများ</b>
+      <ul class="help-list">
+        <li>Owner – အားလုံး: Settings, Admin, Import/Export, Announcements CRUD, Course CRUD, Payments test, etc.</li>
+        <li>Admin – owner နှင့် ဆင်တူ; org-level manage</li>
+        <li>Instructor – Course CRUD (သင်သင်ကြားမည့်တန်းသားများ), Announcements create/edit, Gradebook read</li>
+        <li>TA – Instructor အင်အား subset (announcements edit, grade assist)</li>
+        <li>Student – Catalog browse, enroll, reader/quiz/project, chat, profile, certificate</li>
+      </ul>
+    </div>
+  </div>
+
+  <details class="help">
+    <summary><b>🛠️ Troubleshooting</b></summary>
+    <ul class="help-list" style="margin-top:.4rem">
+      <li>Login ပြီးလည်း clicks မဖြစ်ဘူး → အင်တာနက်/Cache ပြန် refresh</li>
+      <li>Courses မထွက်ဘူး → <span class="kbd">/data/catalog.json</span> ရနိုင်မရနိုင် စစ်ပါ</li>
+      <li>Certificate မထုတ်/မပေါ် → Course ကို Finish ပြီး Transcript မှာစစ်ပါ</li>
+      <li>Firefox မှာ “Review” မပေါ်ဘူး → တစ်ခါတလဲ ခဏစောင့်ပြီး My Learning ပြန်ဝင်ကြည့်ပါ။ Chrome/Edge/Safari recommend.</li>
+    </ul>
+  </details>
+  `;
+}
+
+// === Help & Guide: enhanced render (append; won't delete your existing content) ===
+function renderHelpGuideEnhanced() {
+  const box = document.querySelector("#helpDoc");
+  if (!box) return;
+  // Guard: run-once per session
+  if (box.dataset.enhanced === "1") return;
+  box.dataset.enhanced = "1";
+
+  // 1) Append new “What’s New” (2025-09) section
+  const whatsNew = document.createElement("div");
+  whatsNew.className = "help-card help-news";
+  whatsNew.innerHTML = `
+    <b>🆕 What's New (Sep 2025)</b>
+    <ul class="help-list">
+      <li><b>Auth稳定化</b>: <code>onAuthStateChanged</code> ကို Singleton ပြီး Role ကို Firestore မှာ resolve</li>
+      <li><b>Role Cache Fix</b>: admin/owner/instructor/ta လိုအပ်ချက်များ UI မှန်ကန်ပြ</li>
+      <li><b>Enroll Sync</b>: <code>enrolls/{uid}</code> (cloud) ⇄ localStorage scoped, user ပိုင်းခြား</li>
+      <li><b>Chat Fallback</b>: RTDB ပိတ်ထားလည်း local fallback နဲ့ အလုပ်လုပ်</li>
+      <li><b>Help Refreshless</b>: Settings နှိပ်တာနဲ့ Help auto-render (manual refresh မလို)</li>
+      <li><b>Quiz Types</b>: Single/Multiple/Short-answer + Pass ≥ 70% + Retake</li>
+      <li><b>Certificates/Transcript</b>: Finish ပြီး auto-issue, Gradebook/Transcript မွာ ကြည့်/Print</li>
+    </ul>
+  `;
+  box.appendChild(whatsNew);
+
+  // 2) Tips with tiny icons (images optional; safe if not present)
+  const tips = document.createElement("div");
+  tips.className = "help-grid icons-row";
+  tips.innerHTML = `
+    <div class="help-card img-tip">
+      <img src="./images/help/auth.png" alt="Auth" onerror="this.style.display='none'">
+      <b>Auth & Roles</b>
+      <p>Login OK ဖြစ်သွားရင် Role ကို Firestore <code>users/{uid}.role</code> ကနေယူတယ်—local default မသုံးတော့ပါ</p>
+    </div>
+    <div class="help-card img-tip">
+      <img src="./images/help/enroll.png" alt="Enroll" onerror="this.style.display='none'">
+      <b>Per-User Enrolls</b>
+      <p><code>enrolls/{uid}</code> အနေနဲ့ သိမ်း → user မတူရင် courses မတူပေါ်</p>
+    </div>
+    <div class="help-card img-tip">
+      <img src="./images/help/chat.png" alt="Chat" onerror="this.style.display='none'">
+      <b>Chat</b>
+      <p>RTDB ရှိရင် realtime၊ မရှိရင် local fallback နဲ့ history တည်</p>
+    </div>
+    <div class="help-card img-tip">
+      <img src="./images/help/quiz.png" alt="Quiz" onerror="this.style.display='none'">
+      <b>Quizzes</b>
+      <p>Single/Multiple/Short – Pass ≥ 70%, Retake, Finish → Cert</p>
+    </div>
+  `;
+  box.appendChild(tips);
+
+  // 3) Developer quick refs
+  const dev = document.createElement("div");
+  dev.className = "help-card";
+  dev.innerHTML = `
+    <b>👨‍💻 Developer Notes (Quick)</b>
+    <ul class="help-list">
+      <li><code>onAuthStateChanged</code> ကို တစ်ခါတည်း register</li>
+      <li><code>resolveUserRole(u)</code> → Firestore doc 优先，fallback map 次要</li>
+      <li><code>ensureUserDoc(u, role)</code> → merge create (role overwrite မလုပ်)</li>
+      <li><code>syncEnrollsBothWays()</code> → Cloud→Local overwrite one-shot</li>
+      <li><code>renderHelpGuideEnhanced()</code> ကို Settings click မှာ ခေါ်</li>
+    </ul>
+  `;
+  box.appendChild(dev);
+}
+
 // === Wire: Settings tab click → show settings page + render help (no full refresh) ===
-// document.getElementById("navSettings")?.addEventListener("click", () => {
-//   if (typeof showPage === "function") showPage("settings");
-//   // existing Help content မဖျက်ပဲ append
-//   renderHelpGuideEnhanced();
-// });
+document.getElementById("navSettings")?.addEventListener("click", () => {
+  if (typeof showPage === "function") showPage("settings");
+  // existing Help content မဖျက်ပဲ append
+  renderHelpGuideEnhanced();
+});
 
 // Also render once after DOM ready if already on settings
-// document.addEventListener("DOMContentLoaded", () => {
-//   if (document.getElementById("settings-help")) {
-//     // run after minimal delay to ensure existing content rendered
-//     setTimeout(renderHelpGuideEnhanced, 0);
-//   }
-// });
+document.addEventListener("DOMContentLoaded", () => {
+  if (document.getElementById("settings-help")) {
+    // run after minimal delay to ensure existing content rendered
+    setTimeout(renderHelpGuideEnhanced, 0);
+  }
+});
 
 // === Dev Guide (MD) download ===
-// document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
-//   e.preventDefault();
-//   const md = buildDevGuideMarkdownAddendum();
-//   const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-//   const url = URL.createObjectURL(blob);
-//   const a = document.createElement("a");
-//   a.href = url;
-//   a.download = "DEVELOPER_GUIDE_addendum.md";
-//   document.body.appendChild(a);
-//   a.click();
-//   a.remove();
-//   URL.revokeObjectURL(url);
-// });
+document.getElementById("devGuideLink")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  const md = buildDevGuideMarkdownAddendum();
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "DEVELOPER_GUIDE_addendum.md";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
 
-// function buildDevGuideMarkdownAddendum() {
-//   return `
-// <!-- Append-only addendum; keep your existing MD as-is -->
-// # OpenLearn – Developer Guide Addendum (Sep 2025)
+function buildDevGuideMarkdownAddendum() {
+  return `
+<!-- Append-only addendum; keep your existing MD as-is -->
+# OpenLearn – Developer Guide Addendum (Sep 2025)
 
-// ## Auth & Roles (Stabilized)
-// - Register **one** \`onAuthStateChanged(auth, ...)\`
-// - After login/signup/state change:
-//   - \`role = await resolveUserRole(user) || "student"\`
-//   - \`await ensureUserDoc(user, role)\` (merge create; don't overwrite existing admin/owner)
-//   - \`setUser({ email, role })\` (❌ no hard "student")
+## Auth & Roles (Stabilized)
+- Register **one** \`onAuthStateChanged(auth, ...)\`
+- After login/signup/state change:
+  - \`role = await resolveUserRole(user) || "student"\`
+  - \`await ensureUserDoc(user, role)\` (merge create; don't overwrite existing admin/owner)
+  - \`setUser({ email, role })\` (❌ no hard "student")
 
-// ## Enroll Sync (Per User)
-// - Firestore: \`enrolls/{uid}\`
-// - Local: \`ol_enrolls::<uid>\`
-// - \`syncEnrollsBothWays()\` runs once on login; Cloud → Local overwrite
+## Enroll Sync (Per User)
+- Firestore: \`enrolls/{uid}\`
+- Local: \`ol_enrolls::<uid>\`
+- \`syncEnrollsBothWays()\` runs once on login; Cloud → Local overwrite
 
-// ## Chat
-// - RTDB rooms: \`/chats/global\`, \`/chats/{courseId}\`
-// - Fallback to local if RTDB disabled
-// - TTL prune ~10 days (client-side)
+## Chat
+- RTDB rooms: \`/chats/global\`, \`/chats/{courseId}\`
+- Fallback to local if RTDB disabled
+- TTL prune ~10 days (client-side)
 
-// ## Quizzes
-// - Types: single / multiple / short answer
-// - Pass ≥ 0.70 (config: \`QUIZ_PASS\`)
-// - Finish → \`ensureCertIssued\` → Transcript
+## Quizzes
+- Types: single / multiple / short answer
+- Pass ≥ 0.70 (config: \`QUIZ_PASS\`)
+- Finish → \`ensureCertIssued\` → Transcript
 
-// ## Help & Guide (Refreshless)
-// - \`renderHelpGuideEnhanced()\` appends cards/images into \`#helpDoc\`
-// - Settings click triggers render; no manual refresh required
-// `;
-// }
+## Help & Guide (Refreshless)
+- \`renderHelpGuideEnhanced()\` appends cards/images into \`#helpDoc\`
+- Settings click triggers render; no manual refresh required
+`;
+}
 
 // Settings စာမျက်နှာပြသတိုင်း render
 (function wireSettingsHelp() {
@@ -4180,94 +4142,81 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Gate chat inputs and keep in sync
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
-    // Auth state → UI (register once here)
-    onAuthStateChanged(auth, async (u) => {
-      IS_AUTHED = !!u;
-      setAppLocked(!IS_AUTHED);
+  // Auth state → UI (register once here)
+  onAuthStateChanged(auth, async (u) => {
+    IS_AUTHED = !!u;
+    setAppLocked(!IS_AUTHED);
 
-      if (u) {
-        // 🔑 role ကို Firestore (သို့) fallback map က resolve
-        let role = "student";
-        try {
-          role = (await resolveUserRole(u)) || "student";
-          await ensureUserDoc(u, role);
-        } catch {}
-        setUser({ email: u.email || "", role });
-        setLogged(true, u.email || "");
+    if (u) {
+      // 🔑 role ကို Firestore (သို့) fallback map က resolve
+      let role = "student";
+      try {
+        role = await resolveUserRole(u) || "student";
+        await ensureUserDoc(u, role);
+      } catch {}
+      setUser({ email: u.email || "", role });
+      setLogged(true, u.email || "");
 
-        // ... rest sync ...
-        try {
-          // 1) migrate profile (if the helper exists)
-          if (typeof migrateProfileToScopedOnce === "function") {
-            await migrateProfileToScopedOnce();
-          }
-
-          // 2) Run in parallel for speed:
-          const tasks = [];
-
-          // 2a) Cloud profile load
-          let cloudProfilePromise = null;
-          if (typeof loadProfileCloud === "function") {
-            cloudProfilePromise = loadProfileCloud();
-            tasks.push(cloudProfilePromise);
-          }
-
-          // 2b) Enroll migrations + sync
-          if (
-            typeof migrateEnrollsToScopedOnce === "function" ||
-            typeof syncEnrollsBothWays === "function"
-          ) {
-            const enrollTask = (async () => {
-              if (typeof migrateEnrollsToScopedOnce === "function") {
-                await migrateEnrollsToScopedOnce();
-              }
-              if (typeof syncEnrollsBothWays === "function") {
-                await syncEnrollsBothWays(); // one time is enough
-              }
-            })();
-            tasks.push(enrollTask);
-          }
-
-          // 3) Wait for all
-          const results = await Promise.all(tasks);
-
-          // 4) Merge cloud profile → local (cloud overwrites local)
-          if (cloudProfilePromise) {
-            const cloudP = results[0]; // first pushed
-            if (cloudP) {
-              const localP =
-                typeof getProfile === "function" ? getProfile() || {} : {};
-              if (typeof setProfile === "function") {
-                setProfile({ ...localP, ...cloudP });
-              }
-            }
-          }
-
-          // 5) UI updates (call only if they exist)
-          if (typeof renderCatalog === "function") renderCatalog();
-          if (
-            typeof window !== "undefined" &&
-            typeof window.renderMyLearning === "function"
-          )
-            window.renderMyLearning();
-          if (typeof renderProfilePanel === "function") renderProfilePanel();
-          if (
-            typeof window !== "undefined" &&
-            typeof window.renderGradebook === "function"
-          )
-            window.renderGradebook();
-        } catch (syncErr) {
-          console.warn(
-            "Post-login sync failed:",
-            syncErr && syncErr.message ? syncErr.message : syncErr
-          );
-        }
-      } else {
-        setUser(null);
-        setLogged(false);
-      }
-    });
+      // ... rest sync ...
+      try {
+  // 1) migrate profile (if the helper exists)
+  if (typeof migrateProfileToScopedOnce === "function") {
+    await migrateProfileToScopedOnce();
   }
+
+  // 2) Run in parallel for speed:
+  const tasks = [];
+
+  // 2a) Cloud profile load
+  let cloudProfilePromise = null;
+  if (typeof loadProfileCloud === "function") {
+    cloudProfilePromise = loadProfileCloud();
+    tasks.push(cloudProfilePromise);
+  }
+
+  // 2b) Enroll migrations + sync
+  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
+    const enrollTask = (async () => {
+      if (typeof migrateEnrollsToScopedOnce === "function") {
+        await migrateEnrollsToScopedOnce();
+      }
+      if (typeof syncEnrollsBothWays === "function") {
+        await syncEnrollsBothWays(); // one time is enough
+      }
+    })();
+    tasks.push(enrollTask);
+  }
+
+  // 3) Wait for all
+  const results = await Promise.all(tasks);
+
+  // 4) Merge cloud profile → local (cloud overwrites local)
+  if (cloudProfilePromise) {
+    const cloudP = results[0]; // first pushed
+    if (cloudP) {
+      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
+      if (typeof setProfile === "function") {
+        setProfile({ ...localP, ...cloudP });
+      }
+    }
+  }
+
+  // 5) UI updates (call only if they exist)
+  if (typeof renderCatalog === "function") renderCatalog();
+  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
+  if (typeof renderProfilePanel === "function") renderProfilePanel();
+  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
+
+} catch (syncErr) {
+  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
+}
+
+    } else {
+      setUser(null);
+      setLogged(false);
+    }
+  });
+}
 
   // UI
   initSidebar();
