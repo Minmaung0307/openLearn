@@ -10,7 +10,6 @@
 
     <link rel="icon" href="./icons/icon-192.png" />
     <link rel="manifest" href="./manifest.json" />
-    <link rel="manifest" href="./manifest.webmanifest">
     <link rel="stylesheet" href="./styles.css" />
 
     <!-- Config + Firebase -->
@@ -50,7 +49,7 @@
             placeholder="Search courses…"
           />
         </div>
-        <div id="searchResults" class="search-results"></div>
+        <div id="searchResults" class="search-results" hidden></div>
 
         <div class="top-right">
           <button id="btn-top-ann" class="icon-pill pill-ann">
@@ -165,7 +164,12 @@
           <button class="btn" id="btn-add-samples" data-requires-auth>
             Add sample data
           </button>
-          <button class="btn primary" id="btn-new-course" data-role-min="instructor" data-requires-auth>
+          <button
+            class="btn primary"
+            id="btn-new-course"
+            data-role-min="instructor"
+            data-requires-auth
+          >
             + New Course
           </button>
         </div>
@@ -230,7 +234,11 @@
         <div class="row" style="margin-bottom: 10px">
           <h2 class="h4">Announcements</h2>
           <div class="grow"></div>
-          <button class="btn primary" id="btn-new-post" data-role-min="instructor">
+          <button
+            class="btn primary"
+            id="btn-new-post"
+            data-role-min="instructor"
+          >
             + Add Announcement
           </button>
         </div>
@@ -333,63 +341,6 @@
             </label>
           </div>
         </div>
-        <!-- === Admin: Student Analytics === -->
-<div class="card" id="admin-analytics" data-role-min="admin">
-  <div class="row" style="align-items:center; gap:.5rem">
-    <h3 class="h4">Student Analytics</h3>
-    <div class="grow"></div>
-
-    <!-- Filters -->
-    <select id="anYear" class="input small">
-      <option value="">All Years</option>
-    </select>
-    <select id="anMonth" class="input small">
-      <option value="">All Months</option>
-      <option>January</option><option>February</option><option>March</option>
-      <option>April</option><option>May</option><option>June</option>
-      <option>July</option><option>August</option><option>September</option>
-      <option>October</option><option>November</option><option>December</option>
-    </select>
-    <input id="anQuery" class="input small" type="search" placeholder="Search name or email…">
-    <button class="btn small" id="anSearch">Search</button>
-    <button class="btn small" id="anReset">Reset</button>
-    <button class="btn small" id="anReloadUsers" data-role-min="admin">Reload Users</button>
-    <button class="btn small" id="anExport">Export CSV</button>
-  </div>
-
-  <div class="muted small" id="anHint" style="margin:.3rem 0 .6rem">
-    Tip: Click a row to see per-student details (enrollments, completions, certs, quiz stats).
-  </div>
-
-  <div class="table-wrap">
-    <table class="table" id="analyticsTable">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Email</th>
-          <th>Enrolled</th>
-          <th>Completed</th>
-          <th>Credits</th>
-          <th>First Seen</th>
-          <th>Last Active</th>
-        </tr>
-      </thead>
-      <tbody><!-- filled by JS --></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Drawer / Modal for student details -->
-<div id="studentDrawer" class="drawer">
-  <div class="drawer-body">
-    <div class="row" style="align-items:center">
-      <h4 class="h5" id="sdTitle">Student</h4>
-      <div class="grow"></div>
-      <button class="btn small" id="sdClose">Close</button>
-    </div>
-    <div id="sdContent" class="small"></div>
-  </div>
-</div>
         <div class="card" id="settings-help">
           <div class="row" style="align-items: center">
             <h3 class="h4">Help & Guide</h3>
@@ -744,8 +695,22 @@
         </div>
         <div id="avmBody" class="muted" style="margin: 0.5rem 0 1rem"></div>
         <div class="row" style="gap: 8px; justify-content: flex-end">
-          <button class="btn small" id="avmEdit" data-edit="..." data-role-min="instructor">Edit</button>
-          <button class="btn small" id="avmDelete" data-del="..." data-role-min="instructor">Delete</button>
+          <button
+            class="btn small"
+            id="avmEdit"
+            data-edit="..."
+            data-role-min="instructor"
+          >
+            Edit
+          </button>
+          <button
+            class="btn small"
+            id="avmDelete"
+            data-del="..."
+            data-role-min="instructor"
+          >
+            Delete
+          </button>
         </div>
       </div>
     </dialog>

@@ -265,6 +265,25 @@ To extend, add your new collection to `buildIndex()`.
 - Auth gating exceptions: `ALLOW_PAGES_WHEN_LOCKED` in Part 5/6.
 - Global search sources: `setupGlobalSearch()` → `buildIndex()`.
 
+## 16) Troubleshooting
+- Login works but clicks are disabled → Confirm onAuthStateChanged fires and IS_AUTHED flips true. Check console warnings.
+- Catalog empty → Verify /data/catalog.json reachable (Network tab); otherwise fallback seed is used.
+- Certificates not printing → hardCloseCert() resets stuck print/backdrop states.
+- Review not showing → Ensure the “cloud-first label adjust” block is present at the end of renderMyLearning().
+
+---
+
+Happy building!
+If you need additional architecture diagrams or code walkthroughs, drop them into /docs/ and link from Settings → Help.
+
+## 17) Addendum – Stabilizations (Sep 2025)
+### Auth Listener (Singleton)
+- Keep a single onAuthStateChanged(auth, ...) registration.
+- In the callback:
+`const role = await resolveUserRole(u) || "student";
+await ensureUserDoc(u, role);          // merge create only
+setUser({ email: u.email || "", role }); // no hard "student"
+setLogged(true, u.email || "");`
 
 ---
 
