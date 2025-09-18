@@ -3875,6 +3875,14 @@ function renderSettingsHelp() {
   }
 
   box.innerHTML = `
+  <div class="help-top">
+      <a id="devGuideLink"
+         href="./settingUpDetails.md"
+         download="settingUpDetails.md"
+         class="btn btn-sm">
+        ⬇️ Developer Guide (MD)
+      </a>
+    </div>
   <div class="help-grid">
     <div class="help-card">
       <b>🔐 Login & Account</b>
