@@ -1,0 +1,26 @@
+<!doctype html>
+<title>Scaffold Unpacker</title>
+<input type="file" id="f" />
+<button id="go">Make ZIP</button>
+<script>
+async function toZip(map){
+  const JSZip = await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js').then(m=>m.default);
+  const zip = new JSZip();
+  for (const [rel, content] of Object.entries(map)) {
+    zip.file("public/data/" + rel, content);
+  }
+  const blob = await zip.generateAsync({type:"blob"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "scaffold-unpacked.zip";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+document.getElementById("go").onclick = async ()=>{
+  const f = document.getElementById("f").files[0];
+  if(!f) return alert("Choose your *-scaffold.json");
+  const map = JSON.parse(await f.text());
+  await toZip(map);
+  alert("ZIP created. Unzip and copy 'public/data/...' into your project.");
+};
+</script>

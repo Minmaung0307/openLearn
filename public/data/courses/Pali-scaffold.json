@@ -1,6 +1,7 @@
 {
-  "courses/Pali/meta.json": "{\n  \"id\": \"Pali\",\n  \"title\": \"Sandhi\",\n  \"category\": \"Grammar\",\n  \"level\": \"Beginner\",\n  \"hours\": 8,\n  \"credits\": 2,\n  \"price\": 0,\n  \"summary\": \"High Quality Material: Both the choice of materials and the craftsmanship of sewing are above the normal standard.The material is no smell, safe for kids and very soft to touch.Sturdy support makes the tent much sturdier and kids can play in it freely.\",\n  \"benefits\": \"speak in Pali\\nwrite in Pali\\nread in Pali\",\n  \"image\": \"/assets/cat.png\"\n}",
-  "courses/Pali/lessons/lesson-00.html": "<!-- Lesson 0 -->\n<h2>Sandhi · Lesson 0</h2>\n<p>Write your content here…</p>",
-  "courses/Pali/lessons/lesson-01.html": "<!-- Lesson 1 -->\n<h2>Sandhi · Lesson 1</h2>\n<p>Write your content here…</p>",
-  "courses/Pali/lessons/lesson-02.html": "<!-- Lesson 2 -->\n<h2>Sandhi · Lesson 2</h2>\n<p>Write your content here…</p>"
+  "courses/pali-basics/meta.json": "{\n  \"id\": \"Pali\",\n  \"title\": \"Sandhi\",\n  \"category\": \"Grammar\",\n  \"level\": \"Beginner\",\n  \"hours\": 8,\n  \"credits\": 2,\n  \"price\": 0,\n  \"summary\": \"High Quality Material: Both the choice of materials and the craftsmanship of sewing are above the normal standard.The material is no smell, safe for kids and very soft to touch.Sturdy support makes the tent much sturdier and kids can play in it freely.\",\n  \"benefits\": \"speak in Pali\\nwrite in Pali\\nread in Pali\",\n  \"image\": \"/assets/cat.png\"\n}",
+  "courses/pali-basics/lessons/lesson-00.html": "<!-- Lesson 0 -->\n<h2>Sandhi · Lesson 0</h2>\n<p>Write your content here…</p>",
+  "courses/pali-basics/lessons/lesson-01.html": "<!-- Lesson 1 -->\n<h2>Sandhi · Lesson 1</h2>\n<p>Write your content here…</p>",
+  "courses/pali-basics/lessons/lesson-02.html": "<!-- Lesson 2 -->\n<h2>Sandhi · Lesson 2</h2>\n<p>Write your content here…</p>",
+  "courses/pali-basics/quizzes/lesson-01.json": "{\n  \"randomize\": true,\n  \"shuffleChoices\": true,\n  \"questions\": [\n    {\"type\":\"single\",\"q\":\"What is Sandhi?\",\"choices\":[\"Sound change\",\"Word order\"],\"correct\":0}\n  ]\n}"
 }

@@ -17,7 +17,7 @@
   "modules": [
     {
       "id": "m1",
-      "title": "ပါဠိ စာလုံးပေါင်း",
+      "title": "သာသနာအစ",
       "lessons": [
         {
           "type": "html",
@@ -33,9 +33,11 @@
           "type": "html",
           "title": "တရားတော်များ",
           "src": "lessons/lesson-02.html"
-        }
-      ],
-      "quiz": ["lesson-00.json", "lesson-01.json", "lesson-02.json"]
+        },
+        { "type": "quiz", "src": "quizzes/lesson-00.json" },
+        { "type": "quiz", "src": "quizzes/lesson-01.json" },
+        { "type": "quiz", "src": "quizzes/lesson-02.json" }
+      ]
     }
   ]
 }
