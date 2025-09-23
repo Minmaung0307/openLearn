@@ -3,6 +3,8 @@
   "title": "ပါဠိ အခြေခံ",
   "category": "Language",
   "level": "Intermediate",
+  "image": "/data/courses/pali-basics/images/cover.jpg",
+  "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့်လေ့ကျင့်ခန်းများ။",
   "description": "ပါဠိ အခြေခံသဒ္ဒါ၊ စာလုံးပေါင်းနှင့် ဝေါဟာရများကို လေ့လာပါ။",
   "benefits": [
     "စာလုံးပေါင်း အခြေခံ",
@@ -17,10 +19,23 @@
       "id": "m1",
       "title": "ပါဠိ စာလုံးပေါင်း",
       "lessons": [
-        { "file": "lesson1.html", "title": "အသံအက္ခရာများ" },
-        { "file": "lesson2.html", "title": "အက္ခရာ ပေါင်းစပ်နည်း" }
+        {
+          "type": "html",
+          "title": "ဘုရားဖြစ်ပေါ်လာပုံ",
+          "src": "lessons/lesson-00.html"
+        },
+        {
+          "type": "html",
+          "title": "တပည့်များပေါ်ထွန်းလာပုံ",
+          "src": "lessons/lesson-01.html"
+        },
+        {
+          "type": "html",
+          "title": "တရားတော်များ",
+          "src": "lessons/lesson-02.html"
+        }
       ],
-      "quiz": "quiz1.json"
+      "quiz": ["lesson-00.json", "lesson-01.json", "lesson-02.json"]
     }
   ]
 }

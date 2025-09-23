@@ -10,7 +10,8 @@
       "rating": 4.7,
       "hours": 10,
       "summary": "Start JavaScript from zero.",
-      "image": ""
+      "image": "",
+      "benefits": "Good\nBetter\nBest"
     },
     {
       "id": "react-fast",
@@ -22,7 +23,8 @@
       "rating": 4.6,
       "hours": 8,
       "summary": "Build modern UIs.",
-      "image": ""
+      "image": "",
+      "benefits": "Good\nBetter\nBest"
     },
     {
       "id": "py-data",
@@ -34,7 +36,8 @@
       "rating": 4.8,
       "hours": 14,
       "summary": "Pandas & plots.",
-      "image": ""
+      "image": "",
+      "benefits": "Good\nBetter\nBest"
     },
     {
       "id": "web-foundations",
@@ -46,7 +49,8 @@
       "rating": 4.8,
       "hours": 30,
       "summary": "HTML/CSS/JS အခြေခံများကို တစ်ခုတည်းတွင် သိသိသာသာ လေ့လာနိုင်စေသည်။",
-      "image": ""
+      "image": "",
+      "benefits": "Good\nBetter\nBest"
     },
     {
       "id": "pali-basics",
@@ -57,8 +61,9 @@
       "credits": 2,
       "rating": 4.7,
       "hours": 20,
-      "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့် வாசிப்பလေ့ကျင့်ခန်းများ။",
-      "image": "/data/courses/pali-basics/images/cover.jpg"
+      "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့်လေ့ကျင့်ခန်းများ။",
+      "image": "/data/courses/pali-basics/images/cover.jpg",
+      "benefits": "အခြေခံမှစတင်နားလည်ရလွယ်\nအသံထွက်နှင့် စာလုံးပေါင်း လေ့ကျင့်ခန်းများ\nသင်တန်းပြီး ဆက်လက်လေ့လာရန် လမ်းညွှန်"
     }
   ]
 }
