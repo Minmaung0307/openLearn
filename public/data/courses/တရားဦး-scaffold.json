@@ -1,0 +1,6 @@
+{
+  "courses/တရားဦး/meta.json": "{\n  \"id\": \"တရားဦး\",\n  \"title\": \"သာသနာအစ\",\n  \"category\": \"ဝိနည်း\",\n  \"level\": \"Beginner\",\n  \"hours\": 8,\n  \"credits\": 2,\n  \"price\": 1,\n  \"summary\": \"Large Size: The play tent is 47.2\\\" L × 39.4\\\" W × 51.2\\\" H, providing a large space for kids to play,read or sleep and the lovely playhouse can accommodate two or three children at the same time,even adults can enter the kids playhouse easily.\",\n  \"benefits\": \"Good,\\nGreat,\\nexcellent\",\n  \"image\": \"/assets/cat.png\"\n}",
+  "courses/တရားဦး/lessons/lesson-00.html": "<!-- ဘုရားဖြစ်ပေါ်လာပုံ -->\n<h2>သာသနာအစ · ဘုရားဖြစ်ပေါ်လာပုံ</h2>\n<p>Write your content here…</p>",
+  "courses/တရားဦး/lessons/lesson-01.html": "<!-- တပည့်များပေါ်ထွန်းလာပုံ -->\n<h2>သာသနာအစ · တပည့်များပေါ်ထွန်းလာပုံ</h2>\n<p>Write your content here…</p>",
+  "courses/တရားဦး/lessons/lesson-02.html": "<!-- တရားတော်များ -->\n<h2>သာသနာအစ · တရားတော်များ</h2>\n<p>Write your content here…</p>"
+}

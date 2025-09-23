@@ -716,91 +716,69 @@ function renderCatalog() {
   if (!grid) return;
   ALL = getCourses();
 
-  // ---- build category options ONCE (don’t reset user selection) ----
+  // build category options ONCE (preserve user selection)
   const sel = $("#filterCategory");
   if (sel && !sel.dataset.built) {
-    const cats = Array.from(
-      new Set(
-        ALL.flatMap((c) =>
-          Array.isArray(c.category) ? c.category : [c.category]
-        )
-          .map((c) => (c || "").toString().trim())
-          .filter(Boolean)
-      )
-    ).sort((a, b) => a.localeCompare(b));
-    sel.innerHTML =
-      `<option value="">All Categories</option>` +
-      cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    const cats = Array.from(new Set(
+      ALL.flatMap(c => Array.isArray(c.category) ? c.category : [c.category])
+        .map(c => (c || "").toString().trim())
+        .filter(Boolean)
+    )).sort((a,b)=>a.localeCompare(b));
+    sel.innerHTML = `<option value="">All Categories</option>` + cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
     sel.dataset.built = "1";
   }
 
-  // ---- read filters (treat "", "All", "all categories" as ALL) ----
+  // read filters
   const rawCat = $("#filterCategory")?.value || "";
   const rawLvl = $("#filterLevel")?.value || "";
   const sort = ($("#sortBy")?.value || "").trim();
+  const _norm = (s) => String(s || "").toLowerCase().trim();
+  const _hasCategory = (c, want) =>
+    Array.isArray(c.category) ? c.category.some(x => _norm(x) === _norm(want)) : _norm(c.category) === _norm(want);
 
   const cat = _norm(rawCat);
   const lvl = _norm(rawLvl);
   const isAllCat = cat === "" || cat === "all" || cat === "all categories";
 
-  // ---- filter ----
+  // filter + sort (sortCourses already defined) 
   let list = ALL.filter((c) => {
     const okCat = isAllCat ? true : _hasCategory(c, rawCat);
     const okLvl = lvl === "" ? true : _norm(c.level) === lvl;
     return okCat && okLvl;
   });
-
-  list = sortCourses(list, sort);
+  list = sortCourses(list, sort); // exists in your file  [oai_citation:3‡app.js](file-service://file-5iJmYVSYgMtNoDDhyckXdQ)
 
   if (!list.length) {
     grid.innerHTML = `<div class="muted">No courses match the filters.</div>`;
     return;
   }
 
-  grid.innerHTML = list
-    .map((c) => {
-      const r = Number(c.rating || 4.6);
-      const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
-      const search = [
-        c.title,
-        c.summary,
-        Array.isArray(c.category) ? c.category.join(", ") : c.category,
-        c.level,
-      ].join(" ");
-      const enrolled = getEnrolls().has(c.id);
-      return `<div class="card course" data-id="${c.id}" data-search="${esc(
-        search
-      )}">
-      <img class="course-cover" src="${esc(
-        c.image || `https://picsum.photos/seed/${c.id}/640/360`
-      )}" alt="">
-      <div class="course-body">
-        <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(
-          Array.isArray(c.category) ? c.category.join(", ") : c.category || ""
-        )} • ${esc(c.level || "")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
-        <div class="muted">${esc(c.summary || "")}</div>
-        <div class="row" style="justify-content:flex-end; gap:8px">
-          <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${
-        enrolled ? "Enrolled" : "Enroll"
-      }</button>
-        </div>
-      </div>
-    </div>`;
-    })
-    .join("");
+  grid.innerHTML = list.map((c) => {
+    const r = Number(c.rating ?? 4.6);
+    const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+    const search = [c.title, c.summary, Array.isArray(c.category) ? c.category.join(", ") : c.category, c.level].join(" ");
+    const enrolled = getEnrolls().has(c.id);
+    const ben = (c.benefits || "").trim();
+    const benList = ben ? `<ul class="small muted benefits">${ben.split(/\r?\n/).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : "";
 
-  grid
-    .querySelectorAll("[data-enroll]")
-    .forEach(
-      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
-    );
-  grid
-    .querySelectorAll("[data-details]")
-    .forEach(
-      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
-    );
+    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
+  <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+  <div class="course-body">
+    <strong>${esc(c.title)}</strong>
+    <div class="small muted">${esc(Array.isArray(c.category) ? c.category.join(", ") : c.category || "")} • ${esc(c.level || "")} • ${renderStars(r)}</div>
+    <div class="muted">${esc(c.summary || "")}</div>
+    ${benList}
+    <div class="row" style="justify-content:flex-end; gap:8px">
+      <button class="btn" data-details="${c.id}">Details</button>
+      <button class="btn primary" data-enroll="${c.id}">${enrolled ? "Enrolled" : "Enroll"}</button>
+    </div>
+  </div>
+</div>`;
+  }).join("");
+
+  // bind actions
+  grid.querySelectorAll("[data-enroll]").forEach((b)=> b.onclick = () => handleEnroll(b.getAttribute("data-enroll")));
+  grid.querySelectorAll("[data-details]").forEach((b)=> b.onclick = () => openDetails(b.getAttribute("data-details")));
 }
 
 // default option before data arrives (kept)
@@ -3106,7 +3084,7 @@ function showCongrats() {
 }
 
 function renderMyLearning() {
-  const grid = $("#myCourses"); // <-- ဒီလို define လုပ်ဖို့လို
+  const grid = $("#myCourses");
   if (!grid) return;
 
   // Hide cards while reader open
@@ -3125,44 +3103,37 @@ function renderMyLearning() {
     return;
   }
 
-  // --- renderMyLearning() မထဲက buttons template ကို ဒီလို ပြောင်း ---
-  grid.innerHTML = list
-    .map((c) => {
-      const isDone = completed.has(c.id);
-      const issued = !!getIssuedCert(c.id);
-      const label = isDone ? "Review" : "Continue";
+  grid.innerHTML = list.map((c) => {
+    const isDone = completed.has(c.id);
+    const issued = !!getIssuedCert(c.id);
+    const label = isDone ? "Review" : "Continue";
+    const ben = (c.benefits || "").trim();
+    const benList = ben
+      ? `<ul class="small muted benefits">${ben.split(/\r?\n/).map((x)=>`<li>${esc(x)}</li>`).join("")}</ul>`
+      : "";
 
-      return `<div class="card course" data-id="${c.id}">
-    <img class="course-cover" src="${esc(
-      c.image || `https://picsum.photos/seed/${c.id}/640/360`
-    )}" alt="">
-    <div class="course-body">
-      <strong>${esc(c.title)}</strong>
-      <div class="small muted">${esc(c.category || "")} • ${esc(
-        c.level || ""
-      )} • ★ ${Number(c.rating || 4.6).toFixed(1)}</div>
-      <div class="muted">${esc(c.summary || "")}</div>
-      <div class="row" style="justify-content:flex-end; gap:8px">
-        <button class="btn" data-read="${c.id}">${label}</button>
-        <button class="btn" data-cert="${c.id}" ${
-        issued ? "" : "disabled"
-      }>Certificate</button>
-      </div>
+    return `<div class="card course" data-id="${c.id}">
+  <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+  <div class="course-body">
+    <strong>${esc(c.title)}</strong>
+    <div class="small muted">${esc(c.category || "")} • ${esc(c.level || "")} • ${renderStars(c.rating)}</div>
+    <div class="muted">${esc(c.summary || "")}</div>
+    ${benList}
+    <div class="row" style="justify-content:flex-end; gap:8px">
+      <button class="btn" data-read="${c.id}">${label}</button>
+      <button class="btn" data-cert="${c.id}" ${issued ? "" : "disabled"}>Certificate</button>
     </div>
-  </div>`;
-    })
-    .join("");
+  </div>
+</div>`;
+  }).join("");
 
-  // wire buttons (this was missing → caused “can’t click”)
-  grid.querySelectorAll("[data-read]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-read");
-        openReader(id);
-      })
-  );
+  // wire buttons
+  grid.querySelectorAll("[data-read]").forEach((b) => b.onclick = () => {
+    const id = b.getAttribute("data-read");
+    openReader(id); // openReader version supports pages/meta/quizzes already
+  });
 
-  // ★★★ ADD THIS BLOCK — Firefox timing safe label fix ★★★
+  // Firefox timing guard: ensure label becomes "Review" if cloud marks it
   (async () => {
     const cards = Array.from(grid.querySelectorAll(".card.course"));
     for (const card of cards) {
@@ -3170,40 +3141,28 @@ function renderMyLearning() {
       if (!id) continue;
       const btn = card.querySelector("[data-read]");
       if (!btn) continue;
-
-      // 1) Local completed first (instant)
-      if (completed.has(id)) {
-        btn.textContent = "Review";
-        continue;
-      }
-
-      // 2) Cloud progress (fallback)
-      try {
-        const p = await getProgress(id); // cloud → local fallback
-        // progress object ကို သင့် app မှာ ဒီလို save လုပ်တယ်:
-        // { [courseId]: { status, lesson, ts } }
-        // markCourseProgress() က status='review' ထည့်ပေးထားပြီးသား
-        // (function က အခုလည်း app.js ထဲမှာ ရှိပြီ။
-        //  [oai_citation:1‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb)  /  [oai_citation:2‡app.js](file-service://file-LfpqgCWwpduwPx4bja1Crb))
-        if (p && p.status === "review") {
-          btn.textContent = "Review";
-        }
-      } catch {}
+      if (completed.has(id)) { btn.textContent = "Review"; continue; }
+      try { const p = await getProgress(id); if (p?.status === "review") btn.textContent = "Review"; } catch {}
     }
   })();
 
-  grid.querySelectorAll("[data-cert]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const id = b.getAttribute("data-cert");
-        const rec = getIssuedCert(id);
-        if (!rec) return toast("Certificate not issued yet");
-        const c = (ALL.length ? ALL : getCourses()).find((x) => x.id === id);
-        if (c) showCertificate(c); // view only; won’t issue new
-      })
-  );
+  grid.querySelectorAll("[data-cert]").forEach((b) => b.onclick = () => {
+    const id = b.getAttribute("data-cert");
+    const rec = getIssuedCert(id);
+    if (!rec) return toast("Certificate not issued yet");
+    const c = (ALL.length ? ALL : getCourses()).find((x) => x.id === id);
+    if (c) showCertificate(c);
+  });
 }
 window.renderMyLearning = renderMyLearning;
+
+function renderStars(r){
+  const rating = Number(r || 4.6);
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.5 ? 1 : 0;
+  const empty = 5 - full - half;
+  return "★".repeat(full) + (half?"½":"") + "☆".repeat(empty) + ` ${rating.toFixed(1)}`;
+}
 
 function renderCertificate(course, cert) {
   const p = getProfile();
