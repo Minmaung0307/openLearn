@@ -3837,18 +3837,18 @@ $("#postForm")?.addEventListener("submit", (e) => {
 });
 
 /* ---------- Chat gating ---------- */
-function gateChatUI() {
-  const isFb = !!auth?.currentUser && !auth.currentUser.isAnonymous;
-  const isLocal = !!getUser();
-  const ok = isFb || isLocal;
-  ["chatInput", "chatSend", "ccInput", "ccSend"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.toggleAttribute("disabled", !ok);
-    const card = el.closest(".card");
-    if (card) card.classList.toggle("gated", !ok);
-  });
-}
+// function gateChatUI() {
+//   const isFb = !!auth?.currentUser && !auth.currentUser.isAnonymous;
+//   const isLocal = !!getUser();
+//   const ok = isFb || isLocal;
+//   ["chatInput", "chatSend", "ccInput", "ccSend"].forEach((id) => {
+//     const el = document.getElementById(id);
+//     if (!el) return;
+//     el.toggleAttribute("disabled", !ok);
+//     const card = el.closest(".card");
+//     if (card) card.classList.toggle("gated", !ok);
+//   });
+// }
 
 /* ---------- Global Live Chat (RTDB if available; local fallback) ---------- */
 function initChatRealtime() {
