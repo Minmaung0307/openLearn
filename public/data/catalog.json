@@ -64,6 +64,45 @@
       "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့်လေ့ကျင့်ခန်းများ။",
       "image": "/data/courses/pali-basics/images/cover.jpg",
       "benefits": "အခြေခံမှစတင်နားလည်ရလွယ်\nအသံထွက်နှင့် စာလုံးပေါင်း လေ့ကျင့်ခန်းများ\nသင်တန်းပြီး ဆက်လက်လေ့လာရန် လမ်းညွှန်"
+    },
+{
+      "id": "web",
+      "title": "HTML",
+      "category": "Web",
+      "level": "Beginner",
+      "price": 0,
+      "credits": 2,
+      "rating": 4.7,
+      "hours": 20,
+      "summary": "html tags, elements, layouts",
+      "image": "/data/courses/pali-basics/images/cover.jpg",
+      "benefits": "အခြေခံမှစတင်နားလည်ရလွယ်\nအသံထွက်နှင့် စာလုံးပေါင်း လေ့ကျင့်ခန်းများ\nသင်တန်းပြီး ဆက်လက်လေ့လာရန် လမ်းညွှန်"
+    },
+    {
+      "id": "မဟာဝါ",
+      "title": "သာသနာအစ",
+      "category": "ဝိနည်း",
+      "level": "Beginner",
+      "price": 0,
+      "credits": 2,
+      "rating": 4.7,
+      "hours": 20,
+      "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့်လေ့ကျင့်ခန်းများ။",
+      "image": "/data/courses/pali-basics/images/cover.jpg",
+      "benefits": "good\nbetter\nbest"
+    },
+    {
+      "id": "သဒ္ဒါ",
+      "title": "သန္ဓိ",
+      "category": "ပါဠိ",
+      "level": "Beginner",
+      "price": 0,
+      "credits": 2,
+      "rating": 4.7,
+      "hours": 20,
+      "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့်လေ့ကျင့်ခန်းများ။",
+      "image": "/data/courses/pali-basics/images/cover.jpg",
+      "benefits": "good1\nbetter1\nbest1"
     }
   ]
 }
