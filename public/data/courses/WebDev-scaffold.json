@@ -1,0 +1,6 @@
+{
+  "courses/WebDev/meta.json": "{\n  \"id\": \"WebDev\",\n  \"title\": \"HTML\",\n  \"category\": \"Web\",\n  \"level\": \"Beginner\",\n  \"hours\": 8,\n  \"credits\": 2,\n  \"price\": 0,\n  \"summary\": \"Web Design\",\n  \"image\": \"/assets/cat.png\"\n}",
+  "courses/WebDev/quiz.json": "{\n  \"randomize\": true,\n  \"shuffleChoices\": true,\n  \"questions\": [\n    {\n      \"type\": \"single\",\n      \"q\": \"This is a sample question 1?\",\n      \"choices\": [\n        \"A\",\n        \"B\",\n        \"C\",\n        \"D\"\n      ],\n      \"correct\": 0\n    },\n    {\n      \"type\": \"single\",\n      \"q\": \"This is a sample question 2?\",\n      \"choices\": [\n        \"True\",\n        \"False\"\n      ],\n      \"correct\": 0\n    }\n  ]\n}",
+  "courses/WebDev/lessons/lesson-01.html": "<!-- Lesson 1 -->\n<h2>HTML · Lesson 1</h2>\n<p>Write your content here…</p>\n",
+  "courses/WebDev/lessons/lesson-02.html": "<!-- Lesson 2 -->\n<h2>HTML · Lesson 2</h2>\n<p>Write your content here…</p>\n"
+}

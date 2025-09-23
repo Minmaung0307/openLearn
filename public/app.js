@@ -825,13 +825,17 @@ function renderAnnItem(a) {
   const div = document.createElement("div");
   div.className = "card";
   const t = a.ts ? new Date(a.ts).toLocaleString() : "";
-  div.innerHTML = `<div class="small muted">${esc(a.author || "instructor")} • ${t}</div><div><b>${esc(a.title || "")}</b></div><div>${esc(a.body || "")}</div>`;
+  div.innerHTML = `<div class="small muted">${esc(
+    a.author || "instructor"
+  )} • ${t}</div><div><b>${esc(a.title || "")}</b></div><div>${esc(
+    a.body || ""
+  )}</div>`;
   return div;
 }
 
 function initAnnouncements() {
   const list = document.getElementById("annList");
-  const btn  = document.getElementById("btn-new-post");
+  const btn = document.getElementById("btn-new-post");
   const aref = annsRef();
   if (!list || !aref) return;
 
@@ -842,7 +846,9 @@ function initAnnouncements() {
     // badge update
     try {
       const old = getAnns(); // local mirror
-      old.push(a); setAnns(old); updateAnnBadge();
+      old.push(a);
+      setAnns(old);
+      updateAnnBadge();
     } catch {}
   });
 
@@ -852,12 +858,19 @@ function initAnnouncements() {
     }
     const title = prompt("Announcement title?");
     if (!title) return;
-    const body  = prompt("Message?");
+    const body = prompt("Message?");
     if (body == null) return;
     try {
-      await push(aref, { title, body, author: (getUser()?.email || "instructor"), ts: Date.now() });
+      await push(aref, {
+        title,
+        body,
+        author: getUser()?.email || "instructor",
+        ts: Date.now(),
+      });
       toast("Announced");
-    } catch { toast("Announce failed"); }
+    } catch {
+      toast("Announce failed");
+    }
   });
 }
 document.addEventListener("DOMContentLoaded", initAnnouncements);
@@ -1028,7 +1041,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const title = $("#courseTitle")?.value.trim();
     const category = $("#courseCat")?.value.trim();
     const level = $("#courseLevel")?.value.trim() || "Beginner";
-    const summary = $("#courseSummary")?.value.trim();
+    const summary = $("#courseSummary")?.value.trim() || "";
+    const benefits = $("#courseBenefits")?.value.trim() || "";
     const image = resolveAssetUrl($("#courseImage")?.value.trim());
     const hours = Math.max(1, parseInt($("#courseHours")?.value || "8", 10));
     const credits = Math.max(
@@ -1036,86 +1050,143 @@ document.addEventListener("DOMContentLoaded", () => {
       parseInt($("#courseCredits")?.value || "2", 10)
     );
     const price = Math.max(0, parseInt($("#coursePrice")?.value || "0", 10));
-    const lessons = Math.max(
+    const lessonsCount = Math.max(
       1,
       parseInt($("#courseLessons")?.value || "3", 10)
     );
+    const planText = ($("#lessonPlan")?.value || "").trim();
 
     if (!id || !title || !category) return toast("Fill required fields");
 
-    // 1) update catalog (localStorage first)
+    // update catalog (localStorage → UI)
     const all = getCourses();
-    if (all.some((c) => c.id === id)) return toast("Course ID already exists");
-    const rec = {
+    if (all.some((c) => c.id === id)) {
+      // overwrite? confirm
+      if (!confirm("Course ID exists. Overwrite catalog record?")) return;
+      setCourses(
+        all.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                title,
+                category,
+                level,
+                price,
+                credits,
+                hours,
+                summary,
+                image,
+              }
+            : c
+        )
+      );
+    } else {
+      const rec = {
+        id,
+        title,
+        category,
+        level,
+        price,
+        credits,
+        rating: 4.7,
+        hours,
+        summary,
+        image,
+      };
+      setCourses([...all, rec]);
+    }
+    if (typeof renderCatalog === "function") renderCatalog();
+
+    // build lesson entries
+    const files = {};
+    const meta = {
       id,
       title,
       category,
       level,
-      price,
-      credits,
-      rating: 4.7,
       hours,
+      credits,
+      price,
       summary,
+      benefits,
       image,
     };
-    setCourses([...all, rec]);
-    renderCatalog();
+    files[`courses/${id}/meta.json`] = JSON.stringify(meta, null, 2);
 
-    // 2) scaffold course structure (client-side for download)
-    //    /data/courses/<id>/{meta.json, quiz.json, lessons/*.html}
-    // Note: static hosting မှာ direct write မဖြစ်နိုင် — zip အဖြစ် client-side download
-    try {
-      const files = {};
-      files[`courses/${id}/meta.json`] = JSON.stringify(
-        {
-          id,
-          title,
-          category,
-          level,
-          hours,
-          credits,
-          price,
-          summary,
-          image,
-        },
-        null,
-        2
-      );
-
-      // sample quiz bank
-      files[`courses/${id}/quiz.json`] = JSON.stringify(
-        {
-          randomize: true,
-          shuffleChoices: true,
-          questions: [
-            {
-              type: "single",
-              q: "This is a sample question 1?",
-              choices: ["A", "B", "C", "D"],
-              correct: 0,
-            },
-            {
-              type: "single",
-              q: "This is a sample question 2?",
-              choices: ["True", "False"],
-              correct: 0,
-            },
-          ],
-        },
-        null,
-        2
-      );
-
-      for (let i = 1; i <= lessons; i++) {
+    // parse plan (override count if provided)
+    let plan = [];
+    if (planText) {
+      plan = planText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line, idx) => {
+          // formats supported: "lesson-1: name, quiz" or "1: name" or "name, quiz"
+          const hasQuiz = /(?:^|,)\s*quiz\s*$/i.test(line);
+          const cleaned = line.replace(/\s*,\s*quiz\s*$/i, "");
+          // pull title fragment after ":" if present
+          let name = cleaned;
+          const m = cleaned.match(/^[^:]+:\s*(.+)$/);
+          if (m) name = m[1];
+          // index/slug
+          const n = String(idx).padStart(2, "0");
+          const slug =
+            name
+              .toLowerCase()
+              .replace(/[^\w]+/g, "-")
+              .replace(/(^-|-$)/g, "") || `lesson-${n}`;
+          return { n, name: name || `Lesson ${idx}`, slug, hasQuiz };
+        });
+    } else {
+      // fallback: simple count (lesson-00..)
+      for (let i = 0; i < lessonsCount; i++) {
         const n = String(i).padStart(2, "0");
-        files[
-          `courses/${id}/lessons/lesson-${n}.html`
-        ] = `<!-- Lesson ${i} -->\n<h2>${esc(
-          title
-        )} · Lesson ${i}</h2>\n<p>Write your content here…</p>\n`;
+        plan.push({
+          n,
+          name: `Lesson ${i}`,
+          slug: `lesson-${n}`,
+          hasQuiz: false,
+        });
       }
+    }
 
-      // build a single JSON blob so you can save as .zip later (or import server-side)
+    // always prefix with lesson-00 intro if first line says "lesson-0" or name contains "intro"
+    // (Actually we just respect user's plan order; if you want auto-intro, uncomment below)
+    // if (!plan.find(x => x.n === "00")) plan.unshift({ n: "00", name: "Intro", slug: "lesson-00-intro", hasQuiz:false });
+
+    // create lesson html + optional quiz json
+    plan.forEach((p, idx) => {
+      const fileName = `courses/${id}/lessons/${
+        p.slug || "lesson-" + p.n
+      }.html`;
+      const label = p.name || `Lesson ${idx}`;
+      files[fileName] = `<!-- ${label} -->
+<h2>${esc(title)} · ${esc(label)}</h2>
+<p>Write your content here…</p>`;
+
+      if (p.hasQuiz) {
+        const qn = p.slug || `lesson-${p.n}`;
+        files[`courses/${id}/quizzes/${qn}.json`] = JSON.stringify(
+          {
+            randomize: true,
+            shuffleChoices: true,
+            questions: [
+              {
+                type: "single",
+                q: "Sample question?",
+                choices: ["A", "B", "C", "D"],
+                correct: 0,
+              },
+            ],
+          },
+          null,
+          2
+        );
+      }
+    });
+
+    // package as a single JSON for download (to place under /public/data)
+    try {
       const blob = new Blob([JSON.stringify(files, null, 2)], {
         type: "application/json",
       });
@@ -1127,9 +1198,10 @@ document.addEventListener("DOMContentLoaded", () => {
       URL.revokeObjectURL(url);
       toast("Course created (downloaded scaffold)");
     } catch {
-      console.warn("Scaffold build failed");
+      toast("Scaffold build failed");
     }
 
+    // close modal
     courseModal?.close();
   });
 
@@ -1311,8 +1383,6 @@ function initSearch() {
     }
   });
 })();
-
-
 
 /* =========================================================
    Part 3/6 — Auth, catalog actions, details

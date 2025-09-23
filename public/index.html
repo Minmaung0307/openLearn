@@ -542,47 +542,61 @@
     </dialog>
 
     <dialog id="courseModal" class="ol-modal card">
-      <form id="courseForm" method="dialog" class="stack">
+      <form
+        id="courseForm"
+        method="dialog"
+        class="authpane"
+        style="grid-template-columns: repeat(12, 1fr)"
+      >
+        <!-- 1) Top: Title + Close -->
         <div
           class="row"
-          style="justify-content: space-between; align-items: center"
+          style="
+            grid-column: 1/-1;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+          "
         >
           <b class="modal-title">New Course</b>
           <div class="row" style="gap: 6px">
-            <button class="btn small" id="btn-course-cancel" type="button">
-              Cancel
-            </button>
             <button class="btn small" id="btn-course-close" type="button">
               Close
             </button>
           </div>
         </div>
 
-        <label
+        <!-- 2) Course ID & Category -->
+        <label style="grid-column: 1/7"
           >Course ID
           <input
             id="courseId"
             class="input"
-            placeholder="e.g., web-foundations"
+            placeholder="e.g., web-essentials"
             required
-        /></label>
-        <label
+          />
+        </label>
+        <label style="grid-column: 7/13"
+          >Category
+          <input
+            id="courseCat"
+            class="input"
+            placeholder="e.g., Web"
+            required
+          />
+        </label>
+
+        <!-- 3) Title & Level -->
+        <label style="grid-column: 1/9"
           >Title
           <input
             id="courseTitle"
             class="input"
             placeholder="Course title"
             required
-        /></label>
-        <label
-          >Category
-          <input
-            id="courseCat"
-            class="input"
-            placeholder="Web / Data / Language …"
-            required
-        /></label>
-        <label
+          />
+        </label>
+        <label style="grid-column: 9/13"
           >Level
           <select id="courseLevel" class="input">
             <option>Beginner</option>
@@ -590,7 +604,9 @@
             <option>Advanced</option>
           </select>
         </label>
-        <label
+
+        <!-- 4) Summary -->
+        <label style="grid-column: 1/-1"
           >Summary
           <textarea
             id="courseSummary"
@@ -599,63 +615,98 @@
             placeholder="Short description"
           ></textarea>
         </label>
-        <label
+
+        <!-- 5) Benefits -->
+        <label style="grid-column: 1/-1"
+          >Benefits
+          <textarea
+            id="courseBenefits"
+            class="input"
+            rows="3"
+            placeholder="Hands-on projects&#10;Downloadable resources&#10;Certificate"
+          ></textarea>
+        </label>
+
+        <!-- 6) Cover Image, Hours, Credits, Price -->
+        <label style="grid-column: 1/7"
           >Cover Image URL (optional)
           <input
             id="courseImage"
             class="input"
             placeholder="https://… or /assets/…"
-        /></label>
-        <div class="row" style="gap: 8px">
-          <label style="flex: 1"
-            >Hours
-            <input
-              id="courseHours"
-              type="number"
-              min="1"
-              value="8"
-              class="input"
-          /></label>
-          <label style="flex: 1"
-            >Credits
-            <input
-              id="courseCredits"
-              type="number"
-              min="1"
-              value="2"
-              class="input"
-          /></label>
-          <label style="flex: 1"
-            >Price ($)
-            <input
-              id="coursePrice"
-              type="number"
-              min="0"
-              value="0"
-              class="input"
-          /></label>
-        </div>
+          />
+        </label>
+        <label style="grid-column: 7/10"
+          >Hours
+          <input
+            id="courseHours"
+            type="number"
+            min="1"
+            value="8"
+            class="input"
+          />
+        </label>
+        <label style="grid-column: 10/12"
+          >Credits
+          <input
+            id="courseCredits"
+            type="number"
+            min="1"
+            value="2"
+            class="input"
+          />
+        </label>
+        <label style="grid-column: 12/13"
+          >Price ($)
+          <input
+            id="coursePrice"
+            type="number"
+            min="0"
+            value="0"
+            class="input"
+          />
+        </label>
 
-        <fieldset class="card" style="margin-top: 6px">
+        <!-- 7) Initial Lessons -->
+        <fieldset class="card" style="grid-column: 1/-1">
           <legend>Initial Lessons</legend>
-          <label
-            >How many lessons to scaffold?
-            <input
-              id="courseLessons"
-              type="number"
-              min="1"
-              value="3"
-              class="input"
-              style="max-width: 120px"
-            />
-          </label>
-          <div class="small muted">
-            We’ll scaffold /data/courses/&lt;id&gt;/ with lesson .html files and
-            quiz.json structure for download.
+          <div class="row" style="gap: 12px; align-items: flex-start">
+            <label
+              >Count
+              <input
+                id="courseLessons"
+                type="number"
+                min="1"
+                value="3"
+                class="input"
+                style="max-width: 120px"
+              />
+            </label>
+            <label class="grow"
+              >Optional lesson plan (one per line)
+              <textarea
+                id="lessonPlan"
+                class="input"
+                rows="6"
+                placeholder="lesson-0: intro&#10;lesson-1: elements and tags, quiz&#10;lesson-2: page layouts, quiz"
+              ></textarea>
+            </label>
           </div>
+          <small class="muted"
+            >If you provide a plan, it overrides the count. Add
+            <code>, quiz</code> to create a quiz skeleton for that
+            lesson.</small
+          >
         </fieldset>
 
-        <div class="row" style="justify-content: flex-end; gap: 8px">
+        <!-- 8) Save & Cancel -->
+        <div
+          class="row"
+          style="grid-column: 1/-1; justify-content: flex-end; gap: 8px"
+        >
+          <button class="btn" id="btn-course-cancel" type="button">
+            Cancel
+          </button>
           <button class="btn primary" id="btn-course-save" type="submit">
             Save
           </button>
