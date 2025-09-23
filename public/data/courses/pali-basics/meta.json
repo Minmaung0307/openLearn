@@ -3,7 +3,7 @@
   "title": "ပါဠိ အခြေခံ",
   "category": "Language",
   "level": "Intermediate",
-  "image": "/data/courses/pali-basics/images/cover.jpg",
+  "image": "/data/courses/pali-basics/images/cover.png",
   "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့်လေ့ကျင့်ခန်းများ။",
   "description": "ပါဠိ အခြေခံသဒ္ဒါ၊ စာလုံးပေါင်းနှင့် ဝေါဟာရများကို လေ့လာပါ။",
   "benefits": [
@@ -13,7 +13,7 @@
   ],
   "credits": 2,
   "hours": 8,
-  "cover": "/data/courses/pali-basics/images/cover.jpg",
+  "cover": "/data/courses/pali-basics/images/cover.png",
   "modules": [
     {
       "id": "m1",
