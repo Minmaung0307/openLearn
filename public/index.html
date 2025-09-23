@@ -266,6 +266,8 @@
 
       <!-- Admin -->
       <section id="page-admin" class="page">
+        <!-- Admin: Course Creation Guide button -->
+<button class="btn" id="btn-course-guide">Course Creation Guide</button>
         <div class="card">
           <h3 class="h4">Courses</h3>
           <table class="ol-table" id="adminTable">
@@ -713,6 +715,129 @@
         </div>
       </form>
     </dialog>
+
+    <dialog id="guideModal" class="ol-modal card" style="max-width:880px">
+  <form method="dialog" class="stack">
+    <div class="row" style="justify-content:space-between; align-items:center">
+      <b>Course Creation Guide</b>
+      <button type="button" class="btn small" id="btn-guide-close">Close</button>
+    </div>
+
+    <article class="prose" style="max-height:70vh; overflow:auto">
+      <h3>Overview</h3>
+      <p>ဤလမ်းညွှန်သည် <code>/public/data</code> အောက်တွင် <code>courses/&lt;id&gt;</code> ဖိုလ်ဒါအောက် <code>meta.json</code>၊ <code>lessons/*.html</code>၊ <code>quizzes/*.json</code> တို့ကို စနစ်တကျ တည်ဆောက်ရန်အတွက် ဖြစ်ပါတယ်။</p>
+
+      <h3>1) Catalog (Cards) — <code>/public/data/catalog.json</code></h3>
+      <p>Catalog တွင် Cards အတွက် အသုံးပြုမည့် အကျဉ်းချုံ့တန်ဖိုးများကို ထည့်ပါ။ <strong>id</strong> သည် course folder နာမည်နှင့် <strong>တူရ</strong>ပါမည်။</p>
+      <pre><code>{
+  "id": "pali-basics",
+  "title": "ပါဠိ အခြေခံ",
+  "category": "Language",
+  "level": "Beginner",
+  "price": 0,
+  "credits": 2,
+  "rating": 4.7,
+  "hours": 20,
+  "summary": "…",
+  "image": "/data/courses/pali-basics/images/cover.jpg",
+  "benefits": "အခြေခံမှစ…\nအသံထွက်…\nလေ့ကျင့်ခန်း…"
+}</code></pre>
+
+      <h3>2) Folder Structure — <code>/public/data/courses/&lt;id&gt;/</code></h3>
+      <pre><code>public/
+  data/
+    courses/
+      pali-basics/
+        meta.json
+        lessons/
+          lesson-00.html
+          lesson-01.html
+        quizzes/
+          lesson-01.json
+        images/
+          cover.jpg</code></pre>
+
+      <h3>3) Meta (Reader Source) — <code>meta.json</code></h3>
+      <p><code>meta.json</code> သည် reader UI အတွက် အဓိကအချက်အလက်ဖြစ်ပြီး modules/lessons/quiz များကို ညွှန်းပေးပါသည်။</p>
+      <pre><code>{
+  "id": "pali-basics",
+  "title": "ပါဠိ အခြေခံ",
+  "category": "Language",
+  "level": "Beginner",
+  "image": "/data/courses/pali-basics/images/cover.jpg",
+  "summary": "…",
+  "description": "…",
+  "benefits": [
+    "စာလုံးပေါင်း အခြေခံ",
+    "ဝေါဟာရ လေ့ကျင့်",
+    "သဒ္ဒါ စနစ်တကျ"
+  ],
+  "credits": 2,
+  "hours": 20,
+  "modules": [
+    {
+      "title": "သာသနာအစ",
+      "lessons": [
+        { "type": "html", "title": "ဘုရားဖြစ်ပေါ်လာပုံ", "src": "lessons/lesson-00.html" },
+        { "type": "html", "title": "တပည့်များပေါ်ထွန်းလာပုံ", "src": "lessons/lesson-01.html" },
+        { "type": "quiz", "src": "quizzes/lesson-01.json" }
+      ]
+    }
+  ]
+}</code></pre>
+
+      <h3>4) Lessons HTML — <code>lessons/*.html</code></h3>
+      <pre><code>&lt;!-- ဘုရားဖြစ်ပေါ်လာပုံ --&gt;
+&lt;h2&gt;သာသနာအစ · ဘုရားဖြစ်ပေါ်လာပုံ&lt;/h2&gt;
+&lt;p&gt;Write your content here…&lt;/p&gt;</code></pre>
+
+      <h3>5) Quizzes JSON — <code>quizzes/*.json</code></h3>
+      <p>အခြေခံနမူနာ (legacy/short form) — app က normalize လုပ်ပေးသည်။</p>
+      <pre><code>[
+  { "type":"single", "q":"Pali vowel a?", "a":["a","i","u"], "correct":0 },
+  { "type":"short",  "q":"“Buddha” in Pali", "a":"Buddho" }
+]</code></pre>
+
+      <h3>6) Scaffold JSON (Optional, Admin Only)</h3>
+      <p>New Course form မှာ <em>*-scaffold.json</em> ထုတ်ပေးပါသည်။ ဤဖိုင်သည် <strong>path → content</strong> mapping ဖြစ်ပြီး Runtime မဖတ်ပါ။ Unpack ပြုလုပ်ပြီး <code>/public/data/...</code> ထဲ <strong>တကယ့်ဖိုင်များ</strong> ထည့်ရန်သာ အသုံးပြုပါ။</p>
+      <ul>
+        <li><strong>Option A (ZIP):</strong> unpack tool ဖြင့် ZIP ထုတ် ➜ unzip ➜ <code>public/data/...</code> ထဲ copy</li>
+        <li><strong>Option B (Direct Write):</strong> browser File System API ဖြင့် <code>public/data</code> ကိုရွေးပြီး တိုက်ရိုက်ရေး</li>
+      </ul>
+
+      <h3>7) IDs ထည့်သင့်ညီညွတ်မှု</h3>
+      <ul>
+        <li>Catalog item <code>id</code> = folder name &lt;id&gt; = meta.json <code>id</code></li>
+        <li>Meta lessons src များသည် folder အတွင်း relative path (ဥပမာ <code>lessons/lesson-00.html</code>)</li>
+      </ul>
+
+      <h3>8) Cards/Details တွင်ပြမည့် field များ</h3>
+      <ul>
+        <li><strong>Cards</strong>: <code>catalog.json</code> → title, category, level, rating, hours, summary, image, <em>benefits (newline)</em></li>
+        <li><strong>Details</strong>: <code>meta.json</code> → description, <em>benefits (array/string)</em>, modules/lessons</li>
+      </ul>
+
+      <h3>9) Checklist</h3>
+      <ul>
+        <li>catalog.json ထဲ <code>id</code> ထည့်ပြီး ဖြည့်စွက်</li>
+        <li><code>/public/data/courses/&lt;id&gt;/</code> ထဲ meta.json, lessons/, quizzes/, images/ စနစ်တကျ</li>
+        <li>meta.modules[].lessons[] ထဲ HTML/Quiz <code>src</code> လမ်းကြောင်းတိတိ</li>
+        <li>Image path တို့ <code>/data/…</code> ဖြင့် ကိုက်ညီ</li>
+      </ul>
+
+      <h3>10) Troubleshooting</h3>
+      <ul>
+        <li>Reader မဖတ်လျှင်: Network tab မှာ <code>meta.json</code> / <code>lessons/*.html</code> / <code>quizzes/*.json</code> fetch 200/404 စစ်</li>
+        <li>Benefits မပေါ်လျှင်: catalog.json (cards), meta.json (details) နှစ်ဖိုင်စစ်</li>
+        <li>Cover ပြတ်လျှင်: <code>.course-cover { object-fit: contain; aspect-ratio:16/9; }</code></li>
+      </ul>
+    </article>
+
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" class="btn" id="btn-guide-close-2">Close</button>
+    </div>
+  </form>
+</dialog>
 
     <dialog id="postModal" class="ol-modal card">
       <div

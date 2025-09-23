@@ -1,0 +1,139 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Scaffold → Folder (Debug)</title>
+<style>
+  body{font:14px/1.45 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:900px;margin:32px auto;padding:0 16px}
+  .muted{opacity:.8}
+  #log{white-space:pre-wrap;background:#0e0f12;color:#e9ecef;padding:10px;border-radius:8px;max-height:300px;overflow:auto;margin-top:10px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{padding:.55rem .9rem;border:0;border-radius:8px;background:#4c6ef5;color:#fff;cursor:pointer}
+  button[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=file]{padding:.4rem .6rem;border:1px solid #ccc;border-radius:8px}
+  code{background:#111;padding:0 .25rem;border-radius:4px}
+</style>
+
+<h2>Scaffold → Folder (Debug)</h2>
+<p class="muted">
+  1) Click <b>Choose output folder</b> and select your project’s <code>public/data</code> folder.<br>
+  2) Pick your <code>*-scaffold.json</code>. This writes real files under <code>public/data/...</code>.
+</p>
+
+<div class="row">
+  <button id="pick">Choose output folder (public/data)</button>
+  <input id="file" type="file" accept=".json" disabled />
+  <button id="validate" disabled>Validate JSON</button>
+  <button id="write" disabled>Write Files</button>
+</div>
+
+<p id="status" class="muted">No folder chosen.</p>
+<details open><summary>Log</summary><div id="log"></div></details>
+
+<script>
+const $ = s => document.querySelector(s);
+const log = (...a) => { const L = $("#log"); L.textContent += a.join(" ") + "\n"; L.scrollTop = L.scrollHeight; };
+let rootDir = null, map = null, keys = [];
+
+function normalizeScaffold(obj){
+  // Support 2 shapes:
+  //  A) { "courses/x/meta.json": "...", ... }
+  //  B) { files: [ {path: "courses/x/meta.json", content: "..."} , ... ] }
+  if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+    if ("files" in obj && Array.isArray(obj.files)) {
+      const out = {};
+      for (const f of obj.files) {
+        if (!f || typeof f.path !== "string") continue;
+        out[String(f.path)] = typeof f.content === "string" ? f.content : JSON.stringify(f.content ?? "", null, 2);
+      }
+      return out;
+    }
+    return obj; // assume map already
+  }
+  throw new Error("Scaffold JSON must be an object or {files:[{path,content}]}");
+}
+
+async function ensureTreeAndWrite(relPath, content){
+  const parts = ("public/data/" + String(relPath).replace(/^\/+/, "")).split("/");
+  let dir = rootDir;
+  for (let i=0; i<parts.length-1; i++){
+    const seg = parts[i];
+    try { dir = await dir.getDirectoryHandle(seg, { create: true }); }
+    catch (e) { throw new Error("Cannot create/open directory: " + seg + " → " + e.message); }
+  }
+  const fname = parts.at(-1);
+  const fileHandle = await dir.getFileHandle(fname, { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(typeof content === "string" ? content : JSON.stringify(content, null, 2));
+  await writable.close();
+}
+
+$("#pick").onclick = async ()=>{
+  $("#status").textContent = "Opening folder picker…";
+  try {
+    rootDir = await window.showDirectoryPicker();
+    $("#file").disabled = false;
+    $("#status").textContent = "Folder chosen. Now select your *-scaffold.json";
+    log("Folder handle OK. Tip: choose your project's public/data directory root.");
+  } catch (e) {
+    $("#status").textContent = "Folder not chosen.";
+    log("Folder picker error:", e.message);
+  }
+};
+
+$("#file").addEventListener("change", async (e)=>{
+  $("#validate").disabled = true; $("#write").disabled = true; map = null; keys = [];
+  if (!rootDir) { alert("Pick output folder first"); e.target.value=""; return; }
+  const f = e.target.files[0];
+  if (!f) return;
+  $("#status").textContent = "Reading scaffold…";
+  log("Reading:", f.name, `${(f.size/1024).toFixed(1)} KB`);
+  try {
+    const text = await f.text(); // if huge, this step takes time—wait
+    log("Read OK. Parsing JSON…");
+    const raw = JSON.parse(text);
+    map = normalizeScaffold(raw);
+    keys = Object.keys(map);
+    if (!keys.length) throw new Error("No entries in scaffold");
+    log("Parsed OK. Entries:", keys.length);
+    log("First 5 keys:\n- " + keys.slice(0,5).join("\n- ") + (keys.length>5?`\n…(+${keys.length-5} more)`:""));
+    $("#status").textContent = `Loaded ${keys.length} entries. Click Validate JSON.`;
+    $("#validate").disabled = false;
+  } catch (err) {
+    console.error(err);
+    $("#status").textContent = "ERROR: Invalid JSON or unexpected format. See log.";
+    log("Parse error:", err.message);
+  }
+});
+
+$("#validate").onclick = ()=>{
+  if (!map) return;
+  let bad = 0, ok = 0;
+  for (const k of keys) {
+    if (!/^courses\/[^\/]+\/(meta\.json|lessons\/|quizzes\/|images\/|assets\/)/.test(k)) {
+      bad++; log("WARN path looks unusual:", k);
+    } else { ok++; }
+  }
+  $("#status").textContent = `Validation done. OK: ${ok}, WARN: ${bad}. If OK>=1, you can Write Files.`;
+  $("#write").disabled = false;
+};
+
+$("#write").onclick = async ()=>{
+  if (!rootDir || !map) return;
+  $("#write").disabled = true;
+  $("#status").textContent = "Writing files…";
+  let wrote = 0, fail = 0;
+  const t0 = performance.now();
+  for (const [rel, content] of Object.entries(map)) {
+    try {
+      await ensureTreeAndWrite(rel, content);
+      wrote++;
+      if (wrote % 50 === 0) { $("#status").textContent = `Writing… ${wrote}/${keys.length}`; }
+    } catch (e) {
+      fail++; log("WRITE FAIL:", rel, "→", e.message);
+    }
+  }
+  const t1 = performance.now();
+  $("#status").textContent = `Done. Wrote ${wrote}/${keys.length} files, failed ${fail}. ${(t1-t0).toFixed(0)} ms`;
+  log("Finished.");
+  $("#write").disabled = false;
+};
+</script>

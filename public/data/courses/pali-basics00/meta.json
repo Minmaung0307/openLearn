@@ -1,0 +1,43 @@
+{
+  "id": "pali-basics",
+  "title": "ပါဠိ အခြေခံ",
+  "category": "Language",
+  "level": "Intermediate",
+  "image": "/data/courses/pali-basics/images/cover.png",
+  "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့်လေ့ကျင့်ခန်းများ။",
+  "description": "ပါဠိ အခြေခံသဒ္ဒါ၊ စာလုံးပေါင်းနှင့် ဝေါဟာရများကို လေ့လာပါ။",
+  "benefits": [
+    "စာလုံးပေါင်း အခြေခံ",
+    "ဝေါဟာရ တိုးတက်စေရန် လေ့ကျင့်ရေး",
+    "သဒ္ဒါ စည်းမျဉ်းများ စနစ်တကျ"
+  ],
+  "credits": 2,
+  "hours": 8,
+  "cover": "/data/courses/pali-basics/images/cover.png",
+  "modules": [
+    {
+      "id": "m1",
+      "title": "သာသနာအစ",
+      "lessons": [
+        {
+          "type": "html",
+          "title": "ဘုရားဖြစ်ပေါ်လာပုံ",
+          "src": "lessons/lesson-00.html"
+        },
+        {
+          "type": "html",
+          "title": "တပည့်များပေါ်ထွန်းလာပုံ",
+          "src": "lessons/lesson-01.html"
+        },
+        {
+          "type": "html",
+          "title": "တရားတော်များ",
+          "src": "lessons/lesson-02.html"
+        },
+        { "type": "quiz", "src": "quizzes/lesson-00.json" },
+        { "type": "quiz", "src": "quizzes/lesson-01.json" },
+        { "type": "quiz", "src": "quizzes/lesson-02.json" }
+      ]
+    }
+  ]
+}

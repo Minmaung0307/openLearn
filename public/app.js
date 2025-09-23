@@ -4520,6 +4520,9 @@ document.addEventListener("DOMContentLoaded", initLiveChat);
 
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
+// ensure one-time bag exists
+  window.__OL_ONCE__ = window.__OL_ONCE__ || {};
+
   // Theme / font
   applyPalette(localStorage.getItem("ol_theme") || "slate");
   applyFont(localStorage.getItem("ol_font") || "16");
@@ -4664,6 +4667,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Remove Finals from UI if present (robust no-op if missing)
   stripFinalsUI();
+
+    // === Admin: Course Creation Guide modal wiring ===
+   (function wireCourseGuideOnce(){
+     if (window.__OL_ONCE__?.guideModal) return;
+     const openBtn = document.getElementById("btn-course-guide");
+     const modal   = document.getElementById("guideModal");
+     const close1  = document.getElementById("btn-guide-close");
+     const close2  = document.getElementById("btn-guide-close-2");
+     if (!openBtn || !modal) return;
+
+
+    const openDialog = (dlg)=> dlg?.showModal ? dlg.showModal() : (dlg ? (dlg.open = true) : null);
+    openBtn.addEventListener("click", () => openDialog(modal));
+
+     const doClose = () => modal?.close?.();
+     close1?.addEventListener("click", doClose);
+     close2?.addEventListener("click", doClose);
+     modal.addEventListener("keydown", (e)=>{ if(e.key==="Escape") doClose(); });
+
+     window.__OL_ONCE__.guideModal = true;
+   })();
 
   // defensive: keep auth-required items clickable (CSS gates by JS)
   document.querySelectorAll("[data-requires-auth]").forEach((el) => {
