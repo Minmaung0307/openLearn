@@ -1477,3 +1477,11 @@ details.help + details.help {
 .help-news {
   border-left: 4px solid #06b6d4;
 }
+
+.pw-wrap { position: relative; display:flex; align-items:center; }
+.pw-wrap .input { flex:1; padding-right: 2.2rem; }
+.pw-toggle {
+  position:absolute; right:.35rem; top:50%; transform:translateY(-50%);
+  border:0; background:transparent; font-size:1rem; cursor:pointer; opacity:.75;
+}
+.pw-toggle:hover { opacity: 1; }

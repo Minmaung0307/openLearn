@@ -701,11 +701,13 @@ function sortCourses(list, sort) {
 }
 
 // helpers (normalize text, and safe category match)
-function _norm(s){ return (s || "").toString().trim().toLowerCase(); }
-function _hasCategory(course, wanted){
+function _norm(s) {
+  return (s || "").toString().trim().toLowerCase();
+}
+function _hasCategory(course, wanted) {
   // support single string or array on course.category
   const cat = course.category;
-  if (Array.isArray(cat)) return cat.some(c => _norm(c) === _norm(wanted));
+  if (Array.isArray(cat)) return cat.some((c) => _norm(c) === _norm(wanted));
   return _norm(cat) === _norm(wanted);
 }
 
@@ -717,11 +719,15 @@ function renderCatalog() {
   // ---- build category options ONCE (don’t reset user selection) ----
   const sel = $("#filterCategory");
   if (sel && !sel.dataset.built) {
-    const cats = Array.from(new Set(
-      ALL.flatMap(c => Array.isArray(c.category) ? c.category : [c.category])
-        .map(c => (c || "").toString().trim())
-        .filter(Boolean)
-    )).sort((a,b) => a.localeCompare(b));
+    const cats = Array.from(
+      new Set(
+        ALL.flatMap((c) =>
+          Array.isArray(c.category) ? c.category : [c.category]
+        )
+          .map((c) => (c || "").toString().trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
     sel.innerHTML =
       `<option value="">All Categories</option>` +
       cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
@@ -729,18 +735,18 @@ function renderCatalog() {
   }
 
   // ---- read filters (treat "", "All", "all categories" as ALL) ----
-  const rawCat  = ($("#filterCategory")?.value || "");
-  const rawLvl  = ($("#filterLevel")?.value || "");
-  const sort    = ($("#sortBy")?.value || "").trim();
+  const rawCat = $("#filterCategory")?.value || "";
+  const rawLvl = $("#filterLevel")?.value || "";
+  const sort = ($("#sortBy")?.value || "").trim();
 
   const cat = _norm(rawCat);
   const lvl = _norm(rawLvl);
-  const isAllCat = (cat === "" || cat === "all" || cat === "all categories");
+  const isAllCat = cat === "" || cat === "all" || cat === "all categories";
 
   // ---- filter ----
-  let list = ALL.filter(c => {
+  let list = ALL.filter((c) => {
     const okCat = isAllCat ? true : _hasCategory(c, rawCat);
-    const okLvl = (lvl === "" ? true : _norm(c.level) === lvl);
+    const okLvl = lvl === "" ? true : _norm(c.level) === lvl;
     return okCat && okLvl;
   });
 
@@ -751,29 +757,50 @@ function renderCatalog() {
     return;
   }
 
-  grid.innerHTML = list.map((c) => {
-    const r = Number(c.rating || 4.6);
-    const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
-    const search = [c.title, c.summary, (Array.isArray(c.category)?c.category.join(", "):c.category), c.level].join(" ");
-    const enrolled = getEnrolls().has(c.id);
-    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
-      <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+  grid.innerHTML = list
+    .map((c) => {
+      const r = Number(c.rating || 4.6);
+      const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+      const search = [
+        c.title,
+        c.summary,
+        Array.isArray(c.category) ? c.category.join(", ") : c.category,
+        c.level,
+      ].join(" ");
+      const enrolled = getEnrolls().has(c.id);
+      return `<div class="card course" data-id="${c.id}" data-search="${esc(
+        search
+      )}">
+      <img class="course-cover" src="${esc(
+        c.image || `https://picsum.photos/seed/${c.id}/640/360`
+      )}" alt="">
       <div class="course-body">
         <strong>${esc(c.title)}</strong>
-        <div class="small muted">${esc(Array.isArray(c.category)?c.category.join(", "):(c.category || ""))} • ${esc(c.level || "")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
+        <div class="small muted">${esc(
+          Array.isArray(c.category) ? c.category.join(", ") : c.category || ""
+        )} • ${esc(c.level || "")} • ★ ${r.toFixed(1)} • ${priceStr}</div>
         <div class="muted">${esc(c.summary || "")}</div>
         <div class="row" style="justify-content:flex-end; gap:8px">
           <button class="btn" data-details="${c.id}">Details</button>
-          <button class="btn primary" data-enroll="${c.id}">${enrolled ? "Enrolled" : "Enroll"}</button>
+          <button class="btn primary" data-enroll="${c.id}">${
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
         </div>
       </div>
     </div>`;
-  }).join("");
+    })
+    .join("");
 
-  grid.querySelectorAll("[data-enroll]")
-    .forEach((b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll"))));
-  grid.querySelectorAll("[data-details]")
-    .forEach((b) => (b.onclick = () => openDetails(b.getAttribute("data-details"))));
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
 }
 
 // default option before data arrives (kept)
@@ -787,6 +814,53 @@ document.addEventListener("DOMContentLoaded", () => {
 ["filterCategory", "filterLevel", "sortBy"].forEach((id) =>
   document.getElementById(id)?.addEventListener("change", renderCatalog)
 );
+
+// ===== Realtime Announcements =====
+function annsRef() {
+  if (!rtdb) return null;
+  return ref(rtdb, "anns");
+}
+
+function renderAnnItem(a) {
+  const div = document.createElement("div");
+  div.className = "card";
+  const t = a.ts ? new Date(a.ts).toLocaleString() : "";
+  div.innerHTML = `<div class="small muted">${esc(a.author || "instructor")} • ${t}</div><div><b>${esc(a.title || "")}</b></div><div>${esc(a.body || "")}</div>`;
+  return div;
+}
+
+function initAnnouncements() {
+  const list = document.getElementById("annList");
+  const btn  = document.getElementById("btn-new-post");
+  const aref = annsRef();
+  if (!list || !aref) return;
+
+  list.innerHTML = "";
+  onChildAdded(aref, (snap) => {
+    const a = snap.val() || {};
+    list.prepend(renderAnnItem(a));
+    // badge update
+    try {
+      const old = getAnns(); // local mirror
+      old.push(a); setAnns(old); updateAnnBadge();
+    } catch {}
+  });
+
+  btn?.addEventListener("click", async () => {
+    if (roleRank(getRole()) < roleRank("instructor")) {
+      return toast("Requires instructor+");
+    }
+    const title = prompt("Announcement title?");
+    if (!title) return;
+    const body  = prompt("Message?");
+    if (body == null) return;
+    try {
+      await push(aref, { title, body, author: (getUser()?.email || "instructor"), ts: Date.now() });
+      toast("Announced");
+    } catch { toast("Announce failed"); }
+  });
+}
+document.addEventListener("DOMContentLoaded", initAnnouncements);
 
 /* ---------- sidebar + topbar offset (iPad/touch-friendly) ---------- */
 function initSidebar() {
@@ -947,9 +1021,115 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Save button
-  saveBtn?.addEventListener("click", (e) => {
-    e.preventDefault(); // stop auto-close if you want to validate
-    // save logic...
+  saveBtn?.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    const id = $("#courseId")?.value.trim();
+    const title = $("#courseTitle")?.value.trim();
+    const category = $("#courseCat")?.value.trim();
+    const level = $("#courseLevel")?.value.trim() || "Beginner";
+    const summary = $("#courseSummary")?.value.trim();
+    const image = resolveAssetUrl($("#courseImage")?.value.trim());
+    const hours = Math.max(1, parseInt($("#courseHours")?.value || "8", 10));
+    const credits = Math.max(
+      1,
+      parseInt($("#courseCredits")?.value || "2", 10)
+    );
+    const price = Math.max(0, parseInt($("#coursePrice")?.value || "0", 10));
+    const lessons = Math.max(
+      1,
+      parseInt($("#courseLessons")?.value || "3", 10)
+    );
+
+    if (!id || !title || !category) return toast("Fill required fields");
+
+    // 1) update catalog (localStorage first)
+    const all = getCourses();
+    if (all.some((c) => c.id === id)) return toast("Course ID already exists");
+    const rec = {
+      id,
+      title,
+      category,
+      level,
+      price,
+      credits,
+      rating: 4.7,
+      hours,
+      summary,
+      image,
+    };
+    setCourses([...all, rec]);
+    renderCatalog();
+
+    // 2) scaffold course structure (client-side for download)
+    //    /data/courses/<id>/{meta.json, quiz.json, lessons/*.html}
+    // Note: static hosting မှာ direct write မဖြစ်နိုင် — zip အဖြစ် client-side download
+    try {
+      const files = {};
+      files[`courses/${id}/meta.json`] = JSON.stringify(
+        {
+          id,
+          title,
+          category,
+          level,
+          hours,
+          credits,
+          price,
+          summary,
+          image,
+        },
+        null,
+        2
+      );
+
+      // sample quiz bank
+      files[`courses/${id}/quiz.json`] = JSON.stringify(
+        {
+          randomize: true,
+          shuffleChoices: true,
+          questions: [
+            {
+              type: "single",
+              q: "This is a sample question 1?",
+              choices: ["A", "B", "C", "D"],
+              correct: 0,
+            },
+            {
+              type: "single",
+              q: "This is a sample question 2?",
+              choices: ["True", "False"],
+              correct: 0,
+            },
+          ],
+        },
+        null,
+        2
+      );
+
+      for (let i = 1; i <= lessons; i++) {
+        const n = String(i).padStart(2, "0");
+        files[
+          `courses/${id}/lessons/lesson-${n}.html`
+        ] = `<!-- Lesson ${i} -->\n<h2>${esc(
+          title
+        )} · Lesson ${i}</h2>\n<p>Write your content here…</p>\n`;
+      }
+
+      // build a single JSON blob so you can save as .zip later (or import server-side)
+      const blob = new Blob([JSON.stringify(files, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${id}-scaffold.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Course created (downloaded scaffold)");
+    } catch {
+      console.warn("Scaffold build failed");
+    }
+
     courseModal?.close();
   });
 
@@ -1132,6 +1312,8 @@ function initSearch() {
   });
 })();
 
+
+
 /* =========================================================
    Part 3/6 — Auth, catalog actions, details
    ========================================================= */
@@ -1279,6 +1461,88 @@ function ensureAuthModalMarkup() {
   </dialog>`
   );
 }
+
+// ===== Realtime Course Chat =====
+const rtdb = (() => {
+  try {
+    return getDatabase();
+  } catch {
+    return null;
+  }
+})();
+
+function courseChatRef(courseId) {
+  if (!rtdb) return null;
+  return ref(rtdb, `courseChats/${courseId}`);
+}
+
+function renderCcMsg(node, m) {
+  const div = document.createElement("div");
+  const who = esc(m.user || "anon");
+  const txt = esc(m.text || "");
+  const t = m.ts ? new Date(m.ts).toLocaleTimeString() : "";
+  div.className = "cc-msg";
+  div.innerHTML = `<div class="small muted">${who} • ${t}</div><div>${txt}</div>`;
+  node.appendChild(div);
+  node.scrollTop = node.scrollHeight;
+}
+
+let _ccUnsub = null;
+function wireCourseChat(courseId) {
+  const list = document.getElementById("ccList");
+  const input = document.getElementById("ccInput");
+  const send = document.getElementById("ccSend");
+  const label = document.getElementById("chatRoomLabel");
+  if (!list || !input || !send) return;
+
+  label && (label.textContent = `room: ${courseId}`);
+
+  // clear previous
+  list.innerHTML = "";
+  if (typeof _ccUnsub === "function") {
+    _ccUnsub();
+    _ccUnsub = null;
+  }
+
+  const cref = courseChatRef(courseId);
+  if (!cref) return;
+
+  // live stream
+  _ccUnsub = onChildAdded(cref, (snap) => {
+    const m = snap.val() || {};
+    renderCcMsg(list, m);
+  });
+
+  const doSend = async () => {
+    const txt = (input.value || "").trim();
+    if (!txt) return;
+    try {
+      await push(cref, {
+        text: txt,
+        user: getUser()?.email || "anon",
+        ts: Date.now(),
+      });
+      input.value = "";
+    } catch {
+      toast("Send failed");
+    }
+  };
+  send.onclick = doSend;
+  input.onkeydown = (e) => {
+    if (e.key === "Enter") doSend();
+  };
+}
+
+// gate UI (disable when not logged)
+function gateChatUI() {
+  const on = !!getUser();
+  ["ccInput", "ccSend", "chatInput", "chatSend"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.toggleAttribute("disabled", !on);
+  });
+}
+document.addEventListener("DOMContentLoaded", gateChatUI);
+
 function setLogged(on, email) {
   currentUser = on ? { email: email || "you@example.com" } : null;
   $("#btn-login") && ($("#btn-login").style.display = on ? "none" : "");
@@ -1368,57 +1632,71 @@ function initAuthModal() {
 
       // ── Post-auth sync (don’t break login UX if fails)
       try {
-  // 1) migrate profile (if the helper exists)
-  if (typeof migrateProfileToScopedOnce === "function") {
-    await migrateProfileToScopedOnce();
-  }
+        // 1) migrate profile (if the helper exists)
+        if (typeof migrateProfileToScopedOnce === "function") {
+          await migrateProfileToScopedOnce();
+        }
 
-  // 2) Run in parallel for speed:
-  const tasks = [];
+        // 2) Run in parallel for speed:
+        const tasks = [];
 
-  // 2a) Cloud profile load
-  let cloudProfilePromise = null;
-  if (typeof loadProfileCloud === "function") {
-    cloudProfilePromise = loadProfileCloud();
-    tasks.push(cloudProfilePromise);
-  }
+        // 2a) Cloud profile load
+        let cloudProfilePromise = null;
+        if (typeof loadProfileCloud === "function") {
+          cloudProfilePromise = loadProfileCloud();
+          tasks.push(cloudProfilePromise);
+        }
 
-  // 2b) Enroll migrations + sync
-  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
-    const enrollTask = (async () => {
-      if (typeof migrateEnrollsToScopedOnce === "function") {
-        await migrateEnrollsToScopedOnce();
+        // 2b) Enroll migrations + sync
+        if (
+          typeof migrateEnrollsToScopedOnce === "function" ||
+          typeof syncEnrollsBothWays === "function"
+        ) {
+          const enrollTask = (async () => {
+            if (typeof migrateEnrollsToScopedOnce === "function") {
+              await migrateEnrollsToScopedOnce();
+            }
+            if (typeof syncEnrollsBothWays === "function") {
+              await syncEnrollsBothWays(); // one time is enough
+            }
+          })();
+          tasks.push(enrollTask);
+        }
+
+        // 3) Wait for all
+        const results = await Promise.all(tasks);
+
+        // 4) Merge cloud profile → local (cloud overwrites local)
+        if (cloudProfilePromise) {
+          const cloudP = results[0]; // first pushed
+          if (cloudP) {
+            const localP =
+              typeof getProfile === "function" ? getProfile() || {} : {};
+            if (typeof setProfile === "function") {
+              setProfile({ ...localP, ...cloudP });
+            }
+          }
+        }
+
+        // 5) UI updates (call only if they exist)
+        if (typeof renderCatalog === "function") renderCatalog();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderMyLearning === "function"
+        )
+          window.renderMyLearning();
+        if (typeof renderProfilePanel === "function") renderProfilePanel();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderGradebook === "function"
+        )
+          window.renderGradebook();
+      } catch (syncErr) {
+        console.warn(
+          "Post-login sync failed:",
+          syncErr && syncErr.message ? syncErr.message : syncErr
+        );
       }
-      if (typeof syncEnrollsBothWays === "function") {
-        await syncEnrollsBothWays(); // one time is enough
-      }
-    })();
-    tasks.push(enrollTask);
-  }
-
-  // 3) Wait for all
-  const results = await Promise.all(tasks);
-
-  // 4) Merge cloud profile → local (cloud overwrites local)
-  if (cloudProfilePromise) {
-    const cloudP = results[0]; // first pushed
-    if (cloudP) {
-      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
-      if (typeof setProfile === "function") {
-        setProfile({ ...localP, ...cloudP });
-      }
-    }
-  }
-
-  // 5) UI updates (call only if they exist)
-  if (typeof renderCatalog === "function") renderCatalog();
-  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
-  if (typeof renderProfilePanel === "function") renderProfilePanel();
-  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
-
-} catch (syncErr) {
-  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
-}
 
       // UI finalize
       safeCloseModal(window.modal || $("#authModal"));
@@ -1463,57 +1741,71 @@ function initAuthModal() {
 
       // ── Post-signup init/sync
       try {
-  // 1) migrate profile (if the helper exists)
-  if (typeof migrateProfileToScopedOnce === "function") {
-    await migrateProfileToScopedOnce();
-  }
+        // 1) migrate profile (if the helper exists)
+        if (typeof migrateProfileToScopedOnce === "function") {
+          await migrateProfileToScopedOnce();
+        }
 
-  // 2) Run in parallel for speed:
-  const tasks = [];
+        // 2) Run in parallel for speed:
+        const tasks = [];
 
-  // 2a) Cloud profile load
-  let cloudProfilePromise = null;
-  if (typeof loadProfileCloud === "function") {
-    cloudProfilePromise = loadProfileCloud();
-    tasks.push(cloudProfilePromise);
-  }
+        // 2a) Cloud profile load
+        let cloudProfilePromise = null;
+        if (typeof loadProfileCloud === "function") {
+          cloudProfilePromise = loadProfileCloud();
+          tasks.push(cloudProfilePromise);
+        }
 
-  // 2b) Enroll migrations + sync
-  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
-    const enrollTask = (async () => {
-      if (typeof migrateEnrollsToScopedOnce === "function") {
-        await migrateEnrollsToScopedOnce();
+        // 2b) Enroll migrations + sync
+        if (
+          typeof migrateEnrollsToScopedOnce === "function" ||
+          typeof syncEnrollsBothWays === "function"
+        ) {
+          const enrollTask = (async () => {
+            if (typeof migrateEnrollsToScopedOnce === "function") {
+              await migrateEnrollsToScopedOnce();
+            }
+            if (typeof syncEnrollsBothWays === "function") {
+              await syncEnrollsBothWays(); // one time is enough
+            }
+          })();
+          tasks.push(enrollTask);
+        }
+
+        // 3) Wait for all
+        const results = await Promise.all(tasks);
+
+        // 4) Merge cloud profile → local (cloud overwrites local)
+        if (cloudProfilePromise) {
+          const cloudP = results[0]; // first pushed
+          if (cloudP) {
+            const localP =
+              typeof getProfile === "function" ? getProfile() || {} : {};
+            if (typeof setProfile === "function") {
+              setProfile({ ...localP, ...cloudP });
+            }
+          }
+        }
+
+        // 5) UI updates (call only if they exist)
+        if (typeof renderCatalog === "function") renderCatalog();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderMyLearning === "function"
+        )
+          window.renderMyLearning();
+        if (typeof renderProfilePanel === "function") renderProfilePanel();
+        if (
+          typeof window !== "undefined" &&
+          typeof window.renderGradebook === "function"
+        )
+          window.renderGradebook();
+      } catch (syncErr) {
+        console.warn(
+          "Post-login sync failed:",
+          syncErr && syncErr.message ? syncErr.message : syncErr
+        );
       }
-      if (typeof syncEnrollsBothWays === "function") {
-        await syncEnrollsBothWays(); // one time is enough
-      }
-    })();
-    tasks.push(enrollTask);
-  }
-
-  // 3) Wait for all
-  const results = await Promise.all(tasks);
-
-  // 4) Merge cloud profile → local (cloud overwrites local)
-  if (cloudProfilePromise) {
-    const cloudP = results[0]; // first pushed
-    if (cloudP) {
-      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
-      if (typeof setProfile === "function") {
-        setProfile({ ...localP, ...cloudP });
-      }
-    }
-  }
-
-  // 5) UI updates (call only if they exist)
-  if (typeof renderCatalog === "function") renderCatalog();
-  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
-  if (typeof renderProfilePanel === "function") renderProfilePanel();
-  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
-
-} catch (syncErr) {
-  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
-}
 
       // UI finalize
       safeCloseModal(window.modal || $("#authModal"));
@@ -1549,6 +1841,27 @@ function initAuthModal() {
     }
   });
 }
+
+// === Password eye toggle (Login/Signup) ===
+function wirePwToggle(inp, btn) {
+  if (!inp || !btn) return;
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const show = inp.type === "password";
+    inp.type = show ? "text" : "password";
+    btn.textContent = show ? "🙈" : "👁";
+    btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+  });
+}
+
+wirePwToggle(
+  document.getElementById("loginPass"),
+  document.getElementById("loginPwToggle")
+);
+wirePwToggle(
+  document.getElementById("signupPass"),
+  document.getElementById("signupPwToggle")
+);
 
 /* ---------- catalog actions (enroll, details, payment) ---------- */
 function markEnrolled(id) {
@@ -2550,48 +2863,55 @@ function renderPage() {
     $("#rdPage").innerHTML = p.html || "";
   }
 
+  // after reader shows the selected course:
+  try {
+    wireCourseChat(course.id);
+  } catch {}
+
   // --- Navigation ---
-const btnPrev = $("#rdPrev"),
-      btnNext = $("#rdNext");
+  const btnPrev = $("#rdPrev"),
+    btnNext = $("#rdNext");
 
-// Prev: enable/disable + handler
-if (btnPrev) {
-  btnPrev.disabled = RD.i <= 0;
-  btnPrev.onclick = () => {
-    if (RD.i <= 0) return;
-    RD.i = Math.max(0, RD.i - 1);
-    renderPage();
-  };
-}
+  // Prev: enable/disable + handler
+  if (btnPrev) {
+    btnPrev.disabled = RD.i <= 0;
+    btnPrev.onclick = () => {
+      if (RD.i <= 0) return;
+      RD.i = Math.max(0, RD.i - 1);
+      renderPage();
+    };
+  }
 
-// Next: enable/disable + guard for quiz/project
-if (btnNext) {
-  btnNext.disabled = RD.i >= RD.pages.length - 1;
-  btnNext.onclick = () => {
-    const p = RD.pages[RD.i];
+  // Next: enable/disable + guard for quiz/project
+  if (btnNext) {
+    btnNext.disabled = RD.i >= RD.pages.length - 1;
+    btnNext.onclick = () => {
+      const p = RD.pages[RD.i];
 
-    // Guard: quiz must be passed (either already passed or current LAST_QUIZ_SCORE >= QUIZ_PASS)
-    if (p?.type === "quiz") {
-      const passed =
-        (typeof hasPassedQuiz === "function" && hasPassedQuiz(RD.cid, RD.i)) ||
-        (typeof LAST_QUIZ_SCORE !== "undefined" && LAST_QUIZ_SCORE >= QUIZ_PASS);
-      if (!passed) {
-        toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% to continue`);
+      // Guard: quiz must be passed (either already passed or current LAST_QUIZ_SCORE >= QUIZ_PASS)
+      if (p?.type === "quiz") {
+        const passed =
+          (typeof hasPassedQuiz === "function" &&
+            hasPassedQuiz(RD.cid, RD.i)) ||
+          (typeof LAST_QUIZ_SCORE !== "undefined" &&
+            LAST_QUIZ_SCORE >= QUIZ_PASS);
+        if (!passed) {
+          toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% to continue`);
+          return;
+        }
+      }
+
+      // Guard: project must be uploaded
+      if (p?.type === "project" && !PROJECT_UPLOADED) {
+        toast("Please upload your project file first");
         return;
       }
-    }
 
-    // Guard: project must be uploaded
-    if (p?.type === "project" && !PROJECT_UPLOADED) {
-      toast("Please upload your project file first");
-      return;
-    }
-
-    // Advance
-    RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
-    renderPage();
-  };
-}
+      // Advance
+      RD.i = Math.min(RD.pages.length - 1, RD.i + 1);
+      renderPage();
+    };
+  }
 
   // --- Finish button on LAST page only ---
   const isLast = RD.i === RD.pages.length - 1;
@@ -3444,7 +3764,9 @@ function renderAnnouncements() {
   updateAnnBadge();
   enforceRoleGates?.(); // 🔒 re-check after DOM updates
 }
-{/* <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div> */}
+{
+  /* <div style="margin:.3rem 0 .5rem">${esc(a.body || "")}</div> */
+}
 window.renderAnnouncements = renderAnnouncements;
 
 function wireAnnouncementEditButtons() {
@@ -4119,6 +4441,54 @@ function buildDevGuideMarkdownAddendum() {
   });
 })();
 
+// ===== Global Live Chat (everyone) =====
+function liveChatRef() {
+  if (!rtdb) return null;
+  return ref(rtdb, "livechat");
+}
+
+function initLiveChat() {
+  const box = document.getElementById("chatBox");
+  const inp = document.getElementById("chatInput");
+  const btn = document.getElementById("chatSend");
+  const lref = liveChatRef();
+  if (!box || !inp || !btn || !lref) return;
+
+  onChildAdded(lref, (snap) => {
+    const m = snap.val() || {};
+    const div = document.createElement("div");
+    const who = esc(m.user || "anon");
+    const t = m.ts ? new Date(m.ts).toLocaleTimeString() : "";
+    div.className = "lc-msg";
+    div.innerHTML = `<div class="small muted">${who} • ${t}</div><div>${esc(
+      m.text || ""
+    )}</div>`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  });
+
+  const send = async () => {
+    const txt = (inp.value || "").trim();
+    if (!txt) return;
+    try {
+      await push(lref, {
+        text: txt,
+        user: getUser()?.email || "anon",
+        ts: Date.now(),
+      });
+      inp.value = "";
+    } catch {
+      toast("Send failed");
+    }
+  };
+
+  btn.onclick = send;
+  inp.onkeydown = (e) => {
+    if (e.key === "Enter") send();
+  };
+}
+document.addEventListener("DOMContentLoaded", initLiveChat);
+
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
   // Theme / font
@@ -4150,81 +4520,94 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Gate chat inputs and keep in sync
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
-  // Auth state → UI (register once here)
-  onAuthStateChanged(auth, async (u) => {
-    IS_AUTHED = !!u;
-    setAppLocked(!IS_AUTHED);
+    // Auth state → UI (register once here)
+    onAuthStateChanged(auth, async (u) => {
+      IS_AUTHED = !!u;
+      setAppLocked(!IS_AUTHED);
 
-    if (u) {
-      // 🔑 role ကို Firestore (သို့) fallback map က resolve
-      let role = "student";
-      try {
-        role = await resolveUserRole(u) || "student";
-        await ensureUserDoc(u, role);
-      } catch {}
-      setUser({ email: u.email || "", role });
-      setLogged(true, u.email || "");
+      if (u) {
+        // 🔑 role ကို Firestore (သို့) fallback map က resolve
+        let role = "student";
+        try {
+          role = (await resolveUserRole(u)) || "student";
+          await ensureUserDoc(u, role);
+        } catch {}
+        setUser({ email: u.email || "", role });
+        setLogged(true, u.email || "");
 
-      // ... rest sync ...
-      try {
-  // 1) migrate profile (if the helper exists)
-  if (typeof migrateProfileToScopedOnce === "function") {
-    await migrateProfileToScopedOnce();
-  }
+        // ... rest sync ...
+        try {
+          // 1) migrate profile (if the helper exists)
+          if (typeof migrateProfileToScopedOnce === "function") {
+            await migrateProfileToScopedOnce();
+          }
 
-  // 2) Run in parallel for speed:
-  const tasks = [];
+          // 2) Run in parallel for speed:
+          const tasks = [];
 
-  // 2a) Cloud profile load
-  let cloudProfilePromise = null;
-  if (typeof loadProfileCloud === "function") {
-    cloudProfilePromise = loadProfileCloud();
-    tasks.push(cloudProfilePromise);
-  }
+          // 2a) Cloud profile load
+          let cloudProfilePromise = null;
+          if (typeof loadProfileCloud === "function") {
+            cloudProfilePromise = loadProfileCloud();
+            tasks.push(cloudProfilePromise);
+          }
 
-  // 2b) Enroll migrations + sync
-  if (typeof migrateEnrollsToScopedOnce === "function" || typeof syncEnrollsBothWays === "function") {
-    const enrollTask = (async () => {
-      if (typeof migrateEnrollsToScopedOnce === "function") {
-        await migrateEnrollsToScopedOnce();
+          // 2b) Enroll migrations + sync
+          if (
+            typeof migrateEnrollsToScopedOnce === "function" ||
+            typeof syncEnrollsBothWays === "function"
+          ) {
+            const enrollTask = (async () => {
+              if (typeof migrateEnrollsToScopedOnce === "function") {
+                await migrateEnrollsToScopedOnce();
+              }
+              if (typeof syncEnrollsBothWays === "function") {
+                await syncEnrollsBothWays(); // one time is enough
+              }
+            })();
+            tasks.push(enrollTask);
+          }
+
+          // 3) Wait for all
+          const results = await Promise.all(tasks);
+
+          // 4) Merge cloud profile → local (cloud overwrites local)
+          if (cloudProfilePromise) {
+            const cloudP = results[0]; // first pushed
+            if (cloudP) {
+              const localP =
+                typeof getProfile === "function" ? getProfile() || {} : {};
+              if (typeof setProfile === "function") {
+                setProfile({ ...localP, ...cloudP });
+              }
+            }
+          }
+
+          // 5) UI updates (call only if they exist)
+          if (typeof renderCatalog === "function") renderCatalog();
+          if (
+            typeof window !== "undefined" &&
+            typeof window.renderMyLearning === "function"
+          )
+            window.renderMyLearning();
+          if (typeof renderProfilePanel === "function") renderProfilePanel();
+          if (
+            typeof window !== "undefined" &&
+            typeof window.renderGradebook === "function"
+          )
+            window.renderGradebook();
+        } catch (syncErr) {
+          console.warn(
+            "Post-login sync failed:",
+            syncErr && syncErr.message ? syncErr.message : syncErr
+          );
+        }
+      } else {
+        setUser(null);
+        setLogged(false);
       }
-      if (typeof syncEnrollsBothWays === "function") {
-        await syncEnrollsBothWays(); // one time is enough
-      }
-    })();
-    tasks.push(enrollTask);
+    });
   }
-
-  // 3) Wait for all
-  const results = await Promise.all(tasks);
-
-  // 4) Merge cloud profile → local (cloud overwrites local)
-  if (cloudProfilePromise) {
-    const cloudP = results[0]; // first pushed
-    if (cloudP) {
-      const localP = (typeof getProfile === "function") ? (getProfile() || {}) : {};
-      if (typeof setProfile === "function") {
-        setProfile({ ...localP, ...cloudP });
-      }
-    }
-  }
-
-  // 5) UI updates (call only if they exist)
-  if (typeof renderCatalog === "function") renderCatalog();
-  if (typeof window !== "undefined" && typeof window.renderMyLearning === "function") window.renderMyLearning();
-  if (typeof renderProfilePanel === "function") renderProfilePanel();
-  if (typeof window !== "undefined" && typeof window.renderGradebook === "function") window.renderGradebook();
-
-} catch (syncErr) {
-  console.warn("Post-login sync failed:", (syncErr && syncErr.message) ? syncErr.message : syncErr);
-}
-
-    } else {
-      setUser(null);
-      setLogged(false);
-    }
-  });
-}
 
   // UI
   initSidebar();

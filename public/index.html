@@ -391,13 +391,23 @@
         </label>
         <label
           >Password
-          <input
-            id="loginPass"
-            class="input"
-            type="password"
-            placeholder="••••••••"
-            required
-          />
+          <div class="pw-wrap">
+            <input
+              id="loginPass"
+              class="input"
+              type="password"
+              placeholder="••••••••"
+              required
+            />
+            <button
+              type="button"
+              class="pw-toggle"
+              id="loginPwToggle"
+              aria-label="Show password"
+            >
+              👁
+            </button>
+          </div>
         </label>
 
         <button class="btn primary wide" id="doLogin" type="submit">
@@ -423,13 +433,23 @@
         </label>
         <label
           >Password
-          <input
-            id="signupPass"
-            class="input"
-            type="password"
-            placeholder="At least 6 characters"
-            required
-          />
+          <div class="pw-wrap">
+            <input
+              id="signupPass"
+              class="input"
+              type="password"
+              placeholder="At least 6 characters"
+              required
+            />
+            <button
+              type="button"
+              class="pw-toggle"
+              id="signupPwToggle"
+              aria-label="Show password"
+            >
+              👁
+            </button>
+          </div>
         </label>
 
         <button class="btn primary wide" id="doSignup" type="submit">
@@ -522,78 +542,120 @@
     </dialog>
 
     <dialog id="courseModal" class="ol-modal card">
-      <div
-        class="row"
-        style="
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 6px;
-        "
-      >
-        <b class="modal-title">New Course</b>
-        <button type="button" id="btn-course-close" class="btn">Close</button>
-      </div>
-      <form id="courseForm" class="authpane" method="dialog">
+      <form id="courseForm" method="dialog" class="stack">
+        <div
+          class="row"
+          style="justify-content: space-between; align-items: center"
+        >
+          <b class="modal-title">New Course</b>
+          <div class="row" style="gap: 6px">
+            <button class="btn small" id="btn-course-cancel" type="button">
+              Cancel
+            </button>
+            <button class="btn small" id="btn-course-close" type="button">
+              Close
+            </button>
+          </div>
+        </div>
+
         <label
-          >Title <input name="title" type="text" class="input" required
+          >Course ID
+          <input
+            id="courseId"
+            class="input"
+            placeholder="e.g., web-foundations"
+            required
+        /></label>
+        <label
+          >Title
+          <input
+            id="courseTitle"
+            class="input"
+            placeholder="Course title"
+            required
         /></label>
         <label
           >Category
-          <input name="category" class="input" value="General" required
+          <input
+            id="courseCat"
+            class="input"
+            placeholder="Web / Data / Language …"
+            required
         /></label>
         <label
           >Level
-          <select name="level" class="input">
+          <select id="courseLevel" class="input">
             <option>Beginner</option>
             <option>Intermediate</option>
             <option>Advanced</option>
           </select>
         </label>
         <label
-          >Price (USD)
-          <input name="price" class="input" type="number" step="0.01" value="0"
-        /></label>
-        <label
-          >Rating (0–5)
-          <input
-            name="rating"
-            class="input"
-            type="number"
-            step="0.1"
-            value="4.6"
-        /></label>
-        <label
-          >Hours
-          <input name="hours" class="input" type="number" step="1" value="6"
-        /></label>
-        <label
-          >Credits
-          <input name="credits" class="input" type="number" step="1" value="3"
-        /></label>
-        <label style="grid-column: 1/-1"
-          >Image URL
-          <input name="img" class="input" placeholder="auto if empty"
-        /></label>
-        <label style="grid-column: 1/-1"
-          >Description
-          <textarea name="description" class="input" rows="3"></textarea>
-        </label>
-        <label style="grid-column: 1/-1"
-          >Benefits (one per line)
+          >Summary
           <textarea
-            name="benefits"
+            id="courseSummary"
             class="input"
             rows="3"
-            placeholder="Hands-on projects&#10;Downloadable resources&#10;Certificate"
+            placeholder="Short description"
           ></textarea>
         </label>
-        <div
-          class="row"
-          style="grid-column: 1/-1; justify-content: flex-end; gap: 8px"
-        >
-          <button class="btn" id="btn-course-cancel" type="button">
-            Cancel
-          </button>
+        <label
+          >Cover Image URL (optional)
+          <input
+            id="courseImage"
+            class="input"
+            placeholder="https://… or /assets/…"
+        /></label>
+        <div class="row" style="gap: 8px">
+          <label style="flex: 1"
+            >Hours
+            <input
+              id="courseHours"
+              type="number"
+              min="1"
+              value="8"
+              class="input"
+          /></label>
+          <label style="flex: 1"
+            >Credits
+            <input
+              id="courseCredits"
+              type="number"
+              min="1"
+              value="2"
+              class="input"
+          /></label>
+          <label style="flex: 1"
+            >Price ($)
+            <input
+              id="coursePrice"
+              type="number"
+              min="0"
+              value="0"
+              class="input"
+          /></label>
+        </div>
+
+        <fieldset class="card" style="margin-top: 6px">
+          <legend>Initial Lessons</legend>
+          <label
+            >How many lessons to scaffold?
+            <input
+              id="courseLessons"
+              type="number"
+              min="1"
+              value="3"
+              class="input"
+              style="max-width: 120px"
+            />
+          </label>
+          <div class="small muted">
+            We’ll scaffold /data/courses/&lt;id&gt;/ with lesson .html files and
+            quiz.json structure for download.
+          </div>
+        </fieldset>
+
+        <div class="row" style="justify-content: flex-end; gap: 8px">
           <button class="btn primary" id="btn-course-save" type="submit">
             Save
           </button>
