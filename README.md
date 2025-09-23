@@ -131,3 +131,17 @@ window.CONFIG = CONFIG;
 
 ## Short answer (contains text match)
 - { "type": "short", "q": "…", "a": "keyword" }
+
+
+{
+  "id": "Pali",
+  "title": "Sandhi",
+  "category": "Grammar",
+  "level": "Beginner",
+  "hours": 8,
+  "credits": 2,
+  "price": 0,
+  "summary": "High Quality Material: Both the choice of materials and the craftsmanship of sewing are above the normal standard.The material is no smell, safe for kids and very soft to touch.Sturdy support makes the tent much sturdier and kids can play in it freely.",
+  "benefits": "speak in Pali\nwrite in Pali\nread in Pali",
+  "image": "/assets/cat.png"
+}
