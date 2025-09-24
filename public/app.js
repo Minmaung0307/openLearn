@@ -5140,3 +5140,14 @@ function stripFinalsUI() {
   s.textContent = `.navbtn[data-page="finals"]{display:none!important}`;
   document.head.appendChild(s);
 }
+
+(function adjustSearchDropdownTop(){
+  const header = document.querySelector("header, .topbar, #topbar");
+  const root = document.documentElement;
+  function setH(){
+    const h = header ? header.getBoundingClientRect().height : 56;
+    root.style.setProperty("--header-height", Math.round(h) + "px");
+  }
+  setH();
+  window.addEventListener("resize", setH);
+})();

@@ -159,10 +159,18 @@ a:hover {
   width: min(560px, 62vw);
   height: 40px;
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--card); /* was #0b1220 */
+  border: none;              /* remove border line */
+  outline: none;             /* focus outline off */
+  box-shadow: none;          /* any inner shadow off */
+  /* border: 1px solid var(--border); */
+  /* background: var(--card); was #0b1220 */
+  background: #fff;
   color: var(--fg);
-  padding: 0 12px;
+  padding: 10px 12px;
+}
+/* focus state (optional subtle) */
+#topSearch:focus {
+  box-shadow: 0 0 0 2px rgba(76,110,245,.25);
 }
 .search-ico {
   display: none;
@@ -1503,40 +1511,54 @@ details.help + details.help {
 #rdPage .ok { color: rgba(var(--fg-r), var(--fg-g), var(--fg-b), 0.95); }
 #rdPage .bad { color: #f87171; }  /* red-400-ish */
 
-/* === Search Results Box Styling === */
+/* Full-width overlay dropdown */
 #topSearchResults {
-  background: #fff;              /* white background (dark mode ဆိုရင် #222 စသဖြင့် ပြန်ပြောင်းနိုင်) */
-  border: 1px solid #ccc;        /* subtle border */
-  border-radius: 6px;            /* rounded corners */
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* slight shadow overlay */
-  position: absolute;            /* overlay under input */
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--header-height, 56px) + 8px); /* header အမြင့် မသိရင် 56px default */
+  width: min(1200px, 92vw);     /* main page လောက်ကျယ် */
+  max-height: 70vh;             /* အမြင့် မြင့်မြင့် */
+  overflow: auto;
+
+  background: #fff;             /* white background → အောက်ကစာ မမြင်တော့ */
+  color: #222;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0,0,0,.12);
+
   z-index: 1000;
-  max-height: 300px;             /* prevent too tall list */
-  overflow-y: auto;
-  margin-top: 4px;               /* just below the input */
-  padding: 0;                    /* remove default UL padding */
-  width: 100%;                   /* same width as input */
-  list-style: none;              /* no bullets */
+
+  /* UL defaults reset */
+  margin: 0;
+  padding: 6px;                 /* compact but not too tight */
+  list-style: none;
 }
 
-/* Each search result item */
+/* list items: tighter left padding */
 #topSearchResults li {
-  padding: 6px 10px;             /* tighter than before */
-  margin: 0;                     /* remove excess margin */
-  border-bottom: 1px solid #eee; /* subtle divider */
+  margin: 0;
+  padding: 8px 10px;           /* left/right ပိုမများအောင် */
+  border-bottom: 1px solid #eee;
 }
+#topSearchResults li:last-child { border-bottom: 0; }
 
-#topSearchResults li:last-child {
-  border-bottom: none;
-}
-
-/* Anchor inside */
 #topSearchResults li a {
   display: block;
-  color: #222;
   text-decoration: none;
+  color: inherit;
+  border-radius: 6px;
+  padding: 4px 6px;            /* inner compact */
 }
-
 #topSearchResults li a:hover {
-  background: #f5f5f5;
+  background: #f6f7fb;
 }
+:root.dark #topSearchResults {
+  background: #1f2937;
+  color: #e5e7eb;
+  border-color: #374151;
+  box-shadow: 0 12px 24px rgba(0,0,0,.35);
+}
+:root.dark #topSearchResults li { border-bottom-color: #374151; }
+:root.dark #topSearchResults li a:hover { background: #2b3646; }
+:root.dark #topSearch { background:#111827; color:#e5e7eb; }
