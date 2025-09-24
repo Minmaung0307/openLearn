@@ -486,54 +486,85 @@ function resolveAssetUrl(u) {
 
 // --- Add near top (after helpers) ---
 function normalizeQuiz(raw) {
-  // already in {questions:[...]} form
+  // {questions:[...]} ဆိုရင်, အတွင်းက questions ကိုလည်း normalize
   if (raw && raw.questions) {
-    raw.questions = raw.questions.map(q => normalizeQuestion(q));
+    raw.questions = raw.questions.map(normalizeQuestion);
+    // shuffle flags default
+    if (typeof raw.randomize !== "boolean") raw.randomize = true;
+    if (typeof raw.shuffleChoices !== "boolean") raw.shuffleChoices = true;
     return raw;
   }
 
-  // your current files are arrays: [{ type, q, a, correct }]
+  // Array short form [{type,q,a,correct}, ...]
   if (Array.isArray(raw)) {
     return {
       randomize: true,
       shuffleChoices: true,
-      questions: raw.map((x) => normalizeQuestion(x)),
+      questions: raw.map(normalizeQuestion),
     };
   }
   return null;
 }
 
-// === helper ===
+// ---- helper: per-question normalization ----
 function normalizeQuestion(q) {
-  const isStrAnswer = typeof q.a === "string";
+  const out = { ...q };
 
-  // alias for choices
-  if (q.a && Array.isArray(q.a)) q.choices = q.a;
-  if (q.options && !q.choices) q.choices = q.options;
+  // 1) type aliases: mcq/tf → single
+  const t = String(out.type || "single").toLowerCase();
+  if (t === "tf" || t === "truefalse") out.type = "single";
+  else if (t === "mcq") out.type = "single";
+  else out.type = t;
 
-  // normalize feedback fields
-  if (q.why && !q.explanations) q.explanations = q.why;
-  if (q.explain) {
-    if (typeof q.explain === "string") {
-      q.correctWhy = q.explain;
-    } else if (typeof q.explain === "object") {
-      q.correctWhy = q.explain.correct || q.correctWhy;
-      q.wrongWhy = q.explain.wrong || q.wrongWhy;
-    }
+  // 2) choices aliases: a[] / options → choices[]
+  if (Array.isArray(out.a) && !out.choices) out.choices = out.a;
+  if (Array.isArray(out.options) && !out.choices) out.choices = out.options;
+  if (!Array.isArray(out.choices)) out.choices = [];
+
+  // 3) short/tf answers aliases (string/array)
+  // - short/tf used "a"/"answer"/"answers"
+  const isStrAnswer = typeof out.a === "string";
+  if (!out.answers) {
+    if (Array.isArray(out.answer)) out.answers = out.answer;
+    else if (Array.isArray(out.answers)) out.answers = out.answers;
+    else if (isStrAnswer) out.answers = [String(out.a).trim()];
+    else out.answers = [];
+  }
+  if (!out.answer && isStrAnswer) out.answer = String(out.a).trim();
+
+  // 4) TF → choices["True","False"] + correct index
+  if (t === "tf" || t === "truefalse") {
+    const truthy = new Set(["t", "true", "1", true]);
+    const val = String(out.a ?? out.answer ?? "").toLowerCase();
+    out.choices = ["True", "False"];
+    out.correct = truthy.has(val) ? 0 : 1;
   }
 
-  return {
-    type: q.type || "single",
-    q: q.q || "",
-    choices: Array.isArray(q.choices) ? q.choices : [],
-    correct: q.correct,
-    explanations: q.explanations,   // per-choice feedback
-    correctWhy: q.correctWhy,       // question-level feedback
-    wrongWhy: q.wrongWhy,           // question-level feedback
-    // unify short-answer key name
-    answers: isStrAnswer ? [String(q.a).trim()] : q.answers || [],
-    answer: isStrAnswer ? String(q.a).trim() : q.answer || null,
-  };
+  // 5) feedback aliases: why/explain → explanations / correctWhy / wrongWhy
+  if (Array.isArray(out.why) && !Array.isArray(out.explanations))
+    out.explanations = out.why;
+
+  if (out.explain && typeof out.explain === "string") {
+    // one-size: same text both sides (or treat as correct text)
+    out.correctWhy = out.correctWhy || out.explain;
+  } else if (out.explain && typeof out.explain === "object") {
+    const ex = out.explain;
+    if (ex.correct && !out.correctWhy) out.correctWhy = ex.correct;
+    if (ex.wrong && !out.wrongWhy) out.wrongWhy = ex.wrong;
+  }
+
+  // 6) ensure q & correct exist in sane form
+  out.q = out.q || "";
+
+  // If type is single (includes normalized mcq/tf) and correct is string (like "t")
+  if (out.type === "single" && typeof out.correct !== "number") {
+    // try to map correct by value text
+    const cTxt = String(out.correct ?? "").toLowerCase();
+    const idx = out.choices.findIndex((c) => String(c).toLowerCase() === cTxt);
+    if (idx >= 0) out.correct = idx;
+  }
+
+  return out;
 }
 // function normalizeQuiz(raw) {
 //   // already in {questions:[...]} form
@@ -2869,12 +2900,50 @@ function closeReader() {
 // --- normalizeQuiz unchanged ---
 
 function renderQuiz(p) {
-  const bank = Array.isArray(p.quiz?.questions) ? p.quiz.questions.slice() : [];
-  const picked = QUIZ_RANDOMIZE
-    ? shuffle(bank).slice(0, QUIZ_SAMPLE_SIZE || bank.length)
-    : bank.slice();
-  const q = picked;
+  // 0) Normalize first (handles mcq/tf/options/a/why/explain → unified shape)
+  const QUIZ = normalizeQuiz(p.quiz || p);
+  const bank = Array.isArray(QUIZ?.questions) ? QUIZ.questions.slice() : [];
 
+  // 1) Pick questions (randomize/sample if configured)
+  const picked = (QUIZ.randomize ? shuffle(bank) : bank).slice(
+    0,
+    QUIZ.sampleSize || bank.length
+  );
+
+  // 2) For each question, clone & (optionally) shuffle its choices
+  const q = picked.map((orig) => {
+    const it = JSON.parse(JSON.stringify(orig));
+    const canShuffle =
+      QUIZ.shuffleChoices &&
+      (it.type === "single" || it.type === "multiple") &&
+      Array.isArray(it.choices) &&
+      it.choices.length > 1;
+
+    if (canShuffle) {
+      const order = it.choices.map((_, idx) => idx);
+      shuffle(order); // mutates order
+
+      // re-map choices
+      it.choices = order.map((i) => orig.choices[i]);
+
+      // re-map explanations if present (keep index alignment)
+      if (Array.isArray(orig.explanations)) {
+        it.explanations = order.map((i) => orig.explanations[i]);
+      }
+
+      // re-map correct index/array
+      if (it.type === "single" && typeof orig.correct === "number") {
+        it.correct = order.indexOf(orig.correct);
+      } else if (it.type === "multiple" && Array.isArray(orig.correct)) {
+        it.correct = orig.correct
+          .map((c) => order.indexOf(c))
+          .sort((a, b) => a - b);
+      }
+    }
+    return it;
+  });
+
+  // 3) Build UI
   const wrap = document.createElement("div");
   wrap.innerHTML = `<h3>Quiz</h3>`;
   const list = document.createElement("ol");
@@ -2888,8 +2957,9 @@ function renderQuiz(p) {
       "beforeend",
       `<div class="small muted" id="fb-${i}"></div>`
     );
+
     if (it.type === "single") {
-      (it.choices || it.a || []).forEach((c, j) => {
+      (it.choices || []).forEach((c, j) => {
         li.insertAdjacentHTML(
           "beforeend",
           `<label style="display:block;margin-left:.5rem">
@@ -2898,7 +2968,7 @@ function renderQuiz(p) {
         );
       });
     } else if (it.type === "multiple") {
-      (it.choices || it.a || []).forEach((c, j) => {
+      (it.choices || []).forEach((c, j) => {
         li.insertAdjacentHTML(
           "beforeend",
           `<label style="display:block;margin-left:.5rem">
@@ -2907,6 +2977,7 @@ function renderQuiz(p) {
         );
       });
     } else {
+      // short (tf လုပ်စရာမလိုတော့ — normalize လုပ်ပြီး single ဖြစ်သွားမယ်)
       li.insertAdjacentHTML(
         "beforeend",
         `<input class="input" name="q${i}" placeholder="Your answer" style="margin-left:.5rem">`
@@ -2929,6 +3000,7 @@ function renderQuiz(p) {
 
   const isLastPage = () => RD.i === RD.pages.length - 1;
 
+  // 4) Grading + feedback
   $("#qCheck").onclick = () => {
     let correct = 0;
 
@@ -2936,7 +3008,7 @@ function renderQuiz(p) {
       let isOK = false;
       let userAnsForFeedback = null;
 
-      if (it.type === "single" || it.type === "mcq") {
+      if (it.type === "single") {
         const picked = document.querySelector(`input[name="q${i}"]:checked`);
         const val = picked ? Number(picked.value) : -1;
         isOK = val === it.correct;
@@ -2954,22 +3026,23 @@ function renderQuiz(p) {
           picks.every((v, idx) => v === want[idx]);
         userAnsForFeedback = picks;
         if (isOK) correct++;
-      } else if (it.type === "short" || it.type === "tf") {
+      } else {
+        // short
         const input = document.querySelector(`input[name="q${i}"]`);
         const ans = (input?.value || "").trim().toLowerCase();
         const accepts = Array.isArray(it.answers)
           ? it.answers.map((x) => String(x).toLowerCase())
-          : [String(it.a || it.answer || "").toLowerCase()];
+          : [String(it.answer || "").toLowerCase()];
         isOK = accepts.includes(ans);
         userAnsForFeedback = ans;
         if (isOK) correct++;
       }
 
-      // === Feedback render ===
+      // feedback
       const fb = document.getElementById(`fb-${i}`);
       if (fb) {
-        fb.textContent = getFeedback(it, userAnsForFeedback, isOK);
-        fb.style.color = isOK ? "green" : "red";
+        fb.innerHTML = getFeedback(it, userAnsForFeedback, isOK); // innerHTML for <br>/<code>
+        fb.style.color = isOK ? "var(--ok, #16a34a)" : "var(--err, #ef4444)";
       }
     });
 
@@ -2999,7 +3072,7 @@ function renderQuiz(p) {
 
   $("#qRetake").onclick = () => {
     LAST_QUIZ_SCORE = 0;
-    renderQuiz(p); // redraw (randomize again)
+    renderQuiz(QUIZ); // redraw (randomize again with normalized data)
   };
 }
 
