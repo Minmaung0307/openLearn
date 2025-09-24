@@ -159,18 +159,22 @@ a:hover {
   width: min(560px, 62vw);
   height: 40px;
   border-radius: 10px;
-  border: none;              /* remove border line */
-  outline: none;             /* focus outline off */
-  box-shadow: none;          /* any inner shadow off */
+  border: none; /* remove border line */
+  outline: none; /* focus outline off */
+  box-shadow: none; /* any inner shadow off */
   /* border: 1px solid var(--border); */
   /* background: var(--card); was #0b1220 */
   background: #fff;
-  color: var(--fg);
+  color: #111; /* ✅ စာအရောင် နက် */
+  caret-color: #111; /* ✅ cursor အရောင် */
   padding: 10px 12px;
 }
+#topSearch::placeholder {
+  color: #666;
+} /* ✅ placeholder လည်း မြင်ရ */
 /* focus state (optional subtle) */
 #topSearch:focus {
-  box-shadow: 0 0 0 2px rgba(76,110,245,.25);
+  box-shadow: 0 0 0 2px rgba(76, 110, 245, 0.25);
 }
 .search-ico {
   display: none;
@@ -444,11 +448,11 @@ textarea::placeholder {
 }
 
 /* Course cards */
-.course-cover{
+.course-cover {
   width: 100%;
   aspect-ratio: 16/9;
-  object-fit: contain;         /* contain → ပုံကို ဖြတ်မတတ် */
-  background: #0d0f12;         /* ဖုံးပိတ်နေတဲ့ နေရာအဖြူမနေအောင် */
+  object-fit: contain; /* contain → ပုံကို ဖြတ်မတတ် */
+  background: #0d0f12; /* ဖုံးပိတ်နေတဲ့ နေရာအဖြူမနေအောင် */
   border-radius: 10px 10px 0 0;
   display: block;
 }
@@ -1272,11 +1276,13 @@ img.qr {
 }
 
 .card.course ul.benefits {
-  margin: .25rem 0 .5rem;
+  margin: 0.25rem 0 0.5rem;
   padding-left: 1.2rem;
   list-style: disc;
 }
-.card.course ul.benefits li { line-height: 1.3; }
+.card.course ul.benefits li {
+  line-height: 1.3;
+}
 
 /* Ensure all primary action buttons remain clickable */
 button,
@@ -1500,74 +1506,115 @@ details.help + details.help {
   border-left: 4px solid #06b6d4;
 }
 
-.pw-wrap { position: relative; display:flex; align-items:center; }
-.pw-wrap .input { flex:1; padding-right: 2.2rem; }
-.pw-toggle {
-  position:absolute; right:.35rem; top:50%; transform:translateY(-50%);
-  border:0; background:transparent; font-size:1rem; cursor:pointer; opacity:.75;
+.pw-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
-.pw-toggle:hover { opacity: 1; }
+.pw-wrap .input {
+  flex: 1;
+  padding-right: 2.2rem;
+}
+.pw-toggle {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0.75;
+}
+.pw-toggle:hover {
+  opacity: 1;
+}
 
-#rdPage .ok { color: rgba(var(--fg-r), var(--fg-g), var(--fg-b), 0.95); }
-#rdPage .bad { color: #f87171; }  /* red-400-ish */
+#rdPage .ok {
+  color: rgba(var(--fg-r), var(--fg-g), var(--fg-b), 0.95);
+}
+#rdPage .bad {
+  color: #f87171;
+} /* red-400-ish */
 
 /* Full-width overlay dropdown */
 #topSearchResults {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  top: calc(var(--header-height, 56px) + 8px); /* header အမြင့် မသိရင် 56px default */
-  width: min(1200px, 92vw);     /* main page လောက်ကျယ် */
-  max-height: 70vh;             /* အမြင့် မြင့်မြင့် */
+  top: calc(var(--header-height, 56px) + 8px);
+  width: min(1200px, 92vw);
+  max-height: 70vh;
   overflow: auto;
 
-  background: #fff;             /* white background → အောက်ကစာ မမြင်တော့ */
+  background: #fff;
   color: #222;
   border: 1px solid #ddd;
   border-radius: 8px;
-  box-shadow: 0 12px 24px rgba(0,0,0,.12);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
 
   z-index: 1000;
-
-  /* UL defaults reset */
   margin: 0;
-  padding: 6px;                 /* compact but not too tight */
+  padding: 6px;
   list-style: none;
-}
 
-/* list items: tighter left padding */
+  /* Default hidden — JS က ပြန်ဖွင့်မယ် */
+  display: none;
+}
 #topSearchResults li {
   margin: 0;
-  padding: 8px 10px;           /* left/right ပိုမများအောင် */
+  padding: 8px 10px;
   border-bottom: 1px solid #eee;
 }
-#topSearchResults li:last-child { border-bottom: 0; }
-
+#topSearchResults li:last-child {
+  border-bottom: 0;
+}
 #topSearchResults li a {
   display: block;
+  padding: 4px 6px;
   text-decoration: none;
   color: inherit;
   border-radius: 6px;
-  padding: 4px 6px;            /* inner compact */
 }
 #topSearchResults li a:hover {
   background: #f6f7fb;
 }
+
 :root.dark #topSearchResults {
   background: #1f2937;
   color: #e5e7eb;
   border-color: #374151;
-  box-shadow: 0 12px 24px rgba(0,0,0,.35);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
 }
-:root.dark #topSearchResults li { border-bottom-color: #374151; }
-:root.dark #topSearchResults li a:hover { background: #2b3646; }
-:root.dark #topSearch { background:#111827; color:#e5e7eb; }
+:root.dark #topSearchResults li {
+  border-bottom-color: #374151;
+}
+:root.dark #topSearchResults li a:hover {
+  background: #2b3646;
+}
+
+:root.dark #topSearch {
+  background: #111827; /* dark bg */
+  color: #e5e7eb; /* light text */
+  caret-color: #e5e7eb;
+}
+:root.dark #topSearch::placeholder {
+  color: #9ca3af;
+}
 
 /* Search overlay default: HIDDEN until we have results */
-#topSearchResults { display: none; }
+#topSearchResults {
+  display: none;
+}
 
 /* If lib/classlist သုံးချင်ရင်—hidden အခြေအနေမှာလည်း မပေါ်စေ */
-#topSearchResults.hidden { display: none !important; }
+#topSearchResults.hidden {
+  display: none !important;
+}
 
 /* Results list အတွင်းမှာ content မရှိရင် မပေါ်စေ (border/padding ပါဖြတ်) */
-#topSearchResults:empty { display: none !important; border: 0 !important; padding: 0 !important; }
+#topSearchResults:empty {
+  display: none !important;
+  border: 0 !important;
+  padding: 0 !important;
+}

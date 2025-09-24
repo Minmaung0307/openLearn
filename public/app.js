@@ -1648,6 +1648,13 @@ function runSearch(query, listEl, boxEl) {
     })
     .join("");
 
+      listEl.innerHTML = hit
+    .slice(0, 20)
+    .map(/* ... existing mapping ... */)
+    .join("");
+
+  // ✅ ပေါ်ပေါ်ပြသာသာ ပြပါ
+  listEl.style.display = "block";
   boxEl.classList.remove("hidden");
 }
 
@@ -1677,11 +1684,12 @@ function runSearch(query, listEl, boxEl) {
     const q = input.value.trim();
     if (!q) {
       results.innerHTML = "";
-      results.style.display = "none"; // << hide
+      results.style.display = "none"; // ✅ hide when empty
       return;
     }
     t = setTimeout(() => {
       runSearch(q, results, results.parentElement || document.body);
+      results.style.display = "block";  // ✅ show when we search
       results.hidden = false;
     }, 120);
   });
