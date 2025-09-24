@@ -1,0 +1,7 @@
+{
+  "randomize": true,
+  "shuffleChoices": true,
+  "questions": [
+    {"type":"single","q":"What is Sandhi?","choices":["Sound change","Word order"],"correct":0}
+  ]
+}

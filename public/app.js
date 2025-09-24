@@ -516,6 +516,52 @@ const QUIZ_PASS = 0.7; // 0.70 = 70% pass (လိုသလို 0.75 သို�
 const QUIZ_SAMPLE_SIZE = 6; // bank ကနေ စမ်းမေးမယ့် အရေအတွက် (bank ထဲက မလုံလောက်ရင် အလောက်အလျားပဲယူမယ်)
 const QUIZ_RANDOMIZE = true; // true = ကြိမ်ကို ကြိမ် အမေးခွန်း random
 
+// ---- Per-question feedback helper (put this right after normalizeQuiz) ----
+function getFeedback(q, user, isCorrect) {
+  // 1) Per-option explanations aligned with choices/options: ["why0","why1",...]
+  if (Array.isArray(q.explanations)) {
+    const pickedIdxs = Array.isArray(user)
+      ? user
+      : typeof user === "number"
+      ? [user]
+      : [];
+    const msgs = pickedIdxs.map((i) => q.explanations[i]).filter(Boolean);
+    if (msgs.length) return msgs.join("<br>");
+  }
+  // 2) Per-question generic reasons
+  if (isCorrect && q.correctWhy) return q.correctWhy;
+  if (!isCorrect && q.wrongWhy) return q.wrongWhy;
+  if (isCorrect && q.whyCorrect) return q.whyCorrect;
+  if (!isCorrect && q.whyWrong) return q.whyWrong;
+
+  // 3) Alternative single field
+  if (q.explain) {
+    if (typeof q.explain === "string") return q.explain;
+    if (typeof q.explain === "object") {
+      return isCorrect ? q.explain.correct || "" : q.explain.wrong || "";
+    }
+  }
+  if (q.why) return q.why;
+
+  // 4) Short-answer fallback: show acceptable answers when wrong
+  if (!isCorrect && q.type !== "single" && q.type !== "multiple") {
+    const accepts = Array.isArray(q.answers)
+      ? q.answers
+      : q.answer
+      ? [q.answer]
+      : [];
+    if (accepts.length) {
+      return `Acceptable answer(s): <code>${accepts.join(
+        "</code>, <code>"
+      )}</code>`;
+    }
+  }
+  // Default
+  return isCorrect
+    ? "✅ Correct."
+    : "❌ Incorrect—review the lesson and try again.";
+}
+
 /* ---------- cloud enroll sync (Firestore) ---------- */
 // const enrollDocRef = () => {
 //   const uid = auth?.currentUser?.uid || (getUser()?.email || "").toLowerCase();
@@ -719,12 +765,18 @@ function renderCatalog() {
   // build category options ONCE (preserve user selection)
   const sel = $("#filterCategory");
   if (sel && !sel.dataset.built) {
-    const cats = Array.from(new Set(
-      ALL.flatMap(c => Array.isArray(c.category) ? c.category : [c.category])
-        .map(c => (c || "").toString().trim())
-        .filter(Boolean)
-    )).sort((a,b)=>a.localeCompare(b));
-    sel.innerHTML = `<option value="">All Categories</option>` + cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    const cats = Array.from(
+      new Set(
+        ALL.flatMap((c) =>
+          Array.isArray(c.category) ? c.category : [c.category]
+        )
+          .map((c) => (c || "").toString().trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+    sel.innerHTML =
+      `<option value="">All Categories</option>` +
+      cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
     sel.dataset.built = "1";
   }
 
@@ -732,15 +784,20 @@ function renderCatalog() {
   const rawCat = $("#filterCategory")?.value || "";
   const rawLvl = $("#filterLevel")?.value || "";
   const sort = ($("#sortBy")?.value || "").trim();
-  const _norm = (s) => String(s || "").toLowerCase().trim();
+  const _norm = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .trim();
   const _hasCategory = (c, want) =>
-    Array.isArray(c.category) ? c.category.some(x => _norm(x) === _norm(want)) : _norm(c.category) === _norm(want);
+    Array.isArray(c.category)
+      ? c.category.some((x) => _norm(x) === _norm(want))
+      : _norm(c.category) === _norm(want);
 
   const cat = _norm(rawCat);
   const lvl = _norm(rawLvl);
   const isAllCat = cat === "" || cat === "all" || cat === "all categories";
 
-  // filter + sort (sortCourses already defined) 
+  // filter + sort (sortCourses already defined)
   let list = ALL.filter((c) => {
     const okCat = isAllCat ? true : _hasCategory(c, rawCat);
     const okLvl = lvl === "" ? true : _norm(c.level) === lvl;
@@ -753,32 +810,60 @@ function renderCatalog() {
     return;
   }
 
-  grid.innerHTML = list.map((c) => {
-    const r = Number(c.rating ?? 4.6);
-    const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
-    const search = [c.title, c.summary, Array.isArray(c.category) ? c.category.join(", ") : c.category, c.level].join(" ");
-    const enrolled = getEnrolls().has(c.id);
-    const ben = (c.benefits || "").trim();
-    const benList = ben ? `<ul class="small muted benefits">${ben.split(/\r?\n/).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  grid.innerHTML = list
+    .map((c) => {
+      const r = Number(c.rating ?? 4.6);
+      const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+      const search = [
+        c.title,
+        c.summary,
+        Array.isArray(c.category) ? c.category.join(", ") : c.category,
+        c.level,
+      ].join(" ");
+      const enrolled = getEnrolls().has(c.id);
+      const ben = (c.benefits || "").trim();
+      const benList = ben
+        ? `<ul class="small muted benefits">${ben
+            .split(/\r?\n/)
+            .map((x) => `<li>${esc(x)}</li>`)
+            .join("")}</ul>`
+        : "";
 
-    return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
-  <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+      return `<div class="card course" data-id="${c.id}" data-search="${esc(
+        search
+      )}">
+  <img class="course-cover" src="${esc(
+    c.image || `https://picsum.photos/seed/${c.id}/640/360`
+  )}" alt="">
   <div class="course-body">
     <strong>${esc(c.title)}</strong>
-    <div class="small muted">${esc(Array.isArray(c.category) ? c.category.join(", ") : c.category || "")} • ${esc(c.level || "")} • ${renderStars(r)}</div>
+    <div class="small muted">${esc(
+      Array.isArray(c.category) ? c.category.join(", ") : c.category || ""
+    )} • ${esc(c.level || "")} • ${renderStars(r)}</div>
     <div class="muted">${esc(c.summary || "")}</div>
     ${benList}
     <div class="row" style="justify-content:flex-end; gap:8px">
       <button class="btn" data-details="${c.id}">Details</button>
-      <button class="btn primary" data-enroll="${c.id}">${enrolled ? "Enrolled" : "Enroll"}</button>
+      <button class="btn primary" data-enroll="${c.id}">${
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
     </div>
   </div>
 </div>`;
-  }).join("");
+    })
+    .join("");
 
   // bind actions
-  grid.querySelectorAll("[data-enroll]").forEach((b)=> b.onclick = () => handleEnroll(b.getAttribute("data-enroll")));
-  grid.querySelectorAll("[data-details]").forEach((b)=> b.onclick = () => openDetails(b.getAttribute("data-details")));
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
 }
 
 // default option before data arrives (kept)
@@ -2770,6 +2855,10 @@ function renderQuiz(p) {
     const li = document.createElement("li");
     li.style.margin = "8px 0";
     li.insertAdjacentHTML("beforeend", `<div>${esc(it.q)}</div>`);
+    li.insertAdjacentHTML(
+      "beforeend",
+      `<div class="small muted" id="fb-${i}"></div>`
+    );
     if (it.type === "single") {
       (it.choices || it.a || []).forEach((c, j) => {
         li.insertAdjacentHTML(
@@ -2815,6 +2904,9 @@ function renderQuiz(p) {
     let correct = 0;
 
     q.forEach((it, i) => {
+      let isOK = false;
+      let userAnsForFeedback = null;
+
       if (it.type === "single") {
         const picked = document.querySelector(`input[name="q${i}"]:checked`);
         const val = picked ? Number(picked.value) : -1;
@@ -2822,7 +2914,9 @@ function renderQuiz(p) {
           typeof it.correct === "number"
             ? it.correct
             : Number(it.correct ?? -1);
-        if (val === ans) correct++;
+        isOK = val === ans;
+        userAnsForFeedback = val;
+        if (isOK) correct++;
       } else if (it.type === "multiple") {
         const picks = Array.from(
           document.querySelectorAll(`input[name="q${i}"]:checked`)
@@ -2833,7 +2927,9 @@ function renderQuiz(p) {
         const ok =
           picks.length === want.length &&
           picks.every((v, idx) => v === want[idx]);
-        if (ok) correct++;
+        isOK = ok;
+        userAnsForFeedback = picks;
+        if (isOK) correct++;
       } else {
         const input = document.querySelector(`input[name="q${i}"]`);
         const ans = (input?.value || "").trim().toLowerCase();
@@ -2846,7 +2942,15 @@ function renderQuiz(p) {
           String(s ?? "")
             .trim()
             .toLowerCase();
-        if (accepts.some((x) => norm(x) === ans)) correct++;
+        isOK = accepts.some((x) => norm(x) === ans);
+        userAnsForFeedback = ans;
+        if (isOK) correct++;
+      }
+      // 🔹 NEW: write feedback for this question
+      const fb = document.getElementById(`fb-${i}`);
+      if (fb) {
+        fb.innerHTML = getFeedback(it, userAnsForFeedback, isOK);
+        fb.style.color = isOK ? "var(--ok, #16a34a)" : "var(--err, #ef4444)";
       }
     });
 
@@ -3103,35 +3207,49 @@ function renderMyLearning() {
     return;
   }
 
-  grid.innerHTML = list.map((c) => {
-    const isDone = completed.has(c.id);
-    const issued = !!getIssuedCert(c.id);
-    const label = isDone ? "Review" : "Continue";
-    const ben = (c.benefits || "").trim();
-    const benList = ben
-      ? `<ul class="small muted benefits">${ben.split(/\r?\n/).map((x)=>`<li>${esc(x)}</li>`).join("")}</ul>`
-      : "";
+  grid.innerHTML = list
+    .map((c) => {
+      const isDone = completed.has(c.id);
+      const issued = !!getIssuedCert(c.id);
+      const label = isDone ? "Review" : "Continue";
+      const ben = (c.benefits || "").trim();
+      const benList = ben
+        ? `<ul class="small muted benefits">${ben
+            .split(/\r?\n/)
+            .map((x) => `<li>${esc(x)}</li>`)
+            .join("")}</ul>`
+        : "";
 
-    return `<div class="card course" data-id="${c.id}">
-  <img class="course-cover" src="${esc(c.image || `https://picsum.photos/seed/${c.id}/640/360`)}" alt="">
+      return `<div class="card course" data-id="${c.id}">
+  <img class="course-cover" src="${esc(
+    c.image || `https://picsum.photos/seed/${c.id}/640/360`
+  )}" alt="">
   <div class="course-body">
     <strong>${esc(c.title)}</strong>
-    <div class="small muted">${esc(c.category || "")} • ${esc(c.level || "")} • ${renderStars(c.rating)}</div>
+    <div class="small muted">${esc(c.category || "")} • ${esc(
+        c.level || ""
+      )} • ${renderStars(c.rating)}</div>
     <div class="muted">${esc(c.summary || "")}</div>
     ${benList}
     <div class="row" style="justify-content:flex-end; gap:8px">
       <button class="btn" data-read="${c.id}">${label}</button>
-      <button class="btn" data-cert="${c.id}" ${issued ? "" : "disabled"}>Certificate</button>
+      <button class="btn" data-cert="${c.id}" ${
+        issued ? "" : "disabled"
+      }>Certificate</button>
     </div>
   </div>
 </div>`;
-  }).join("");
+    })
+    .join("");
 
   // wire buttons
-  grid.querySelectorAll("[data-read]").forEach((b) => b.onclick = () => {
-    const id = b.getAttribute("data-read");
-    openReader(id); // openReader version supports pages/meta/quizzes already
-  });
+  grid.querySelectorAll("[data-read]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const id = b.getAttribute("data-read");
+        openReader(id); // openReader version supports pages/meta/quizzes already
+      })
+  );
 
   // Firefox timing guard: ensure label becomes "Review" if cloud marks it
   (async () => {
@@ -3141,27 +3259,41 @@ function renderMyLearning() {
       if (!id) continue;
       const btn = card.querySelector("[data-read]");
       if (!btn) continue;
-      if (completed.has(id)) { btn.textContent = "Review"; continue; }
-      try { const p = await getProgress(id); if (p?.status === "review") btn.textContent = "Review"; } catch {}
+      if (completed.has(id)) {
+        btn.textContent = "Review";
+        continue;
+      }
+      try {
+        const p = await getProgress(id);
+        if (p?.status === "review") btn.textContent = "Review";
+      } catch {}
     }
   })();
 
-  grid.querySelectorAll("[data-cert]").forEach((b) => b.onclick = () => {
-    const id = b.getAttribute("data-cert");
-    const rec = getIssuedCert(id);
-    if (!rec) return toast("Certificate not issued yet");
-    const c = (ALL.length ? ALL : getCourses()).find((x) => x.id === id);
-    if (c) showCertificate(c);
-  });
+  grid.querySelectorAll("[data-cert]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const id = b.getAttribute("data-cert");
+        const rec = getIssuedCert(id);
+        if (!rec) return toast("Certificate not issued yet");
+        const c = (ALL.length ? ALL : getCourses()).find((x) => x.id === id);
+        if (c) showCertificate(c);
+      })
+  );
 }
 window.renderMyLearning = renderMyLearning;
 
-function renderStars(r){
+function renderStars(r) {
   const rating = Number(r || 4.6);
   const full = Math.floor(rating);
   const half = rating - full >= 0.5 ? 1 : 0;
   const empty = 5 - full - half;
-  return "★".repeat(full) + (half?"½":"") + "☆".repeat(empty) + ` ${rating.toFixed(1)}`;
+  return (
+    "★".repeat(full) +
+    (half ? "½" : "") +
+    "☆".repeat(empty) +
+    ` ${rating.toFixed(1)}`
+  );
 }
 
 function renderCertificate(course, cert) {
@@ -4520,7 +4652,7 @@ document.addEventListener("DOMContentLoaded", initLiveChat);
 
 /* ---------- Boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
-// ensure one-time bag exists
+  // ensure one-time bag exists
   window.__OL_ONCE__ = window.__OL_ONCE__ || {};
 
   // Theme / font
@@ -4668,26 +4800,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Remove Finals from UI if present (robust no-op if missing)
   stripFinalsUI();
 
-    // === Admin: Course Creation Guide modal wiring ===
-   (function wireCourseGuideOnce(){
-     if (window.__OL_ONCE__?.guideModal) return;
-     const openBtn = document.getElementById("btn-course-guide");
-     const modal   = document.getElementById("guideModal");
-     const close1  = document.getElementById("btn-guide-close");
-     const close2  = document.getElementById("btn-guide-close-2");
-     if (!openBtn || !modal) return;
+  // === Admin: Course Creation Guide modal wiring ===
+  (function wireCourseGuideOnce() {
+    if (window.__OL_ONCE__?.guideModal) return;
+    const openBtn = document.getElementById("btn-course-guide");
+    const modal = document.getElementById("guideModal");
+    const close1 = document.getElementById("btn-guide-close");
+    const close2 = document.getElementById("btn-guide-close-2");
+    if (!openBtn || !modal) return;
 
-
-    const openDialog = (dlg)=> dlg?.showModal ? dlg.showModal() : (dlg ? (dlg.open = true) : null);
+    const openDialog = (dlg) =>
+      dlg?.showModal ? dlg.showModal() : dlg ? (dlg.open = true) : null;
     openBtn.addEventListener("click", () => openDialog(modal));
 
-     const doClose = () => modal?.close?.();
-     close1?.addEventListener("click", doClose);
-     close2?.addEventListener("click", doClose);
-     modal.addEventListener("keydown", (e)=>{ if(e.key==="Escape") doClose(); });
+    const doClose = () => modal?.close?.();
+    close1?.addEventListener("click", doClose);
+    close2?.addEventListener("click", doClose);
+    modal.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") doClose();
+    });
 
-     window.__OL_ONCE__.guideModal = true;
-   })();
+    window.__OL_ONCE__.guideModal = true;
+  })();
 
   // defensive: keep auth-required items clickable (CSS gates by JS)
   document.querySelectorAll("[data-requires-auth]").forEach((el) => {

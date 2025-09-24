@@ -1494,3 +1494,6 @@ details.help + details.help {
   border:0; background:transparent; font-size:1rem; cursor:pointer; opacity:.75;
 }
 .pw-toggle:hover { opacity: 1; }
+
+#rdPage .ok { color: rgba(var(--fg-r), var(--fg-g), var(--fg-b), 0.95); }
+#rdPage .bad { color: #f87171; }  /* red-400-ish */

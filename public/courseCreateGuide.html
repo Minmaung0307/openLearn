@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="my">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Course Creation Guide (End‑to‑End)</title>
+<style>
+  :root{
+    --bg:#0b0d12; --fg:#e6e9ef; --muted:#9aa4b2; --card:#131722; --accent:#67b0ff;
+    --border:#1e2430; --code:#0f1320; --ok:#2ecc71; --warn:#f1c40f; --err:#e74c3c;
+  }
+  @media (prefers-color-scheme: light) {
+    :root{ --bg:#ffffff; --fg:#0c1222; --muted:#5b6676; --card:#f6f8fb; --accent:#0b6bcb; --border:#d8dee8; --code:#f3f6fc; }
+  }
+  *{ box-sizing: border-box }
+  body{ margin:0; font:16px/1.55 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--fg) }
+  header{ position:sticky; top:0; backdrop-filter:saturate(180%) blur(8px); background:color-mix(in oklab, var(--bg) 85%, transparent); border-bottom:1px solid var(--border); z-index:10 }
+  .wrap{ max-width:1000px; margin-inline:auto; padding:24px }
+  h1{ font-size: clamp(22px, 3.6vw, 34px); margin:8px 0 6px }
+  h2{ font-size: clamp(19px, 2.6vw, 26px); margin:28px 0 10px; border-left:4px solid var(--accent); padding-left:10px }
+  h3{ font-size: clamp(17px, 2.2vw, 22px); margin:22px 0 8px }
+  p,li{ color:var(--fg) }
+  .muted{ color:var(--muted) }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; }
+  .grid{ display:grid; gap:16px }
+  @media(min-width:860px){ .grid{ grid-template-columns: 1.2fr 2fr } }
+  code,kbd{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background:var(--code); border:1px solid var(--border); padding:0 .35rem; border-radius:6px }
+  pre{ background:var(--code); border:1px solid var(--border); border-radius:12px; padding:14px; overflow:auto; }
+  pre code{ background:transparent; border:0; padding:0; white-space:pre; display:block }
+  .path{ display:inline-flex; align-items:center; gap:8px; padding:.4rem .6rem; background:var(--card); border:1px dashed var(--border); border-radius:8px }
+  .toc a{ color:var(--fg); text-decoration:none }
+  .toc a:hover{ color:var(--accent) }
+  .badge{ display:inline-block; padding:.2rem .5rem; border-radius:999px; border:1px solid var(--border); background:var(--card); color:var(--muted); font-size:12px }
+  .list-kv li{ margin:.25rem 0 }
+  .ok{ color:var(--ok) } .warn{ color:var(--warn) } .err{ color:var(--err) }
+  footer{ border-top:1px solid var(--border); color:var(--muted); font-size:13px; padding:18px 0; margin-top:28px }
+  .callout{ border-left:4px solid var(--accent); background:color-mix(in oklab, var(--card) 92%, transparent); padding:10px 12px; border-radius:8px; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>🗂️ End‑to‑End လမ်းညွှန် — Course တစ်ခု တည်ဆောက်ခြင်း</h1>
+      <div class="muted">Catalog → Scaffold → Unpack → meta/lessons/quizzes → Images • Admin‑friendly guide</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="grid">
+      <aside class="card toc">
+        <h3>Table of Contents</h3>
+        <ol>
+          <li><a href="#layout">Folder Layout</a></li>
+          <li><a href="#step0">Step 0 — Scaffold.json ဖိုင်တည်ဆောက်</a></li>
+          <li><a href="#step1">Step 1 — catalog.json ထဲ item ထည့်</a></li>
+          <li><a href="#step2">Step 2 — Scaffold.json ကို unpack</a></li>
+          <li><a href="#step3">Step 3 — meta.json ဖြည့်သွင်း</a></li>
+          <li><a href="#step4">Step 4 — Lessons & Quizzes ဖိုင်နေရာ</a></li>
+          <li><a href="#step5">Step 5 — Images ထည့်</a></li>
+          <li><a href="#flow">App Read Flow (အကျဥ်းချုပ်)</a></li>
+          <li><a href="#faq">FAQ & Pitfalls</a></li>
+          <li><a href="#check">Quick Checklist</a></li>
+        </ol>
+      </aside>
+
+      <article class="card">
+        <h2 id="layout">Project Folder Layout</h2>
+<pre><code>public/
+  data/
+    catalog.json
+    scaffolds/           ← optional: *-scaffold.json တွေကို backup အဖြစ်
+    courses/
+      pali-basics/
+        meta.json
+        lessons/
+          lesson-00.html
+          lesson-01.html
+          ...
+        quizzes/
+          lesson-00.json
+          lesson-01.json
+          ...
+        images/
+          cover.jpg
+</code></pre>
+
+        <div class="callout">
+          <strong>Note:</strong> <code>catalog.json</code> (lowercase) ကို <em>public/data/</em> အောက်မှာထားပါ. 
+          <br>Scaffold JSON တွေဟာ runtime မဖတ်ပါ — unpack လုပ်ပြီးမှ ပြုလုပ်သင့်ပါတယ်။
+        </div>
+
+        <h2 id="step0">Step 0 — Scaffold.json ဖိုင်တည်ဆောက်</h2>
+        <p>App ထဲက <b>New Course +</b> ကနေတစ်ဆင့် ဖန်တီးပါ။ <code>public/data/courses</code> အောက်မှာ <code>*-scaffold.json</code> တစ်ခုရောက်လာမည်။</p>
+        <p class="muted">ဤဖိုင်သည် <code>path → content</code> mapping (developer‑only) ဖြစ်ပြီး runtime မဖတ်ပါ။</p>
+
+        <h2 id="step1">Step 1 — <code>catalog.json</code> ထဲ item ထည့် (Cards)</h2>
+        <p><code>/public/data/catalog.json</code> ထဲ <code>items</code> array ထဲသို့ course entry ထည့်ပါ—</p>
+<pre><code>{
+  "id": "pali-basics",
+  "title": "ပါဠိ အခြေခံ",
+  "category": "Language",
+  "level": "Beginner",
+  "price": 0,
+  "credits": 2,
+  "rating": 4.7,
+  "hours": 20,
+  "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့် ဝါသနာသင့် လေ့ကျင့်ခန်းများ။",
+  "image": "/data/courses/pali-basics/images/cover.jpg",
+  "benefits": "အခြေခံမှစတင်နားလည်ရလွယ်
+အသံထွက်နှင့် စာလုံးပေါင်း လေ့ကျင့်ခန်းများ
+သင်တန်းပြီး ဆက်လက်လေ့လာရန် လမ်းညွှန်"
+}</code></pre>
+
+        <h2 id="step2">Step 2 — <code>Scaffold.json</code> ကို “ဖိုလ်ဒါ/ဖိုင်” ဖြစ်အောင် Unpack</h2>
+        <p>Scaffold JSON က <em>string data</em> ပဲ; တကယ့်ဖိုင် ဖန်တီးဖို့ unpack လုပ်ရပါမယ်။ နည်းလမ်း ၃ မျိုး—</p>
+
+        <h3>နည်း (A): Node script နဲ့ unpack</h3>
+<pre><code>// tools/unpack-scaffold.js
+import fs from "node:fs/promises";
+import path from "node:path";
+
+async function main(file) {
+  if (!file) {
+    console.error("Usage: node tools/unpack-scaffold.js &lt;scaffold.json&gt;");
+    process.exit(1);
+  }
+  const json = JSON.parse(await fs.readFile(file, "utf8"));
+  const baseDir = path.dirname(file); // typically public/data/courses
+  for (const [rel, content] of Object.entries(json)) {
+    const out = path.join(baseDir, rel.replace(/^courses\//, "")); // keep &lt;id&gt;/…
+    await fs.mkdir(path.dirname(out), { recursive: true });
+    await fs.writeFile(out, content, "utf8");
+    console.log("Wrote", out);
+  }
+}
+main(process.argv[2]).catch((e) => { console.error(e); process.exit(1); });
+</code></pre>
+<pre><code class="bash">node tools/unpack-scaffold.js public/data/courses/Pali-scaffold.json</code></pre>
+
+        <h3>နည်း (B): Manual</h3>
+        <p>Scaffold JSON ကိုဖွင့်ပြီး key → content အတိုင်း ကိုယ်တိုင် ဖိုလ်ဒါ/ဖိုင်လုပ်၍ <code>/public/data</code> ထဲသို့ ထည့်ပါ။</p>
+
+        <h3>နည်း (C): Browser (Zip / Direct‑Write)</h3>
+        <ul>
+          <li><b>ZIP Maker</b> — <code>unpack.html</code> ဖြင့် <em>Make ZIP</em> ပြီး unzip ➜ <code>public/data/...</code> ထဲ copy</li>
+          <li><b>Direct Write (Chrome/Edge)</b> — <code>save-to-folder.html</code> ဖြင့် <em>public/data</em> ကိုရွေးပြီး တိုက်ရိုက်ရေး</li>
+        </ul>
+
+        <h2 id="step3">Step 3 — <code>meta.json</code> ကို ဖြည့်</h2>
+        <p><code>/public/data/courses/&lt;courseId&gt;/meta.json</code> သည် reader အတွက် အဓိက အချက်အလက် ဖြစ်သည်။ <i>ID များ ကိုက်ညီရမည်</i> —
+           <code>catalog.items[].id</code> = folder name = <code>meta.id</code>.</p>
+<pre><code>{
+  "id": "pali-basics",
+  "title": "ပါဠိ အခြေခံ",
+  "category": "Language",
+  "level": "Beginner",
+  "image": "/data/courses/pali-basics/images/cover.jpg",
+  "summary": "ပါဠိစာလုံးပေါင်း၊ အသံထွက်၊ သဒ္ဒါအခြေခံနှင့်လေ့ကျင့်ခန်းများ။",
+  "description": "ပါဠိ အခြေခံသဒ္ဒါ၊ စာလုံးပေါင်းနှင့် ဝေါဟာရများကို လေ့လာပါ။",
+  "benefits": ["စာလုံးပေါင်း အခြေခံ","ဝေါဟာရ တိုးတက်","သဒ္ဒါ စနစ်တကျ"],
+  "credits": 2,
+  "hours": 20,
+  "modules": [
+    {
+      "id": "m1",
+      "title": "ပါဠိ စာလုံးပေါင်း",
+      "lessons": [
+        { "type": "html", "title": "Lesson 00", "src": "lessons/lesson-00.html" },
+        { "type": "html", "title": "Lesson 01", "src": "lessons/lesson-01.html" },
+        { "type": "quiz", "src": "quizzes/lesson-01.json" },
+        { "type": "html", "title": "Lesson 02", "src": "lessons/lesson-02.html" }
+      ]
+    }
+  ]
+}</code></pre>
+
+        <h2 id="step4">Step 4 — Lessons & Quizzes ဖိုင်နေရာ</h2>
+        <h3>Lessons (HTML)</h3>
+<pre><code>&lt;!-- ဘုရားဖြစ်ပေါ်လာပုံ --&gt;
+&lt;h2&gt;သာသနာအစ · ဘုရားဖြစ်ပေါ်လာပုံ&lt;/h2&gt;
+&lt;p&gt;Write your content here…&lt;/p&gt;
+</code></pre>
+
+        <h3>Quizzes (JSON)</h3>
+<pre><code>{
+  "randomize": true,
+  "shuffleChoices": true,
+  "questions": [
+    {
+      "type": "single",
+      "q": "ပါဠိ စာလုံးပေါင်း၏ အခြေခံက ဘာလဲ?",
+      "choices": ["အသံထွက်","စာလုံးပေါင်း","သဒ္ဒါ","အဓိပ္ပါယ်"],
+      "correct": 1
+    }
+  ]
+}
+</code></pre>
+
+        <h2 id="step5">Step 5 — Images ထည့်</h2>
+        <p><code>/public/data/courses/pali-basics/images/cover.jpg</code> ထည့်ပြီး <code>catalog.json</code> နှင့် <code>meta.json</code> တို့မှ refer လုပ်ပါ။</p>
+
+        <h2 id="flow">App Read Flow (အကျဥ်းချုပ်)</h2>
+        <ul class="list-kv">
+          <li>Catalog ကို load ⇒ Cards ပြ (<i>benefits, rating, summary…</i>)</li>
+          <li>Details/Enroll/Open ⇒ <code>/data/courses/&lt;id&gt;/meta.json</code> fetch</li>
+          <li><code>type: "html"</code> ⇒ <code>lessons/*.html</code> fetch & render</li>
+          <li><code>type: "quiz"</code> ⇒ <code>quizzes/*.json</code> fetch ⇒ <code>normalizeQuiz()</code> ဖြင့် ပြသ</li>
+        </ul>
+
+        <h2 id="faq">FAQ & Pitfalls</h2>
+        <ul>
+          <li><b>Scaffold JSON ကို public/data အောက်ထားရုံ?</b> ❌ Runtime မဖတ်ပါ; Unpack လုပ်ပါ</li>
+          <li><b>ID မတူညီ?</b> ❌ <code>catalog.id</code> = folder = <code>meta.id</code> ထိန်းပါ</li>
+          <li><b>Benefits မပေါ်?</b> <code>catalog.json</code> (cards) နှင့် <code>meta.json</code> (details) နှစ်ဖိုင်စစ်ပါ</li>
+          <li><b>Cover ပုံ ပြတ်?</b> CSS: <code>.course-cover{object-fit:contain; aspect-ratio:16/9}</code></li>
+          <li><b>404 when reading lessons/quizzes?</b> Path ကို <code>lessons/…</code>, <code>quizzes/…</code> relative ဖြင့် တိတိကျကျ ပြန်စစ်ပါ</li>
+        </ul>
+
+        <h2 id="check">Quick Checklist ✅</h2>
+        <ul>
+          <li><code>public/data/catalog.json</code> ထဲ course item OK</li>
+          <li><code>public/data/courses/&lt;id&gt;/meta.json</code> ရှိ</li>
+          <li><code>lessons/*.html</code>, <code>quizzes/*.json</code> ရှိ</li>
+          <li>Image path OK</li>
+          <li>IDs သုံးခုလုံး တူ</li>
+        </ul>
+      </article>
+    </section>
+
+    <footer class="muted">© Course Creation Guide • built for your Admins</footer>
+  </main>
+</body>
+</html>

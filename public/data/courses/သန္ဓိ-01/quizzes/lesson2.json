@@ -1,0 +1,38 @@
+{
+  "randomize": true,
+  "shuffleChoices": true,
+  "questions": [
+    {"type":"single","q":"What is Sandhi?","choices":["Sound change","Word order"],"correct":0},
+    {
+    "type": "single",
+    "q": "Which method selects an element by CSS selector?",
+    "a": ["getElementById", "querySelector", "getElementsByClassName"],
+    "correct": 1
+  },
+  {
+    "type": "short",
+    "q": "Event to detect a button click?",
+    "a": "click"
+  },
+  {
+    "type": "multiple",
+    "q": "Which are primitive data types?",
+    "a": ["string", "boolean", "object", "number"],
+    "correct": [0, 1, 3]
+  },
+  { "type": "mcq",
+    "q": "Which method converts a JSON string to an object?",
+    "options": ["JSON.toObject()", "JSON.parse()", "Object.fromJSON()", "parse.json()"],
+    "correct": 1
+  },
+  { "type": "tf",
+    "q": "let and const are block-scoped.",
+    "a": "t"
+  },
+  { "type": "mcq",
+    "q": "Which symbol starts a single-line comment in JS?",
+    "options": ["<!--", "//", "/*", "#"],
+    "correct": 1
+  }
+  ]
+}
