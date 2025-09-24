@@ -1,0 +1,10 @@
+{
+  "courses/သန္ဓိ-01/meta.json": "{\n  \"id\": \"သန္ဓိ-01\",\n  \"title\": \"သန္ဓိပထမပိုင်း\",\n  \"category\": \"ပါဠိသဒ္ဒါ\",\n  \"level\": \"Beginner\",\n  \"hours\": 8,\n  \"credits\": 2,\n  \"price\": 0,\n  \"summary\": \"ပါဠိဟူသော စကားလုံးကို ထေရဝါဒဗုဒ္ဓဘာသာဝင်တို့အသုံးပြုခဲ့ကြသည်။ လေ့လာသူများအကြား ပါဠိဆိုသည့် စကားလုံး၏ အနက်ကိုဖွင့်ဆိုပုံခြင်းမတူသကဲ့သို့ ထိုစကားလုံးကို စာလုံးပေါင်းပုံခြင်းပင် မတူညီကြပါ။\",\n  \"benefits\": \"ပုဒ်စပ်/ပုဒ်ဖြတ်များကို နားလည်ခြင်း\\nပါဠိကို မှန်ကန်စွာဖတ်နိုင်ခြင်း\\nပါဠိတော် အဋ္ဌကထာ ဋီကာများကို စတင်မိတ်ဆက်နိုင်ခြင်း\",\n  \"image\": \"\"\n}",
+  "courses/သန္ဓိ-01/lessons/intro-html.html": "<!-- intro.html -->\n<h2>သန္ဓိပထမပိုင်း · intro.html</h2>\n<p>Write your content here…</p>",
+  "courses/သန္ဓိ-01/lessons/lesson1-html.html": "<!-- lesson1.html -->\n<h2>သန္ဓိပထမပိုင်း · lesson1.html</h2>\n<p>Write your content here…</p>",
+  "courses/သန္ဓိ-01/lessons/lesson2-html.html": "<!-- lesson2.html -->\n<h2>သန္ဓိပထမပိုင်း · lesson2.html</h2>\n<p>Write your content here…</p>",
+  "courses/သန္ဓိ-01/lessons/lesson3-html.html": "<!-- lesson3.html -->\n<h2>သန္ဓိပထမပိုင်း · lesson3.html</h2>\n<p>Write your content here…</p>",
+  "courses/သန္ဓိ-01/lessons/lesson4-html.html": "<!-- lesson4.html -->\n<h2>သန္ဓိပထမပိုင်း · lesson4.html</h2>\n<p>Write your content here…</p>",
+  "courses/သန္ဓိ-01/lessons/lesson5-html.html": "<!-- lesson5.html -->\n<h2>သန္ဓိပထမပိုင်း · lesson5.html</h2>\n<p>Write your content here…</p>",
+  "courses/သန္ဓိ-01/lessons/end-html.html": "<!-- end.html -->\n<h2>သန္ဓိပထမပိုင်း · end.html</h2>\n<p>Write your content here…</p>"
+}
