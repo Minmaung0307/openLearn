@@ -1502,3 +1502,41 @@ details.help + details.help {
 
 #rdPage .ok { color: rgba(var(--fg-r), var(--fg-g), var(--fg-b), 0.95); }
 #rdPage .bad { color: #f87171; }  /* red-400-ish */
+
+/* === Search Results Box Styling === */
+#topSearchResults {
+  background: #fff;              /* white background (dark mode ဆိုရင် #222 စသဖြင့် ပြန်ပြောင်းနိုင်) */
+  border: 1px solid #ccc;        /* subtle border */
+  border-radius: 6px;            /* rounded corners */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* slight shadow overlay */
+  position: absolute;            /* overlay under input */
+  z-index: 1000;
+  max-height: 300px;             /* prevent too tall list */
+  overflow-y: auto;
+  margin-top: 4px;               /* just below the input */
+  padding: 0;                    /* remove default UL padding */
+  width: 100%;                   /* same width as input */
+  list-style: none;              /* no bullets */
+}
+
+/* Each search result item */
+#topSearchResults li {
+  padding: 6px 10px;             /* tighter than before */
+  margin: 0;                     /* remove excess margin */
+  border-bottom: 1px solid #eee; /* subtle divider */
+}
+
+#topSearchResults li:last-child {
+  border-bottom: none;
+}
+
+/* Anchor inside */
+#topSearchResults li a {
+  display: block;
+  color: #222;
+  text-decoration: none;
+}
+
+#topSearchResults li a:hover {
+  background: #f5f5f5;
+}
