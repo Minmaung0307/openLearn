@@ -1331,21 +1331,218 @@ document.addEventListener("DOMContentLoaded", () => {
   // escape key / backdrop click auto works with <dialog>
 });
 
+// ==== SEARCH INDEX (global) ====
+let SEARCH_INDEX = []; // {type, cid, title, text, href, pageIdx?, score?}
+
+// safe text utils
+function _txt(html="") {
+  try {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    return tmp.textContent.replace(/\s+/g, " ").trim();
+  } catch { return String(html||"").replace(/<[^>]+>/g, " ").replace(/\s+/g," ").trim(); }
+}
+
+function _take(s, n=280){ s=String(s||""); return s.length>n ? s.slice(0,n-1)+"…" : s; }
+
+// open reader at page i (robust)
+async function openReaderAt(cid, pageIdx=0) {
+  try { await openReader(cid); } catch { openReader(cid); }
+  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+  for (let k=0;k<60;k++){ // wait up to ~3s
+    if (window.RD && Array.isArray(RD.pages) && RD.pages.length) break;
+    await sleep(50);
+  }
+  try {
+    if (typeof goToPage === "function") {
+      goToPage(pageIdx);
+    } else if (window.RD) {
+      RD.i = Math.max(0, Math.min(pageIdx, RD.pages.length-1));
+      if (typeof renderReader === "function") renderReader(RD);
+      // fallback: simulate next/prev renderers if any
+    }
+  } catch {}
+}
+
+// ==== Build search index (courses + lessons + quizzes) ====
+let _buildingIndex = false;
+async function buildSearchIndex({maxLessonsPerCourse=25} = {}) {
+  if (_buildingIndex) return;
+  _buildingIndex = true;
+  SEARCH_INDEX = [];
+
+  const courses = (typeof getCourses === "function") ? getCourses() : (window.ALL||[]);
+  for (const c of courses) {
+    const cid = c.id;
+    // Course card-level entry
+    SEARCH_INDEX.push({
+      type: "course",
+      cid,
+      title: c.title || cid,
+      text: _txt([c.summary, Array.isArray(c.benefits)? c.benefits.join(" ") : c.benefits].join(" ")),
+      href: `#course/${cid}`
+    });
+
+    // meta + lessons
+    try {
+      const metaUrl = `/data/courses/${cid}/meta.json`;
+      const m = await fetch(metaUrl).then(r=>r.ok?r.json():null).catch(()=>null);
+      if (!m || !Array.isArray(m.modules)) continue;
+
+      let lessonCounter = 0;
+      for (const mod of m.modules) {
+        if (!Array.isArray(mod.lessons)) continue;
+        for (let i=0;i<mod.lessons.length;i++) {
+          const L = mod.lessons[i];
+          if (L.type === "html" && typeof L.src === "string" && lessonCounter < maxLessonsPerCourse) {
+            const url = `/data/courses/${cid}/${L.src}`;
+            let html = "";
+            try { html = await fetch(url).then(r=>r.ok?r.text():""); } catch {}
+            const text = _txt(html);
+            SEARCH_INDEX.push({
+              type: "lesson",
+              cid,
+              title: (L.title || `Lesson ${i+1}`),
+              text: _take(text, 500),
+              href: url,
+              pageIdx: (typeof i === "number" ? i : undefined)
+            });
+            lessonCounter++;
+          } else if (L.type === "quiz" && typeof L.src === "string") {
+            // index quiz stem text
+            const qurl = `/data/courses/${cid}/${L.src}`;
+            try {
+              const qjson = await fetch(qurl).then(r=>r.ok?r.json():null);
+              const nq = (qjson && (qjson.questions || Array.isArray(qjson))) ? (qjson.questions || qjson) : [];
+              const stems = nq.map(x => x.q).filter(Boolean).join(" ");
+              if (stems) {
+                SEARCH_INDEX.push({
+                  type: "quiz",
+                  cid,
+                  title: (L.title || "Quiz"),
+                  text: _take(_txt(stems), 400),
+                  href: qurl,
+                  pageIdx: (typeof i === "number" ? i : undefined)
+                });
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+  }
+
+  _buildingIndex = false;
+}
+
 function initSearch() {
-  const input = $("#topSearch");
-  const apply = () => {
-    const q = (input?.value || "").toLowerCase().trim();
-    showPage("catalog");
-    $("#courseGrid")
-      ?.querySelectorAll(".card.course")
-      .forEach((card) => {
-        const t = (card.dataset.search || "").toLowerCase();
-        card.style.display = !q || t.includes(q) ? "" : "none";
-      });
-  };
-  input?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") apply();
+  const input = document.getElementById("searchInput");
+  const box   = document.getElementById("searchBox");
+  const list  = document.getElementById("searchResults");
+  if (!input || !box || !list) return;
+
+  // build index once
+  (async () => {
+    try { await buildSearchIndex(); } catch {}
+  })();
+
+  // small debounce
+  let t = null;
+  input.addEventListener("input", () => {
+    clearTimeout(t);
+    const q = input.value.trim();
+    if (!q) {
+      list.innerHTML = ""; box.classList.add("hidden");
+      return;
+    }
+    t = setTimeout(() => runSearch(q, list, box), 120);
   });
+
+  // click outside to close
+  document.addEventListener("click", (e) => {
+    if (!box.contains(e.target) && e.target !== input) {
+      box.classList.add("hidden");
+    }
+  });
+
+  // Delegate result clicks (open Details or jump to Reader)
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-open-course],[data-open-lesson]");
+    if (!el) return;
+    e.preventDefault();
+    const cid = el.getAttribute("data-cid");
+    if (!cid) return;
+
+    const pi = Number(el.getAttribute("data-page-idx") || -1);
+    box.classList.add("hidden");
+
+    if (el.hasAttribute("data-open-course")) {
+      // open Details modal
+      if (typeof openDetails === "function") openDetails(cid);
+      else showPage?.("courses"); // fallback
+    } else {
+      // open specific lesson
+      openReaderAt(cid, isNaN(pi) || pi < 0 ? 0 : pi);
+    }
+  });
+}
+
+function runSearch(query, list, box) {
+  const q = query.toLowerCase();
+  // if index not built yet, try again later
+  if (!Array.isArray(SEARCH_INDEX) || !SEARCH_INDEX.length) {
+    list.innerHTML = `<li class="muted" style="padding:.4rem .6rem">Indexing… try again in a moment.</li>`;
+    box.classList.remove("hidden");
+    return;
+  }
+
+  const terms = q.split(/\s+/).filter(Boolean);
+  const hit = [];
+  for (const it of SEARCH_INDEX) {
+    const hay = (it.title + " " + it.text).toLowerCase();
+    const ok = terms.every(t => hay.includes(t));
+    if (ok) {
+      // lightweight score
+      const score = terms.reduce((s,t)=>s + (hay.indexOf(t)>=0 ? 1 : 0),0) + (it.type==="course"?0.2:0);
+      hit.push({...it, score});
+    }
+  }
+
+  hit.sort((a,b)=> b.score - a.score);
+
+  if (!hit.length) {
+    list.innerHTML = `<li class="muted" style="padding:.4rem .6rem">No matches.</li>`;
+    box.classList.remove("hidden");
+    return;
+  }
+
+  // render results
+  list.innerHTML = hit.slice(0, 20).map(it => {
+    const sub = it.type === "course" ? "Course"
+            : it.type === "lesson" ? "Lesson"
+            : it.type === "quiz" ? "Quiz" : it.type;
+
+    if (it.type === "course") {
+      return `<li>
+        <a href="#" data-open-course data-cid="${esc(it.cid)}">
+          <strong>${esc(it.title)}</strong>
+          <div class="small muted">${esc(_take(it.text, 120))}</div>
+          <div class="tiny muted">${esc(sub)}</div>
+        </a>
+      </li>`;
+    } else {
+      const dataAttr = `data-open-lesson data-cid="${esc(it.cid)}" ${typeof it.pageIdx==="number" ? `data-page-idx="${it.pageIdx}"` : ""}`;
+      return `<li>
+        <a href="#" ${dataAttr}>
+          <strong>${esc(it.title)}</strong>
+          <div class="small muted">${esc(_take(it.text, 120))}</div>
+          <div class="tiny muted">${esc(sub)} • ${esc(it.cid)}</div>
+        </a>
+      </li>`;
+    }
+  }).join("");
+
+  box.classList.remove("hidden");
 }
 
 // =========== Global Search ==============
