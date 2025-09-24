@@ -1562,3 +1562,12 @@ details.help + details.help {
 :root.dark #topSearchResults li { border-bottom-color: #374151; }
 :root.dark #topSearchResults li a:hover { background: #2b3646; }
 :root.dark #topSearch { background:#111827; color:#e5e7eb; }
+
+/* Search overlay default: HIDDEN until we have results */
+#topSearchResults { display: none; }
+
+/* If lib/classlist သုံးချင်ရင်—hidden အခြေအနေမှာလည်း မပေါ်စေ */
+#topSearchResults.hidden { display: none !important; }
+
+/* Results list အတွင်းမှာ content မရှိရင် မပေါ်စေ (border/padding ပါဖြတ်) */
+#topSearchResults:empty { display: none !important; border: 0 !important; padding: 0 !important; }

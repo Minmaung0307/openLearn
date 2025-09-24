@@ -1333,9 +1333,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // --- put this near other helpers (top-level) ---
 async function openReaderAt(cid, pageIdx = 0) {
-  try { await openReader(cid); } catch { openReader(cid); }
-  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
-  for (let k=0;k<60;k++){ // wait up to ~3s
+  try {
+    await openReader(cid);
+  } catch {
+    openReader(cid);
+  }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let k = 0; k < 60; k++) {
+    // wait up to ~3s
     if (window.RD && Array.isArray(RD.pages) && RD.pages.length) break;
     await sleep(50);
   }
@@ -1353,18 +1358,24 @@ async function openReaderAt(cid, pageIdx = 0) {
 let SEARCH_INDEX = []; // {type, cid, title, text, href, pageIdx?, score?}
 let _buildingIndex = false;
 
-function _txt(html="") {
+function _txt(html = "") {
   try {
     const tmp = document.createElement("div");
     tmp.innerHTML = html;
     return (tmp.textContent || "").replace(/\s+/g, " ").trim();
   } catch {
-    return String(html||"").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    return String(html || "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 }
-function _take(s, n=280) { s=String(s||""); return s.length>n ? s.slice(0,n-1)+"…" : s; }
+function _take(s, n = 280) {
+  s = String(s || "");
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
 
-async function buildSearchIndex({ maxLessonsPerCourse=25 } = {}) {
+async function buildSearchIndex({ maxLessonsPerCourse = 25 } = {}) {
   if (_buildingIndex) return;
   _buildingIndex = true;
   SEARCH_INDEX = [];
@@ -1372,7 +1383,8 @@ async function buildSearchIndex({ maxLessonsPerCourse=25 } = {}) {
   // catalog loaded ဖြစ်မဖြစ် မသေချာရင် guard
   let courses = [];
   try {
-    courses = (typeof getCourses === "function") ? getCourses() : (window.ALL || []);
+    courses =
+      typeof getCourses === "function" ? getCourses() : window.ALL || [];
     if (!courses.length && typeof loadCatalog === "function") {
       await loadCatalog();
       courses = getCourses() || [];
@@ -1388,14 +1400,21 @@ async function buildSearchIndex({ maxLessonsPerCourse=25 } = {}) {
       type: "course",
       cid,
       title: c.title || cid,
-      text: _txt([c.summary, Array.isArray(c.benefits) ? c.benefits.join(" ") : (c.benefits||"")].join(" ")),
-      href: `#course/${cid}`
+      text: _txt(
+        [
+          c.summary,
+          Array.isArray(c.benefits) ? c.benefits.join(" ") : c.benefits || "",
+        ].join(" ")
+      ),
+      href: `#course/${cid}`,
     });
 
     // meta + lessons + quizzes
     try {
       const metaUrl = `/data/courses/${cid}/meta.json`;
-      const m = await fetch(metaUrl).then(r => r.ok ? r.json() : null).catch(()=>null);
+      const m = await fetch(metaUrl)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
       if (!m || !Array.isArray(m.modules)) continue;
 
       let pageIdx = 0; // RD.pages index နှောင်းတန်းတိုး
@@ -1408,27 +1427,37 @@ async function buildSearchIndex({ maxLessonsPerCourse=25 } = {}) {
             if (pageIdx < maxLessonsPerCourse) {
               const url = `/data/courses/${cid}/${L.src}`;
               let html = "";
-              try { html = await fetch(url).then(r => r.ok ? r.text() : ""); } catch {}
+              try {
+                html = await fetch(url).then((r) => (r.ok ? r.text() : ""));
+              } catch {}
               const text = _txt(html);
               SEARCH_INDEX.push({
                 type: "lesson",
                 cid,
-                title: L.title || `Lesson ${pageIdx+1}`,
+                title: L.title || `Lesson ${pageIdx + 1}`,
                 text: _take(text, 500),
                 href: url,
-                pageIdx
+                pageIdx,
               });
             }
             pageIdx++;
           } else if (L.type === "quiz") {
             // quiz stems index
-            const qsrc = (typeof L.src === "string") ? L.src : null;
+            const qsrc = typeof L.src === "string" ? L.src : null;
             if (qsrc) {
               const qurl = `/data/courses/${cid}/${qsrc}`;
               try {
-                const qjson = await fetch(qurl).then(r => r.ok ? r.json() : null);
-                const arr = qjson?.questions || (Array.isArray(qjson) ? qjson : []);
-                const stems = Array.isArray(arr) ? arr.map(x => x?.q).filter(Boolean).join(" ") : "";
+                const qjson = await fetch(qurl).then((r) =>
+                  r.ok ? r.json() : null
+                );
+                const arr =
+                  qjson?.questions || (Array.isArray(qjson) ? qjson : []);
+                const stems = Array.isArray(arr)
+                  ? arr
+                      .map((x) => x?.q)
+                      .filter(Boolean)
+                      .join(" ")
+                  : "";
                 if (stems) {
                   SEARCH_INDEX.push({
                     type: "quiz",
@@ -1436,7 +1465,7 @@ async function buildSearchIndex({ maxLessonsPerCourse=25 } = {}) {
                     title: L.title || "Quiz",
                     text: _take(_txt(stems), 400),
                     href: qurl,
-                    pageIdx
+                    pageIdx,
                   });
                 }
               } catch {}
@@ -1447,9 +1476,9 @@ async function buildSearchIndex({ maxLessonsPerCourse=25 } = {}) {
             SEARCH_INDEX.push({
               type: "page",
               cid,
-              title: L.title || `Page ${pageIdx+1}`,
+              title: L.title || `Page ${pageIdx + 1}`,
               text: "",
-              pageIdx
+              pageIdx,
             });
             pageIdx++;
           }
@@ -1464,13 +1493,17 @@ async function buildSearchIndex({ maxLessonsPerCourse=25 } = {}) {
 // --- REPLACE your current initSearch() with this version ---
 function initSearch() {
   const input = document.getElementById("searchInput");
-  const box   = document.getElementById("searchBox");
-  const list  = document.getElementById("searchResults");
+  const box = document.getElementById("searchBox");
+  const list = document.getElementById("searchResults");
   if (!input || !box || !list) return;
 
   // build index if you have that function (safe no-op if missing)
   if (typeof buildSearchIndex === "function") {
-    (async () => { try { await buildSearchIndex(); } catch {} })();
+    (async () => {
+      try {
+        await buildSearchIndex();
+      } catch {}
+    })();
   }
 
   // debounce
@@ -1489,16 +1522,27 @@ function initSearch() {
       } else {
         // simple fallback: filter catalog cards by title text
         const txt = q.toLowerCase();
-        const courses = (window.ALL || []).filter(c =>
-          [c.title, c.summary, c.category, c.level].join(" ").toLowerCase().includes(txt)
+        const courses = (window.ALL || []).filter((c) =>
+          [c.title, c.summary, c.category, c.level]
+            .join(" ")
+            .toLowerCase()
+            .includes(txt)
         );
-        list.innerHTML = courses.map(c => `
+        list.innerHTML =
+          courses
+            .map(
+              (c) => `
           <li>
             <a href="#" data-open-course data-cid="${esc(c.id)}">
               <strong>${esc(c.title)}</strong>
-              <div class="tiny muted">${esc(c.category||"")} • ${esc(c.level||"")}</div>
+              <div class="tiny muted">${esc(c.category || "")} • ${esc(
+                c.level || ""
+              )}</div>
             </a>
-          </li>`).join("") || `<li class="muted" style="padding:.4rem .6rem">No matches.</li>`;
+          </li>`
+            )
+            .join("") ||
+          `<li class="muted" style="padding:.4rem .6rem">No matches.</li>`;
         box.classList.remove("hidden");
       }
     }, 120);
@@ -1540,6 +1584,8 @@ function runSearch(query, listEl, boxEl) {
   const q = (query || "").toLowerCase();
   if (!Array.isArray(SEARCH_INDEX) || !SEARCH_INDEX.length) {
     listEl.innerHTML = `<li class="muted" style="padding:.4rem .6rem">Indexing… try again in a moment.</li>`;
+    const hasItems = !!listEl.querySelector("li");
+  listEl.style.display = hasItems ? "block" : "none";  // << show only if items
     boxEl.classList.remove("hidden");
     return;
   }
@@ -1547,14 +1593,20 @@ function runSearch(query, listEl, boxEl) {
   const terms = q.split(/\s+/).filter(Boolean);
   const hit = [];
   for (const it of SEARCH_INDEX) {
-    const hay = (String(it.title||"") + " " + String(it.text||"")).toLowerCase();
-    const ok = terms.every(t => hay.includes(t));
+    const hay = (
+      String(it.title || "") +
+      " " +
+      String(it.text || "")
+    ).toLowerCase();
+    const ok = terms.every((t) => hay.includes(t));
     if (ok) {
-      const score = terms.reduce((s,t)=> s + (hay.indexOf(t)>=0 ? 1 : 0), 0) + (it.type==="course" ? 0.2 : 0);
+      const score =
+        terms.reduce((s, t) => s + (hay.indexOf(t) >= 0 ? 1 : 0), 0) +
+        (it.type === "course" ? 0.2 : 0);
       hit.push({ ...it, score });
     }
   }
-  hit.sort((a,b)=> b.score - a.score);
+  hit.sort((a, b) => b.score - a.score);
 
   if (!hit.length) {
     listEl.innerHTML = `<li class="muted" style="padding:.4rem .6rem">No matches.</li>`;
@@ -1562,29 +1614,39 @@ function runSearch(query, listEl, boxEl) {
     return;
   }
 
-  listEl.innerHTML = hit.slice(0, 20).map(it => {
-    const sub = it.type === "course" ? "Course"
-              : it.type === "lesson" ? "Lesson"
-              : it.type === "quiz" ? "Quiz" : (it.type||"");
-    if (it.type === "course") {
-      return `<li>
+  listEl.innerHTML = hit
+    .slice(0, 20)
+    .map((it) => {
+      const sub =
+        it.type === "course"
+          ? "Course"
+          : it.type === "lesson"
+          ? "Lesson"
+          : it.type === "quiz"
+          ? "Quiz"
+          : it.type || "";
+      if (it.type === "course") {
+        return `<li>
         <a href="#" data-open-course data-cid="${esc(it.cid)}">
           <strong>${esc(it.title)}</strong>
           <div class="small muted">${esc(_take(it.text, 120))}</div>
           <div class="tiny muted">${esc(sub)}</div>
         </a>
       </li>`;
-    } else {
-      const dataAttr = `data-open-lesson data-cid="${esc(it.cid)}"${typeof it.pageIdx==="number" ? ` data-page-idx="${it.pageIdx}"` : ""}`;
-      return `<li>
+      } else {
+        const dataAttr = `data-open-lesson data-cid="${esc(it.cid)}"${
+          typeof it.pageIdx === "number" ? ` data-page-idx="${it.pageIdx}"` : ""
+        }`;
+        return `<li>
         <a href="#" ${dataAttr}>
           <strong>${esc(it.title)}</strong>
           <div class="small muted">${esc(_take(it.text, 120))}</div>
           <div class="tiny muted">${esc(sub)} • ${esc(it.cid)}</div>
         </a>
       </li>`;
-    }
-  }).join("");
+      }
+    })
+    .join("");
 
   boxEl.classList.remove("hidden");
 }
@@ -1593,19 +1655,31 @@ function runSearch(query, listEl, boxEl) {
 (function setupGlobalSearch() {
   // ⚠️ IDs မတူအောင် သေချာပါစေ (HTML ထဲ)
   // <input id="topSearch">  <ul id="topSearchResults"></ul>
-  const input   = document.getElementById("topSearch");
+  const input = document.getElementById("topSearch");
   const results = document.getElementById("topSearchResults");
+  if (results) {
+    results.innerHTML = "";
+    results.style.display = "none";
+  }
   if (!input || !results) return;
 
   // Build course/content index (ann/inventory စတာမချိတ်တော့ — coursework only)
-  (async () => { try { await buildSearchIndex(); } catch {} })();
+  (async () => {
+    try {
+      await buildSearchIndex();
+    } catch {}
+  })();
 
   // debounce search
   let t = null;
   input.addEventListener("input", () => {
     clearTimeout(t);
     const q = input.value.trim();
-    if (!q) { results.innerHTML = ""; results.hidden = true; return; }
+    if (!q) {
+      results.innerHTML = "";
+      results.style.display = "none"; // << hide
+      return;
+    }
     t = setTimeout(() => {
       runSearch(q, results, results.parentElement || document.body);
       results.hidden = false;
@@ -1641,7 +1715,7 @@ function runSearch(query, listEl, boxEl) {
   // click outside → close
   document.addEventListener("pointerdown", (e) => {
     if (!results.contains(e.target) && e.target !== input) {
-      results.hidden = true;
+      results.style.display = "none";   // << hide cleanly
     }
   });
 })();
@@ -5141,10 +5215,10 @@ function stripFinalsUI() {
   document.head.appendChild(s);
 }
 
-(function adjustSearchDropdownTop(){
+(function adjustSearchDropdownTop() {
   const header = document.querySelector("header, .topbar, #topbar");
   const root = document.documentElement;
-  function setH(){
+  function setH() {
     const h = header ? header.getBoundingClientRect().height : 56;
     root.style.setProperty("--header-height", Math.round(h) + "px");
   }
