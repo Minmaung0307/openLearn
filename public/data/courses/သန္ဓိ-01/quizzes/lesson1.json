@@ -7,37 +7,37 @@
       "q": "What is Sandhi?",
       "choices": ["Sound change", "Word order"],
       "correct": 0,
-      "why": [
-        "✔️ Sandhi = sound change/combination rules.",
-        "❌ Word order (syntax) မဟုတ်ပါ။"
-      ]
+      "explanations": [
+        "✔️ Sandhi = sound change (phonetic rules)",
+        "❌ Word order is syntax, not Sandhi"
+      ],
+      "correctWhy": "You picked the right one — Sandhi is sound change rules.",
+      "wrongWhy": "Sandhi concerns phonetics, not word order."
     },
     {
       "type": "single",
       "q": "Which method selects an element by CSS selector?",
-      "a": ["getElementById", "querySelector", "getElementsByClassName"],
+      "choices": ["getElementById", "querySelector", "getElementsByClassName"],
       "correct": 1,
-      "why": [
-        "ID တစ်ခုပဲ လက်ခံသည်။",
+      "explanations": [
+        "❌ ID တစ်ခုပဲ လက်ခံသည်။",
         "✔️ CSS selector string (`.class`, `#id`, `tag`) သုံးနိုင်တယ်။",
-        "class name collection ပြန်ရပေမယ့် selector မဟုတ်။"
+        "❌ class name collection ပြန်ရပေမယ့် selector မဟုတ်။"
       ]
     },
     {
       "type": "short",
       "q": "Event to detect a button click?",
       "a": "click",
-      "explain": {
-        "correct": "မှန်! `addEventListener('click', ...)` သုံးပါ။",
-        "wrong": "တစ်ခါထပ်စဉ်းစား—JS event name က `click` ပါ။"
-      }
+      "correctWhy": "✔️ `addEventListener('click', ...)` သုံးပါ။",
+      "wrongWhy": "JS event name က `click` ပါ — တစ်ခါထပ်စဉ်းစားပါ။"
     },
     {
       "type": "multiple",
       "q": "Which are primitive data types?",
-      "a": ["string", "boolean", "object", "number"],
+      "choices": ["string", "boolean", "object", "number"],
       "correct": [0, 1, 3],
-      "why": [
+      "explanations": [
         "✔️ primitive",
         "✔️ primitive",
         "❌ object သည် reference type",
@@ -47,31 +47,37 @@
     {
       "type": "mcq",
       "q": "Which method converts a JSON string to an object?",
-      "options": ["JSON.toObject()", "JSON.parse()", "Object.fromJSON()", "parse.json()"],
+      "options": [
+        "JSON.toObject()",
+        "JSON.parse()",
+        "Object.fromJSON()",
+        "parse.json()"
+      ],
       "correct": 1,
-      "why": [
-        "မရှိတဲ့ API",
+      "explanations": [
+        "❌ မရှိတဲ့ API",
         "✔️ `JSON.parse()` သည် string → object",
-        "စံမဟုတ်တဲ့ အမည်",
-        "မရှိ/မှား"
+        "❌ စံမဟုတ်တဲ့ အမည်",
+        "❌ မရှိ/မှား"
       ]
     },
     {
       "type": "tf",
       "q": "let and const are block-scoped.",
       "a": "t",
-      "explain": "✔️ ES6 မှာ block scope ဖြစ်တယ် (function scope မဟုတ်တော့)."
+      "correctWhy": "✔️ ES6 မှာ block scope ဖြစ်တယ် (function scope မဟုတ်တော့).",
+      "wrongWhy": "မှား — var က function scope, let/const က block scope"
     },
     {
       "type": "mcq",
       "q": "Which symbol starts a single-line comment in JS?",
       "options": ["<!--", "//", "/*", "#"],
       "correct": 1,
-      "why": [
-        "HTML comment syntax — JS သုံးမရ",
+      "explanations": [
+        "❌ HTML comment syntax — JS သုံးမရ",
         "✔️ JavaScript single-line comment",
-        "multi-line comment opener",
-        "shell/python style — JS မသုံးရ"
+        "❌ multi-line comment opener",
+        "❌ shell/python style — JS မသုံးရ"
       ]
     }
   ]
