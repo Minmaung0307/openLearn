@@ -1584,20 +1584,15 @@ function runSearch(query, listEl, boxEl) {
   const q = (query || "").toLowerCase();
   if (!Array.isArray(SEARCH_INDEX) || !SEARCH_INDEX.length) {
     listEl.innerHTML = `<li class="muted" style="padding:.4rem .6rem">Indexing… try again in a moment.</li>`;
-    const hasItems = !!listEl.querySelector("li");
-  listEl.style.display = hasItems ? "block" : "none";  // << show only if items
-    boxEl.classList.remove("hidden");
+    if (boxEl) boxEl.classList.remove("hidden");
+    listEl.style.display = "block";
     return;
   }
 
   const terms = q.split(/\s+/).filter(Boolean);
   const hit = [];
   for (const it of SEARCH_INDEX) {
-    const hay = (
-      String(it.title || "") +
-      " " +
-      String(it.text || "")
-    ).toLowerCase();
+    const hay = (String(it.title || "") + " " + String(it.text || "")).toLowerCase();
     const ok = terms.every((t) => hay.includes(t));
     if (ok) {
       const score =
@@ -1606,56 +1601,47 @@ function runSearch(query, listEl, boxEl) {
       hit.push({ ...it, score });
     }
   }
+
   hit.sort((a, b) => b.score - a.score);
 
   if (!hit.length) {
     listEl.innerHTML = `<li class="muted" style="padding:.4rem .6rem">No matches.</li>`;
-    boxEl.classList.remove("hidden");
+    if (boxEl) boxEl.classList.remove("hidden");
+    listEl.style.display = "block";
     return;
   }
 
-  listEl.innerHTML = hit
-    .slice(0, 20)
-    .map((it) => {
-      const sub =
-        it.type === "course"
-          ? "Course"
-          : it.type === "lesson"
-          ? "Lesson"
-          : it.type === "quiz"
-          ? "Quiz"
-          : it.type || "";
-      if (it.type === "course") {
-        return `<li>
+  const html = hit.slice(0, 20).map((it) => {
+    const sub =
+      it.type === "course" ? "Course" :
+      it.type === "lesson" ? "Lesson" :
+      it.type === "quiz"   ? "Quiz"   : String(it.type || "");
+
+    if (it.type === "course") {
+      return `<li>
         <a href="#" data-open-course data-cid="${esc(it.cid)}">
           <strong>${esc(it.title)}</strong>
           <div class="small muted">${esc(_take(it.text, 120))}</div>
           <div class="tiny muted">${esc(sub)}</div>
         </a>
       </li>`;
-      } else {
-        const dataAttr = `data-open-lesson data-cid="${esc(it.cid)}"${
-          typeof it.pageIdx === "number" ? ` data-page-idx="${it.pageIdx}"` : ""
-        }`;
-        return `<li>
-        <a href="#" ${dataAttr}>
+    } else {
+      const pageAttr = (typeof it.pageIdx === "number")
+        ? ` data-page-idx="${it.pageIdx}"`
+        : "";
+      return `<li>
+        <a href="#" data-open-lesson data-cid="${esc(it.cid)}"${pageAttr}>
           <strong>${esc(it.title)}</strong>
           <div class="small muted">${esc(_take(it.text, 120))}</div>
           <div class="tiny muted">${esc(sub)} • ${esc(it.cid)}</div>
         </a>
       </li>`;
-      }
-    })
-    .join("");
+    }
+  }).join("");
 
-      listEl.innerHTML = hit
-    .slice(0, 20)
-    .map(/* ... existing mapping ... */)
-    .join("");
-
-  // ✅ ပေါ်ပေါ်ပြသာသာ ပြပါ
-  listEl.style.display = "block";
-  boxEl.classList.remove("hidden");
+  listEl.innerHTML = html;
+  listEl.style.display = html ? "block" : "none";
+  if (boxEl) boxEl.classList.remove("hidden");
 }
 
 // =========== Global Search (Top bar) ==============
