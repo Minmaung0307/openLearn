@@ -1331,22 +1331,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // escape key / backdrop click auto works with <dialog>
 });
 
-// ==== SEARCH INDEX (global) ====
-let SEARCH_INDEX = []; // {type, cid, title, text, href, pageIdx?, score?}
-
-// safe text utils
-function _txt(html="") {
-  try {
-    const tmp = document.createElement("div");
-    tmp.innerHTML = html;
-    return tmp.textContent.replace(/\s+/g, " ").trim();
-  } catch { return String(html||"").replace(/<[^>]+>/g, " ").replace(/\s+/g," ").trim(); }
-}
-
-function _take(s, n=280){ s=String(s||""); return s.length>n ? s.slice(0,n-1)+"…" : s; }
-
-// open reader at page i (robust)
-async function openReaderAt(cid, pageIdx=0) {
+// --- put this near other helpers (top-level) ---
+async function openReaderAt(cid, pageIdx = 0) {
   try { await openReader(cid); } catch { openReader(cid); }
   const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
   for (let k=0;k<60;k++){ // wait up to ~3s
@@ -1357,75 +1343,115 @@ async function openReaderAt(cid, pageIdx=0) {
     if (typeof goToPage === "function") {
       goToPage(pageIdx);
     } else if (window.RD) {
-      RD.i = Math.max(0, Math.min(pageIdx, RD.pages.length-1));
+      RD.i = Math.max(0, Math.min(pageIdx, RD.pages.length - 1));
       if (typeof renderReader === "function") renderReader(RD);
-      // fallback: simulate next/prev renderers if any
     }
   } catch {}
 }
 
-// ==== Build search index (courses + lessons + quizzes) ====
+// ==== SEARCH INDEX (global) ====
+let SEARCH_INDEX = []; // {type, cid, title, text, href, pageIdx?, score?}
 let _buildingIndex = false;
-async function buildSearchIndex({maxLessonsPerCourse=25} = {}) {
+
+function _txt(html="") {
+  try {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    return (tmp.textContent || "").replace(/\s+/g, " ").trim();
+  } catch {
+    return String(html||"").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  }
+}
+function _take(s, n=280) { s=String(s||""); return s.length>n ? s.slice(0,n-1)+"…" : s; }
+
+async function buildSearchIndex({ maxLessonsPerCourse=25 } = {}) {
   if (_buildingIndex) return;
   _buildingIndex = true;
   SEARCH_INDEX = [];
 
-  const courses = (typeof getCourses === "function") ? getCourses() : (window.ALL||[]);
+  // catalog loaded ဖြစ်မဖြစ် မသေချာရင် guard
+  let courses = [];
+  try {
+    courses = (typeof getCourses === "function") ? getCourses() : (window.ALL || []);
+    if (!courses.length && typeof loadCatalog === "function") {
+      await loadCatalog();
+      courses = getCourses() || [];
+    }
+  } catch {}
+
   for (const c of courses) {
+    if (!c || !c.id) continue;
     const cid = c.id;
-    // Course card-level entry
+
+    // Course-level entry
     SEARCH_INDEX.push({
       type: "course",
       cid,
       title: c.title || cid,
-      text: _txt([c.summary, Array.isArray(c.benefits)? c.benefits.join(" ") : c.benefits].join(" ")),
+      text: _txt([c.summary, Array.isArray(c.benefits) ? c.benefits.join(" ") : (c.benefits||"")].join(" ")),
       href: `#course/${cid}`
     });
 
-    // meta + lessons
+    // meta + lessons + quizzes
     try {
       const metaUrl = `/data/courses/${cid}/meta.json`;
-      const m = await fetch(metaUrl).then(r=>r.ok?r.json():null).catch(()=>null);
+      const m = await fetch(metaUrl).then(r => r.ok ? r.json() : null).catch(()=>null);
       if (!m || !Array.isArray(m.modules)) continue;
 
-      let lessonCounter = 0;
+      let pageIdx = 0; // RD.pages index နှောင်းတန်းတိုး
       for (const mod of m.modules) {
         if (!Array.isArray(mod.lessons)) continue;
-        for (let i=0;i<mod.lessons.length;i++) {
-          const L = mod.lessons[i];
-          if (L.type === "html" && typeof L.src === "string" && lessonCounter < maxLessonsPerCourse) {
-            const url = `/data/courses/${cid}/${L.src}`;
-            let html = "";
-            try { html = await fetch(url).then(r=>r.ok?r.text():""); } catch {}
-            const text = _txt(html);
+
+        for (const L of mod.lessons) {
+          // Limit lessons indexed (ဘေးကာလစာဖတ်ကောင်းစေဖို့)
+          if (L.type === "html" && typeof L.src === "string") {
+            if (pageIdx < maxLessonsPerCourse) {
+              const url = `/data/courses/${cid}/${L.src}`;
+              let html = "";
+              try { html = await fetch(url).then(r => r.ok ? r.text() : ""); } catch {}
+              const text = _txt(html);
+              SEARCH_INDEX.push({
+                type: "lesson",
+                cid,
+                title: L.title || `Lesson ${pageIdx+1}`,
+                text: _take(text, 500),
+                href: url,
+                pageIdx
+              });
+            }
+            pageIdx++;
+          } else if (L.type === "quiz") {
+            // quiz stems index
+            const qsrc = (typeof L.src === "string") ? L.src : null;
+            if (qsrc) {
+              const qurl = `/data/courses/${cid}/${qsrc}`;
+              try {
+                const qjson = await fetch(qurl).then(r => r.ok ? r.json() : null);
+                const arr = qjson?.questions || (Array.isArray(qjson) ? qjson : []);
+                const stems = Array.isArray(arr) ? arr.map(x => x?.q).filter(Boolean).join(" ") : "";
+                if (stems) {
+                  SEARCH_INDEX.push({
+                    type: "quiz",
+                    cid,
+                    title: L.title || "Quiz",
+                    text: _take(_txt(stems), 400),
+                    href: qurl,
+                    pageIdx
+                  });
+                }
+              } catch {}
+            }
+            pageIdx++;
+          } else {
+            // unknown page type → index title only
             SEARCH_INDEX.push({
-              type: "lesson",
+              type: "page",
               cid,
-              title: (L.title || `Lesson ${i+1}`),
-              text: _take(text, 500),
-              href: url,
-              pageIdx: (typeof i === "number" ? i : undefined)
+              title: L.title || `Page ${pageIdx+1}`,
+              text: "",
+              pageIdx
             });
-            lessonCounter++;
-          } else if (L.type === "quiz" && typeof L.src === "string") {
-            // index quiz stem text
-            const qurl = `/data/courses/${cid}/${L.src}`;
-            try {
-              const qjson = await fetch(qurl).then(r=>r.ok?r.json():null);
-              const nq = (qjson && (qjson.questions || Array.isArray(qjson))) ? (qjson.questions || qjson) : [];
-              const stems = nq.map(x => x.q).filter(Boolean).join(" ");
-              if (stems) {
-                SEARCH_INDEX.push({
-                  type: "quiz",
-                  cid,
-                  title: (L.title || "Quiz"),
-                  text: _take(_txt(stems), 400),
-                  href: qurl,
-                  pageIdx: (typeof i === "number" ? i : undefined)
-                });
-              }
-            } catch {}
+            pageIdx++;
           }
         }
       }
@@ -1435,93 +1461,111 @@ async function buildSearchIndex({maxLessonsPerCourse=25} = {}) {
   _buildingIndex = false;
 }
 
+// --- REPLACE your current initSearch() with this version ---
 function initSearch() {
   const input = document.getElementById("searchInput");
   const box   = document.getElementById("searchBox");
   const list  = document.getElementById("searchResults");
   if (!input || !box || !list) return;
 
-  // build index once
-  (async () => {
-    try { await buildSearchIndex(); } catch {}
-  })();
+  // build index if you have that function (safe no-op if missing)
+  if (typeof buildSearchIndex === "function") {
+    (async () => { try { await buildSearchIndex(); } catch {} })();
+  }
 
-  // small debounce
+  // debounce
   let t = null;
   input.addEventListener("input", () => {
     clearTimeout(t);
     const q = input.value.trim();
     if (!q) {
-      list.innerHTML = ""; box.classList.add("hidden");
+      list.innerHTML = "";
+      box.classList.add("hidden");
       return;
     }
-    t = setTimeout(() => runSearch(q, list, box), 120);
+    t = setTimeout(() => {
+      if (typeof runSearch === "function") {
+        runSearch(q, list, box);
+      } else {
+        // simple fallback: filter catalog cards by title text
+        const txt = q.toLowerCase();
+        const courses = (window.ALL || []).filter(c =>
+          [c.title, c.summary, c.category, c.level].join(" ").toLowerCase().includes(txt)
+        );
+        list.innerHTML = courses.map(c => `
+          <li>
+            <a href="#" data-open-course data-cid="${esc(c.id)}">
+              <strong>${esc(c.title)}</strong>
+              <div class="tiny muted">${esc(c.category||"")} • ${esc(c.level||"")}</div>
+            </a>
+          </li>`).join("") || `<li class="muted" style="padding:.4rem .6rem">No matches.</li>`;
+        box.classList.remove("hidden");
+      }
+    }, 120);
   });
 
-  // click outside to close
-  document.addEventListener("click", (e) => {
+  // ❗ Important: don't close on blur before click
+  // use pointerdown on the results so we capture before input blur hides box
+  list.addEventListener("pointerdown", (e) => {
+    const a = e.target.closest("a,[data-open-course],[data-open-lesson]");
+    if (!a) return;
+    e.preventDefault(); // prevent focus loss race
+    e.stopPropagation();
+
+    const cid = a.getAttribute("data-cid");
+    const pageIdx = Number(a.getAttribute("data-page-idx") || -1);
+    box.classList.add("hidden");
+
+    if (a.hasAttribute("data-open-course")) {
+      // open course details
+      if (typeof openDetails === "function") openDetails(cid);
+      else showPage?.("courses");
+      return;
+    }
+    if (a.hasAttribute("data-open-lesson")) {
+      openReaderAt(cid, isNaN(pageIdx) || pageIdx < 0 ? 0 : pageIdx);
+      return;
+    }
+  });
+
+  // click outside → close
+  document.addEventListener("pointerdown", (e) => {
     if (!box.contains(e.target) && e.target !== input) {
       box.classList.add("hidden");
     }
   });
-
-  // Delegate result clicks (open Details or jump to Reader)
-  document.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-open-course],[data-open-lesson]");
-    if (!el) return;
-    e.preventDefault();
-    const cid = el.getAttribute("data-cid");
-    if (!cid) return;
-
-    const pi = Number(el.getAttribute("data-page-idx") || -1);
-    box.classList.add("hidden");
-
-    if (el.hasAttribute("data-open-course")) {
-      // open Details modal
-      if (typeof openDetails === "function") openDetails(cid);
-      else showPage?.("courses"); // fallback
-    } else {
-      // open specific lesson
-      openReaderAt(cid, isNaN(pi) || pi < 0 ? 0 : pi);
-    }
-  });
 }
 
-function runSearch(query, list, box) {
-  const q = query.toLowerCase();
-  // if index not built yet, try again later
+function runSearch(query, listEl, boxEl) {
+  const q = (query || "").toLowerCase();
   if (!Array.isArray(SEARCH_INDEX) || !SEARCH_INDEX.length) {
-    list.innerHTML = `<li class="muted" style="padding:.4rem .6rem">Indexing… try again in a moment.</li>`;
-    box.classList.remove("hidden");
+    listEl.innerHTML = `<li class="muted" style="padding:.4rem .6rem">Indexing… try again in a moment.</li>`;
+    boxEl.classList.remove("hidden");
     return;
   }
 
   const terms = q.split(/\s+/).filter(Boolean);
   const hit = [];
   for (const it of SEARCH_INDEX) {
-    const hay = (it.title + " " + it.text).toLowerCase();
+    const hay = (String(it.title||"") + " " + String(it.text||"")).toLowerCase();
     const ok = terms.every(t => hay.includes(t));
     if (ok) {
-      // lightweight score
-      const score = terms.reduce((s,t)=>s + (hay.indexOf(t)>=0 ? 1 : 0),0) + (it.type==="course"?0.2:0);
-      hit.push({...it, score});
+      const score = terms.reduce((s,t)=> s + (hay.indexOf(t)>=0 ? 1 : 0), 0) + (it.type==="course" ? 0.2 : 0);
+      hit.push({ ...it, score });
     }
   }
-
   hit.sort((a,b)=> b.score - a.score);
 
   if (!hit.length) {
-    list.innerHTML = `<li class="muted" style="padding:.4rem .6rem">No matches.</li>`;
-    box.classList.remove("hidden");
+    listEl.innerHTML = `<li class="muted" style="padding:.4rem .6rem">No matches.</li>`;
+    boxEl.classList.remove("hidden");
     return;
   }
 
-  // render results
-  list.innerHTML = hit.slice(0, 20).map(it => {
+  listEl.innerHTML = hit.slice(0, 20).map(it => {
     const sub = it.type === "course" ? "Course"
-            : it.type === "lesson" ? "Lesson"
-            : it.type === "quiz" ? "Quiz" : it.type;
-
+              : it.type === "lesson" ? "Lesson"
+              : it.type === "quiz" ? "Quiz" : (it.type||"");
     if (it.type === "course") {
       return `<li>
         <a href="#" data-open-course data-cid="${esc(it.cid)}">
@@ -1531,7 +1575,7 @@ function runSearch(query, list, box) {
         </a>
       </li>`;
     } else {
-      const dataAttr = `data-open-lesson data-cid="${esc(it.cid)}" ${typeof it.pageIdx==="number" ? `data-page-idx="${it.pageIdx}"` : ""}`;
+      const dataAttr = `data-open-lesson data-cid="${esc(it.cid)}"${typeof it.pageIdx==="number" ? ` data-page-idx="${it.pageIdx}"` : ""}`;
       return `<li>
         <a href="#" ${dataAttr}>
           <strong>${esc(it.title)}</strong>
@@ -1542,162 +1586,60 @@ function runSearch(query, list, box) {
     }
   }).join("");
 
-  box.classList.remove("hidden");
+  boxEl.classList.remove("hidden");
 }
 
-// =========== Global Search ==============
+// =========== Global Search (Top bar) ==============
 (function setupGlobalSearch() {
-  const input = document.getElementById("topSearch");
-  const results = document.getElementById("searchResults");
+  // ⚠️ IDs မတူအောင် သေချာပါစေ (HTML ထဲ)
+  // <input id="topSearch">  <ul id="topSearchResults"></ul>
+  const input   = document.getElementById("topSearch");
+  const results = document.getElementById("topSearchResults");
   if (!input || !results) return;
 
-  let INDEX = [];
+  // Build course/content index (ann/inventory စတာမချိတ်တော့ — coursework only)
+  (async () => { try { await buildSearchIndex(); } catch {} })();
 
-  // Build index from modules/localStorage
-  function buildIndex() {
-    const safe = (fn, fb = []) => {
-      try {
-        return fn() || fb;
-      } catch (_) {
-        return fb;
-      }
-    };
-    const anns = safe(
-      () => getAnns?.() || JSON.parse(localStorage.getItem("anns") || "[]")
-    );
-    const courses = safe(
-      () =>
-        getCourses?.() || JSON.parse(localStorage.getItem("courses") || "[]")
-    );
-    const inv = safe(
-      () =>
-        getInventory?.() ||
-        JSON.parse(localStorage.getItem("inventory") || "[]")
-    );
-    const sushi = safe(
-      () =>
-        getSushiItems?.() || JSON.parse(localStorage.getItem("sushi") || "[]")
-    );
-    const vendors = safe(
-      () =>
-        getVendors?.() || JSON.parse(localStorage.getItem("vendors") || "[]")
-    );
-    const tasks = safe(
-      () => getTasks?.() || JSON.parse(localStorage.getItem("tasks") || "[]")
-    );
-    const cogs = safe(
-      () => getCogs?.() || JSON.parse(localStorage.getItem("cogs") || "[]")
-    );
-    const users = safe(
-      () => getUsers?.() || JSON.parse(localStorage.getItem("users") || "[]")
-    );
-
-    INDEX = [];
-    anns.forEach((a) =>
-      INDEX.push({
-        type: "Announcements",
-        title: a.title,
-        body: a.body,
-        page: "dashboard",
-      })
-    );
-    courses.forEach((c) =>
-      INDEX.push({
-        type: "Courses",
-        title: c.title,
-        body: c.desc,
-        page: "courses",
-      })
-    );
-    inv.forEach((i) =>
-      INDEX.push({
-        type: "Inventory",
-        title: i.name,
-        body: `qty:${i.qty}`,
-        page: "inventory",
-      })
-    );
-    sushi.forEach((s) =>
-      INDEX.push({
-        type: "Sushi Items",
-        title: s.name,
-        body: s.ingredients,
-        page: "sushi",
-      })
-    );
-    vendors.forEach((v) =>
-      INDEX.push({
-        type: "Vendors",
-        title: v.name,
-        body: `${v.email || ""} ${v.contact || ""}`,
-        page: "vendors",
-      })
-    );
-    tasks.forEach((t) =>
-      INDEX.push({ type: "Tasks", title: t.title, body: t.desc, page: "tasks" })
-    );
-    cogs.forEach((c) =>
-      INDEX.push({
-        type: "COGS",
-        title: c.item,
-        body: `cost:${c.cost} price:${c.price}`,
-        page: "cogs",
-      })
-    );
-    users.forEach((u) =>
-      INDEX.push({
-        type: "Users",
-        title: u.name || u.email,
-        body: u.role,
-        page: "settings",
-      })
-    );
-  }
-
-  function search(q) {
-    const n = q.toLowerCase();
-    return INDEX.filter(
-      (r) =>
-        (r.title || "").toLowerCase().includes(n) ||
-        (r.body || "").toLowerCase().includes(n)
-    ).slice(0, 20);
-  }
-
-  function render(list, q) {
-    results.innerHTML = "";
-    if (!q) {
-      results.hidden = true;
-      return;
-    }
-    if (!list.length) {
-      results.innerHTML = `<div class="search-item">No results for “${q}”</div>`;
+  // debounce search
+  let t = null;
+  input.addEventListener("input", () => {
+    clearTimeout(t);
+    const q = input.value.trim();
+    if (!q) { results.innerHTML = ""; results.hidden = true; return; }
+    t = setTimeout(() => {
+      runSearch(q, results, results.parentElement || document.body);
       results.hidden = false;
-      return;
-    }
-    list.forEach((item) => {
-      const div = document.createElement("div");
-      div.className = "search-item";
-      div.innerHTML = `
-        <div class="search-type">${item.type}</div>
-        <div class="search-title">${item.title}</div>
-        <div class="search-snippet">${item.body || ""}</div>
-      `;
-      div.onclick = () => {
-        showPage?.(item.page);
-        results.hidden = true;
-        input.blur();
-      };
-      results.appendChild(div);
-    });
-    results.hidden = false;
-  }
-
-  input.addEventListener("input", (e) => {
-    buildIndex();
-    render(search(e.target.value), e.target.value);
+    }, 120);
   });
 
-  document.addEventListener("click", (e) => {
+  // results click — pointerdown သုံး (blur race မဖြစ်စေ)
+  results.addEventListener("pointerdown", (e) => {
+    const a = e.target.closest("a,[data-open-course],[data-open-lesson]");
+    if (!a) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const cid = a.getAttribute("data-cid");
+    const pi = Number(a.getAttribute("data-page-idx") || -1);
+    results.hidden = true;
+    input.blur();
+
+    if (a.hasAttribute("data-open-course")) {
+      if (typeof openDetails === "function") openDetails(cid);
+      else showPage?.("courses");
+    } else if (a.hasAttribute("data-open-lesson")) {
+      // helper required
+      if (typeof openReaderAt === "function") {
+        openReaderAt(cid, isNaN(pi) || pi < 0 ? 0 : pi);
+      } else {
+        // minimal fallback
+        openReader?.(cid);
+      }
+    }
+  });
+
+  // click outside → close
+  document.addEventListener("pointerdown", (e) => {
     if (!results.contains(e.target) && e.target !== input) {
       results.hidden = true;
     }
