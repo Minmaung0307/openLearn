@@ -1363,6 +1363,11 @@ button,
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
+#searchResults {
+  background: rgb(164, 164, 164);
+  color: #22d3ee;
+}
+
 .search-item:last-child {
   border-bottom: none;
 }
