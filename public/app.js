@@ -1139,7 +1139,7 @@ function ensureAnnModal() {
   };
 }
 
-// Card renderer with edit/delete buttons (id + data attrs for quick edit)
+// RENDER ONE ANNOUNCEMENT CARD (copy/paste replace)
 function renderAnnItem(id, a) {
   const canEdit = typeof roleRank === "function"
     ? roleRank(getRole?.() || "student") >= roleRank("instructor")
@@ -6207,6 +6207,7 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
 })();
 
 // ======= Announcements (single source of truth) =======
+// SINGLE INIT (copy/paste replace your old initAnnouncements/initAnnouncementsOnce/wire* blocks)
 (function initAnnouncementsOnce() {
   if (window.__ANN_ONCE__) return;
   window.__ANN_ONCE__ = true;
@@ -6223,67 +6224,67 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
   const btnCancel = document.getElementById("annCancel");
   const btnSave   = document.getElementById("annSave");
 
-  // ---- helpers ----
-  function headerEl() {
-    return document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
-  }
+  const headerEl = () =>
+    document.getElementById("annModalTitle")
+    || document.querySelector("#annModal .modal-title");
+
+  // RTDB ref helper (use 'announcements' path consistently)
   function annRef() {
-    const db = (window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null));
-    return db ? ref(db, "announcements") : null; // <- rules path
-  }
-  function requireInstructor() {
-    return typeof roleRank === "function" && roleRank(getRole?.() || "student") >= roleRank("instructor");
+    const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
+    return db ? ref(db, "announcements") : null;
   }
 
-  // ---- NEW modal open (single) ----
+  // ------- Open NEW modal -------
   newBtn?.addEventListener("click", () => {
-    if (!requireInstructor()) return toast?.("Requires instructor+");
+    if (typeof roleRank === "function" && roleRank(getRole?.() || "student") < roleRank("instructor")) {
+      return toast?.("Requires instructor+");
+    }
     form?.reset();
     if (idEl) idEl.value = "";
-    if (aEl)  aEl.value  = "all";
-    const hh = headerEl(); if (hh) hh.textContent = "New Announcement";
+    const h = headerEl(); if (h) h.textContent = "New Announcement";
     dlg?.showModal?.();
     setTimeout(()=>tEl?.focus(), 0);
   });
 
-  // ---- live feed (single) ----
-  if (list) {
+  // ------- Live feed (add/change/remove) -------
+  if (list && annRef()) {
     list.innerHTML = "";
     const aref = annRef();
-    if (aref) {
-      onChildAdded(aref, (snap) => {
-        const a = snap.val() || {};
-        const id = snap.key;
-        // renderAnnItem(id, a) should return:
-        // <div class="card" data-id="...">
-        //   ...
-        //   <button data-ann-edit data-title="..." data-body="..." data-audience="...">Edit</button>
-        //   <button data-ann-del>Delete</button>
-        // </div>
-        const node = renderAnnItem(id, a);
-        const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-        old ? old.replaceWith(node) : list.prepend(node);
-      });
-    }
+    onChildAdded(aref, (snap) => {
+      const a = snap.val() || {};
+      const id = snap.key;
+      const node = renderAnnItem(id, a);
+      const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+      old ? old.replaceWith(node) : list.prepend(node);
+    });
+    onChildChanged?.(aref, (snap) => {
+      const a = snap.val() || {};
+      const id = snap.key;
+      const node = renderAnnItem(id, a);
+      const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+      old ? old.replaceWith(node) : list.prepend(node);
+    });
+    onChildRemoved?.(aref, (snap) => {
+      const id = snap.key;
+      list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+    });
   }
 
-  // ---- delegated edit/delete (single) ----
+  // ------- Delegated edit/delete -------
   list?.addEventListener("click", async (e) => {
     const editBtn = e.target.closest?.("[data-ann-edit]");
     const delBtn  = e.target.closest?.("[data-ann-del]");
-    if (!editBtn && !delBtn) return;
+    const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
+    if (!db) { toast?.("Database not ready"); return; }
 
-    const aref = annRef();
-    if (!aref) { toast?.("Database not ready"); return; }
-
-    // DELETE (confirm once)
+    // Delete
     if (delBtn) {
-      if (!requireInstructor()) return toast?.("Requires instructor+");
       const id = delBtn.getAttribute("data-ann-del");
       if (!id) return;
       if (!confirm("Delete this announcement?")) return;
       try {
-        await remove(child(aref, id));
+        await remove(ref(db, `announcements/${id}`));  // <-- child() မသုံးတော့
+        // UI will also update via onChildRemoved, but remove immediately for snappiness:
         list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
         toast?.("Deleted");
       } catch (err) {
@@ -6293,35 +6294,33 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
       return;
     }
 
-    // EDIT
+    // Edit
     if (editBtn) {
-      if (!requireInstructor()) return toast?.("Requires instructor+");
       const id = editBtn.getAttribute("data-ann-edit");
+      const h = headerEl(); if (h) h.textContent = "Edit Announcement";
       if (idEl) idEl.value = id || "";
       if (tEl)  tEl.value  = editBtn.dataset.title || "";
       if (bEl)  bEl.value  = editBtn.dataset.body || "";
       if (aEl)  aEl.value  = editBtn.dataset.audience || "all";
-      const hh = headerEl(); if (hh) hh.textContent = "Edit Announcement";
       dlg?.showModal?.();
       setTimeout(()=>tEl?.focus(), 0);
-      return;
     }
   });
 
-  // ---- SAVE (single listener + in-flight guard) ----
+  // ------- SAVE (single wire + guard) -------
   if (form && !form.__wired) {
     form.__wired = true;
     form.__saving = false;
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (form.__saving) return;           // prevent double submit
+      if (form.__saving) return;   // prevent double submit
       form.__saving = true;
       if (btnSave) btnSave.disabled = true;
 
       try {
-        const aref = annRef();
-        if (!aref) { toast?.("Database not ready"); return; }
+        const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
+        if (!db) { toast?.("Database not ready"); return; }
 
         const title = (tEl?.value || "").trim();
         const body  = (bEl?.value || "").trim();
@@ -6331,22 +6330,22 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
         const rec = {
           title, body, audience,
           author: getUser?.()?.email || "instructor",
-          ts: Date.now()
+          ts: Date.now(),
         };
 
         const id = (idEl?.value || "").trim();
         if (id) {
-          await set(child(annRef(), id), rec);
+          await set(ref(db, `announcements/${id}`), rec);
           toast?.("Announcement updated");
         } else {
-          await push(annRef(), rec);
+          await push(ref(db, "announcements"), rec);
           toast?.("Announcement posted");
         }
 
-        // success ⇒ close & reset
+        // Close + reset
         try { dlg?.close(); } catch {}
         form.reset();
-        const hh = headerEl(); if (hh) hh.textContent = "New Announcement";
+        const h = headerEl(); if (h) h.textContent = "New Announcement";
 
       } catch (err) {
         console.warn(err);
@@ -6358,7 +6357,6 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
     });
   }
 
-  // ---- close/cancel ----
   const doClose = () => { try { dlg?.close(); } catch {} };
   btnClose?.addEventListener("click", doClose);
   btnCancel?.addEventListener("click", doClose);
