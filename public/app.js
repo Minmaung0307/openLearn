@@ -71,7 +71,9 @@ if (!("renderAnnouncements" in window)) window.renderAnnouncements = () => {};
 function currentRole() {
   try {
     return (getUser()?.role || "guest").toLowerCase();
-  } catch { return "guest"; }
+  } catch {
+    return "guest";
+  }
 }
 function canCreateCourse() {
   const r = currentRole();
@@ -1610,7 +1612,11 @@ function runSearch(query, listEl, boxEl) {
   const terms = q.split(/\s+/).filter(Boolean);
   const hit = [];
   for (const it of SEARCH_INDEX) {
-    const hay = (String(it.title || "") + " " + String(it.text || "")).toLowerCase();
+    const hay = (
+      String(it.title || "") +
+      " " +
+      String(it.text || "")
+    ).toLowerCase();
     const ok = terms.every((t) => hay.includes(t));
     if (ok) {
       const score =
@@ -1629,33 +1635,41 @@ function runSearch(query, listEl, boxEl) {
     return;
   }
 
-  const html = hit.slice(0, 20).map((it) => {
-    const sub =
-      it.type === "course" ? "Course" :
-      it.type === "lesson" ? "Lesson" :
-      it.type === "quiz"   ? "Quiz"   : String(it.type || "");
+  const html = hit
+    .slice(0, 20)
+    .map((it) => {
+      const sub =
+        it.type === "course"
+          ? "Course"
+          : it.type === "lesson"
+          ? "Lesson"
+          : it.type === "quiz"
+          ? "Quiz"
+          : String(it.type || "");
 
-    if (it.type === "course") {
-      return `<li>
+      if (it.type === "course") {
+        return `<li>
         <a href="#" data-open-course data-cid="${esc(it.cid)}">
           <strong>${esc(it.title)}</strong>
           <div class="small muted">${esc(_take(it.text, 120))}</div>
           <div class="tiny muted">${esc(sub)}</div>
         </a>
       </li>`;
-    } else {
-      const pageAttr = (typeof it.pageIdx === "number")
-        ? ` data-page-idx="${it.pageIdx}"`
-        : "";
-      return `<li>
+      } else {
+        const pageAttr =
+          typeof it.pageIdx === "number"
+            ? ` data-page-idx="${it.pageIdx}"`
+            : "";
+        return `<li>
         <a href="#" data-open-lesson data-cid="${esc(it.cid)}"${pageAttr}>
           <strong>${esc(it.title)}</strong>
           <div class="small muted">${esc(_take(it.text, 120))}</div>
           <div class="tiny muted">${esc(sub)} • ${esc(it.cid)}</div>
         </a>
       </li>`;
-    }
-  }).join("");
+      }
+    })
+    .join("");
 
   listEl.innerHTML = html;
   listEl.style.display = html ? "block" : "none";
@@ -1693,7 +1707,7 @@ function runSearch(query, listEl, boxEl) {
     }
     t = setTimeout(() => {
       runSearch(q, results, results.parentElement || document.body);
-      results.style.display = "block";  // ✅ show when we search
+      results.style.display = "block"; // ✅ show when we search
       results.hidden = false;
     }, 120);
   });
@@ -1727,7 +1741,7 @@ function runSearch(query, listEl, boxEl) {
   // click outside → close
   document.addEventListener("pointerdown", (e) => {
     if (!results.contains(e.target) && e.target !== input) {
-      results.style.display = "none";   // << hide cleanly
+      results.style.display = "none"; // << hide cleanly
     }
   });
 })();
@@ -4135,20 +4149,26 @@ function renderAdminTable() {
       <p style="margin-top:.5rem">${esc(c.summary || "")}</p>`;
         $("#adminViewModal")?.showModal();
 
+        // $("#avmEdit").onclick = () => {
+        //   const f = $("#courseForm");
+        //   $("#courseModal")?.showModal();
+        //   f.title.value = c.title || "";
+        //   f.category.value = c.category || "";
+        //   f.level.value = c.level || "Beginner";
+        //   f.price.value = Number(c.price || 0);
+        //   f.rating.value = Number(c.rating || 4.6);
+        //   f.hours.value = Number(c.hours || 0);
+        //   f.credits.value = Number(c.credits || 0);
+        //   f.img.value = c.image || "";
+        //   f.description.value = c.summary || "";
+        //   f.benefits.value = c.benefits || "";
+        //   $("#adminViewModal")?.close();
+        // };
+        // NEW (use the unified form opener)
         $("#avmEdit").onclick = () => {
-          const f = $("#courseForm");
-          $("#courseModal")?.showModal();
-          f.title.value = c.title || "";
-          f.category.value = c.category || "";
-          f.level.value = c.level || "Beginner";
-          f.price.value = Number(c.price || 0);
-          f.rating.value = Number(c.rating || 4.6);
-          f.hours.value = Number(c.hours || 0);
-          f.credits.value = Number(c.credits || 0);
-          f.img.value = c.image || "";
-          f.description.value = c.summary || "";
-          f.benefits.value = c.benefits || "";
+          const id = c.id; // or b.getAttribute("data-id") depending on your scope
           $("#adminViewModal")?.close();
+          openCourseForm("edit", id);
         };
         $("#avmDelete").onclick = () => {
           const arr = getCourses().filter((x) => x.id !== id);
@@ -4170,25 +4190,32 @@ window.renderAdminTable = renderAdminTable;
 // ==== Admin actions column ====
 function adminActionsHTML(c) {
   const editBtn = canEditCourse()
-    ? `<button class="btn small" data-edit="${c.id}">Edit</button>` : "";
-  const delBtn  = canDeleteCourse()
-    ? `<button class="btn small danger" data-del="${c.id}">Delete</button>` : "";
+    ? `<button class="btn small" data-edit="${c.id}">Edit</button>`
+    : "";
+  const delBtn = canDeleteCourse()
+    ? `<button class="btn small danger" data-del="${c.id}">Delete</button>`
+    : "";
   return `<div class="row" style="gap:6px">${editBtn}${delBtn}</div>`;
 }
 
 // ==== Wire buttons after table render ====
 function wireAdminCourseRowClicks(root = document) {
-  root.querySelectorAll("[data-edit]").forEach(b => {
+  root.querySelectorAll("[data-edit]").forEach((b) => {
     b.onclick = () => openCourseForm("edit", b.getAttribute("data-edit"));
   });
-  root.querySelectorAll("[data-del]").forEach(b => {
+  root.querySelectorAll("[data-del]").forEach((b) => {
     b.onclick = async () => {
       if (!canDeleteCourse()) return toast?.("Only owner/admin can delete.");
       const id = b.getAttribute("data-del");
-      if (!confirm(`Delete course “${id}”? This removes it from catalog.json only.`)) return;
+      if (
+        !confirm(
+          `Delete course “${id}”? This removes it from catalog.json only.`
+        )
+      )
+        return;
       try {
         await deleteCourseFromCatalog(id);
-        await loadCatalog?.().catch(()=>{});
+        await loadCatalog?.().catch(() => {});
         window.ALL = getCourses?.() || window.ALL || [];
         renderCatalog?.();
         window.renderAdminTable?.();
@@ -4205,11 +4232,12 @@ function wireAdminCourseRowClicks(root = document) {
 // Requires your HTML modal: <dialog id="courseModal"> … <form id="courseForm"> …
 // Input IDs: courseId, courseCat, courseTitle, courseLevel, courseSummary, courseBenefits,
 //            courseImage, courseHours, courseCredits, coursePrice, courseLessons, lessonPlan
-let __COURSE_FORM_MODE = "new";   // "new" | "edit"
-let __COURSE_FORM_ID   = null;
+let __COURSE_FORM_MODE = "new"; // "new" | "edit"
+let __COURSE_FORM_ID = null;
 
+// REPLACE your openCourseForm with this version
 async function openCourseForm(mode = "new", cid = null) {
-  if (mode === "new"  && !canCreateCourse()) return toast?.("Only instructors/admins can create.");
+  if (mode === "new" && !canCreateCourse()) return toast?.("Only instructors/admins can create.");
   if (mode === "edit" && !canEditCourse())   return toast?.("No permission to edit.");
 
   __COURSE_FORM_MODE = mode;
@@ -4219,13 +4247,17 @@ async function openCourseForm(mode = "new", cid = null) {
   const form = document.getElementById("courseForm");
   if (!dlg || !form) return;
 
-  // Title text
-  form.querySelector(".modal-title").textContent = (mode === "edit") ? "Edit Course" : "New Course";
+  // title label (robust)
+  const titleEl =
+    form.querySelector(".modal-title") ||
+    dlg.querySelector(".modal-title");
+  if (titleEl) titleEl.textContent = mode === "edit" ? "Edit Course" : "New Course";
 
   // helpers
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ""; };
+  const $id = (id) => document.getElementById(id);
+  const set = (id, val) => { const el = $id(id); if (el) el.value = val ?? ""; };
 
-  // Reset form
+  // Reset form before filling
   form.reset();
 
   if (mode === "new") {
@@ -4242,35 +4274,70 @@ async function openCourseForm(mode = "new", cid = null) {
     set("coursePrice", "0");
     set("courseLessons", "3");
     set("lessonPlan", "");
-    document.getElementById("courseId").disabled = false;
+    if ($id("courseId")) $id("courseId").disabled = false;
   } else {
-    // EDIT: load from catalog + meta.json
+    // === EDIT ===
     const id = cid;
-    const list = (typeof getCourses==="function") ? getCourses() : (window.ALL||[]);
-    const cRow = list.find(x => x.id === id) || {};
+    const list = (typeof getCourses === "function") ? getCourses() : (window.ALL || []);
+    const cRow = list.find((x) => x.id === id) || {};
     let meta = null;
-    try { meta = await fetch(`/data/courses/${id}/meta.json`).then(r=>r.ok?r.json():null); } catch {}
+    try {
+      meta = await fetch(`/data/courses/${id}/meta.json`).then((r) => (r.ok ? r.json() : null));
+    } catch {}
 
-    const ben = Array.isArray(meta?.benefits) ? meta.benefits.join("\n")
-               : (meta?.benefits ?? cRow.benefits ?? "");
+    // Normalize category (might be array in catalog)
+    const catStr = Array.isArray(meta?.category)
+      ? meta.category.join(", ")
+      : Array.isArray(cRow?.category)
+      ? cRow.category.join(", ")
+      : (meta?.category ?? cRow.category ?? "");
 
+    // Normalize benefits (array|string → textarea)
+    const ben = Array.isArray(meta?.benefits)
+      ? meta.benefits.join("\n")
+      : (meta?.benefits ?? cRow.benefits ?? "");
+
+    // Fill basics
     set("courseId", id);
-    set("courseCat",    meta?.category ?? cRow.category ?? "");
-    set("courseTitle",  meta?.title    ?? cRow.title    ?? "");
-    set("courseLevel",  meta?.level    ?? cRow.level    ?? "Beginner");
-    set("courseSummary",meta?.summary  ?? cRow.summary  ?? "");
+    set("courseCat", catStr);
+    set("courseTitle", meta?.title ?? cRow.title ?? "");
+    set("courseLevel", meta?.level ?? cRow.level ?? "Beginner");
+    set("courseSummary", meta?.summary ?? cRow.summary ?? "");
     set("courseBenefits", ben);
-    set("courseImage",  meta?.image    ?? cRow.image    ?? "");
-    set("courseHours",  (meta?.hours ?? cRow.hours ?? 8).toString());
-    set("courseCredits",(meta?.credits ?? cRow.credits ?? 2).toString());
-    set("coursePrice",  (meta?.price ?? cRow.price ?? 0).toString());
+    set("courseImage", meta?.image ?? cRow.image ?? "");
+    set("courseHours", String(meta?.hours ?? cRow.hours ?? 8));
+    set("courseCredits", String(meta?.credits ?? cRow.credits ?? 2));
+    set("coursePrice", String(meta?.price ?? cRow.price ?? 0));
 
-    // lesson plan (module 1 titles → textarea)
-    const lessons = meta?.modules?.[0]?.lessons || [];
-    set("lessonPlan", lessons.map(L => L?.title || "").filter(Boolean).join("\n"));
+    // Lessons + quiz → lessonPlan lines
+    const mod0    = meta?.modules?.[0] || null;
+    const lessons = Array.isArray(mod0?.lessons) ? mod0.lessons : [];
+    // Build quiz index set (from filenames like lesson-00.json)
+    const quizSet = new Set(
+      Array.isArray(mod0?.quiz)
+        ? mod0.quiz
+            .map((fname) => {
+              const m = String(fname).match(/lesson-(\d+)\.json$/i);
+              return m ? Number(m[1]) : null;
+            })
+            .filter((n) => typeof n === "number")
+        : []
+    );
+
+    // lessonPlan text (line per lesson; add ", quiz" where applicable)
+    const lp = lessons
+      .map((L, i) => {
+        const title = (L?.title || `Lesson ${i + 1}`).trim();
+        const hasQuiz = quizSet.has(i);
+        return hasQuiz ? `${title}, quiz` : title;
+      })
+      .join("\n");
+
+    set("lessonPlan", lp);
+    set("courseLessons", String(lessons.length || 1)); // prefill count too
 
     // lock ID on edit
-    document.getElementById("courseId").disabled = true;
+    if ($id("courseId")) $id("courseId").disabled = true;
   }
 
   // open
@@ -4280,9 +4347,11 @@ async function openCourseForm(mode = "new", cid = null) {
 // helper: delete from catalog.json (not files)
 async function deleteCourseFromCatalog(id) {
   const url = "/data/catalog.json";
-  const cat = await fetch(url).then(r=>r.ok?r.json():{items:[]}).catch(()=>({items:[]}));
+  const cat = await fetch(url)
+    .then((r) => (r.ok ? r.json() : { items: [] }))
+    .catch(() => ({ items: [] }));
   const items = Array.isArray(cat.items) ? cat.items : [];
-  const next = items.filter(x => x.id !== id);
+  const next = items.filter((x) => x.id !== id);
   await writeJSONPath("public/data/catalog.json", { items: next });
 }
 
@@ -5358,27 +5427,27 @@ function stripFinalsUI() {
 })();
 
 // ==== Course Modal wiring (once) ====
-(function wireCourseModalOnce(){
+(function wireCourseModalOnce() {
   if (window.__OL_ONCE__?.courseModal) return;
-  const dlg  = document.getElementById("courseModal");
+  const dlg = document.getElementById("courseModal");
   const form = document.getElementById("courseForm");
   if (!dlg || !form) return;
 
-  const btnClose  = document.getElementById("btn-course-close");
+  const btnClose = document.getElementById("btn-course-close");
   const btnCancel = document.getElementById("btn-course-cancel");
-  const btnSave   = document.getElementById("btn-course-save");
+  const btnSave = document.getElementById("btn-course-save");
 
-  const doClose = ()=> dlg.close?.();
+  const doClose = () => dlg.close?.();
 
   btnClose?.addEventListener("click", doClose);
   btnCancel?.addEventListener("click", doClose);
 
-  form.addEventListener("submit", async (e)=>{
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
       await handleCourseFormSubmit();
       doClose();
-      await loadCatalog?.().catch(()=>{});
+      await loadCatalog?.().catch(() => {});
       window.ALL = getCourses?.() || window.ALL || [];
       renderCatalog?.();
       window.renderAdminTable?.();
@@ -5395,38 +5464,49 @@ function stripFinalsUI() {
 
 // ==== Parse lesson plan helper ====
 function parseLessonPlan(countStr, planText) {
-  const plan = String(planText||"").trim();
+  const plan = String(planText || "").trim();
   if (plan) {
-    const lines = plan.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    const lines = plan
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
     return lines.map((line, i) => {
       // e.g. "lesson-1: title, quiz"
-      const hasQuiz = /(?:^|,)\s*quiz\s*$/i.test(line) || /\bquiz\b/i.test(line);
-      const title = line.replace(/\s*,?\s*quiz\s*$/i,"").replace(/^lesson-\d+:\s*/i,"").trim() || `Lesson ${i+1}`;
+      const hasQuiz =
+        /(?:^|,)\s*quiz\s*$/i.test(line) || /\bquiz\b/i.test(line);
+      const title =
+        line
+          .replace(/\s*,?\s*quiz\s*$/i, "")
+          .replace(/^lesson-\d+:\s*/i, "")
+          .trim() || `Lesson ${i + 1}`;
       return { title, hasQuiz };
     });
   }
-  const n = Math.max(1, Number(countStr||1)|0);
-  return Array.from({length:n}, (_,i)=>({ title:`Lesson ${i+1}`, hasQuiz:false }));
+  const n = Math.max(1, Number(countStr || 1) | 0);
+  return Array.from({ length: n }, (_, i) => ({
+    title: `Lesson ${i + 1}`,
+    hasQuiz: false,
+  }));
 }
 
 // ==== Submit handler ====
 async function handleCourseFormSubmit() {
-  const g = id => document.getElementById(id)?.value?.trim() || "";
+  const g = (id) => document.getElementById(id)?.value?.trim() || "";
   const mode = __COURSE_FORM_MODE;
-  const id   = (mode==="edit" ? __COURSE_FORM_ID : g("courseId"));
+  const id = mode === "edit" ? __COURSE_FORM_ID : g("courseId");
   if (!id) throw new Error("Course ID required.");
 
   const patch = {
     id,
     category: g("courseCat"),
-    title:    g("courseTitle"),
-    level:    g("courseLevel"),
-    summary:  g("courseSummary"),
+    title: g("courseTitle"),
+    level: g("courseLevel"),
+    summary: g("courseSummary"),
     benefits: g("courseBenefits"), // textarea (newline)
-    image:    g("courseImage"),
-    hours:    Number(g("courseHours") || 0),
-    credits:  Number(g("courseCredits") || 0),
-    price:    Number(g("coursePrice") || 0)
+    image: g("courseImage"),
+    hours: Number(g("courseHours") || 0),
+    credits: Number(g("courseCredits") || 0),
+    price: Number(g("coursePrice") || 0),
   };
   const lessonsSpec = parseLessonPlan(g("courseLessons"), g("lessonPlan"));
 
@@ -5461,36 +5541,59 @@ async function handleCourseFormSubmit() {
         lessons: lessonsSpec.map((L, i) => ({
           type: "html",
           title: L.title,
-          src: `lessons/lesson-${String(i).padStart(2,"0")}.html`
+          src: `lessons/lesson-${String(i).padStart(2, "0")}.html`,
         })),
         quiz: lessonsSpec
-          .map((L, i) => L.hasQuiz ? `lesson-${String(i).padStart(2,"0")}.json` : null)
-          .filter(Boolean)
-      }
-    ]
+          .map((L, i) =>
+            L.hasQuiz ? `lesson-${String(i).padStart(2, "0")}.json` : null
+          )
+          .filter(Boolean),
+      },
+    ],
   };
   await writeJSONPath(`public/data/courses/${id}/meta.json`, meta);
 
   // 3) lessons/*.html
-  for (let i=0;i<lessonsSpec.length;i++){
+  for (let i = 0; i < lessonsSpec.length; i++) {
     const html = `<!-- ${lessonsSpec[i].title} -->
 <h2>${patch.title} · ${lessonsSpec[i].title}</h2>
 <p>Write your content here…</p>`;
-    await writeTextPath(`public/data/courses/${id}/lessons/lesson-${String(i).padStart(2,"0")}.html`, html);
+    await writeTextPath(
+      `public/data/courses/${id}/lessons/lesson-${String(i).padStart(
+        2,
+        "0"
+      )}.html`,
+      html
+    );
   }
 
   // 4) quizzes/*.json (optional)
-  for (let i=0;i<lessonsSpec.length;i++){
+  for (let i = 0; i < lessonsSpec.length; i++) {
     if (!lessonsSpec[i].hasQuiz) continue;
     const q = {
       randomize: true,
       shuffleChoices: true,
       questions: [
-        { type:"single", q:`Sample Q for ${lessonsSpec[i].title}`, choices:["A","B","C"], correct:0,
-          explanations:["✔️ A is correct (sample)","B is wrong","C is wrong"] }
-      ]
+        {
+          type: "single",
+          q: `Sample Q for ${lessonsSpec[i].title}`,
+          choices: ["A", "B", "C"],
+          correct: 0,
+          explanations: [
+            "✔️ A is correct (sample)",
+            "B is wrong",
+            "C is wrong",
+          ],
+        },
+      ],
     };
-    await writeJSONPath(`public/data/courses/${id}/quizzes/lesson-${String(i).padStart(2,"0")}.json`, q);
+    await writeJSONPath(
+      `public/data/courses/${id}/quizzes/lesson-${String(i).padStart(
+        2,
+        "0"
+      )}.json`,
+      q
+    );
   }
 }
 
@@ -5499,19 +5602,23 @@ async function handleCourseFormSubmit() {
 async function pickDataRootIfNeeded() {
   if (window.__DATA_ROOT__) return window.__DATA_ROOT__;
   if (!("showDirectoryPicker" in window)) return null; // no FS API
-  const ok = confirm("Pick your project root (select the folder containing 'public')");
+  const ok = confirm(
+    "Pick your project root (select the folder containing 'public')"
+  );
   if (!ok) return null;
   try {
     const root = await window.showDirectoryPicker();
     window.__DATA_ROOT__ = root;
     return root;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function ensureAndWrite(root, relPath, contentBlobOrText) {
   const parts = relPath.replace(/^\/+/, "").split("/");
   let dir = root;
-  for (let i=0;i<parts.length-1;i++){
+  for (let i = 0; i < parts.length - 1; i++) {
     dir = await dir.getDirectoryHandle(parts[i], { create: true });
   }
   const fh = await dir.getFileHandle(parts.at(-1), { create: true });
@@ -5524,48 +5631,64 @@ async function writeJSONPath(relPath, obj) {
   const json = JSON.stringify(obj, null, 2);
   const root = await pickDataRootIfNeeded();
   if (root) {
-    await ensureAndWrite(root, relPath, new Blob([json], {type:"application/json"}));
+    await ensureAndWrite(
+      root,
+      relPath,
+      new Blob([json], { type: "application/json" })
+    );
     return;
   }
   // Fallback → download
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([json], {type:"application/json"}));
+  a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
   a.download = relPath.split("/").pop() || "file.json";
-  document.body.appendChild(a); a.click(); a.remove();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 async function writeTextPath(relPath, text) {
   const root = await pickDataRootIfNeeded();
   if (root) {
-    await ensureAndWrite(root, relPath, new Blob([text], {type:"text/html"}));
+    await ensureAndWrite(
+      root,
+      relPath,
+      new Blob([text], { type: "text/html" })
+    );
     return;
   }
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([text], {type:"text/plain"}));
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
   a.download = relPath.split("/").pop() || "file.txt";
-  document.body.appendChild(a); a.click(); a.remove();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 // ==== catalog/meta updaters used above ====
 async function updateCatalogItem(id, patch) {
   const url = "/data/catalog.json";
-  const cat = await fetch(url).then(r=>r.ok?r.json():{items:[]}).catch(()=>({items:[]}));
+  const cat = await fetch(url)
+    .then((r) => (r.ok ? r.json() : { items: [] }))
+    .catch(() => ({ items: [] }));
   const items = Array.isArray(cat.items) ? cat.items : [];
-  const i = items.findIndex(x => x.id === id);
+  const i = items.findIndex((x) => x.id === id);
 
-  const benStr = Array.isArray(patch.benefits) ? patch.benefits.join("\n") : (patch.benefits || "");
+  const benStr = Array.isArray(patch.benefits)
+    ? patch.benefits.join("\n")
+    : patch.benefits || "";
   const cleaned = {
     id,
     title: patch.title,
     category: patch.category,
     level: patch.level,
-    price: patch.price||0,
-    credits: patch.credits||0,
-    rating: (i>=0 && items[i]?.rating) ? items[i].rating : 4.7,
-    hours: patch.hours||0,
+    price: patch.price || 0,
+    credits: patch.credits || 0,
+    rating: i >= 0 && items[i]?.rating ? items[i].rating : 4.7,
+    hours: patch.hours || 0,
     summary: patch.summary,
     image: patch.image || `/data/courses/${id}/images/cover.jpg`,
-    benefits: benStr
+    benefits: benStr,
   };
   if (i >= 0) items[i] = { ...items[i], ...cleaned };
   else items.push(cleaned);
@@ -5575,39 +5698,57 @@ async function updateCatalogItem(id, patch) {
 
 async function updateMetaJson(id, patch, lessonsSpec /* [{title,hasQuiz}] */) {
   const url = `/data/courses/${id}/meta.json`;
-  const meta = await fetch(url).then(r=>r.ok?r.json():{}).catch(()=>({}));
+  const meta = await fetch(url)
+    .then((r) => (r.ok ? r.json() : {}))
+    .catch(() => ({}));
 
   const benefits = Array.isArray(patch.benefits)
     ? patch.benefits
-    : (patch.benefits ? patch.benefits.split(/\r?\n/) : (meta.benefits || []));
+    : patch.benefits
+    ? patch.benefits.split(/\r?\n/)
+    : meta.benefits || [];
 
   const merged = {
     ...meta,
     id,
-    title: patch.title    ?? meta.title,
+    title: patch.title ?? meta.title,
     category: patch.category ?? meta.category,
-    level: patch.level    ?? meta.level,
-    image: patch.image    ?? meta.image,
+    level: patch.level ?? meta.level,
+    image: patch.image ?? meta.image,
     summary: patch.summary ?? meta.summary,
     benefits,
     credits: patch.credits ?? meta.credits ?? 0,
-    hours:   patch.hours   ?? meta.hours   ?? 0,
-    price:   patch.price   ?? meta.price   ?? 0
+    hours: patch.hours ?? meta.hours ?? 0,
+    price: patch.price ?? meta.price ?? 0,
   };
 
   if (Array.isArray(lessonsSpec) && lessonsSpec.length) {
-    const mod0 = merged.modules?.[0] || { id:"m1", title:"Module 1", lessons:[], quiz:[] };
+    const mod0 = merged.modules?.[0] || {
+      id: "m1",
+      title: "Module 1",
+      lessons: [],
+      quiz: [],
+    };
     const lessons = Array.isArray(mod0.lessons) ? mod0.lessons.slice() : [];
     // ensure length
     while (lessons.length < lessonsSpec.length) {
       const idx = lessons.length;
-      lessons.push({ type:"html", title:`Lesson ${idx+1}`, src:`lessons/lesson-${String(idx).padStart(2,"0")}.html` });
+      lessons.push({
+        type: "html",
+        title: `Lesson ${idx + 1}`,
+        src: `lessons/lesson-${String(idx).padStart(2, "0")}.html`,
+      });
     }
-    for (let i=0;i<lessonsSpec.length;i++){
-      lessons[i] = { ...lessons[i], title: lessonsSpec[i].title || lessons[i].title };
+    for (let i = 0; i < lessonsSpec.length; i++) {
+      lessons[i] = {
+        ...lessons[i],
+        title: lessonsSpec[i].title || lessons[i].title,
+      };
     }
     const quiz = lessonsSpec
-      .map((L,i)=> L.hasQuiz ? `lesson-${String(i).padStart(2,"0")}.json` : null)
+      .map((L, i) =>
+        L.hasQuiz ? `lesson-${String(i).padStart(2, "0")}.json` : null
+      )
       .filter(Boolean);
     merged.modules = [{ ...mod0, lessons, quiz }];
   }
@@ -5615,7 +5756,7 @@ async function updateMetaJson(id, patch, lessonsSpec /* [{title,hasQuiz}] */) {
   await writeJSONPath(`public/data/courses/${id}/meta.json`, merged);
 }
 
-document.getElementById("btn-new-course")?.addEventListener("click", ()=>{
+document.getElementById("btn-new-course")?.addEventListener("click", () => {
   if (!canCreateCourse()) return toast?.("Only instructors/admins can create.");
   openCourseForm("new");
 });
