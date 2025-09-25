@@ -967,28 +967,147 @@ function annsRef() {
 // === Announcements Modal helpers ===
 let __ANN_EDIT_ID = null; // null=new, else existing key
 
+// ========== Ann Modal helpers (plug & play) ==========
+
+// Create (if missing) and return handles
 function ensureAnnModalMarkup() {
-  // (HTML ကို index.html မှာ ထည့်ပြီးသားဆိုရင် ဒီ helper တော်တော်မလုပ်ဘူး)
-  return document.getElementById("annModal");
+  // if you already had ensureAnnModal(), reuse it
+  if (typeof ensureAnnModal === "function") return ensureAnnModal();
+
+  // else create here (same IDs your JS expects)
+  let dlg = document.getElementById("annModal");
+  if (!dlg) {
+    const tpl = document.createElement("div");
+    tpl.innerHTML = `
+<dialog id="annModal" class="ol-modal card" style="max-width:680px">
+  <form id="annForm" method="dialog" class="authpane" style="display:grid; gap:10px">
+    <input id="annId" type="hidden">
+    <div class="row" style="justify-content:space-between; align-items:center">
+      <b id="annModalTitle">New Announcement</b>
+      <div class="row" style="gap:6px">
+        <button class="btn small" type="button" id="annClose">Close</button>
+      </div>
+    </div>
+    <label>Title
+      <input id="annTitle" class="input" required placeholder="Announcement title">
+    </label>
+    <label>Audience
+      <select id="annAudience" class="input">
+        <option value="all">Everyone</option>
+        <option value="students">Students only</option>
+        <option value="instructors">Instructors/Staff</option>
+      </select>
+    </label>
+    <label>Message
+      <textarea id="annBody" class="input" rows="5" placeholder="Write your announcement…" required></textarea>
+    </label>
+    <div class="row" style="justify-content:flex-end; gap:8px">
+      <button class="btn" type="button" id="annCancel">Cancel</button>
+      <button class="btn primary" type="submit" id="annSave">Save</button>
+    </div>
+  </form>
+</dialog>`;
+    document.body.appendChild(tpl.firstElementChild);
+    dlg = document.getElementById("annModal");
+  }
+  return {
+    dlg,
+    form: document.getElementById("annForm"),
+    idEl: document.getElementById("annId"),
+    modalTitle: document.getElementById("annModalTitle"),
+    titleEl: document.getElementById("annTitle"),
+    bodyEl: document.getElementById("annBody"),
+    audEl: document.getElementById("annAudience"),
+    btnClose: document.getElementById("annClose"),
+    btnCancel: document.getElementById("annCancel"),
+    btnSave: document.getElementById("annSave"),
+  };
 }
 
+// Open modal. a = null → NEW, else {id,title,body,audience} → EDIT
 function showAnnModal(a = null) {
-  __ANN_EDIT_ID = a?.id || null;
-  const dlg = document.getElementById("annModal");
-  const f = document.getElementById("annForm");
-  if (!dlg || !f) return;
+  const H = ensureAnnModalMarkup();
+  if (!H.dlg) return;
 
-  document.getElementById("annModalTitle").textContent = __ANN_EDIT_ID
-    ? "Edit Announcement"
-    : "New Announcement";
-  document.getElementById("annTitle").value = a?.title || "";
-  document.getElementById("annAudience").value = a?.audience || "all";
-  document.getElementById("annBody").value = a?.body || "";
+  if (a && a.id) {
+    H.idEl.value = a.id;
+    H.titleEl.value = a.title || "";
+    H.bodyEl.value = a.body || "";
+    H.audEl.value = a.audience || "all";
+    if (H.modalTitle) H.modalTitle.textContent = "Edit Announcement";
+  } else {
+    H.form?.reset();
+    H.idEl.value = "";
+    H.audEl.value = "all";
+    if (H.modalTitle) H.modalTitle.textContent = "New Announcement";
+  }
 
-  dlg.showModal?.();
+  H.dlg.showModal?.();
+  setTimeout(() => H.titleEl?.focus(), 0);
+
+  // Close wiring (idempotent)
+  const doClose = () => {
+    try {
+      H.dlg.close();
+    } catch {}
+  };
+  H.btnClose?.addEventListener("click", doClose, { once: true });
+  H.btnCancel?.addEventListener("click", doClose, { once: true });
 }
 
-// REPLACE old renderAnnItem(a) with this:
+// ---- Announcements Modal: ensure markup exists & return handles ----
+function ensureAnnModal() {
+  let dlg = document.getElementById("annModal");
+  if (!dlg) {
+    const tpl = document.createElement("div");
+    tpl.innerHTML = `
+<dialog id="annModal" class="ol-modal card" style="max-width:680px">
+  <form id="annForm" method="dialog" class="authpane" style="display:grid; gap:10px">
+    <input id="annId" type="hidden">
+    <div class="row" style="justify-content:space-between; align-items:center">
+      <b id="annModalTitle">New Announcement</b>
+      <div class="row" style="gap:6px">
+        <button class="btn small" type="button" id="annClose">Close</button>
+      </div>
+    </div>
+    <label>Title
+      <input id="annTitle" class="input" required placeholder="Announcement title">
+    </label>
+    <label>Audience
+      <select id="annAudience" class="input">
+        <option value="all">Everyone</option>
+        <option value="students">Students only</option>
+        <option value="instructors">Instructors/Staff</option>
+      </select>
+    </label>
+    <label>Message
+      <textarea id="annBody" class="input" rows="5" placeholder="Write your announcement…" required></textarea>
+    </label>
+    <div class="row" style="justify-content:flex-end; gap:8px">
+      <button class="btn" type="button" id="annCancel">Cancel</button>
+      <button class="btn primary" type="submit" id="annSave">Save</button>
+    </div>
+  </form>
+</dialog>`;
+    document.body.appendChild(tpl.firstElementChild);
+    dlg = document.getElementById("annModal");
+  }
+  // return handles every time (DOM may re-render)
+  return {
+    dlg,
+    form: document.getElementById("annForm"),
+    titleEl: document.getElementById("annTitle"),
+    bodyEl: document.getElementById("annBody"),
+    audEl: document.getElementById("annAudience"),
+    idEl: document.getElementById("annId"),
+    modalTitle: document.getElementById("annModalTitle"),
+    btnClose: document.getElementById("annClose"),
+    btnCancel: document.getElementById("annCancel"),
+    btnSave: document.getElementById("annSave"),
+  };
+}
+
+// Card renderer with edit/delete buttons (id + data attrs for quick edit)
 function renderAnnItem(id, a) {
   const div = document.createElement("div");
   div.className = "card";
@@ -1003,129 +1122,147 @@ function renderAnnItem(id, a) {
       : aud === "instructors"
       ? "👩‍🏫 Instructors"
       : "🌐 Everyone";
-
   const canEdit = ["owner", "admin", "instructor", "ta"].includes(
     (getRole() || "").toLowerCase()
   );
 
   div.innerHTML = `
-    <div class="small muted">${esc(
-      who
-    )} • ${t} • <span class="tiny muted">${badge}</span></div>
-    <div style="display:flex; gap:8px; align-items:flex-start; justify-content:space-between">
+    <div class="row" style="justify-content:space-between; align-items:flex-start">
       <div>
+        <div class="small muted">${esc(
+          who
+        )} • <span class="tiny muted">${badge}</span></div>
         <div><b>${esc(a.title || "")}</b></div>
         <div>${esc(a.body || "")}</div>
       </div>
-      ${
-        canEdit
-          ? `
-      <div class="row" style="gap:6px; flex:0 0 auto">
-        <button class="btn small" data-ann-edit="${esc(id)}">Edit</button>
-        <button class="btn small" data-ann-del="${esc(id)}">Delete</button>
-      </div>`
-          : ``
-      }
+      <div class="small muted" style="white-space:nowrap">${t}</div>
     </div>
+    ${
+      canEdit
+        ? `
+    <div class="row" style="gap:6px; margin-top:8px">
+      <button class="btn small"
+              data-ann-edit="${esc(id)}"
+              data-title="${esc(a.title || "")}"
+              data-body="${esc(a.body || "")}"
+              data-audience="${esc(a.audience || "all")}">Edit</button>
+      <button class="btn small" data-ann-del="${esc(id)}">Delete</button>
+    </div>`
+        : ``
+    }
   `;
   return div;
 }
 
 function initAnnouncements() {
   const list = document.getElementById("annList");
-  const btn = document.getElementById("btn-new-post");
-  const aref = annsRef();
+  const btn =
+    document.getElementById("btn-new-post") ||
+    document.querySelector("[data-ann-new]");
+  const aref = annsRef?.();
   if (!list || !aref) return;
 
+  // ensure modal exists & grab handles
+  const H = ensureAnnModal();
+
+  // live feed (dedupe by id)
   list.innerHTML = "";
   onChildAdded(aref, (snap) => {
     const a = snap.val() || {};
-    a._id = snap.key;
-    list.prepend(renderAnnItem(a));
-    try {
-      const old = getAnns();
-      old.push(a);
-      setAnns(old);
-      updateAnnBadge();
-    } catch {}
+    const id = snap.key;
+    const node = renderAnnItem(id, a);
+    const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+    old ? old.replaceWith(node) : list.prepend(node);
   });
 
-  // Add Announcement
+  // open modal (NEW)
   btn?.addEventListener("click", () => {
-    if (roleRank(getRole()) < roleRank("instructor")) {
+    if (roleRank(getRole()) < roleRank("instructor"))
       return toast("Requires instructor+");
-    }
-    const dlg = document.getElementById("annModal");
-    dlg?.showModal?.();
+    showAnnModal(null);
+    H.idEl.value = "";
+    H.titleEl.value = "";
+    H.bodyEl.value = "";
+    H.audEl.value = "all";
+    if (H.modalTitle) H.modalTitle.textContent = "New Announcement";
+    H.dlg?.showModal?.();
+    setTimeout(() => H.titleEl?.focus(), 0);
   });
 
-  // Delegated edit/delete
+  // delegated edit/delete
   list.addEventListener("click", async (e) => {
     const editBtn = e.target.closest("[data-ann-edit]");
     const delBtn = e.target.closest("[data-ann-del]");
     if (!editBtn && !delBtn) return;
 
-    let id = null;
-    if (editBtn) {
-      id = editBtn.getAttribute("data-ann-edit");
-    } else if (delBtn) {
-      id = delBtn.getAttribute("data-ann-del");
-    }
-    if (!id) return;
-
-    if (editBtn) {
-      const dlg = document.getElementById("annModal");
-      document.getElementById("annId").value = id;
-      document.getElementById("annTitle").value = editBtn.dataset.title || "";
-      document.getElementById("annBody").value = editBtn.dataset.body || "";
-      document.getElementById("annAudience").value =
-        editBtn.dataset.audience || "all";
-      dlg?.showModal?.();
-    } else if (delBtn) {
+    if (delBtn) {
+      const id = delBtn.getAttribute("data-ann-del");
+      if (!id) return;
       if (!confirm("Delete this announcement?")) return;
       try {
-        await remove(child(aref, id));
-        toast("Announcement deleted");
+        await remove(ref(rtdb, `anns/${id}`));
+        list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+        toast("Deleted");
       } catch {
-        toast("Delete failed");
+        toast("Delete failed (permission?)");
       }
+      return;
+    }
+
+    // edit
+    if (editBtn) {
+      const id = editBtn.getAttribute("data-ann-edit");
+      const a = {
+        id,
+        title: editBtn.dataset.title || "",
+        body: editBtn.dataset.body || "",
+        audience: editBtn.dataset.audience || "all",
+      };
+      showAnnModal(a); // ← EDIT modal open (prefilled)
+      return;
     }
   });
 
-  // Modal Save
-  document.getElementById("annSave")?.addEventListener("click", async () => {
-    const id = document.getElementById("annId").value;
-    const title = document.getElementById("annTitle").value.trim();
-    const body = document.getElementById("annBody").value.trim();
-    const audience = document.getElementById("annAudience").value;
-
+  // save
+  H.form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const title = (H.titleEl.value || "").trim();
+    const body = (H.bodyEl.value || "").trim();
+    const audience = H.audEl.value || "all";
     if (!title || !body) return toast("Title & message required");
 
-    const payload = {
+    const rec = {
       title,
       body,
       audience,
       author: getUser()?.email || "instructor",
       ts: Date.now(),
     };
+    const id = (H.idEl.value || "").trim();
 
     try {
       if (id) {
-        await set(child(aref, id), payload);
+        await set(ref(rtdb, `anns/${id}`), rec);
         toast("Announcement updated");
       } else {
-        await push(aref, payload);
+        await push(annsRef(), rec);
         toast("Announcement posted");
       }
-      document.getElementById("annModal")?.close();
+      H.dlg?.close();
+      H.form.reset();
     } catch {
-      toast("Ann save failed");
+      toast("Save failed (permission?)");
     }
   });
 
-  document.getElementById("annCancel")?.addEventListener("click", () => {
-    document.getElementById("annModal")?.close();
-  });
+  // close/cancel
+  const doClose = () => {
+    try {
+      H.dlg?.close();
+    } catch {}
+  };
+  H.btnClose?.addEventListener("click", doClose);
+  H.btnCancel?.addEventListener("click", doClose);
 }
 document.addEventListener("DOMContentLoaded", initAnnouncements);
 
