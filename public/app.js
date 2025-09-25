@@ -984,47 +984,162 @@ function renderAnnItem(a) {
   return div;
 }
 
+// ===== REPLACE BLOCK: initAnnouncements (no alerts/prompt; modal-based) =====
 function initAnnouncements() {
+  // elements
   const list = document.getElementById("annList");
-  const btn = document.getElementById("btn-new-post");
-  const aref = annsRef();
-  if (!list || !aref) return;
+  const btn  = document.getElementById("btn-new-post")
+            || document.getElementById("btn-ann-add")
+            || document.querySelector("[data-ann-new]");
 
-  list.innerHTML = "";
-  onChildAdded(aref, (snap) => {
-    const a = snap.val() || {};
-    list.prepend(renderAnnItem(a));
-    // badge update
-    try {
-      const old = getAnns(); // local mirror
-      old.push(a);
-      setAnns(old);
-      updateAnnBadge();
-    } catch {}
-  });
+  // modal + form stuff (IDs can be adjusted to your HTML)
+  const dlg     = document.getElementById("annModal") || document.getElementById("announcementModal");
+  const form    = document.getElementById("annForm")  || dlg?.querySelector("form");
+  const titleEl = dlg?.querySelector("#annTitle");
+  const bodyEl  = dlg?.querySelector("#annBody");
+  const visEl   = dlg?.querySelector("#annVisibleTo");
+  const btnClose  = dlg?.querySelector("#btn-ann-close");
+  const btnCancel = dlg?.querySelector("#btn-ann-cancel");
 
-  btn?.addEventListener("click", async () => {
-    if (roleRank(getRole()) < roleRank("instructor")) {
-      return toast("Requires instructor+");
-    }
-    const title = prompt("Announcement title?");
-    if (!title) return;
-    const body = prompt("Message?");
-    if (body == null) return;
+  // helper permissions
+  const roleOrder = ["student","ta","instructor","admin","owner"];
+  const roleRank = (r)=> Math.max(0, roleOrder.indexOf(String(r||"student").toLowerCase()));
+  const canPost  = ()=> roleRank(getUser()?.role||"student") >= roleRank("instructor");
+
+  // Firebase Realtime DB ref getter (adapt if you use Firestore instead)
+  const aref = (function(){
     try {
-      await push(aref, {
-        title,
-        body,
+      // If you already had annsRef() helper, reuse it:
+      return typeof annsRef === "function" ? annsRef() : null;
+    } catch { return null; }
+  })();
+
+  // (1) Realtime list → render items (no prompts involved)
+  if (list && aref) {
+    list.innerHTML = "";
+    onChildAdded(aref, (snap) => {
+      const a = snap.val?.() || snap.data || snap || {};
+      try {
+        list.prepend(renderAnnItem(a));
+      } catch(e) { console.warn("renderAnnItem failed:", e); }
+      // local mirror + badge
+      try {
+        const old = (typeof getAnns === "function" && getAnns()) || JSON.parse(localStorage.getItem("anns")||"[]");
+        old.push(a);
+        if (typeof setAnns === "function") setAnns(old); else localStorage.setItem("anns", JSON.stringify(old));
+        if (typeof updateAnnBadge === "function") updateAnnBadge();
+      } catch {}
+    });
+  }
+
+  // reset modal fields
+  function resetForm(){
+    try { form?.reset(); } catch {}
+    if (titleEl) titleEl.value = "";
+    if (bodyEl)  bodyEl.value  = "";
+    if (visEl && !visEl.value) visEl.value = "all";
+  }
+
+  // (2) Button → open modal (NO prompt/alert)
+  if (btn && dlg) {
+    // remove old listeners that might still call prompt()
+    btn.replaceWith(btn.cloneNode(true));
+    const freshBtn = document.getElementById("btn-new-post")
+                  || document.getElementById("btn-ann-add")
+                  || document.querySelector("[data-ann-new]");
+    freshBtn?.addEventListener("click", (e)=>{
+      e.preventDefault();
+      if (!canPost()) return toast?.("Requires instructor+");
+      resetForm();
+      dlg.showModal?.();
+    });
+  }
+
+  // (3) Modal close buttons
+  const doClose = ()=> dlg?.close?.();
+  btnClose?.addEventListener("click", doClose);
+  btnCancel?.addEventListener("click", doClose);
+  dlg?.addEventListener?.("keydown", (e)=>{ if (e.key === "Escape") doClose(); });
+
+  // (4) Submit → validate with toast; save cloud/local; close modal
+  if (form) {
+    form.addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const title = (titleEl?.value||"").trim();
+      const body  = (bodyEl?.value||"").trim();
+      const vis   = (visEl?.value||"all").trim();
+      if (!title) { toast?.("Please add a title."); titleEl?.focus(); return; }
+      if (!body)  { toast?.("Please add a message."); bodyEl?.focus(); return; }
+
+      const rec = {
+        title, body, visibleTo: vis,
         author: getUser()?.email || "instructor",
-        ts: Date.now(),
-      });
-      toast("Announced");
-    } catch {
-      toast("Announce failed");
-    }
-  });
+        ts: Date.now()
+      };
+
+      try {
+        if (aref) {
+          await push(aref, rec);
+        } else {
+          // local fallback if no RTDB ref
+          const curr = (typeof getAnns === "function" && getAnns()) || JSON.parse(localStorage.getItem("anns")||"[]");
+          const next = [rec, ...curr];
+          if (typeof setAnns === "function") setAnns(next); else localStorage.setItem("anns", JSON.stringify(next));
+        }
+        doClose();
+        window.renderAnnouncements?.();
+        toast?.("Announcement posted ✅");
+      } catch (err) {
+        console.warn("Announce save failed:", err);
+        toast?.("Failed to post (saved locally if possible).");
+      }
+    });
+  }
 }
+
+// You can keep this line:
 document.addEventListener("DOMContentLoaded", initAnnouncements);
+// function initAnnouncements() {
+//   const list = document.getElementById("annList");
+//   const btn = document.getElementById("btn-new-post");
+//   const aref = annsRef();
+//   if (!list || !aref) return;
+
+//   list.innerHTML = "";
+//   onChildAdded(aref, (snap) => {
+//     const a = snap.val() || {};
+//     list.prepend(renderAnnItem(a));
+//     // badge update
+//     try {
+//       const old = getAnns(); // local mirror
+//       old.push(a);
+//       setAnns(old);
+//       updateAnnBadge();
+//     } catch {}
+//   });
+
+//   btn?.addEventListener("click", async () => {
+//     if (roleRank(getRole()) < roleRank("instructor")) {
+//       return toast("Requires instructor+");
+//     }
+//     const title = prompt("Announcement title?");
+//     if (!title) return;
+//     const body = prompt("Message?");
+//     if (body == null) return;
+//     try {
+//       await push(aref, {
+//         title,
+//         body,
+//         author: getUser()?.email || "instructor",
+//         ts: Date.now(),
+//       });
+//       toast("Announced");
+//     } catch {
+//       toast("Announce failed");
+//     }
+//   });
+// }
+// document.addEventListener("DOMContentLoaded", initAnnouncements);
 
 /* ---------- sidebar + topbar offset (iPad/touch-friendly) ---------- */
 function initSidebar() {
