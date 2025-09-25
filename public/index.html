@@ -529,6 +529,18 @@
           <div class="tiny muted">Choose a method above.</div>
         </div>
 
+        <!-- MIDDLE: PayPal panel (visible only when PayPal selected) -->
+        <div
+          id="paypalPanel"
+          class="card"
+          style="flex: 1; min-width: 260px"
+          hidden
+        >
+          <h3 class="h4">Pay with PayPal (USD)</h3>
+          <div id="paypal-container"></div>
+          <div class="muted" id="paypalNote"></div>
+        </div>
+
         <!-- RIGHT: wallet panel (QR + info). Hidden until a wallet is selected -->
         <div
           id="walletPanel"

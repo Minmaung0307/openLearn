@@ -2792,21 +2792,18 @@ async function openPay(course) {
 function getPaymentOptions() {
   const pm = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.payments) || {};
   const out = [];
-  if (pm.paypal && pm.paypal.enabled) {
+  if (pm.paypal?.enabled) {
     out.push({ id: "paypal", label: "PayPal", kind: "paypal" });
   }
-  const W = (pm.wallets || {});
-  if (W.KBZPay?.enabled) out.push({ id: "kbz", label: "KBZPay", kind: "wallet", qr: W.KBZPay.qr, name: W.KBZPay.name, account: W.KBZPay.account });
-  if (W.CBPay?.enabled)  out.push({ id: "cb",  label: "CBPay",  kind: "wallet", qr: W.CBPay.qr,  name: W.CBPay.name,  account: W.CBPay.account  });
-  if (W.AyaPay?.enabled) out.push({ id: "aya", label: "AyaPay", kind: "wallet", qr: W.AyaPay.qr, name: W.AyaPay.name, account: W.AyaPay.account });
+  const W = pm.wallets || {};
+  if (W.KBZPay?.enabled) out.push({ id:"kbz", label:"KBZPay", kind:"wallet", qr: W.KBZPay.qr, name: W.KBZPay.name, account: W.KBZPay.account });
+  if (W.CBPay?.enabled)  out.push({ id:"cb",  label:"CBPay",  kind:"wallet", qr: W.CBPay.qr,  name: W.CBPay.name,  account: W.CBPay.account  });
+  if (W.AyaPay?.enabled) out.push({ id:"aya", label:"AyaPay", kind:"wallet", qr: W.AyaPay.qr, name: W.AyaPay.name, account: W.AyaPay.account });
   return out;
 }
 
 // Demo QR fallback (when local file missing)
-function _demoQR(label) {
-  const txt = `${label || "WALLET"}-DEMO`;
-  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(txt)}`;
-}
+function _demoQR(label){ return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent((label||"WALLET")+"-DEMO")}`; }
 
 // ===== Render payment radio buttons =====
 function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
@@ -2824,38 +2821,81 @@ function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
     </label>
   `).join("");
 
-  // Wire: when picked a wallet, open the wallet panel immediately
   el.querySelectorAll(`input[name="${name}"]`).forEach(inp => {
     inp.addEventListener("change", () => {
       const picked = opts.find(x => x.id === inp.value);
       if (!picked) return;
       if (picked.kind === "wallet") openWalletPanel(picked);
-      // PayPal ကို သီးခြား checkout flow ထဲမှာ handle လုပ်ပေးပါ (သင့်နောက်က code အတိုင်း)
+      else if (picked.kind === "paypal") openPayPalPanel();
     });
   });
 }
 
 // ===== Wallet panel (QR + info) =====
 function openWalletPanel(wallet) {
+  // ⚠️ guard (သင့် error အဓိက)
+  if (!wallet || wallet.kind !== "wallet") return;
+
   const panel = document.getElementById("walletPanel");
   const title = document.getElementById("walletTitle");
   const img   = document.getElementById("walletQR");
   const brand = document.getElementById("walletBrand");
   const acct  = document.getElementById("walletAcct");
 
-  if (!panel || !title || !img || !brand || !acct) return;
-
   title.textContent = `Pay with ${wallet.label}`;
   brand.textContent = wallet.name || "Your Co";
   acct.textContent  = wallet.account || "09-xxxx";
 
-  // choose QR source: config path → fallback to demo QR
   const src = wallet.qr || `/assets/qr/${wallet.id}.png`;
   img.src = src;
-  // if file missing/bad → fallback to demo QR
   img.onerror = () => { img.onerror = null; img.src = _demoQR(wallet.label); };
 
+  // show wallet, hide PayPal
   panel.hidden = false;
+  const pp = document.getElementById("paypalPanel");
+  if (pp) pp.hidden = true;
+}
+
+async function openPayPalPanel() {
+  const pp = document.getElementById("paypalPanel");
+  if (!pp) return;
+  // show PayPal, hide wallet
+  pp.hidden = false;
+  const wp = document.getElementById("walletPanel");
+  if (wp) wp.hidden = true;
+
+  // Render PayPal button (idempotent)
+  const target = document.getElementById("paypal-container");
+  if (!target) return;
+  if (target.__rendered) return;
+
+  try {
+    const paypal = await (window.ensurePayPal ? window.ensurePayPal() : null);
+    if (!paypal) {
+      // fallback note
+      document.getElementById("paypalNote").textContent =
+        "PayPal SDK not loaded (check config.js paypalClientId).";
+      return;
+    }
+    paypal.Buttons({
+      createOrder: (data, actions) => actions.order.create({
+        purchase_units: [{ amount: { value: "1.00" } }]
+      }),
+      onApprove: async (data, actions) => {
+        await actions.order.capture();
+        toast?.("Payment successful. Enrolling…");
+        document.getElementById("payModal")?.close?.();
+        // TODO: mark enrolled
+      },
+      onError: () => toast?.("PayPal error")
+    }).render("#paypal-container");
+
+    target.__rendered = true;
+  } catch (e) {
+    document.getElementById("paypalNote").textContent =
+      "PayPal init failed. Check console.";
+    console.warn(e);
+  }
 }
 
 // ===== Pending payment request =====
@@ -3049,20 +3089,6 @@ function ensurePayModal() {
     });
   }
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-  // pay modal open စဉ် render (initial)
-  renderPaymentOptions("payMethods");   // radio list
-  openWalletPanel(null);                // clear QR panel
-
-  // I Paid → pending request only (no auto-enroll)
-  document.getElementById("mmkPaid")?.addEventListener("click", () => {
-    // RD.cid (reader context) သို့မဟုတ် currently selected courseId ကို ပြန်တင်ပါ
-    const cid = window.__CHECKOUT_COURSE_ID__ || RD?.cid || CURRENT_COURSE_ID || "";
-    if (!cid) return toast?.("No course selected.");
-    submitMmkPaymentRequest(cid);
-  });
-});
 
 /* ---------- details (catalog + meta merge) ---------- */
 async function openDetails(id) {
@@ -6048,6 +6074,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Render payment radios/options right after DOM is ready
   renderPaymentOptions("payMethods");
+  openWalletPanel(null);                // clear QR panel
+
+  // I Paid → pending request only (no auto-enroll)
+  document.getElementById("mmkPaid")?.addEventListener("click", () => {
+    // RD.cid (reader context) သို့မဟုတ် currently selected courseId ကို ပြန်တင်ပါ
+    const cid = window.__CHECKOUT_COURSE_ID__ || RD?.cid || CURRENT_COURSE_ID || "";
+    if (!cid) return toast?.("No course selected.");
+    submitMmkPaymentRequest(cid);
+  });
 
   // Remove Finals from UI if present (robust no-op if missing)
   stripFinalsUI();
@@ -6886,14 +6921,9 @@ if (typeof saveCourseToCloud !== "function") {
 
 // ===== “I Paid (MMK)” handler — mark pending (no instant enroll) =====
 (function wireMmkPaidOnce(){
-  if (window.__WIRED_MMK__) return;
-  window.__WIRED_MMK__ = true;
-  const btn = document.getElementById("mmkPaid");
-  if (!btn) return;
-  btn.addEventListener("click", async () => {
-    // ဒီမှာ “pending approval” logic ထည့်ပါ (ရိုးရိုး toast သာပဲ ပေးထား)
-    toast?.("Payment submitted for approval. We’ll notify you once verified.");
-    // modal ပိတ်
+  if (window.__WIRED_MMK__) return; window.__WIRED_MMK__ = true;
+  document.getElementById("mmkPaid")?.addEventListener("click", () => {
+    toast?.("Payment submitted for approval. We'll notify you once verified.");
     document.getElementById("payModal")?.close?.();
   });
 })();
