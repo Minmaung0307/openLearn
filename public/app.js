@@ -964,55 +964,167 @@ function annsRef() {
   return ref(rtdb, "anns");
 }
 
-function renderAnnItem(a) {
+// === Announcements Modal helpers ===
+let __ANN_EDIT_ID = null; // null=new, else existing key
+
+function ensureAnnModalMarkup() {
+  // (HTML ကို index.html မှာ ထည့်ပြီးသားဆိုရင် ဒီ helper တော်တော်မလုပ်ဘူး)
+  return document.getElementById("annModal");
+}
+
+function showAnnModal(a = null) {
+  __ANN_EDIT_ID = a?.id || null;
+  const dlg = document.getElementById("annModal");
+  const f   = document.getElementById("annForm");
+  if (!dlg || !f) return;
+
+  document.getElementById("annModalTitle").textContent = __ANN_EDIT_ID ? "Edit Announcement" : "New Announcement";
+  document.getElementById("annTitle").value    = a?.title    || "";
+  document.getElementById("annAudience").value = a?.audience || "all";
+  document.getElementById("annBody").value     = a?.body     || "";
+
+  dlg.showModal?.();
+}
+
+function renderAnnItem(id, a) {
   const div = document.createElement("div");
   div.className = "card";
-  const t = a.ts ? new Date(a.ts).toLocaleString() : "";
-  div.innerHTML = `<div class="small muted">${esc(
-    a.author || "instructor"
-  )} • ${t}</div><div><b>${esc(a.title || "")}</b></div><div>${esc(
-    a.body || ""
-  )}</div>`;
+  div.dataset.id = id;
+
+  const t  = a.ts ? new Date(a.ts).toLocaleString() : "";
+  const who = a.author || "instructor";
+  const aud = a.audience || "all";
+  const badge =
+    aud === "students" ? "👩‍🎓 Students"
+  : aud === "instructors" ? "👩‍🏫 Instructors"
+  : "🌐 Everyone";
+
+  // role ≥ instructor ဖြစ်ရင် edit/delete ခလုတ်ပြပါ
+  const canEdit = ["owner","admin","instructor","ta"].includes((getRole()||"").toLowerCase());
+
+  div.innerHTML = `
+    <div class="small muted">${esc(who)} • ${t} • <span class="tiny muted">${badge}</span></div>
+    <div style="display:flex; gap:8px; align-items:flex-start; justify-content:space-between">
+      <div>
+        <div><b>${esc(a.title || "")}</b></div>
+        <div>${esc(a.body || "")}</div>
+      </div>
+      ${canEdit ? `
+      <div class="row" style="gap:6px; flex:0 0 auto">
+        <button class="btn small" data-ann-edit="${esc(id)}">Edit</button>
+        <button class="btn small" data-ann-del="${esc(id)}">Delete</button>
+      </div>` : ``}
+    </div>
+  `;
+
+  // wire edit/delete
+  if (canEdit) {
+    div.querySelector(`[data-ann-edit="${id}"]`)?.addEventListener("click", () => {
+      showAnnModal({ id, ...a });
+    });
+    div.querySelector(`[data-ann-del="${id}"]`)?.addEventListener("click", async () => {
+      if (!confirm("Delete this announcement?")) return;
+      try {
+        const r = annsRef();
+        await remove(ref(rtdb, `anns/${id}`));
+        toast("Deleted");
+        div.remove();
+      } catch {
+        toast("Delete failed");
+      }
+    });
+  }
+
   return div;
 }
 
+// === REPLACE your current initAnnouncements() with this version ===
 function initAnnouncements() {
   const list = document.getElementById("annList");
-  const btn = document.getElementById("btn-new-post");
-  const aref = annsRef();
-  if (!list || !aref) return;
+  const btn  = document.getElementById("btn-new-post");
+  const dlg  = document.getElementById("annModal");
+  const form = document.getElementById("annForm");
+  const btnClose  = document.getElementById("annClose");
+  const btnCancel = document.getElementById("annCancel");
+  if (!list || !btn || !dlg || !form) return;
 
+  // live feed
   list.innerHTML = "";
+  const aref = annsRef();
   onChildAdded(aref, (snap) => {
     const a = snap.val() || {};
-    list.prepend(renderAnnItem(a));
-    // badge update
+    const id = snap.key;
+    // prepend; if the same id already exists, replace it (avoid duplicates)
+    const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+    const node = renderAnnItem(id, a);
+    if (old) old.replaceWith(node);
+    else list.prepend(node);
+
+    // local mirror + badge
     try {
-      const old = getAnns(); // local mirror
-      old.push(a);
-      setAnns(old);
-      updateAnnBadge();
+      const cache = Array.isArray(getAnns?.()) ? getAnns() : [];
+      // keep unique by id
+      const filtered = cache.filter(x => x.id !== id);
+      filtered.push({ id, ...a });
+      setAnns(filtered);
+      updateAnnBadge?.();
     } catch {}
   });
 
-  btn?.addEventListener("click", async () => {
+  // open modal (NO alerts)
+  btn.addEventListener("click", () => {
     if (roleRank(getRole()) < roleRank("instructor")) {
       return toast("Requires instructor+");
     }
-    const title = prompt("Announcement title?");
-    if (!title) return;
-    const body = prompt("Message?");
-    if (body == null) return;
+    showAnnModal(null);
+  });
+
+  // close
+  const doClose = () => { try { dlg.close(); } catch {} };
+  btnClose.addEventListener("click", doClose);
+  btnCancel.addEventListener("click", doClose);
+
+  // save (create/update)
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const title = document.getElementById("annTitle").value.trim();
+    const body  = document.getElementById("annBody").value.trim();
+    const audience = document.getElementById("annAudience").value || "all";
+    if (!title || !body) {
+      toast("Title and message are required");
+      return;
+    }
+
+    // disable to prevent double-submit
+    const saveBtn = document.getElementById("annSave");
+    saveBtn.disabled = true;
+
     try {
-      await push(aref, {
+      const data = {
         title,
         body,
+        audience,
         author: getUser()?.email || "instructor",
         ts: Date.now(),
-      });
-      toast("Announced");
+      };
+
+      if (__ANN_EDIT_ID) {
+        // update existing
+        await set(ref(rtdb, `anns/${__ANN_EDIT_ID}`), data);
+        toast("Announcement updated");
+      } else {
+        // create new
+        await push(annsRef(), data);
+        toast("Announced");
+      }
+
+      __ANN_EDIT_ID = null;
+      doClose();
+      form.reset();
     } catch {
-      toast("Announce failed");
+      toast("Save failed (permission?)");
+    } finally {
+      saveBtn.disabled = false;
     }
   });
 }
