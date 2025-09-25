@@ -1017,37 +1017,62 @@
       </div>
     </dialog>
     <!-- Announcements Modal -->
-<dialog id="annModal" class="ol-modal card" style="max-width:680px">
-  <form id="annForm" method="dialog" class="authpane" style="display:grid; gap:10px">
-    <div class="row" style="justify-content:space-between; align-items:center">
-      <b id="annModalTitle">New Announcement</b>
-      <div class="row" style="gap:6px">
-        <button class="btn small" type="button" id="annClose">Close</button>
-      </div>
-    </div>
+    <dialog id="annModal" class="ol-modal card" style="max-width: 680px">
+      <form
+        id="annForm"
+        method="dialog"
+        class="authpane"
+        style="display: grid; gap: 10px"
+      >
+        <!-- Hidden ID for edit -->
+        <input id="annId" type="hidden" />
 
-    <label>Title
-      <input id="annTitle" class="input" required placeholder="Announcement title">
-    </label>
+        <div
+          class="row"
+          style="justify-content: space-between; align-items: center"
+        >
+          <b id="annModalTitle">New Announcement</b>
+          <div class="row" style="gap: 6px">
+            <button class="btn small" type="button" id="annClose">Close</button>
+          </div>
+        </div>
 
-    <label>Audience
-      <select id="annAudience" class="input">
-        <option value="all">Everyone</option>
-        <option value="students">Students only</option>
-        <option value="instructors">Instructors/Staff</option>
-      </select>
-    </label>
+        <label
+          >Title
+          <input
+            id="annTitle"
+            class="input"
+            required
+            placeholder="Announcement title"
+          />
+        </label>
 
-    <label>Message
-      <textarea id="annBody" class="input" rows="5" placeholder="Write your announcement…" required></textarea>
-    </label>
+        <label
+          >Audience
+          <select id="annAudience" class="input">
+            <option value="all">Everyone</option>
+            <option value="students">Students only</option>
+            <option value="instructors">Instructors/Staff</option>
+          </select>
+        </label>
 
-    <div class="row" style="justify-content:flex-end; gap:8px">
-      <button class="btn" type="button" id="annCancel">Cancel</button>
-      <button class="btn primary" type="submit" id="annSave">Save</button>
-    </div>
-  </form>
-</dialog>
+        <label
+          >Message
+          <textarea
+            id="annBody"
+            class="input"
+            rows="5"
+            placeholder="Write your announcement…"
+            required
+          ></textarea>
+        </label>
+
+        <div class="row" style="justify-content: flex-end; gap: 8px">
+          <button class="btn" type="button" id="annCancel">Cancel</button>
+          <button class="btn primary" type="submit" id="annSave">Save</button>
+        </div>
+      </form>
+    </dialog>
     <dialog id="certModal" class="ol-modal card">
       <div id="certBody"></div>
       <div

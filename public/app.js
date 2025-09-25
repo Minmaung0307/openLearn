@@ -986,7 +986,7 @@ function showAnnModal(a = null) {
   dlg.showModal?.();
 }
 
-// === Ann card renderer (replace old renderAnnItem) ===
+// REPLACE old renderAnnItem(a) with this:
 function renderAnnItem(id, a) {
   const div = document.createElement("div");
   div.className = "card";
@@ -999,7 +999,8 @@ function renderAnnItem(id, a) {
               : aud === "instructors" ? "👩‍🏫 Instructors"
               : "🌐 Everyone";
 
-  const canEdit = ["owner","admin","instructor","ta"].includes((getRole()||"").toLowerCase());
+  const canEdit = ["owner","admin","instructor","ta"]
+    .includes((getRole()||"").toLowerCase());
 
   div.innerHTML = `
     <div class="small muted">${esc(who)} • ${t} • <span class="tiny muted">${badge}</span></div>
@@ -1018,7 +1019,6 @@ function renderAnnItem(id, a) {
   return div;
 }
 
-// === Announcements (replace your old initAnnouncements) ===
 function initAnnouncements() {
   const list = document.getElementById("annList");
   const btn = document.getElementById("btn-new-post");
@@ -1028,14 +1028,16 @@ function initAnnouncements() {
   list.innerHTML = "";
   onChildAdded(aref, (snap) => {
     const a = snap.val() || {};
-    a._id = snap.key;
-    list.prepend(renderAnnItem(a));
+    const id = snap.key;
+    const node = renderAnnItem(id, a);     // << changed
+    const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+    old ? old.replaceWith(node) : list.prepend(node);
     // badge update
     try {
-      const old = getAnns(); // local mirror
-      old.push(a);
-      setAnns(old);
-      updateAnnBadge();
+      const cache = Array.isArray(getAnns?.()) ? getAnns() : [];
+      const rest  = cache.filter(x => x.id !== id);
+      setAnns([...rest, { id, ...a }]);
+      updateAnnBadge?.();
     } catch {}
   });
 
@@ -1045,6 +1047,13 @@ function initAnnouncements() {
       return toast("Requires instructor+");
     }
     const dlg = document.getElementById("annModal");
+    // clear for NEW
+    document.getElementById("annId")?.value = "";
+    document.getElementById("annTitle").value = "";
+    document.getElementById("annBody").value = "";
+    const audSel = document.getElementById("annAudience");
+    if (audSel) audSel.value = "all";
+    document.getElementById("annModalTitle")?.textContent = "New Announcement";
     dlg?.showModal?.();
   });
 
@@ -1055,38 +1064,44 @@ function initAnnouncements() {
     if (!editBtn && !delBtn) return;
 
     let id = null;
-    if (editBtn) {
-      id = editBtn.getAttribute("data-ann-edit");
-    } else if (delBtn) {
-      id = delBtn.getAttribute("data-ann-del");
-    }
+    if (editBtn) id = editBtn.getAttribute("data-ann-edit");
+    else id = delBtn.getAttribute("data-ann-del");
     if (!id) return;
 
-    if (editBtn) {
-      // open modal for editing
-      const dlg = document.getElementById("annModal");
-      document.getElementById("annId").value    = id;
-      document.getElementById("annTitle").value = editBtn.dataset.title || "";
-      document.getElementById("annBody").value  = editBtn.dataset.body || "";
-      document.getElementById("annAudience").value = editBtn.dataset.audience || "all";
-      dlg?.showModal?.();
-    } else if (delBtn) {
+    if (delBtn) {
       if (!confirm("Delete this announcement?")) return;
       try {
-        await remove(child(aref, id));
+        await remove(ref(rtdb, `anns/${id}`));       // << changed
         toast("Announcement deleted");
+        list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
       } catch {
         toast("Delete failed");
       }
+      return;
+    }
+
+    // edit
+    try {
+      const snap = await get(ref(rtdb, `anns/${id}`)); // << changed
+      const a = snap.val() || {};
+      document.getElementById("annId")?.value    = id;           // hidden input
+      document.getElementById("annTitle").value = a.title || "";
+      document.getElementById("annBody").value  = a.body  || "";
+      const audSel = document.getElementById("annAudience");
+      if (audSel) audSel.value = a.audience || "all";
+      document.getElementById("annModalTitle")?.textContent = "Edit Announcement";
+      document.getElementById("annModal")?.showModal?.();
+    } catch {
+      toast("Load failed");
     }
   });
 
   // === Modal Save ===
   document.getElementById("annSave")?.addEventListener("click", async () => {
-    const id    = document.getElementById("annId").value;
+    const id    = document.getElementById("annId")?.value || ""; // << safe
     const title = document.getElementById("annTitle").value.trim();
     const body  = document.getElementById("annBody").value.trim();
-    const audience = document.getElementById("annAudience").value;
+    const audience = (document.getElementById("annAudience")?.value || "all");
 
     if (!title || !body) return toast("Title & message required");
 
@@ -1100,13 +1115,13 @@ function initAnnouncements() {
 
     try {
       if (id) {
-        await set(child(aref, id), payload);
+        await set(ref(rtdb, `anns/${id}`), payload); // << changed
         toast("Announcement updated");
       } else {
         await push(aref, payload);
         toast("Announcement posted");
       }
-      document.getElementById("annModal")?.close();
+      document.getElementById("annModal")?.close(); // ✅ close on success
     } catch {
       toast("Ann save failed");
     }
@@ -1114,47 +1129,6 @@ function initAnnouncements() {
 
   document.getElementById("annCancel")?.addEventListener("click", () => {
     document.getElementById("annModal")?.close();
-  });
-}
-
-  // ——— Save (create/update) ———
-  let inFlight = false;
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (inFlight) return;
-
-    const title = (titleEl.value || "").trim();
-    const body  = (bodyEl.value  || "").trim();
-    const audience = (audEl.value || "all").trim();
-    if (!title || !body) { toast("Title & message required"); return; }
-
-    const saveBtn = document.getElementById("annSave");
-    saveBtn.disabled = true;
-    inFlight = true;
-
-    const rec = {
-      title, body, audience,
-      author: getUser()?.email || "instructor",
-      ts: Date.now()
-    };
-
-    try {
-      if (EDIT_ID) {
-        await set(ref(rtdb, `anns/${EDIT_ID}`), rec);
-        toast("Announcement updated ✅");
-      } else {
-        await push(annsRef(), rec);
-        toast("Announcement posted ✅");
-      }
-      form.reset();
-      doClose();             // ✅ close modal on success
-    } catch (err) {
-      console.warn(err);
-      toast("Save failed (permission?)");
-    } finally {
-      inFlight = false;
-      saveBtn.disabled = false;
-    }
   });
 }
 document.addEventListener("DOMContentLoaded", initAnnouncements);
