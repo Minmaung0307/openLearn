@@ -6277,35 +6277,79 @@ function __prependAnnCardInList(id, rec) {
     setTimeout(()=>tEl?.focus(), 0);
   });
 
-  // --- Live feed (add / change / remove) ---
-  if (list && annRef()) {
+    // ------- Live feed (re-renders immediately on any change) -------
+  if (list) {
     list.innerHTML = "";
-    const aref = annRef();
+    const db  = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
+    if (!db) {
+      console.warn("Announcements: RTDB not ready; live feed disabled.");
+    } else {
+      const aref = ref(db, "announcements");
 
-    onChildAdded(aref, (snap) => {
-      const a = snap.val() || {};
-      const id = snap.key;
-      const node = renderAnnItem(id, a);
-      const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-      old ? old.replaceWith(node) : list.prepend(node);
-    });
+      // avoid double subscription
+      if (!window.__ANN_LIVE__) window.__ANN_LIVE__ = {};
 
-    // 🔁 This makes *edits* reflect immediately from RTDB
-    if (typeof onChildChanged === "function") {
-      onChildChanged(aref, (snap) => {
-        const a = snap.val() || {};
-        const id = snap.key;
-        const next = renderAnnItem(id, a);
-        const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-        if (old) old.replaceWith(next);
-      });
-    }
+      const renderAll = (obj) => {
+        const entries = Object.entries(obj || {});
+        // newest first (by ts)
+        entries.sort((a, b) => (b[1]?.ts || 0) - (a[1]?.ts || 0));
+        // redraw list
+        list.innerHTML = "";
+        for (const [id, rec] of entries) {
+          list.appendChild(renderAnnItem(id, rec));
+        }
+      };
 
-    if (typeof onChildRemoved === "function") {
-      onChildRemoved(aref, (snap) => {
-        const id = snap.key;
-        list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
-      });
+      // Preferred: onValue (single callback for any add/change/remove)
+      if (typeof onValue === "function") {
+        if (!window.__ANN_LIVE__.onValue) {
+          window.__ANN_LIVE__.onValue = true;
+          onValue(aref, (snap) => {
+            renderAll(snap.val());
+          }, (err) => console.warn("announcements onValue error:", err));
+        }
+      } else {
+        // Fallback: child events (if available)
+        // First paint: load once
+        try {
+          // If you have get() available you can do:
+          // const snap = await get(aref); renderAll(snap.val());
+          // otherwise keep empty until adds arrive
+        } catch {}
+        if (typeof onChildAdded === "function") {
+          if (!window.__ANN_LIVE__.added) {
+            window.__ANN_LIVE__.added = true;
+            onChildAdded(aref, (snap) => {
+              const a = snap.val() || {};
+              const id = snap.key;
+              const node = renderAnnItem(id, a);
+              const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+              old ? old.replaceWith(node) : list.prepend(node);
+            });
+          }
+        }
+        if (typeof onChildChanged === "function") {
+          if (!window.__ANN_LIVE__.changed) {
+            window.__ANN_LIVE__.changed = true;
+            onChildChanged(aref, (snap) => {
+              const a = snap.val() || {};
+              const id = snap.key;
+              const node = renderAnnItem(id, a);
+              const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+              if (old) old.replaceWith(node);
+            });
+          }
+        }
+        if (typeof onChildRemoved === "function") {
+          if (!window.__ANN_LIVE__.removed) {
+            window.__ANN_LIVE__.removed = true;
+            onChildRemoved(aref, (snap) => {
+              const id = snap.key;
+              list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+            });
+          }
+        }
+      }
     }
   }
 
