@@ -87,16 +87,6 @@ function canDeleteCourse() {
   return r === "owner" || r === "admin"; // instructor မပါ
 }
 
-// === RTDB role mirror helper (put near other global helpers) ===
-async function mirrorRoleToRTDB(uid, role) {
-  try {
-    if (!window.rtdb || !uid) return;
-    await set(ref(rtdb, `users/${uid}/role`), String(role || "student"));
-  } catch (e) {
-    console.warn("mirrorRoleToRTDB failed:", e);
-  }
-}
-
 /* ---------- responsive theme / font ---------- */
 const PALETTES = {
   /* ... (unchanged palettes) ... */
@@ -968,10 +958,39 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById(id)?.addEventListener("change", renderCatalog)
 );
 
-// ===== Realtime Announcements =====
+// ========== RTDB helpers ==========
+function getRTDB() {
+  try {
+    // if already set by your firebase init, just reuse it
+    return window.rtdb || (window.rtdb = getDatabase(app));
+  } catch (e) {
+    return null;
+  }
+}
+
+async function ensureRTDBReady(timeout = 4000) {
+  const t0 = Date.now();
+  while (!getRTDB()) {
+    await new Promise(r => setTimeout(r, 50));
+    if (Date.now() - t0 > timeout) throw new Error("RTDB not ready");
+  }
+  return window.rtdb;
+}
+
+// Unified announcements ref
 function annsRef() {
-  if (!rtdb) return null;
-  return ref(rtdb, "announcements");
+  const db = getRTDB();
+  return db ? ref(db, "announcements") : null;
+}
+
+// Mirror role -> RTDB, required by rules users/<uid>/role
+async function mirrorRoleToRTDB(uid, role) {
+  try {
+    const db = await ensureRTDBReady();
+    await set(ref(db, `users/${uid}/role`), String(role || "student"));
+  } catch (e) {
+    console.warn("mirrorRoleToRTDB failed:", e);
+  }
 }
 
 // === Announcements Modal helpers ===
@@ -4747,11 +4766,9 @@ function renderAnnouncements() {
 }
 window.renderAnnouncements = renderAnnouncements;
 
-// ---- Announcement modal helpers (safe in any DOM) ----
+// Safe header setter (used by code above)
 window.setAnnModalTitle = function (txt) {
-  const el =
-    document.getElementById("annModalTitle") ||
-    document.querySelector("#annModal .modal-title");
+  const el = document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
   if (el) el.textContent = txt;
 };
 
@@ -6153,7 +6170,7 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
 
 // replace your announcement save handler block with this:
 (function wireAnnSaveOnce() {
-  const dlg = document.getElementById("annModal");
+  const dlg  = document.getElementById("annModal");
   const form = document.getElementById("annForm");
   if (!form || form.__wired) return;
   form.__wired = true;
@@ -6162,42 +6179,39 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
     e.preventDefault();
 
     const idEl = document.getElementById("annId");
-    const tEl = document.getElementById("annTitle");
-    const bEl = document.getElementById("annBody");
-    const aEl = document.getElementById("annAudience");
+    const tEl  = document.getElementById("annTitle");
+    const bEl  = document.getElementById("annBody");
+    const aEl  = document.getElementById("annAudience");
 
     const title = (tEl?.value || "").trim();
-    const body = (bEl?.value || "").trim();
+    const body  = (bEl?.value || "").trim();
     const audience = (aEl?.value || "all").trim();
     if (!title || !body) return toast("Title & message required");
 
     const rec = {
-      title,
-      body,
-      audience,
+      title, body, audience,
       author: getUser()?.email || "instructor",
       ts: Date.now(),
     };
     const id = (idEl?.value || "").trim();
 
     try {
-      if (!window.rtdb) throw new Error("RTDB not ready");
+      const db = await ensureRTDBReady(); // ← wait RTDB
       if (id) {
-        await set(ref(rtdb, `announcements/${id}`), rec);
+        await set(ref(db, `announcements/${id}`), rec);
         toast("Announcement updated");
       } else {
-        await push(ref(rtdb, "announcements"), rec);
+        await push(ref(db, "announcements"), rec);
         toast("Announcement posted");
       }
-      try {
-        dlg?.close();
-      } catch {}
+      // success ⇒ close & reset
+      try { dlg?.close(); } catch {}
       form.reset();
-      setAnnModalTitle?.("New Announcement");
+      (window.setAnnModalTitle || function(){})("New Announcement");
     } catch (err) {
       console.warn(err);
+      // rules fail ⇒ keep modal open so user can adjust
       toast("Save failed (permission?)");
-      // fail ဆိုရင် modal မပိတ် — user ပြန်ပြင်နိုင်ဖို့
     }
   });
 })();
