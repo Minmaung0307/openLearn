@@ -5872,87 +5872,206 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
 })();
 
 // ===== Announcements: open modal (no alerts), validate with toast, save =====
-(function wireAnnouncementModalOnce(){
-  if (window.__OL_ONCE__?.annModalWired) return;
+// (function wireAnnouncementModalOnce(){
+//   if (window.__OL_ONCE__?.annModalWired) return;
 
-  // IDs you have in HTML (adjust if different):
-  // - Button: #btn-ann-add  (or [data-ann-new])
-  // - Dialog: #annModal or #announcementModal
-  // - Form:   #annForm
-  // - Fields: #annTitle, #annBody, #annVisibleTo
-  const openBtn = document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
-  const dlg     = document.getElementById("annModal") || document.getElementById("announcementModal");
-  const form    = document.getElementById("annForm") || dlg?.querySelector("form");
-  const titleEl = dlg?.querySelector("#annTitle");
-  const bodyEl  = dlg?.querySelector("#annBody");
-  const visEl   = dlg?.querySelector("#annVisibleTo");
+//   // IDs you have in HTML (adjust if different):
+//   // - Button: #btn-ann-add  (or [data-ann-new])
+//   // - Dialog: #annModal or #announcementModal
+//   // - Form:   #annForm
+//   // - Fields: #annTitle, #annBody, #annVisibleTo
+//   const openBtn = document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
+//   const dlg     = document.getElementById("annModal") || document.getElementById("announcementModal");
+//   const form    = document.getElementById("annForm") || dlg?.querySelector("form");
+//   const titleEl = dlg?.querySelector("#annTitle");
+//   const bodyEl  = dlg?.querySelector("#annBody");
+//   const visEl   = dlg?.querySelector("#annVisibleTo");
 
-  // small helpers
-  function canPostAnnouncements(){
-    const role = (getUser()?.role || "guest").toLowerCase();
-    return role === "owner" || role === "admin" || role === "instructor";
+//   // small helpers
+//   function canPostAnnouncements(){
+//     const role = (getUser()?.role || "guest").toLowerCase();
+//     return role === "owner" || role === "admin" || role === "instructor";
+//   }
+//   function isFirestoreReady(){
+//     return !!(window.db && window.auth && window.IS_AUTHED);
+//   }
+//   function resetForm(){
+//     try {
+//       form?.reset();
+//       if (titleEl) titleEl.value = "";
+//       if (bodyEl)  bodyEl.value  = "";
+//       if (visEl && !visEl.value) visEl.value = "all";
+//     } catch {}
+//   }
+
+//   // ⛔️ kill any old handlers that used alert()/prompt()
+//   try {
+//     openBtn?.replaceWith(openBtn.cloneNode(true));
+//   } catch {}
+//   const freshOpenBtn = document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
+
+//   // Open: no alerts, just show dialog
+//   freshOpenBtn?.addEventListener("click", (e)=>{
+//     e.preventDefault();
+//     if (!canPostAnnouncements()) return toast?.("Only instructors/admins can post announcements.");
+//     resetForm();
+//     dlg?.showModal?.();
+//   });
+
+//   // Close buttons inside modal
+//   dlg?.querySelectorAll("[data-ann-close], .btn-close, #btn-ann-cancel").forEach(el=>{
+//     el.addEventListener("click", ()=> dlg?.close?.());
+//   });
+
+//   // Submit: validate → toast (no alert), then save cloud/local
+//   form?.addEventListener("submit", async (e)=>{
+//     e.preventDefault();
+//     const title = titleEl?.value?.trim() || "";
+//     const body  = bodyEl?.value?.trim() || "";
+//     const vis   = visEl?.value || "all";
+
+//     if (!title) { toast?.("Please add a title."); titleEl?.focus(); return; }
+//     if (!body)  { toast?.("Please add a message."); bodyEl?.focus(); return; }
+
+//     try {
+//       if (isFirestoreReady() && typeof addAnnouncementCloud === "function") {
+//         await addAnnouncementCloud({ title, body, visibleTo: vis });
+//       } else {
+//         // local fallback
+//         const curr = getAnns?.() || JSON.parse(localStorage.getItem("anns") || "[]");
+//         const rec = { id: Date.now().toString(36), title, body, visibleTo: vis, ts: Date.now() };
+//         const next = [rec, ...curr];
+//         localStorage.setItem("anns", JSON.stringify(next));
+//         setAnns?.(next);
+//       }
+//       dlg?.close?.();
+//       window.renderAnnouncements?.();
+//       toast?.("Announcement posted ✅");
+//     } catch (err) {
+//       console.warn("Announcement save failed:", err);
+//       toast?.("Failed to post (saved locally).");
+//     }
+//   });
+
+//   window.__OL_ONCE__ = window.__OL_ONCE__ || {};
+//   window.__OL_ONCE__.annModalWired = true;
+// })();
+
+// ===== DROP-IN: Announcements modal (no alerts) =====
+(function enableAnnouncementsModal(){
+  if (window.__OL_ONCE__?.annModal) return;
+
+  const roleOrder = ["student","ta","instructor","admin","owner"];
+  const roleRank = (r)=> Math.max(0, roleOrder.indexOf(String(r||"student").toLowerCase()));
+  const canPost = ()=> roleRank(getUser()?.role||"student") >= roleRank("instructor");
+
+  // 1) Ensure modal markup exists (inject if missing)
+  function ensureAnnModal(){
+    if (document.getElementById("annModal")) return;
+    document.body.insertAdjacentHTML("beforeend", `
+      <dialog id="annModal" class="ol-modal card" style="max-width:600px">
+        <form id="annForm" method="dialog" class="authpane">
+          <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+            <b>New Announcement</b>
+            <div class="row" style="gap:6px">
+              <button type="button" class="btn small" id="btn-ann-cancel">Cancel</button>
+            </div>
+          </div>
+          <label>Title
+            <input id="annTitle" class="input" required placeholder="Announcement title">
+          </label>
+          <label>Message
+            <textarea id="annBody" class="input" rows="5" required placeholder="Write your message…"></textarea>
+          </label>
+          <label>Visible to
+            <select id="annVisibleTo" class="input">
+              <option value="all">All students</option>
+              <option value="instructors">Instructors only</option>
+              <option value="staff">Staff (TA+)</option>
+            </select>
+          </label>
+          <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px">
+            <button type="button" class="btn" id="btn-ann-close">Close</button>
+            <button type="submit" class="btn primary">Post</button>
+          </div>
+        </form>
+      </dialog>
+    `);
   }
-  function isFirestoreReady(){
-    return !!(window.db && window.auth && window.IS_AUTHED);
-  }
+
+  ensureAnnModal();
+
+  // Handles
+  const dlg     = document.getElementById("annModal");
+  const form    = document.getElementById("annForm");
+  const titleEl = document.getElementById("annTitle");
+  const bodyEl  = document.getElementById("annBody");
+  const visEl   = document.getElementById("annVisibleTo");
+  const btnClose= document.getElementById("btn-ann-close");
+  const btnCancel=document.getElementById("btn-ann-cancel");
+
+  const rtdbSafe = (function(){ try { return getDatabase?.(); } catch { return null; } })();
+  const annsRef  = ()=> rtdbSafe ? ref(rtdbSafe, "anns") : null;
+
   function resetForm(){
-    try {
-      form?.reset();
-      if (titleEl) titleEl.value = "";
-      if (bodyEl)  bodyEl.value  = "";
-      if (visEl && !visEl.value) visEl.value = "all";
-    } catch {}
+    try { form?.reset(); } catch {}
+    if (visEl && !visEl.value) visEl.value = "all";
   }
 
-  // ⛔️ kill any old handlers that used alert()/prompt()
-  try {
-    openBtn?.replaceWith(openBtn.cloneNode(true));
-  } catch {}
-  const freshOpenBtn = document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
+  // 2) Replace old “+ Add Announcement” click → open modal (no alerts)
+  //    Support both IDs you might have used:
+  const oldBtn = document.getElementById("btn-new-post")
+              || document.getElementById("btn-ann-add")
+              || document.querySelector("[data-ann-new]");
+  if (oldBtn) {
+    const clone = oldBtn.cloneNode(true); // remove old prompt-based handlers
+    oldBtn.parentNode.replaceChild(clone, oldBtn);
+    clone.addEventListener("click", (e)=>{
+      e.preventDefault();
+      if (!canPost()) return toast?.("Requires instructor+");
+      resetForm();
+      dlg?.showModal?.();
+    });
+  }
 
-  // Open: no alerts, just show dialog
-  freshOpenBtn?.addEventListener("click", (e)=>{
-    e.preventDefault();
-    if (!canPostAnnouncements()) return toast?.("Only instructors/admins can post announcements.");
-    resetForm();
-    dlg?.showModal?.();
-  });
+  // 3) Modal close buttons
+  const doClose = ()=> dlg?.close?.();
+  btnClose?.addEventListener("click", doClose);
+  btnCancel?.addEventListener("click", doClose);
+  dlg?.addEventListener("keydown", (e)=>{ if(e.key==="Escape") doClose(); });
 
-  // Close buttons inside modal
-  dlg?.querySelectorAll("[data-ann-close], .btn-close, #btn-ann-cancel").forEach(el=>{
-    el.addEventListener("click", ()=> dlg?.close?.());
-  });
-
-  // Submit: validate → toast (no alert), then save cloud/local
+  // 4) Submit → validate (toast only), save to RTDB if available, else localStorage
   form?.addEventListener("submit", async (e)=>{
     e.preventDefault();
-    const title = titleEl?.value?.trim() || "";
-    const body  = bodyEl?.value?.trim() || "";
-    const vis   = visEl?.value || "all";
-
+    const title = (titleEl?.value||"").trim();
+    const body  = (bodyEl?.value||"").trim();
+    const vis   = (visEl?.value||"all").trim();
     if (!title) { toast?.("Please add a title."); titleEl?.focus(); return; }
     if (!body)  { toast?.("Please add a message."); bodyEl?.focus(); return; }
 
     try {
-      if (isFirestoreReady() && typeof addAnnouncementCloud === "function") {
-        await addAnnouncementCloud({ title, body, visibleTo: vis });
+      const rec = {
+        title, body, visibleTo: vis,
+        author: getUser()?.email || "instructor",
+        ts: Date.now()
+      };
+      const ar = annsRef();
+      if (ar) {
+        await push(ar, rec);
       } else {
-        // local fallback
-        const curr = getAnns?.() || JSON.parse(localStorage.getItem("anns") || "[]");
-        const rec = { id: Date.now().toString(36), title, body, visibleTo: vis, ts: Date.now() };
-        const next = [rec, ...curr];
-        localStorage.setItem("anns", JSON.stringify(next));
-        setAnns?.(next);
+        // local mirror fallback
+        const old = Array.isArray(getAnns?.()) ? getAnns() : [];
+        setAnns?.([rec, ...old]);
       }
       dlg?.close?.();
       window.renderAnnouncements?.();
       toast?.("Announcement posted ✅");
     } catch (err) {
-      console.warn("Announcement save failed:", err);
-      toast?.("Failed to post (saved locally).");
+      console.warn("Ann save failed:", err);
+      toast?.("Failed to post (saved locally if possible).");
     }
   });
 
   window.__OL_ONCE__ = window.__OL_ONCE__ || {};
-  window.__OL_ONCE__.annModalWired = true;
+  window.__OL_ONCE__.annModal = true;
 })();
