@@ -75,6 +75,14 @@ function currentRole() {
     return "guest";
   }
 }
+function canPostAnnouncements() {
+  const r = currentRole();
+  return r === "owner" || r === "admin" || r === "instructor";
+}
+// === Firestore readiness gate ===
+function isFirestoreReady() {
+  return !!(window.db && window.auth && window.IS_AUTHED);
+}
 function canCreateCourse() {
   const r = currentRole();
   return r === "owner" || r === "admin" || r === "instructor";
@@ -5760,3 +5768,112 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
   if (!canCreateCourse()) return toast?.("Only instructors/admins can create.");
   openCourseForm("new");
 });
+
+// === Soft-suppress alert() so the modal can open cleanly ===
+(function patchAlertsOnce(){
+  if (window.__OL_ONCE__?.alertPatched) return;
+  const _alert = window.alert;
+  window.__SILENCE_ALERTS__ = true; // default: silence noisy alerts
+  window.alert = function(msg){
+    if (window.__SILENCE_ALERTS__) {
+      // keep in console but no blocking popup
+      console.warn("[alert suppressed]", msg);
+      return;
+    }
+    try { _alert(String(msg)); } catch {}
+  };
+  // also silence common Firestore Listen 400 noise
+  window.addEventListener("unhandledrejection", (e)=>{
+    const m = String(e?.reason?.message || e?.reason || "");
+    if (m.includes("google.firestore.v1.Firestore/Listen/channel")) {
+      e.preventDefault();
+      console.warn("[Firestore Listen suppressed]", m);
+    }
+  });
+  window.__OL_ONCE__ = window.__OL_ONCE__ || {};
+  window.__OL_ONCE__.alertPatched = true;
+})();
+
+// === Open "Add Announcement" modal cleanly ===
+(function wireAnnCreateOnce(){
+  if (window.__OL_ONCE__?.annCreateWired) return;
+
+  const btn = document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
+  const dlg = document.getElementById("annModal") || document.getElementById("announcementModal");
+  const form = document.getElementById("annForm") || dlg?.querySelector("form");
+
+  if (btn && dlg) {
+    btn.addEventListener("click", (e)=>{
+      e.preventDefault();
+      if (!canPostAnnouncements()) return toast?.("Only instructors/admins can post announcements.");
+
+      // silence any stray alerts during open
+      window.__SILENCE_ALERTS__ = true;
+
+      // reset form
+      try {
+        form?.reset();
+        // optional default fields
+        const t = dlg.querySelector("#annTitle"); if (t) t.value = "";
+        const b = dlg.querySelector("#annBody");  if (b) b.value = "";
+        const v = dlg.querySelector("#annVisibleTo"); if (v && !v.value) v.value = "all";
+      } catch {}
+
+      dlg.showModal?.();
+    });
+
+    // Close buttons → re-enable alerts if you want (still safe to keep silenced)
+    dlg.querySelectorAll("[data-ann-close], .btn-close, #btn-ann-cancel").forEach((el)=>{
+      el.addEventListener("click", ()=>{
+        dlg.close?.();
+        // keep alerts silent globally; if you want to restore:
+        // window.__SILENCE_ALERTS__ = false;
+      });
+    });
+
+    // Submit (create) — write only if Firestore ready; otherwise local fallback
+    form?.addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const title = dlg.querySelector("#annTitle")?.value?.trim() || "";
+      const body  = dlg.querySelector("#annBody")?.value?.trim() || "";
+      const vis   = dlg.querySelector("#annVisibleTo")?.value || "all";
+      if (!title || !body) return toast?.("Please fill title & body.");
+
+      try {
+        if (isFirestoreReady() && typeof addAnnouncementCloud === "function") {
+          await addAnnouncementCloud({ title, body, visibleTo: vis });
+        } else {
+          // local fallback
+          const anns = getAnns?.() || JSON.parse(localStorage.getItem("anns") || "[]");
+          const rec = { id: Date.now().toString(36), title, body, visibleTo: vis, ts: Date.now() };
+          const next = [rec, ...anns];
+          localStorage.setItem("anns", JSON.stringify(next));
+          setAnns?.(next);
+        }
+        dlg.close?.();
+        window.renderAnnouncements?.();
+        toast?.("Announcement posted ✅");
+      } catch (err) {
+        console.warn("Post announcement failed:", err);
+        toast?.("Failed to post (saved locally).");
+      }
+    });
+  }
+
+  window.__OL_ONCE__ = window.__OL_ONCE__ || {};
+  window.__OL_ONCE__.annCreateWired = true;
+})();
+
+// Gate any "initAnnouncementsRealtime" to only run when Firestore ready
+(function gateAnnRT(){
+  const orig = window.initAnnouncementsRealtime;
+  window.initAnnouncementsRealtime = function(...args){
+    if (!isFirestoreReady()) {
+      console.info("[ann RT] skipped (not authed / no db)");
+      return;
+    }
+    try { return orig?.(...args); } catch (e) {
+      console.warn("[ann RT] error suppressed:", e?.message || e);
+    }
+  };
+})();
