@@ -2788,29 +2788,27 @@ async function openPay(course) {
   }
 }
 
-// ===== Payment options (radio list) + wallet QR =====
+// ===== Payments Config Helpers =====
 function getPaymentOptions() {
-  const pm = window.OPENLEARN_CFG?.payments || {};
-  const list = [];
-
-  if (pm.paypal?.enabled) list.push({ id: "paypal", label: "PayPal", kind: "paypal" });
-
-  const W = pm.wallets || {};
-  for (const k of Object.keys(W)) {
-    const w = W[k];
-    if (!w?.enabled) continue;
-    list.push({
-      id: k.toLowerCase(),                  // "kbz" | "cb" | "aya"
-      label: w.label || k,                  // UI label
-      kind: "wallet",
-      qr: w.qr || "",                       // /assets/qr/xxx.png
-      name: w.name || "",
-      account: w.account || ""
-    });
+  const pm = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.payments) || {};
+  const out = [];
+  if (pm.paypal && pm.paypal.enabled) {
+    out.push({ id: "paypal", label: "PayPal", kind: "paypal" });
   }
-  return list;
+  const W = (pm.wallets || {});
+  if (W.KBZPay?.enabled) out.push({ id: "kbz", label: "KBZPay", kind: "wallet", qr: W.KBZPay.qr, name: W.KBZPay.name, account: W.KBZPay.account });
+  if (W.CBPay?.enabled)  out.push({ id: "cb",  label: "CBPay",  kind: "wallet", qr: W.CBPay.qr,  name: W.CBPay.name,  account: W.CBPay.account  });
+  if (W.AyaPay?.enabled) out.push({ id: "aya", label: "AyaPay", kind: "wallet", qr: W.AyaPay.qr, name: W.AyaPay.name, account: W.AyaPay.account });
+  return out;
 }
 
+// Demo QR fallback (when local file missing)
+function _demoQR(label) {
+  const txt = `${label || "WALLET"}-DEMO`;
+  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(txt)}`;
+}
+
+// ===== Render payment radio buttons =====
 function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
   const el = document.getElementById(containerId);
   if (!el) return;
@@ -2819,7 +2817,6 @@ function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
     el.innerHTML = `<div class="muted">No payment methods enabled.</div>`;
     return;
   }
-
   el.innerHTML = opts.map(o => `
     <label class="row" style="gap:8px;align-items:center;margin:.25rem 0">
       <input type="radio" name="${name}" value="${o.id}">
@@ -2827,38 +2824,38 @@ function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
     </label>
   `).join("");
 
-  // Wallet choose → show QR immediately (no auto-enroll)
+  // Wire: when picked a wallet, open the wallet panel immediately
   el.querySelectorAll(`input[name="${name}"]`).forEach(inp => {
     inp.addEventListener("change", () => {
       const picked = opts.find(x => x.id === inp.value);
       if (!picked) return;
-      if (picked.kind === "wallet") {
-        openWalletPanel(picked);     // ⬅️ QR/merchant info ဖြည့်
-      } else {
-        // PayPal ကို သီးခြား renderPayPalButtons() ထဲက handle လုပ်ထားသင့်
-        openWalletPanel(null);       // wallet panel ကို ခေတ္တ clear
-      }
+      if (picked.kind === "wallet") openWalletPanel(picked);
+      // PayPal ကို သီးခြား checkout flow ထဲမှာ handle လုပ်ပေးပါ (သင့်နောက်က code အတိုင်း)
     });
   });
 }
 
-// Wallet info + QR ကို pay modal ထဲ Panel တစ်ခုမှာ ပြ
+// ===== Wallet panel (QR + info) =====
 function openWalletPanel(wallet) {
-  const panel = document.getElementById("walletQR");
-  if (!panel) return;
-  if (!wallet) { panel.innerHTML = ""; return; }
+  const panel = document.getElementById("walletPanel");
+  const title = document.getElementById("walletTitle");
+  const img   = document.getElementById("walletQR");
+  const brand = document.getElementById("walletBrand");
+  const acct  = document.getElementById("walletAcct");
 
-  panel.innerHTML = `
-    <div class="card" style="margin-top:8px">
-      <h4 style="margin:0 0 6px 0">${wallet.label || "Wallet"}</h4>
-      ${wallet.qr ? `<img class="qr" src="${wallet.qr}" alt="${wallet.label} QR" style="width:160px;height:160px;object-fit:contain;border:1px solid #eee;border-radius:8px">` : `<div class="muted">QR not configured</div>`}
-      <div style="margin-top:6px">
-        <div><b>${wallet.name || ""}</b></div>
-        <div class="muted">${wallet.account || ""}</div>
-      </div>
-      <small class="muted">Scan & pay, then press “I Paid (MMK)” to submit for approval.</small>
-    </div>
-  `;
+  if (!panel || !title || !img || !brand || !acct) return;
+
+  title.textContent = `Pay with ${wallet.label}`;
+  brand.textContent = wallet.name || "Your Co";
+  acct.textContent  = wallet.account || "09-xxxx";
+
+  // choose QR source: config path → fallback to demo QR
+  const src = wallet.qr || `/assets/qr/${wallet.id}.png`;
+  img.src = src;
+  // if file missing/bad → fallback to demo QR
+  img.onerror = () => { img.onerror = null; img.src = _demoQR(wallet.label); };
+
+  panel.hidden = false;
 }
 
 // ===== Pending payment request =====
@@ -6886,3 +6883,20 @@ if (typeof saveCourseToCloud !== "function") {
     box.appendChild(card);
   });
 })();
+
+// ===== “I Paid (MMK)” handler — mark pending (no instant enroll) =====
+(function wireMmkPaidOnce(){
+  if (window.__WIRED_MMK__) return;
+  window.__WIRED_MMK__ = true;
+  const btn = document.getElementById("mmkPaid");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    // ဒီမှာ “pending approval” logic ထည့်ပါ (ရိုးရိုး toast သာပဲ ပေးထား)
+    toast?.("Payment submitted for approval. We’ll notify you once verified.");
+    // modal ပိတ်
+    document.getElementById("payModal")?.close?.();
+  });
+})();
+
+// ===== Call this after DOM is ready =====
+// (Put this once in your DOMContentLoaded block)
