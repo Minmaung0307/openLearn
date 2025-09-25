@@ -6710,7 +6710,7 @@ if (typeof saveCourseToCloud !== "function") {
     card.className = "col";
     card.style.textAlign = "center";
     card.innerHTML = `
-      <img class="qr" alt="${id}" src="${w.q}" style="max-width:150px;"/>
+      <img class="qr" alt="${id}" src="${w.qr}" style="max-width:150px;"/>
       <div><b>${w.name}</b></div>
       <div class="muted">${w.account}</div>
     `;
