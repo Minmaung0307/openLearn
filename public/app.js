@@ -986,20 +986,19 @@ function showAnnModal(a = null) {
   dlg.showModal?.();
 }
 
+// === Ann card renderer (replace old renderAnnItem) ===
 function renderAnnItem(id, a) {
   const div = document.createElement("div");
   div.className = "card";
   div.dataset.id = id;
 
-  const t  = a.ts ? new Date(a.ts).toLocaleString() : "";
+  const t   = a.ts ? new Date(a.ts).toLocaleString() : "";
   const who = a.author || "instructor";
-  const aud = a.audience || "all";
-  const badge =
-    aud === "students" ? "👩‍🎓 Students"
-  : aud === "instructors" ? "👩‍🏫 Instructors"
-  : "🌐 Everyone";
+  const aud = (a.audience || "all").toLowerCase();
+  const badge = aud === "students" ? "👩‍🎓 Students"
+              : aud === "instructors" ? "👩‍🏫 Instructors"
+              : "🌐 Everyone";
 
-  // role ≥ instructor ဖြစ်ရင် edit/delete ခလုတ်ပြပါ
   const canEdit = ["owner","admin","instructor","ta"].includes((getRole()||"").toLowerCase());
 
   div.innerHTML = `
@@ -1016,119 +1015,155 @@ function renderAnnItem(id, a) {
       </div>` : ``}
     </div>
   `;
+  return div;
+}
 
-  // wire edit/delete
-  if (canEdit) {
-    div.querySelector(`[data-ann-edit="${id}"]`)?.addEventListener("click", () => {
-      showAnnModal({ id, ...a });
+// === Announcements (replace your old initAnnouncements) ===
+function initAnnouncements() {
+  const list = document.getElementById("annList");
+  const btn  = document.getElementById("btn-new-post") || document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
+  const dlg  = document.getElementById("annModal");
+  const form = document.getElementById("annForm");
+  const titleEl = document.getElementById("annTitle");
+  const bodyEl  = document.getElementById("annBody");
+  const audEl   = document.getElementById("annAudience");
+  const btnClose  = document.getElementById("annClose");
+  const btnCancel = document.getElementById("annCancel");
+  if (!list || !btn || !dlg || !form) return;
+
+  let EDIT_ID = null; // null=new
+
+  // ——— Live feed (handle add/remove; avoid duplicates) ———
+  list.innerHTML = "";
+  const aref = annsRef?.();
+  if (aref) {
+    onChildAdded(aref, (snap) => {
+      const a = snap.val() || {};
+      const id = snap.key;
+      const node = renderAnnItem(id, a);
+      const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+      old ? old.replaceWith(node) : list.prepend(node);
     });
-    div.querySelector(`[data-ann-del="${id}"]`)?.addEventListener("click", async () => {
+    // delete sync (when removed elsewhere)
+    if (typeof onChildRemoved === "function") {
+      onChildRemoved(aref, (snap) => {
+        const id = snap.key;
+        list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+      });
+    }
+  }
+
+  // ——— Open modal (no alerts) ———
+  btn.onclick = () => {
+    if (!["owner","admin","instructor","ta"].includes((getRole()||"").toLowerCase())) {
+      return toast?.("Requires instructor+");
+    }
+    EDIT_ID = null;
+    form.reset();
+    audEl.value = "all";
+    document.getElementById("annModalTitle")?.textContent = "New Announcement";
+    dlg.showModal?.();
+    setTimeout(()=> titleEl?.focus(), 0);
+  };
+
+  // ——— Close ———
+  const doClose = () => { try { dlg.close(); } catch {} };
+  btnClose?.addEventListener("click", doClose);
+  btnCancel?.addEventListener("click", doClose);
+
+  // ——— Delegated edit/delete buttons on list ———
+  list.addEventListener("click", async (e) => {
+    const editBtn = e.target.closest("[data-ann-edit]");
+    const delBtn  = e.target.closest("[data-ann-del]");
+    if (!editBtn && !delBtn) return;
+
+    const id = (editBtn || delBtn).getAttribute("data-ann-edit") || (delBtn && delBtn.getAttribute("data-ann-del"));
+    if (!id) return;
+
+    if (delBtn) {
       if (!confirm("Delete this announcement?")) return;
       try {
         const r = annsRef();
         await remove(ref(rtdb, `anns/${id}`));
         toast("Deleted");
-        div.remove();
-      } catch {
-        toast("Delete failed");
+        list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+      } catch (err) {
+        console.warn(err);
+        toast("Delete failed (permission?)");
       }
-    });
-  }
-
-  return div;
-}
-
-// === REPLACE your current initAnnouncements() with this version ===
-function initAnnouncements() {
-  const list = document.getElementById("annList");
-  const btn  = document.getElementById("btn-new-post");
-  const dlg  = document.getElementById("annModal");
-  const form = document.getElementById("annForm");
-  const btnClose  = document.getElementById("annClose");
-  const btnCancel = document.getElementById("annCancel");
-  if (!list || !btn || !dlg || !form) return;
-
-  // live feed
-  list.innerHTML = "";
-  const aref = annsRef();
-  onChildAdded(aref, (snap) => {
-    const a = snap.val() || {};
-    const id = snap.key;
-    // prepend; if the same id already exists, replace it (avoid duplicates)
-    const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-    const node = renderAnnItem(id, a);
-    if (old) old.replaceWith(node);
-    else list.prepend(node);
-
-    // local mirror + badge
-    try {
-      const cache = Array.isArray(getAnns?.()) ? getAnns() : [];
-      // keep unique by id
-      const filtered = cache.filter(x => x.id !== id);
-      filtered.push({ id, ...a });
-      setAnns(filtered);
-      updateAnnBadge?.();
-    } catch {}
-  });
-
-  // open modal (NO alerts)
-  btn.addEventListener("click", () => {
-    if (roleRank(getRole()) < roleRank("instructor")) {
-      return toast("Requires instructor+");
-    }
-    showAnnModal(null);
-  });
-
-  // close
-  const doClose = () => { try { dlg.close(); } catch {} };
-  btnClose.addEventListener("click", doClose);
-  btnCancel.addEventListener("click", doClose);
-
-  // save (create/update)
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const title = document.getElementById("annTitle").value.trim();
-    const body  = document.getElementById("annBody").value.trim();
-    const audience = document.getElementById("annAudience").value || "all";
-    if (!title || !body) {
-      toast("Title and message are required");
       return;
     }
 
-    // disable to prevent double-submit
+    // edit
+    try {
+      const snap = await get(ref(rtdb, `anns/${id}`));
+      const a = snap.val() || {};
+      EDIT_ID = id;
+      titleEl.value = a.title || "";
+      bodyEl.value  = a.body  || "";
+      audEl.value   = (a.audience || "all");
+      document.getElementById("annModalTitle")?.textContent = "Edit Announcement";
+      dlg.showModal?.();
+      setTimeout(()=> titleEl?.focus(), 0);
+    } catch (err) {
+      console.warn(err);
+      toast("Load failed");
+    }
+  });
+
+  // ——— Save (create/update) ———
+  let inFlight = false;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (inFlight) return;
+
+    const title = (titleEl.value || "").trim();
+    const body  = (bodyEl.value  || "").trim();
+    const audience = (audEl.value || "all").trim();
+    if (!title || !body) { toast("Title & message required"); return; }
+
     const saveBtn = document.getElementById("annSave");
     saveBtn.disabled = true;
+    inFlight = true;
+
+    const rec = {
+      title, body, audience,
+      author: getUser()?.email || "instructor",
+      ts: Date.now()
+    };
 
     try {
-      const data = {
-        title,
-        body,
-        audience,
-        author: getUser()?.email || "instructor",
-        ts: Date.now(),
-      };
-
-      if (__ANN_EDIT_ID) {
-        // update existing
-        await set(ref(rtdb, `anns/${__ANN_EDIT_ID}`), data);
-        toast("Announcement updated");
+      if (EDIT_ID) {
+        await set(ref(rtdb, `anns/${EDIT_ID}`), rec);
+        toast("Announcement updated ✅");
       } else {
-        // create new
-        await push(annsRef(), data);
-        toast("Announced");
+        await push(annsRef(), rec);
+        toast("Announcement posted ✅");
       }
-
-      __ANN_EDIT_ID = null;
-      doClose();
       form.reset();
-    } catch {
+      doClose();             // ✅ close modal on success
+    } catch (err) {
+      console.warn(err);
       toast("Save failed (permission?)");
     } finally {
+      inFlight = false;
       saveBtn.disabled = false;
     }
   });
 }
 document.addEventListener("DOMContentLoaded", initAnnouncements);
+
+async function purgeAnnouncements() {
+  if (!confirm("Delete ALL announcements?")) return;
+  try {
+    await set(ref(rtdb, "anns"), null);
+    toast("Purged all announcements");
+    document.getElementById("annList")?.replaceChildren();
+  } catch (e) {
+    console.warn(e);
+    toast("Purge failed (permission?)");
+  }
+}
 
 /* ---------- sidebar + topbar offset (iPad/touch-friendly) ---------- */
 function initSidebar() {
