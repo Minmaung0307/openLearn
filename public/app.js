@@ -6257,17 +6257,17 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
       const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
       old ? old.replaceWith(node) : list.prepend(node);
     });
-    onChildChanged?.(aref, (snap) => {
-      const a = snap.val() || {};
-      const id = snap.key;
-      const node = renderAnnItem(id, a);
-      const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-      old ? old.replaceWith(node) : list.prepend(node);
-    });
-    onChildRemoved?.(aref, (snap) => {
-      const id = snap.key;
-      list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
-    });
+    // onChildChanged?.(aref, (snap) => {
+    //   const a = snap.val() || {};
+    //   const id = snap.key;
+    //   const node = renderAnnItem(id, a);
+    //   const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+    //   old ? old.replaceWith(node) : list.prepend(node);
+    // });
+    // onChildRemoved?.(aref, (snap) => {
+    //   const id = snap.key;
+    //   list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+    // });
   }
 
   // ------- Delegated edit/delete -------
