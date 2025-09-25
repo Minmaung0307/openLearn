@@ -973,7 +973,7 @@ function getRTDB() {
 async function ensureRTDBReady(timeout = 4000) {
   const t0 = Date.now();
   while (!getRTDB()) {
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 50));
     if (Date.now() - t0 > timeout) throw new Error("RTDB not ready");
   }
   return window.rtdb;
@@ -1142,13 +1142,13 @@ function ensureAnnModal() {
 // RENDER ONE ANNOUNCEMENT CARD (copy/paste replace)
 function renderAnnItem(id, a) {
   // Only instructors+ can see edit/delete
-  const canEdit = (typeof roleRank === "function" && typeof getRole === "function")
-    ? roleRank(getRole() || "student") >= roleRank("instructor")
-    : false;
+  const canEdit =
+    typeof roleRank === "function" && typeof getRole === "function"
+      ? roleRank(getRole() || "student") >= roleRank("instructor")
+      : false;
 
   // Safe esc for attributes (prevent breaking out of quotes)
-  const escAttr = (s) =>
-    esc(String(s || "")).replace(/"/g, "&quot;");
+  const escAttr = (s) => esc(String(s || "")).replace(/"/g, "&quot;");
 
   const div = document.createElement("div");
   div.className = "card";
@@ -1162,7 +1162,9 @@ function renderAnnItem(id, a) {
         <b>${esc(a.title || "")}</b>
         <div>${esc(a.body || "")}</div>
       </div>
-      ${canEdit ? `
+      ${
+        canEdit
+          ? `
       <div class="row" style="gap:6px">
         <button class="btn small"
                 data-ann-edit="${escAttr(id)}"
@@ -1171,7 +1173,9 @@ function renderAnnItem(id, a) {
                 data-audience="${escAttr(a.audience || "all")}">Edit</button>
         <button class="btn small"
                 data-ann-del="${escAttr(id)}">Delete</button>
-      </div>` : ""}
+      </div>`
+          : ""
+      }
     </div>
   `;
   return div;
@@ -4762,7 +4766,9 @@ window.renderAnnouncements = renderAnnouncements;
 
 // Safe header setter (used by code above)
 window.setAnnModalTitle = function (txt) {
-  const el = document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
+  const el =
+    document.getElementById("annModalTitle") ||
+    document.querySelector("#annModal .modal-title");
   if (el) el.textContent = txt;
 };
 
@@ -6164,7 +6170,7 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
 
 // ===== Announcement save (replace your old submit wiring) =====
 (function wireAnnSaveOnce() {
-  const dlg  = document.getElementById("annModal");
+  const dlg = document.getElementById("annModal");
   const form = document.getElementById("annForm");
   if (!form || form.__wired) return;
   form.__wired = true;
@@ -6173,17 +6179,23 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
     e.preventDefault();
 
     const idEl = document.getElementById("annId");
-    const tEl  = document.getElementById("annTitle");
-    const bEl  = document.getElementById("annBody");
-    const aEl  = document.getElementById("annAudience");
+    const tEl = document.getElementById("annTitle");
+    const bEl = document.getElementById("annBody");
+    const aEl = document.getElementById("annAudience");
 
     const title = (tEl?.value || "").trim();
-    const body  = (bEl?.value || "").trim();
+    const body = (bEl?.value || "").trim();
     const audience = (aEl?.value || "all").trim();
     if (!title || !body) return toast("Title & message required");
 
-    const rec = { title, body, audience, author: getUser()?.email || "instructor", ts: Date.now() };
-    const id  = (idEl?.value || "").trim();
+    const rec = {
+      title,
+      body,
+      audience,
+      author: getUser()?.email || "instructor",
+      ts: Date.now(),
+    };
+    const id = (idEl?.value || "").trim();
 
     try {
       const db = getRTDB();
@@ -6200,9 +6212,11 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
         toast("Announcement posted");
       }
       // ✅ success ⇒ close & reset
-      try { dlg?.close(); } catch {}
+      try {
+        dlg?.close();
+      } catch {}
       form.reset();
-      (window.setAnnModalTitle || function(){})("New Announcement");
+      (window.setAnnModalTitle || function () {})("New Announcement");
     } catch (err) {
       console.warn(err);
       toast("Save failed (permission?)");
@@ -6217,7 +6231,7 @@ function __updateAnnCardInList(id, rec) {
   const list = document.getElementById("annList");
   if (!list) return;
   const next = renderAnnItem(id, rec);
-  const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+  const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
   if (old) old.replaceWith(next);
 }
 
@@ -6233,71 +6247,104 @@ function __prependAnnCardInList(id, rec) {
   window.__ANN_ONCE__ = true;
 
   const list = document.getElementById("annList");
-  const newBtn = document.getElementById("btn-new-post") || document.querySelector("[data-ann-new]");
-  const dlg  = document.getElementById("annModal");
+  const newBtn =
+    document.getElementById("btn-new-post") ||
+    document.querySelector("[data-ann-new]");
+  const dlg = document.getElementById("annModal");
   const form = document.getElementById("annForm");
   const idEl = document.getElementById("annId");
-  const tEl  = document.getElementById("annTitle");
-  const bEl  = document.getElementById("annBody");
-  const aEl  = document.getElementById("annAudience");
-  const btnClose  = document.getElementById("annClose");
+  const tEl = document.getElementById("annTitle");
+  const bEl = document.getElementById("annBody");
+  const aEl = document.getElementById("annAudience");
+  const btnClose = document.getElementById("annClose");
   const btnCancel = document.getElementById("annCancel");
-  const btnSave   = document.getElementById("annSave");
+  const btnSave = document.getElementById("annSave");
 
   const headerEl = () =>
-    document.getElementById("annModalTitle")
-    || document.querySelector("#annModal .modal-title");
+    document.getElementById("annModalTitle") ||
+    document.querySelector("#annModal .modal-title");
 
   // RTDB ref helper (use 'announcements' path consistently; rules must allow this)
   function annRef() {
-    const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
+    const db =
+      window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
     return db ? ref(db, "announcements") : null;
   }
 
   // -------- NEW ----------
   newBtn?.addEventListener("click", () => {
-    if (typeof roleRank === "function" && roleRank(getRole?.() || "student") < roleRank("instructor")) {
+    if (
+      typeof roleRank === "function" &&
+      roleRank(getRole?.() || "student") < roleRank("instructor")
+    ) {
       return toast?.("Requires instructor+");
     }
     form?.reset();
-    if (idEl) idEl.value = "";                 // clear ID -> NEW mode
-    const h = headerEl(); if (h) h.textContent = "New Announcement";
+    if (idEl) idEl.value = ""; // clear ID -> NEW mode
+    const h = headerEl();
+    if (h) h.textContent = "New Announcement";
     dlg?.showModal?.();
-    setTimeout(()=>tEl?.focus(), 0);
+    setTimeout(() => tEl?.focus(), 0);
   });
 
-  // -------- live feed (adds only; we self-update on edit/delete) ----------
+  // ------- Live feed (add/change/remove) -------
   if (list) {
     list.innerHTML = "";
-    const aref = annRef();
+    const db =
+      window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
+    const aref = db ? ref(db, "announcements") : null;
     if (aref) {
+      // add
       onChildAdded(aref, (snap) => {
         const a = snap.val() || {};
         const id = snap.key;
-        // if already rendered, replace (dedupe)
         const node = renderAnnItem(id, a);
-        const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+        const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
         old ? old.replaceWith(node) : list.prepend(node);
       });
+
+      // change (✅ this makes EDIT reflect on the page)
+      if (typeof onChildChanged === "function") {
+        onChildChanged(aref, (snap) => {
+          const a = snap.val() || {};
+          const id = snap.key;
+          __updateAnnCardInList(id, a); // replace the card in-place
+        });
+      }
+
+      // remove
+      if (typeof onChildRemoved === "function") {
+        onChildRemoved(aref, (snap) => {
+          const id = snap.key;
+          list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+        });
+      }
     }
   }
 
   // -------- delegated EDIT / DELETE --------
   list?.addEventListener("click", async (e) => {
     const editBtn = e.target.closest?.("[data-ann-edit]");
-    const delBtn  = e.target.closest?.("[data-ann-del]");
+    const delBtn = e.target.closest?.("[data-ann-del]");
 
     // DELETE
     if (delBtn) {
-      const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
-      if (!db) { toast?.("Database not ready"); return; }
+      const db =
+        window.rtdb ||
+        (typeof getDatabase === "function" ? getDatabase() : null);
+      if (!db) {
+        toast?.("Database not ready");
+        return;
+      }
 
       const id = delBtn.getAttribute("data-ann-del");
       if (!id) return;
       if (!confirm("Delete this announcement?")) return;
       try {
         await remove(ref(db, `announcements/${id}`));
-        document.querySelector(`#annList .card[data-id="${CSS.escape(id)}"]`)?.remove();
+        document
+          .querySelector(`#annList .card[data-id="${CSS.escape(id)}"]`)
+          ?.remove();
         toast?.("Deleted");
       } catch (err) {
         console.warn(err);
@@ -6310,18 +6357,19 @@ function __prependAnnCardInList(id, rec) {
     if (editBtn) {
       const id = editBtn.getAttribute("data-ann-edit");
       const title = editBtn.dataset.title || "";
-      const body  = editBtn.dataset.body  || "";
-      const aud   = editBtn.dataset.audience || "all";
+      const body = editBtn.dataset.body || "";
+      const aud = editBtn.dataset.audience || "all";
 
       form?.reset();
-      if (idEl) idEl.value = id;               // set ID -> EDIT mode
-      if (tEl)  tEl.value  = title;
-      if (bEl)  bEl.value  = body;
-      if (aEl)  aEl.value  = aud;
+      if (idEl) idEl.value = id; // set ID -> EDIT mode
+      if (tEl) tEl.value = title;
+      if (bEl) bEl.value = body;
+      if (aEl) aEl.value = aud;
 
-      const h = headerEl(); if (h) h.textContent = "Edit Announcement";
+      const h = headerEl();
+      if (h) h.textContent = "Edit Announcement";
       dlg?.showModal?.();
-      setTimeout(()=>tEl?.focus(), 0);
+      setTimeout(() => tEl?.focus(), 0);
     }
   });
 
@@ -6332,44 +6380,58 @@ function __prependAnnCardInList(id, rec) {
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (form.__saving) return;              // prevent double submit
+      if (form.__saving) return; // prevent double submit
       form.__saving = true;
       if (btnSave) btnSave.disabled = true;
 
       try {
-        const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
-        if (!db) { toast?.("Database not ready"); return; }
+        const db =
+          window.rtdb ||
+          (typeof getDatabase === "function" ? getDatabase() : null);
+        if (!db) {
+          toast?.("Database not ready");
+          return;
+        }
 
         const title = (tEl?.value || "").trim();
-        const body  = (bEl?.value || "").trim();
+        const body = (bEl?.value || "").trim();
         const audience = (aEl?.value || "all").trim();
-        if (!title || !body) { toast?.("Title & message required"); return; }
+        if (!title || !body) {
+          toast?.("Title & message required");
+          return;
+        }
 
         const rec = {
-          title, body, audience,
+          title,
+          body,
+          audience,
           author: getUser?.()?.email || "instructor",
-          ts: Date.now()
+          ts: Date.now(),
         };
 
         const existingId = (idEl?.value || "").trim();
         if (existingId) {
           // EDIT
           await set(ref(db, `announcements/${existingId}`), rec);
-          __updateAnnCardInList(existingId, rec);     // reflect immediately
+          __updateAnnCardInList(existingId, rec); // reflect immediately
           toast?.("Announcement updated");
         } else {
           // NEW
           const newRef = await push(ref(db, "announcements"), rec);
-          const newId  = newRef.key || "";
-          __prependAnnCardInList(newId, rec);         // reflect immediately
+          const newId = newRef.key || "";
+          __prependAnnCardInList(newId, rec); // reflect immediately
           toast?.("Announcement posted");
         }
 
         // close + reset
-        try { dlg?.close(); } catch {}
+        try {
+          dlg?.close();
+        } catch {}
         form.reset();
-        const h = headerEl(); if (h) h.textContent = "New Announcement";
-
+        const h =
+          document.getElementById("annModalTitle") ||
+          document.querySelector("#annModal .modal-title");
+        if (h) h.textContent = "New Announcement";
       } catch (err) {
         console.warn(err);
         toast?.("Save failed (permission?)");
@@ -6381,7 +6443,11 @@ function __prependAnnCardInList(id, rec) {
     });
   }
 
-  const doClose = () => { try { dlg?.close(); } catch {} };
+  const doClose = () => {
+    try {
+      dlg?.close();
+    } catch {}
+  };
   btnClose?.addEventListener("click", doClose);
   btnCancel?.addEventListener("click", doClose);
 })();
