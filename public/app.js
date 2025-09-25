@@ -87,6 +87,16 @@ function canDeleteCourse() {
   return r === "owner" || r === "admin"; // instructor မပါ
 }
 
+// === RTDB role mirror helper (put near other global helpers) ===
+async function mirrorRoleToRTDB(uid, role) {
+  try {
+    if (!window.rtdb || !uid) return;
+    await set(ref(rtdb, `users/${uid}/role`), String(role || "student"));
+  } catch (e) {
+    console.warn("mirrorRoleToRTDB failed:", e);
+  }
+}
+
 /* ---------- responsive theme / font ---------- */
 const PALETTES = {
   /* ... (unchanged palettes) ... */
@@ -1156,26 +1166,32 @@ function renderAnnItem(id, a) {
 
 function initAnnouncements() {
   const list = document.getElementById("annList");
-  const btn  = document.getElementById("btn-new-post") || document.querySelector("[data-ann-new]");
+  const btn =
+    document.getElementById("btn-new-post") ||
+    document.querySelector("[data-ann-new]");
   const aref = annsRef?.();
   if (!list || !aref) return;
 
   // ensure modal exists (support either ensureAnnModal or ensureAnnModalMarkup)
   const ensure =
-    (typeof ensureAnnModal === "function") ? ensureAnnModal :
-    (typeof ensureAnnModalMarkup === "function") ? ensureAnnModalMarkup :
-    null;
-  const H = ensure ? ensure() : {
-    dlg: document.getElementById("annModal"),
-    form: document.getElementById("annForm"),
-    idEl: document.getElementById("annId"),
-    titleEl: document.getElementById("annTitle"),
-    bodyEl: document.getElementById("annBody"),
-    audEl: document.getElementById("annAudience"),
-    modalTitle: document.getElementById("annModalTitle"),
-    btnClose: document.getElementById("annClose"),
-    btnCancel: document.getElementById("annCancel"),
-  };
+    typeof ensureAnnModal === "function"
+      ? ensureAnnModal
+      : typeof ensureAnnModalMarkup === "function"
+      ? ensureAnnModalMarkup
+      : null;
+  const H = ensure
+    ? ensure()
+    : {
+        dlg: document.getElementById("annModal"),
+        form: document.getElementById("annForm"),
+        idEl: document.getElementById("annId"),
+        titleEl: document.getElementById("annTitle"),
+        bodyEl: document.getElementById("annBody"),
+        audEl: document.getElementById("annAudience"),
+        modalTitle: document.getElementById("annModalTitle"),
+        btnClose: document.getElementById("annClose"),
+        btnCancel: document.getElementById("annCancel"),
+      };
 
   // live feed (dedupe by id)
   list.innerHTML = "";
@@ -1183,7 +1199,7 @@ function initAnnouncements() {
     const a = snap.val() || {};
     const id = snap.key;
     const node = renderAnnItem(id, a);
-    const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+    const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
     old ? old.replaceWith(node) : list.prepend(node);
   });
 
@@ -1194,7 +1210,7 @@ function initAnnouncements() {
     }
     // NEW flow handled by showAnnModal
     if (typeof showAnnModal === "function") {
-      showAnnModal(null);     // ← this resets & opens
+      showAnnModal(null); // ← this resets & opens
     } else {
       // fallback if showAnnModal not present
       H.form?.reset();
@@ -1209,7 +1225,7 @@ function initAnnouncements() {
   // === delegated edit/delete ===
   list.addEventListener("click", async (e) => {
     const editBtn = e.target.closest("[data-ann-edit]");
-    const delBtn  = e.target.closest("[data-ann-del]");
+    const delBtn = e.target.closest("[data-ann-del]");
     if (!editBtn && !delBtn) return;
 
     if (delBtn) {
@@ -1231,11 +1247,11 @@ function initAnnouncements() {
     const a = {
       id,
       title: editBtn.dataset.title || "",
-      body:  editBtn.dataset.body  || "",
+      body: editBtn.dataset.body || "",
       audience: editBtn.dataset.audience || "all",
     };
     if (typeof showAnnModal === "function") {
-      showAnnModal(a);         // ← EDIT modal open (prefilled)
+      showAnnModal(a); // ← EDIT modal open (prefilled)
     } else {
       // fallback
       if (H.idEl) H.idEl.value = a.id;
@@ -1252,12 +1268,14 @@ function initAnnouncements() {
   H.form?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const title = (H.titleEl?.value || "").trim();
-    const body  = (H.bodyEl?.value  || "").trim();
+    const body = (H.bodyEl?.value || "").trim();
     const audience = (H.audEl?.value || "all").trim();
     if (!title || !body) return toast("Title & message required");
 
     const rec = {
-      title, body, audience,
+      title,
+      body,
+      audience,
       author: getUser()?.email || "instructor",
       ts: Date.now(),
     };
@@ -1271,7 +1289,9 @@ function initAnnouncements() {
         await push(annsRef(), rec);
         toast("Announcement posted");
       }
-      try { H.dlg?.close(); } catch {}
+      try {
+        H.dlg?.close();
+      } catch {}
       H.form?.reset();
       if (H.modalTitle) H.modalTitle.textContent = "New Announcement";
     } catch {
@@ -1280,7 +1300,11 @@ function initAnnouncements() {
   });
 
   // === close / cancel ===
-  const doClose = () => { try { H.dlg?.close(); } catch {} };
+  const doClose = () => {
+    try {
+      H.dlg?.close();
+    } catch {}
+  };
   H.btnClose?.addEventListener("click", doClose);
   H.btnCancel?.addEventListener("click", doClose);
 }
@@ -4725,44 +4749,48 @@ window.renderAnnouncements = renderAnnouncements;
 
 // ---- Announcement modal helpers (safe in any DOM) ----
 window.setAnnModalTitle = function (txt) {
-  const el = document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
+  const el =
+    document.getElementById("annModalTitle") ||
+    document.querySelector("#annModal .modal-title");
   if (el) el.textContent = txt;
 };
 
 window.__openAnnModalNew = function () {
-  const dlg  = document.getElementById("annModal");
+  const dlg = document.getElementById("annModal");
   const form = document.getElementById("annForm");
-  const tEl  = document.getElementById("annTitle");
-  const aEl  = document.getElementById("annAudience");
+  const tEl = document.getElementById("annTitle");
+  const aEl = document.getElementById("annAudience");
   const idEl = document.getElementById("annId");
   form?.reset();
   if (idEl) idEl.value = "";
-  if (aEl)  aEl.value = "all";
+  if (aEl) aEl.value = "all";
   setAnnModalTitle("New Announcement");
   dlg?.showModal?.();
   setTimeout(() => tEl?.focus(), 0);
 };
 
 window.__openAnnModalEdit = function (rec) {
-  const dlg  = document.getElementById("annModal");
+  const dlg = document.getElementById("annModal");
   const form = document.getElementById("annForm");
-  const tEl  = document.getElementById("annTitle");
-  const bEl  = document.getElementById("annBody");
-  const aEl  = document.getElementById("annAudience");
+  const tEl = document.getElementById("annTitle");
+  const bEl = document.getElementById("annBody");
+  const aEl = document.getElementById("annAudience");
   const idEl = document.getElementById("annId");
   form?.reset();
   if (idEl) idEl.value = rec.id || "";
-  if (tEl)  tEl.value  = rec.title || "";
-  if (bEl)  bEl.value  = rec.body  || "";
-  if (aEl)  aEl.value  = rec.audience || "all";
+  if (tEl) tEl.value = rec.title || "";
+  if (bEl) bEl.value = rec.body || "";
+  if (aEl) aEl.value = rec.audience || "all";
   setAnnModalTitle("Edit Announcement");
   dlg?.showModal?.();
   setTimeout(() => tEl?.focus(), 0);
 };
 
 function wireAnnouncementEditButtons() {
-  const box   = document.getElementById("annList");
-  const newBtn = document.getElementById("btn-new-post") || document.querySelector("[data-ann-new]");
+  const box = document.getElementById("annList");
+  const newBtn =
+    document.getElementById("btn-new-post") ||
+    document.querySelector("[data-ann-new]");
   if (!box) return;
 
   // avoid double-wiring
@@ -4775,16 +4803,16 @@ function wireAnnouncementEditButtons() {
       return toast("Requires instructor+");
     }
     if (typeof showAnnModal === "function") {
-      showAnnModal(null);             // central helper available
+      showAnnModal(null); // central helper available
     } else {
-      window.__openAnnModalNew();     // fallback (manual fill)
+      window.__openAnnModalNew(); // fallback (manual fill)
     }
   });
 
   // ---- delegated EDIT / DELETE ----
   box.addEventListener("click", async (e) => {
     const editBtn = e.target.closest("[data-ann-edit]");
-    const delBtn  = e.target.closest("[data-ann-del]");
+    const delBtn = e.target.closest("[data-ann-del]");
     if (!editBtn && !delBtn) return;
 
     // DELETE
@@ -4808,14 +4836,14 @@ function wireAnnouncementEditButtons() {
     const id = editBtn.getAttribute("data-ann-edit");
     const rec = {
       id,
-      title:    editBtn.dataset.title     || "",
-      body:     editBtn.dataset.body      || "",
-      audience: editBtn.dataset.audience  || "all",
+      title: editBtn.dataset.title || "",
+      body: editBtn.dataset.body || "",
+      audience: editBtn.dataset.audience || "all",
     };
     if (typeof showAnnModal === "function") {
-      showAnnModal(rec);               // central helper available
+      showAnnModal(rec); // central helper available
     } else {
-      window.__openAnnModalEdit(rec);  // fallback (manual fill)
+      window.__openAnnModalEdit(rec); // fallback (manual fill)
     }
   });
 }
@@ -5554,10 +5582,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (u) {
         // 🔑 role ကို Firestore (သို့) fallback map က resolve
         let role = "student";
-        try {
-          role = (await resolveUserRole(u)) || "student";
-          await ensureUserDoc(u, role);
-        } catch {}
+        // 🔑 role ကို Firestore/fallback က resolveပြီးတာနဲ့…
+        role = (await resolveUserRole(u)) || "student";
+
+        // (optional) keep your ensureUserDoc(u, role)
+        await ensureUserDoc(u, role).catch(() => {});
+
+        // ★★★ ADD THIS: mirror role → RTDB for Realtime Database rules ★★★
+        await mirrorRoleToRTDB(u.uid, role);
+
         setUser({ email: u.email || "", role });
         setLogged(true, u.email || "");
 
@@ -6119,50 +6152,52 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
 });
 
 // replace your announcement save handler block with this:
-(function wireAnnSaveOnce(){
+(function wireAnnSaveOnce() {
+  const dlg = document.getElementById("annModal");
   const form = document.getElementById("annForm");
   if (!form || form.__wired) return;
   form.__wired = true;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const dlg  = document.getElementById("annModal");
+
     const idEl = document.getElementById("annId");
-    const tEl  = document.getElementById("annTitle");
-    const bEl  = document.getElementById("annBody");
-    const aEl  = document.getElementById("annAudience");
+    const tEl = document.getElementById("annTitle");
+    const bEl = document.getElementById("annBody");
+    const aEl = document.getElementById("annAudience");
 
     const title = (tEl?.value || "").trim();
-    const body  = (bEl?.value || "").trim();
+    const body = (bEl?.value || "").trim();
     const audience = (aEl?.value || "all").trim();
     if (!title || !body) return toast("Title & message required");
 
     const rec = {
-      title, body, audience,
+      title,
+      body,
+      audience,
       author: getUser()?.email || "instructor",
-      ts: Date.now()
+      ts: Date.now(),
     };
-
     const id = (idEl?.value || "").trim();
 
     try {
+      if (!window.rtdb) throw new Error("RTDB not ready");
       if (id) {
         await set(ref(rtdb, `announcements/${id}`), rec);
         toast("Announcement updated");
       } else {
-        const r = annsRef();
-        await push(r, rec);
+        await push(ref(rtdb, "announcements"), rec);
         toast("Announcement posted");
       }
-      // ✅ close hard
-      try { dlg?.close(); } catch {}
+      try {
+        dlg?.close();
+      } catch {}
       form.reset();
-      setAnnModalTitle("New Announcement");
+      setAnnModalTitle?.("New Announcement");
     } catch (err) {
       console.warn(err);
       toast("Save failed (permission?)");
+      // fail ဆိုရင် modal မပိတ် — user ပြန်ပြင်နိုင်ဖို့
     }
   });
-
-  // close buttons remain the same
 })();
