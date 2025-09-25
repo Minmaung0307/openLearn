@@ -961,7 +961,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ===== Realtime Announcements =====
 function annsRef() {
   if (!rtdb) return null;
-  return ref(rtdb, "anns");
+  return ref(rtdb, "announcements");
 }
 
 // === Announcements Modal helpers ===
@@ -1200,7 +1200,7 @@ function initAnnouncements() {
       if (!id) return;
       if (!confirm("Delete this announcement?")) return;
       try {
-        await remove(ref(rtdb, `anns/${id}`));
+        await remove(ref(rtdb, `announcements/${id}`));
         list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
         toast("Deleted");
       } catch {
@@ -1242,7 +1242,7 @@ function initAnnouncements() {
 
     try {
       if (id) {
-        await set(ref(rtdb, `anns/${id}`), rec);
+        await set(ref(rtdb, `announcements/${id}`), rec);
         toast("Announcement updated");
       } else {
         await push(annsRef(), rec);
@@ -1254,6 +1254,12 @@ function initAnnouncements() {
       toast("Save failed (permission?)");
     }
   });
+
+  // put this once near your modal helpers
+function setAnnModalTitle(txt) {
+  const el = document.querySelector("#annModal .modal-title");
+  if (el) el.textContent = txt;
+}
 
   // close/cancel
   const doClose = () => {
@@ -4704,41 +4710,60 @@ function renderAnnouncements() {
 window.renderAnnouncements = renderAnnouncements;
 
 function wireAnnouncementEditButtons() {
-  const box = $("#annList");
+  const box = document.getElementById("annList");
+  const newBtn = document.getElementById("btn-new-post") || document.querySelector("[data-ann-new]");
   if (!box) return;
-  box.querySelectorAll("[data-edit]").forEach(
-    (btn) =>
-      (btn.onclick = () => {
-        const id = btn.getAttribute("data-edit");
-        const arr = getAnns();
-        const i = arr.findIndex((x) => x.id === id);
-        if (i < 0) return;
-        $("#pmTitle").value = arr[i].title || "";
-        $("#pmBody").value = arr[i].body || "";
-        const f = $("#postForm");
-        f.dataset.editId = id;
-        $("#postModal .modal-title").textContent = "Edit Announcement";
-        $("#postModal")?.showModal();
-      })
-  );
-  box.querySelectorAll("[data-del]").forEach(
-    (btn) =>
-      (btn.onclick = () => {
-        const id = btn.getAttribute("data-del");
-        const arr = getAnns().filter((x) => x.id !== id);
-        setAnns(arr);
-        renderAnnouncements();
-        toast("Deleted");
-      })
-  );
+
+  // Open NEW modal
+  newBtn?.addEventListener("click", () => {
+    if (roleRank(getRole()) < roleRank("instructor")) {
+      return toast("Requires instructor+");
+    }
+    // open empty form via helper
+    showAnnModal(null);
+  });
+
+  // Delegate edit/delete on the list (match current data-* attrs)
+  box.addEventListener("click", async (e) => {
+    const editBtn = e.target.closest("[data-ann-edit]");
+    const delBtn  = e.target.closest("[data-ann-del]");
+    if (!editBtn && !delBtn) return;
+
+    if (editBtn) {
+      const id = editBtn.getAttribute("data-ann-edit");
+      // prefill from data-* embedded in the button
+      const a = {
+        id,
+        title: editBtn.dataset.title || "",
+        body: editBtn.dataset.body || "",
+        audience: editBtn.dataset.audience || "all",
+      };
+      showAnnModal(a);       // EDIT modal open
+      return;
+    }
+
+    // Delete
+    const id = delBtn.getAttribute("data-ann-del");
+    if (!id) return;
+    if (!confirm("Delete this announcement?")) return;
+    try {
+      await remove(ref(rtdb, `announcements/${id}`));
+      // remove from DOM immediately
+      box.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+      toast("Deleted");
+    } catch {
+      toast("Delete failed (permission?)");
+    }
+  });
 }
 $("#btn-new-post")?.addEventListener("click", () => {
-  const f = $("#postForm");
+  const f = $("#annForm");
   f?.reset();
   if (f) f.dataset.editId = "";
-  $("#postModal .modal-title").textContent = "New Announcement";
-  $("#postModal")?.showModal();
+  setAnnModalTitle("New Announcement");
+  $("#annModal")?.showModal();
 });
+
 $("#closePostModal")?.addEventListener("click", () => $("#postModal")?.close());
 $("#cancelPost")?.addEventListener("click", () => $("#postModal")?.close());
 $("#postForm")?.addEventListener("submit", (e) => {
@@ -6028,3 +6053,52 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
   if (!canCreateCourse()) return toast?.("Only instructors/admins can create.");
   openCourseForm("new");
 });
+
+// replace your announcement save handler block with this:
+(function wireAnnSaveOnce(){
+  const form = document.getElementById("annForm");
+  if (!form || form.__wired) return;
+  form.__wired = true;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const dlg  = document.getElementById("annModal");
+    const idEl = document.getElementById("annId");
+    const tEl  = document.getElementById("annTitle");
+    const bEl  = document.getElementById("annBody");
+    const aEl  = document.getElementById("annAudience");
+
+    const title = (tEl?.value || "").trim();
+    const body  = (bEl?.value || "").trim();
+    const audience = (aEl?.value || "all").trim();
+    if (!title || !body) return toast("Title & message required");
+
+    const rec = {
+      title, body, audience,
+      author: getUser()?.email || "instructor",
+      ts: Date.now()
+    };
+
+    const id = (idEl?.value || "").trim();
+
+    try {
+      if (id) {
+        await set(ref(rtdb, `announcements/${id}`), rec);
+        toast("Announcement updated");
+      } else {
+        const r = annsRef();
+        await push(r, rec);
+        toast("Announcement posted");
+      }
+      // ✅ close hard
+      try { dlg?.close(); } catch {}
+      form.reset();
+      setAnnModalTitle("New Announcement");
+    } catch (err) {
+      console.warn(err);
+      toast("Save failed (permission?)");
+    }
+  });
+
+  // close buttons remain the same
+})();
