@@ -49,6 +49,8 @@ import {
   ref,
   push,
   onChildAdded,
+  onChildChanged,   // ★ add
+  onChildRemoved,   // ★ add
   set,
   get, 
   child,
@@ -82,6 +84,9 @@ try { useDeviceLanguage(auth); } catch {}
 /* Firestore */
 export const db = getFirestore(app);
 
+/* RTDB instance (★ add this) */
+export const rtdb = getDatabase(app);
+
 export const storage = getStorage(app);
 
 export { sRef as storageRef, uploadBytes, getDownloadURL };
@@ -92,6 +97,8 @@ export {
   ref, 
   push, 
   onChildAdded, 
+  onChildChanged,   // ★
+  onChildRemoved,   // ★
   set, 
   get, 
   child, 
