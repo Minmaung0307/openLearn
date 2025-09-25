@@ -6451,3 +6451,32 @@ function __prependAnnCardInList(id, rec) {
   btnClose?.addEventListener("click", doClose);
   btnCancel?.addEventListener("click", doClose);
 })();
+
+/* ==== KILL LEGACY ANNOUNCEMENT HANDLERS (LocalStorage version) ==== */
+/* place this AFTER all other announcement code */
+
+(function killLegacyAnnHandlers(){
+  // 1) UI buttons that old code wired (#postModal/#postForm flow)
+  ["#btn-new-post","#closePostModal","#cancelPost","#postForm"].forEach(sel=>{
+    const el = document.querySelector(sel);
+    if (el) {
+      // cloning removes all old event listeners cleanly
+      el.replaceWith(el.cloneNode(true));
+    }
+  });
+
+  // 2) Old global fns that re-render from localStorage – neutralize them
+  try { window.renderAnnouncements = function(){ /* disabled */ }; } catch {}
+  try { window.wireAnnouncementEditButtons = function(){ /* disabled */ }; } catch {}
+
+  // 3) Hide the old modal if it exists (safety)
+  const oldDlg = document.getElementById("postModal");
+  try { oldDlg?.close?.(); } catch {}
+})();
+
+/* ==== ENSURE RTDB VERSION IS ACTIVE ONLY ONCE ==== */
+(function ensureAnnRTDBOnce(){
+  if (window.__ANN_ONCE__) return;  // if your RTDB init already set this, it will skip
+  // If you *didn't* include the RTDB init block yet, uncomment next line and paste your init here.
+  // initAnnouncementsOnce();
+})();
