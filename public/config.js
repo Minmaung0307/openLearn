@@ -24,5 +24,27 @@ window.OPENLEARN_CFG = {
 
   chat: { allowAnon: true },
 
-  admins: ["minmaung0307@gmail.com", "panna07@gmail.com"]  // lowercase emails
+  admins: ["minmaung0307@gmail.com", "panna07@gmail.com"],  // lowercase emails
+
+  cloudOverride: true,  // ★ Cloud override ON
 };
+
+window.OPENLEARN_CFG.payments = {
+  paypal: { enabled: true },
+  wallets: {
+    KBZPay: { enabled: true, qr: '/assets/qr/kbz.png', name: 'Your Co', account: '09-xxxx' },
+    CBPay:  { enabled: true, qr: '/assets/qr/cb.png',  name: 'Your Co', account: '09-xxxx' },
+    AyaPay: { enabled: true, qr: '/assets/qr/aya.png', name: 'Your Co', account: '09-xxxx' }
+  }
+};
+
+const pm = window.OPENLEARN_CFG?.payments || {};
+const list = [
+  pm.paypal?.enabled ? {id:'paypal',  label:'PayPal'} : null,
+  pm.wallets?.KBZPay?.enabled ? {id:'kbz', label:'KBZPay'} : null,
+  pm.wallets?.CBPay?.enabled  ? {id:'cb',  label:'CBPay'} : null,
+  pm.wallets?.AyaPay?.enabled ? {id:'aya', label:'AyaPay'} : null,
+].filter(Boolean);
+// render radio list; if kbz/cb/aya → show wallet modal with QR + upload
+
+window.OPENLEARN_CFG.cloudOverride = true;

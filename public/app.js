@@ -90,6 +90,82 @@ function canDeleteCourse() {
   return r === "owner" || r === "admin"; // instructor မပါ
 }
 
+/* ===== Cloud Override (Firestore) — START =====
+   - window.OPENLEARN_CFG.cloudOverride === true ဖြစ်ရင်သာ အသုံးချမယ်
+   - overrides ကို Firestore doc: catalogOverrides/_index ထဲ map{id → overrideFields} နဲ့ သိမ်းမယ်
+*/
+const CLOUD_OVERRIDE_ON = !!(window.OPENLEARN_CFG && window.OPENLEARN_CFG.cloudOverride);
+
+// Firestore doc ref (single map)
+function catalogOverrideDoc() {
+  if (!CLOUD_OVERRIDE_ON || !db) return null;
+  return doc(db, "catalogOverrides", "_index");
+}
+
+// Load all overrides as a plain object { [id]: {title?, price?, ...} }
+async function loadCatalogOverridesMap() {
+  if (!CLOUD_OVERRIDE_ON || !db) return {};
+  try {
+    const ref = catalogOverrideDoc();
+    if (!ref) return {};
+    const snap = await getDoc(ref);
+    const data = snap.exists() ? (snap.data() || {}) : {};
+    return data.map || {};
+  } catch {
+    return {};
+  }
+}
+
+// Merge base items with cloud overrides (cloud → wins)
+function applyCatalogOverrides(baseItems, ovMap) {
+  if (!ovMap || typeof ovMap !== "object") return baseItems;
+  return (baseItems || []).map((c) => {
+    const id = c.id;
+    const ov = id && ovMap[id] ? ovMap[id] : null;
+    return ov ? { ...c, ...ov } : c;
+  });
+}
+
+// Save override for ONE course id
+async function saveCourseToCloud(formData) {
+  // formData: { id, title, category, level, price, credits, hours, summary, image, benefits? }
+  try {
+    if (!CLOUD_OVERRIDE_ON) {
+      toast("Cloud override is OFF in config.js");
+      return false;
+    }
+    if (!db) {
+      toast("Firestore not ready");
+      return false;
+    }
+    const refDoc = catalogOverrideDoc();
+    if (!refDoc) {
+      toast("No override doc");
+      return false;
+    }
+
+    // သင်ပြောင်းချင်တဲ့ field တွေကိုသာ ထည့် (undefined မထည့်စေဖို့ sanitize)
+    const allowed = ["title","category","level","price","credits","hours","summary","image","benefits"];
+    const clean = {};
+    for (const k of allowed) {
+      if (formData[k] !== undefined && formData[k] !== null) clean[k] = formData[k];
+    }
+
+    const id = String(formData.id || "").trim();
+    if (!id) { toast("Missing course id"); return false; }
+
+    // Firestore: { map: { [id]: {…fields} } }
+    await setDoc(refDoc, { map: { [id]: clean } }, { merge: true });
+    toast("Cloud override saved");
+    return true;
+  } catch (e) {
+    console.warn("saveCourseToCloud failed:", e);
+    toast("Cloud override save failed");
+    return false;
+  }
+}
+/* ===== Cloud Override (Firestore) — END ===== */
+
 /* ---------- responsive theme / font ---------- */
 const PALETTES = {
   /* ... (unchanged palettes) ... */
@@ -771,46 +847,26 @@ async function loadCatalog() {
   }
   if (!items.length) {
     items = [
-      {
-        id: "js-essentials",
-        title: "JavaScript Essentials",
-        category: "Web",
-        level: "Beginner",
-        price: 0,
-        credits: 3,
-        rating: 4.7,
-        hours: 10,
-        summary: "Start JavaScript from zero.",
-      },
-      {
-        id: "react-fast",
-        title: "React Fast-Track",
-        category: "Web",
-        level: "Intermediate",
-        price: 49,
-        credits: 2,
-        rating: 4.6,
-        hours: 8,
-        summary: "Build modern UIs.",
-      },
-      {
-        id: "py-data",
-        title: "Data Analysis with Python",
-        category: "Data",
-        level: "Intermediate",
-        price: 79,
-        credits: 3,
-        rating: 4.8,
-        hours: 14,
-        summary: "Pandas & plots.",
-      },
+      { id:"js-essentials", title:"JavaScript Essentials", category:"Web", level:"Beginner", price:0, credits:3, rating:4.7, hours:10, summary:"Start JavaScript from zero." },
+      { id:"react-fast",    title:"React Fast-Track",      category:"Web", level:"Intermediate", price:49, credits:2, rating:4.6, hours:8,  summary:"Build modern UIs." },
+      { id:"py-data",       title:"Data Analysis with Python", category:"Data", level:"Intermediate", price:79, credits:3, rating:4.8, hours:14, summary:"Pandas & plots." },
     ];
   }
+
+  // 👉 Cloud overrides ထည့်မလား?
+  let ovMap = {};
+  if (CLOUD_OVERRIDE_ON) {
+    ovMap = await loadCatalogOverridesMap();              // { [id]: {title?, price?, ...} }
+    items = applyCatalogOverrides(items, ovMap);          // base + cloud override
+  }
+
+  // local course records (localStorage) နဲ့ merge (id ထပ်ရင် base/cloud ကို ထိန်း)
   const local = getCourses();
   const merged = [
     ...items,
     ...local.filter((l) => !items.some((c) => c.id === l.id)),
   ];
+
   setCourses(merged);
   ALL = merged;
   renderCatalog();
@@ -2730,6 +2786,120 @@ async function openPay(course) {
       closePayModal();
     });
   }
+}
+
+// ===== Payments helper (reads OPENLEARN_CFG.payments) =====
+function getPaymentOptions() {
+  const pm = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.payments) || {};
+  const list = [
+    pm.paypal?.enabled ? { id: "paypal", label: "PayPal", kind: "paypal" } : null,
+    pm.wallets?.KBZPay?.enabled ? { id: "kbz",  label: "KBZPay",  kind: "wallet", meta: pm.wallets.KBZPay } : null,
+    pm.wallets?.CBPay?.enabled  ? { id: "cb",   label: "CBPay",   kind: "wallet", meta: pm.wallets.CBPay }  : null,
+    pm.wallets?.AyaPay?.enabled ? { id: "aya",  label: "AyaPay",  kind: "wallet", meta: pm.wallets.AyaPay } : null,
+  ].filter(Boolean);
+  return list;
+}
+
+// ===== Render radio list into a container =====
+// <div id="payMethods"></div>
+function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const opts = getPaymentOptions();
+  if (!opts.length) {
+    el.innerHTML = `<div class="muted">No payment methods enabled.</div>`;
+    return;
+  }
+  el.innerHTML = opts.map(o => `
+    <label class="row" style="gap:8px;align-items:center;margin:.25rem 0">
+      <input type="radio" name="${name}" value="${o.id}">
+      <span>${o.label}</span>
+    </label>
+  `).join("");
+
+  // Wire wallet popup on select
+  el.querySelectorAll(`input[name="${name}"]`).forEach(inp => {
+    inp.addEventListener("change", () => {
+      const picked = opts.find(x => x.id === inp.value);
+      if (!picked) return;
+      if (picked.kind === "wallet") openWalletModal(picked);
+      // PayPal ကို သီးခြား checkout flow ထဲမှာ handle လုပ်ပါ
+    });
+  });
+}
+
+// ===== Simple Wallet modal (QR + slip upload) =====
+// HTML side: <dialog id="walletModal" class="ol-modal card"></dialog>
+function ensureWalletModal() {
+  let dlg = document.getElementById("walletModal");
+  if (dlg) return dlg;
+  dlg = document.createElement("dialog");
+  dlg.id = "walletModal";
+  dlg.className = "ol-modal card";
+  document.body.appendChild(dlg);
+  return dlg;
+}
+function openWalletModal(opt) {
+  const dlg = ensureWalletModal();
+  const meta = opt.meta || {};
+  const qr = meta.qr || "";
+  const who = meta.name || "";
+  const acct = meta.account || "";
+
+  dlg.innerHTML = `
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <b>${opt.label} Payment</b>
+      <button class="btn small" id="wmClose">Close</button>
+    </div>
+    <div class="row" style="gap:16px;align-items:flex-start;margin-top:.5rem">
+      <img src="${qr}" alt="QR" style="width:160px;height:160px;object-fit:contain;border:1px solid #eee;border-radius:8px">
+      <div class="small">
+        <div><b>Account:</b> ${who} ${acct ? `• ${acct}` : ""}</div>
+        <ol style="margin:.5rem 0 0 1rem">
+          <li>Scan QR with your ${opt.label} app</li>
+          <li>Pay the course amount</li>
+          <li>Upload the payment slip below</li>
+        </ol>
+        <div style="margin-top:.5rem">
+          <input type="file" id="wmFile" accept="image/*,application/pdf">
+        </div>
+        <div class="row" style="gap:8px;margin-top:.5rem">
+          <button class="btn" id="wmSubmit">Submit Proof</button>
+        </div>
+        <div class="tiny muted" id="wmMsg" style="margin-top:.25rem"></div>
+      </div>
+    </div>
+  `;
+
+  dlg.querySelector("#wmClose")?.addEventListener("click", () => dlg.close());
+  dlg.querySelector("#wmSubmit")?.addEventListener("click", async () => {
+    const f = dlg.querySelector("#wmFile")?.files?.[0];
+    const msg = dlg.querySelector("#wmMsg");
+    if (!f) { msg.textContent = "Please choose a file"; return; }
+
+    // TODO: upload to Firebase Storage (folder: receipts/<uid>/<ts>-<name>)
+    try {
+      const u = (typeof getUser === "function" ? getUser() : null) || {};
+      const uid = (u && u.uid) || "anon";
+      const ts = Date.now();
+      const path = `receipts/${uid}/${ts}-${(f.name||"proof")}`;
+      // firebase.js: export { storageRef, uploadBytes, getDownloadURL }
+      const r = storageRef(getStorage(), path);
+      await uploadBytes(r, f);
+      const url = await getDownloadURL(r);
+
+      msg.textContent = "Uploaded. We’ll verify and unlock the course soon.";
+      // (optional) save a record to Firestore for staff review
+      // await addDoc(collection(db, "payments"), { provider: opt.id, path, url, uid, ts, status:"pending" });
+
+      setTimeout(() => dlg.close(), 800);
+    } catch (e) {
+      console.warn(e);
+      msg.textContent = "Upload failed. Try again.";
+    }
+  });
+
+  dlg.showModal?.();
 }
 
 /* ---------- details (catalog + meta merge) ---------- */
@@ -5711,6 +5881,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // One-time import/export wiring
   wireAdminImportExportOnce();
 
+  renderPaymentOptions("payMethods");
+
   // Remove Finals from UI if present (robust no-op if missing)
   stripFinalsUI();
 
@@ -6436,4 +6608,92 @@ if (list) {
   if (window.__ANN_ONCE__) return;  // if your RTDB init already set this, it will skip
   // If you *didn't* include the RTDB init block yet, uncomment next line and paste your init here.
   // initAnnouncementsOnce();
+})();
+
+// ===== Cloud Override switch (reads from config.js) =====
+
+// ===== Fallback: define saveCourseToCloud if missing (uses Firestore "catalogOverrides/<id>") =====
+if (typeof saveCourseToCloud !== "function") {
+  async function saveCourseToCloud(rec) {
+    try {
+      if (!window.db || !window.firebase?.firestore) {
+        // using ESM re-exports from firebase.js
+      }
+      // If you're re-exporting from firebase.js:
+      const { doc, setDoc } = await import("./firebase.js");
+      await setDoc(doc(window.db, "catalogOverrides", rec.id), {
+        ...rec,
+        ts: Date.now(),
+      }, { merge: true });
+      console.log("[cloud] saved override for", rec.id);
+    } catch (e) {
+      console.warn("saveCourseToCloud failed:", e);
+      throw e;
+    }
+  }
+}
+
+// ===== Wire the Course Form once =====
+(function wireCourseFormOnce(){
+  if (window.__COURSE_FORM_WIRED__) return;
+  window.__COURSE_FORM_WIRED__ = true;
+
+  const dlg  = document.getElementById("courseModal");
+  const form = document.getElementById("courseForm");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    // 1) Read fields
+    const id        = document.getElementById("courseId")?.value.trim();
+    const category  = document.getElementById("courseCat")?.value.trim();
+    const title     = document.getElementById("courseTitle")?.value.trim();
+    const level     = document.getElementById("courseLevel")?.value.trim();
+    const summary   = document.getElementById("courseSummary")?.value.trim();
+    const benefitsT = document.getElementById("courseBenefits")?.value || "";
+    const image     = document.getElementById("courseImage")?.value.trim();
+    const hours     = Number(document.getElementById("courseHours")?.value || 0);
+    const credits   = Number(document.getElementById("courseCredits")?.value || 0);
+    const price     = Number(document.getElementById("coursePrice")?.value || 0);
+
+    if (!id || !title) { toast?.("ID & Title required"); return; }
+
+    // normalize benefits (string -> newline list)
+    const benefits = benefitsT.split(/\r?\n/).map(s => s.trim()).filter(Boolean).join("\n");
+
+    // 2) LOCAL: upsert into catalog (keeps your current logic)
+    const cur = (typeof getCourses === "function") ? getCourses() : (window.ALL || []);
+    const idx = cur.findIndex(c => c.id === id);
+    const row = {
+      id, title, category, level, price, credits, hours, summary, image, benefits
+    };
+    if (idx >= 0) cur[idx] = { ...cur[idx], ...row };
+    else cur.push(row);
+
+    // persist locally (your helpers)
+    if (typeof setCourses === "function") setCourses(cur);
+    window.ALL = cur;
+    renderCatalog?.();
+
+    // 3) CLOUD OVERRIDE (optional)
+    if (CLOUD_OVERRIDE_ON) {
+      try {
+        await saveCourseToCloud({
+          id, title, category, level, price, credits, hours, summary, image, benefits,
+        });
+        // 필요하면 cloud မှာ تازهသွားတာကို ချက်ချင်းရအောင် ပြန်ဖတ်
+        // await loadCatalog();
+      } catch (e) {
+        toast?.("Cloud save failed (kept local only)");
+      }
+    }
+
+    toast?.("Saved");
+    try { dlg?.close(); } catch {}
+  });
+
+  // Close/Cancel buttons (optional)
+  document.getElementById("btn-course-close")?.addEventListener("click", ()=>dlg?.close?.());
+  document.getElementById("btn-course-cancel")?.addEventListener("click", ()=>dlg?.close?.());
 })();
