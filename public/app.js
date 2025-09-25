@@ -1021,100 +1021,101 @@ function renderAnnItem(id, a) {
 // === Announcements (replace your old initAnnouncements) ===
 function initAnnouncements() {
   const list = document.getElementById("annList");
-  const btn  = document.getElementById("btn-new-post") || document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
-  const dlg  = document.getElementById("annModal");
-  const form = document.getElementById("annForm");
-  const titleEl = document.getElementById("annTitle");
-  const bodyEl  = document.getElementById("annBody");
-  const audEl   = document.getElementById("annAudience");
-  const btnClose  = document.getElementById("annClose");
-  const btnCancel = document.getElementById("annCancel");
-  if (!list || !btn || !dlg || !form) return;
+  const btn = document.getElementById("btn-new-post");
+  const aref = annsRef();
+  if (!list || !aref) return;
 
-  let EDIT_ID = null; // null=new
-
-  // ——— Live feed (handle add/remove; avoid duplicates) ———
   list.innerHTML = "";
-  const aref = annsRef?.();
-  if (aref) {
-    onChildAdded(aref, (snap) => {
-      const a = snap.val() || {};
-      const id = snap.key;
-      const node = renderAnnItem(id, a);
-      const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-      old ? old.replaceWith(node) : list.prepend(node);
-    });
-    // delete sync (when removed elsewhere)
-    if (typeof onChildRemoved === "function") {
-      onChildRemoved(aref, (snap) => {
-        const id = snap.key;
-        list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
-      });
+  onChildAdded(aref, (snap) => {
+    const a = snap.val() || {};
+    a._id = snap.key;
+    list.prepend(renderAnnItem(a));
+    // badge update
+    try {
+      const old = getAnns(); // local mirror
+      old.push(a);
+      setAnns(old);
+      updateAnnBadge();
+    } catch {}
+  });
+
+  // === Add Announcement button ===
+  btn?.addEventListener("click", () => {
+    if (roleRank(getRole()) < roleRank("instructor")) {
+      return toast("Requires instructor+");
     }
-  }
+    const dlg = document.getElementById("annModal");
+    dlg?.showModal?.();
+  });
 
-  // ——— Open modal (no alerts) ———
-  btn.onclick = () => {
-    if (!["owner","admin","instructor","ta"].includes((getRole()||"").toLowerCase())) {
-      return toast?.("Requires instructor+");
-    }
-    EDIT_ID = null;
-    form.reset();
-    audEl.value = "all";
-    document.getElementById("annModalTitle")?.textContent = "New Announcement";
-    dlg.showModal?.();
-    setTimeout(()=> titleEl?.focus(), 0);
-  };
-
-  // ——— Close ———
-  const doClose = () => { try { dlg.close(); } catch {} };
-  btnClose?.addEventListener("click", doClose);
-  btnCancel?.addEventListener("click", doClose);
-
-  // ——— Delegated edit/delete buttons on list ———
+  // === Delegated edit/delete ===
   list.addEventListener("click", async (e) => {
     const editBtn = e.target.closest("[data-ann-edit]");
     const delBtn  = e.target.closest("[data-ann-del]");
     if (!editBtn && !delBtn) return;
 
     let id = null;
-  if (editBtn) {
-    id = editBtn.getAttribute("data-ann-edit");
-  } else if (delBtn) {
-    id = delBtn.getAttribute("data-ann-del");
-  }
-  if (!id) return;
+    if (editBtn) {
+      id = editBtn.getAttribute("data-ann-edit");
+    } else if (delBtn) {
+      id = delBtn.getAttribute("data-ann-del");
+    }
+    if (!id) return;
 
-    if (delBtn) {
+    if (editBtn) {
+      // open modal for editing
+      const dlg = document.getElementById("annModal");
+      document.getElementById("annId").value    = id;
+      document.getElementById("annTitle").value = editBtn.dataset.title || "";
+      document.getElementById("annBody").value  = editBtn.dataset.body || "";
+      document.getElementById("annAudience").value = editBtn.dataset.audience || "all";
+      dlg?.showModal?.();
+    } else if (delBtn) {
       if (!confirm("Delete this announcement?")) return;
       try {
-        const r = annsRef();
-        await remove(ref(rtdb, `anns/${id}`));
-        toast("Deleted");
-        list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
-      } catch (err) {
-        console.warn(err);
-        toast("Delete failed (permission?)");
+        await remove(child(aref, id));
+        toast("Announcement deleted");
+      } catch {
+        toast("Delete failed");
       }
-      return;
-    }
-
-    // edit
-    try {
-      const snap = await get(ref(rtdb, `anns/${id}`));
-      const a = snap.val() || {};
-      EDIT_ID = id;
-      titleEl.value = a.title || "";
-      bodyEl.value  = a.body  || "";
-      audEl.value   = (a.audience || "all");
-      document.getElementById("annModalTitle")?.textContent = "Edit Announcement";
-      dlg.showModal?.();
-      setTimeout(()=> titleEl?.focus(), 0);
-    } catch (err) {
-      console.warn(err);
-      toast("Load failed");
     }
   });
+
+  // === Modal Save ===
+  document.getElementById("annSave")?.addEventListener("click", async () => {
+    const id    = document.getElementById("annId").value;
+    const title = document.getElementById("annTitle").value.trim();
+    const body  = document.getElementById("annBody").value.trim();
+    const audience = document.getElementById("annAudience").value;
+
+    if (!title || !body) return toast("Title & message required");
+
+    const payload = {
+      title,
+      body,
+      audience,
+      author: getUser()?.email || "instructor",
+      ts: Date.now(),
+    };
+
+    try {
+      if (id) {
+        await set(child(aref, id), payload);
+        toast("Announcement updated");
+      } else {
+        await push(aref, payload);
+        toast("Announcement posted");
+      }
+      document.getElementById("annModal")?.close();
+    } catch {
+      toast("Ann save failed");
+    }
+  });
+
+  document.getElementById("annCancel")?.addEventListener("click", () => {
+    document.getElementById("annModal")?.close();
+  });
+}
 
   // ——— Save (create/update) ———
   let inFlight = false;
