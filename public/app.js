@@ -6219,3 +6219,146 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
     }
   });
 })();
+
+// === Announcements: init once, dedupe saves ===
+(function initAnnouncementsOnce() {
+  if (window.__ANN_ONCE__) return;
+  window.__ANN_ONCE__ = true;
+
+  const list = document.getElementById("annList");
+  const newBtn = document.getElementById("btn-new-post") || document.querySelector("[data-ann-new]");
+  const dlg  = document.getElementById("annModal");
+  const form = document.getElementById("annForm");
+  const idEl = document.getElementById("annId");
+  const tEl  = document.getElementById("annTitle");
+  const bEl  = document.getElementById("annBody");
+  const aEl  = document.getElementById("annAudience");
+  const btnClose  = document.getElementById("annClose");
+  const btnCancel = document.getElementById("annCancel");
+  const btnSave   = document.getElementById("annSave");
+
+  // Ann DB ref
+  function _annRef() {
+    const db = (window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null));
+    return db ? ref(db, "announcements") : null;
+  }
+
+  // open NEW modal
+  newBtn?.addEventListener("click", () => {
+    if (typeof roleRank === "function" && roleRank(getRole?.() || "student") < roleRank("instructor")) {
+      return toast?.("Requires instructor+");
+    }
+    form?.reset();
+    if (idEl) idEl.value = "";
+    // title
+    (document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title"))?.textContent = "New Announcement";
+    dlg?.showModal?.();
+    setTimeout(()=>tEl?.focus(), 0);
+  });
+
+  // live feed (dedupe by id)
+  if (list) {
+    list.innerHTML = "";
+    const aref = _annRef();
+    if (aref) {
+      onChildAdded(aref, (snap) => {
+        const a = snap.val() || {};
+        const id = snap.key;
+        const node = renderAnnItem(id, a); // ⚠️ renderAnnItem(id,a) version ကို သုံးထားပါ
+        const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+        old ? old.replaceWith(node) : list.prepend(node);
+      });
+    }
+  }
+
+  // delegated edit/delete
+  list?.addEventListener("click", async (e) => {
+    const editBtn = e.target.closest?.("[data-ann-edit]");
+    const delBtn  = e.target.closest?.("[data-ann-del]");
+    const aref = _annRef();
+    if (!aref) return;
+
+    // delete
+    if (delBtn) {
+      const id = delBtn.getAttribute("data-ann-del");
+      if (!id) return;
+      if (!confirm("Delete this announcement?")) return;
+      try {
+        await remove(child(aref, id));
+        list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+        toast?.("Deleted");
+      } catch {
+        toast?.("Delete failed (permission?)");
+      }
+      return;
+    }
+
+    // edit
+    if (editBtn) {
+      const id = editBtn.getAttribute("data-ann-edit");
+      (document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title"))?.textContent = "Edit Announcement";
+      if (idEl) idEl.value = id || "";
+      if (tEl)  tEl.value  = editBtn.dataset.title || "";
+      if (bEl)  bEl.value  = editBtn.dataset.body || "";
+      if (aEl)  aEl.value  = editBtn.dataset.audience || "all";
+      dlg?.showModal?.();
+      setTimeout(()=>tEl?.focus(), 0);
+    }
+  });
+
+  // ==== SAVE (single-wire + in-flight guard) ====
+  if (form && !form.__wired) {
+    form.__wired = true;
+    form.__saving = false;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (form.__saving) return;            // 🚫 prevent double submit
+      form.__saving = true;
+      btnSave && (btnSave.disabled = true); // UI lock
+
+      try {
+        const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
+        if (!db) { toast?.("Database not ready"); return; }
+
+        const title = (tEl?.value || "").trim();
+        const body  = (bEl?.value || "").trim();
+        const audience = (aEl?.value || "all").trim();
+        if (!title || !body) { toast?.("Title & message required"); return; }
+
+        const rec = {
+          title, body, audience,
+          author: getUser?.()?.email || "instructor",
+          ts: Date.now()
+        };
+
+        const id = (idEl?.value || "").trim();
+        if (id) {
+          await set(ref(db, `announcements/${id}`), rec);
+          toast?.("Announcement updated");
+        } else {
+          await push(ref(db, "announcements"), rec);
+          toast?.("Announcement posted");
+        }
+
+        // ✅ success ⇒ close & reset
+        try { dlg?.close(); } catch {}
+        form.reset();
+        const titleEl = document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
+        if (titleEl) titleEl.textContent = "New Announcement";
+
+      } catch (err) {
+        console.warn(err);
+        toast?.("Save failed (permission?)");
+        // keep modal open on error
+      } finally {
+        form.__saving = false;
+        btnSave && (btnSave.disabled = false);
+      }
+    });
+  }
+
+  const doClose = () => { try { dlg?.close(); } catch {} };
+  btnClose?.addEventListener("click", doClose);
+  btnCancel?.addEventListener("click", doClose);
+})();
