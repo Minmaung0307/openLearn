@@ -5870,3 +5870,89 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
     }
   };
 })();
+
+// ===== Announcements: open modal (no alerts), validate with toast, save =====
+(function wireAnnouncementModalOnce(){
+  if (window.__OL_ONCE__?.annModalWired) return;
+
+  // IDs you have in HTML (adjust if different):
+  // - Button: #btn-ann-add  (or [data-ann-new])
+  // - Dialog: #annModal or #announcementModal
+  // - Form:   #annForm
+  // - Fields: #annTitle, #annBody, #annVisibleTo
+  const openBtn = document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
+  const dlg     = document.getElementById("annModal") || document.getElementById("announcementModal");
+  const form    = document.getElementById("annForm") || dlg?.querySelector("form");
+  const titleEl = dlg?.querySelector("#annTitle");
+  const bodyEl  = dlg?.querySelector("#annBody");
+  const visEl   = dlg?.querySelector("#annVisibleTo");
+
+  // small helpers
+  function canPostAnnouncements(){
+    const role = (getUser()?.role || "guest").toLowerCase();
+    return role === "owner" || role === "admin" || role === "instructor";
+  }
+  function isFirestoreReady(){
+    return !!(window.db && window.auth && window.IS_AUTHED);
+  }
+  function resetForm(){
+    try {
+      form?.reset();
+      if (titleEl) titleEl.value = "";
+      if (bodyEl)  bodyEl.value  = "";
+      if (visEl && !visEl.value) visEl.value = "all";
+    } catch {}
+  }
+
+  // ⛔️ kill any old handlers that used alert()/prompt()
+  try {
+    openBtn?.replaceWith(openBtn.cloneNode(true));
+  } catch {}
+  const freshOpenBtn = document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
+
+  // Open: no alerts, just show dialog
+  freshOpenBtn?.addEventListener("click", (e)=>{
+    e.preventDefault();
+    if (!canPostAnnouncements()) return toast?.("Only instructors/admins can post announcements.");
+    resetForm();
+    dlg?.showModal?.();
+  });
+
+  // Close buttons inside modal
+  dlg?.querySelectorAll("[data-ann-close], .btn-close, #btn-ann-cancel").forEach(el=>{
+    el.addEventListener("click", ()=> dlg?.close?.());
+  });
+
+  // Submit: validate → toast (no alert), then save cloud/local
+  form?.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const title = titleEl?.value?.trim() || "";
+    const body  = bodyEl?.value?.trim() || "";
+    const vis   = visEl?.value || "all";
+
+    if (!title) { toast?.("Please add a title."); titleEl?.focus(); return; }
+    if (!body)  { toast?.("Please add a message."); bodyEl?.focus(); return; }
+
+    try {
+      if (isFirestoreReady() && typeof addAnnouncementCloud === "function") {
+        await addAnnouncementCloud({ title, body, visibleTo: vis });
+      } else {
+        // local fallback
+        const curr = getAnns?.() || JSON.parse(localStorage.getItem("anns") || "[]");
+        const rec = { id: Date.now().toString(36), title, body, visibleTo: vis, ts: Date.now() };
+        const next = [rec, ...curr];
+        localStorage.setItem("anns", JSON.stringify(next));
+        setAnns?.(next);
+      }
+      dlg?.close?.();
+      window.renderAnnouncements?.();
+      toast?.("Announcement posted ✅");
+    } catch (err) {
+      console.warn("Announcement save failed:", err);
+      toast?.("Failed to post (saved locally).");
+    }
+  });
+
+  window.__OL_ONCE__ = window.__OL_ONCE__ || {};
+  window.__OL_ONCE__.annModalWired = true;
+})();
