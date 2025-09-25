@@ -1077,8 +1077,13 @@ function initAnnouncements() {
     const delBtn  = e.target.closest("[data-ann-del]");
     if (!editBtn && !delBtn) return;
 
-    const id = (editBtn || delBtn).getAttribute("data-ann-edit") || (delBtn && delBtn.getAttribute("data-ann-del"));
-    if (!id) return;
+    let id = null;
+  if (editBtn) {
+    id = editBtn.getAttribute("data-ann-edit");
+  } else if (delBtn) {
+    id = delBtn.getAttribute("data-ann-del");
+  }
+  if (!id) return;
 
     if (delBtn) {
       if (!confirm("Delete this announcement?")) return;
