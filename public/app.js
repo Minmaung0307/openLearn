@@ -2788,20 +2788,29 @@ async function openPay(course) {
   }
 }
 
-// ===== Payments helper (reads OPENLEARN_CFG.payments) =====
+// ===== Payment options (radio list) + wallet QR =====
 function getPaymentOptions() {
-  const pm = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.payments) || {};
-  const list = [
-    pm.paypal?.enabled ? { id: "paypal", label: "PayPal", kind: "paypal" } : null,
-    pm.wallets?.KBZPay?.enabled ? { id: "kbz",  label: "KBZPay",  kind: "wallet", meta: pm.wallets.KBZPay } : null,
-    pm.wallets?.CBPay?.enabled  ? { id: "cb",   label: "CBPay",   kind: "wallet", meta: pm.wallets.CBPay }  : null,
-    pm.wallets?.AyaPay?.enabled ? { id: "aya",  label: "AyaPay",  kind: "wallet", meta: pm.wallets.AyaPay } : null,
-  ].filter(Boolean);
+  const pm = window.OPENLEARN_CFG?.payments || {};
+  const list = [];
+
+  if (pm.paypal?.enabled) list.push({ id: "paypal", label: "PayPal", kind: "paypal" });
+
+  const W = pm.wallets || {};
+  for (const k of Object.keys(W)) {
+    const w = W[k];
+    if (!w?.enabled) continue;
+    list.push({
+      id: k.toLowerCase(),                  // "kbz" | "cb" | "aya"
+      label: w.label || k,                  // UI label
+      kind: "wallet",
+      qr: w.qr || "",                       // /assets/qr/xxx.png
+      name: w.name || "",
+      account: w.account || ""
+    });
+  }
   return list;
 }
 
-// ===== Render radio list into a container =====
-// <div id="payMethods"></div>
 function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
   const el = document.getElementById(containerId);
   if (!el) return;
@@ -2810,6 +2819,7 @@ function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
     el.innerHTML = `<div class="muted">No payment methods enabled.</div>`;
     return;
   }
+
   el.innerHTML = opts.map(o => `
     <label class="row" style="gap:8px;align-items:center;margin:.25rem 0">
       <input type="radio" name="${name}" value="${o.id}">
@@ -2817,15 +2827,73 @@ function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
     </label>
   `).join("");
 
-  // Wire wallet popup on select
+  // Wallet choose → show QR immediately (no auto-enroll)
   el.querySelectorAll(`input[name="${name}"]`).forEach(inp => {
     inp.addEventListener("change", () => {
       const picked = opts.find(x => x.id === inp.value);
       if (!picked) return;
-      if (picked.kind === "wallet") openWalletModal(picked);
-      // PayPal ကို သီးခြား checkout flow ထဲမှာ handle လုပ်ပါ
+      if (picked.kind === "wallet") {
+        openWalletPanel(picked);     // ⬅️ QR/merchant info ဖြည့်
+      } else {
+        // PayPal ကို သီးခြား renderPayPalButtons() ထဲက handle လုပ်ထားသင့်
+        openWalletPanel(null);       // wallet panel ကို ခေတ္တ clear
+      }
     });
   });
+}
+
+// Wallet info + QR ကို pay modal ထဲ Panel တစ်ခုမှာ ပြ
+function openWalletPanel(wallet) {
+  const panel = document.getElementById("walletQR");
+  if (!panel) return;
+  if (!wallet) { panel.innerHTML = ""; return; }
+
+  panel.innerHTML = `
+    <div class="card" style="margin-top:8px">
+      <h4 style="margin:0 0 6px 0">${wallet.label || "Wallet"}</h4>
+      ${wallet.qr ? `<img class="qr" src="${wallet.qr}" alt="${wallet.label} QR" style="width:160px;height:160px;object-fit:contain;border:1px solid #eee;border-radius:8px">` : `<div class="muted">QR not configured</div>`}
+      <div style="margin-top:6px">
+        <div><b>${wallet.name || ""}</b></div>
+        <div class="muted">${wallet.account || ""}</div>
+      </div>
+      <small class="muted">Scan & pay, then press “I Paid (MMK)” to submit for approval.</small>
+    </div>
+  `;
+}
+
+// ===== Pending payment request =====
+// NOTE: This does NOT enroll immediately. Admin must approve later.
+async function submitMmkPaymentRequest(courseId) {
+  try {
+    if (!window.rtdb || !window.getUser) throw new Error("Database not ready");
+    const u = getUser();
+    if (!u?.email) return toast?.("Login required to request payment.");
+
+    // which wallet selected?
+    const picked = (document.querySelector('input[name="payMethod"]:checked')?.value || "").toLowerCase();
+    const opts = getPaymentOptions();
+    const w = opts.find(x => x.id === picked && x.kind === "wallet");
+    if (!w) return toast?.("Choose a wallet first.");
+
+    const rec = {
+      courseId,
+      user: u.email,
+      uid: u.uid || "",
+      wallet: w.id,         // 'kbz' | 'cb' | 'aya'
+      ts: Date.now(),
+      status: "pending"     // admin will set to 'approved' | 'rejected'
+    };
+
+    // Store under /payments/requests/<pushId>
+    const reqRef = await push(ref(rtdb, "payments/requests"), rec);
+
+    toast?.("Payment request sent. Waiting for admin approval.");
+    // close pay modal
+    document.getElementById("payModal")?.close();
+  } catch (e) {
+    console.warn(e);
+    toast?.("Could not send request. Try again.");
+  }
 }
 
 // ===== Simple Wallet modal (QR + slip upload) =====
@@ -2984,6 +3052,20 @@ function ensurePayModal() {
     });
   }
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  // pay modal open စဉ် render (initial)
+  renderPaymentOptions("payMethods");   // radio list
+  openWalletPanel(null);                // clear QR panel
+
+  // I Paid → pending request only (no auto-enroll)
+  document.getElementById("mmkPaid")?.addEventListener("click", () => {
+    // RD.cid (reader context) သို့မဟုတ် currently selected courseId ကို ပြန်တင်ပါ
+    const cid = window.__CHECKOUT_COURSE_ID__ || RD?.cid || CURRENT_COURSE_ID || "";
+    if (!cid) return toast?.("No course selected.");
+    submitMmkPaymentRequest(cid);
+  });
+});
 
 /* ---------- details (catalog + meta merge) ---------- */
 async function openDetails(id) {

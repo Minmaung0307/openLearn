@@ -550,37 +550,18 @@
           <button class="btn primary" id="mmkPaid">I Paid (MMK)</button>
         </div> -->
         <!-- Pay with MMK (replace this whole card) -->
+        <!-- inside your pay modal body -->
         <div class="card" style="flex: 1; min-width: 260px">
           <h3 class="h4">Pay with MMK</h3>
           <p class="muted">Choose a wallet and scan QR → press “I Paid”.</p>
 
-          <!-- Wallet radios will be injected here -->
-          <div
-            id="walletList"
-            class="row"
-            style="gap: 10px; flex-wrap: wrap"
-          ></div>
+          <!-- Radio list will render here -->
+          <div id="payMethods" style="margin-bottom: 0.5rem"></div>
 
-          <!-- QR + info -->
-          <div id="walletPanel" style="margin-top: 10px">
-            <div class="row" style="gap: 10px; align-items: flex-start">
-              <img
-                id="walletQR"
-                class="qr"
-                alt="Wallet QR"
-                src=""
-                style="
-                  display: none;
-                  width: 150px;
-                  height: 150px;
-                  object-fit: contain;
-                "
-              />
-              <div id="walletInfo" class="muted"></div>
-            </div>
-          </div>
+          <!-- Selected wallet QR/info will render here -->
+          <div id="walletQR"></div>
 
-          <button class="btn primary" id="mmkPaid" style="margin-top: 10px">
+          <button class="btn primary" id="mmkPaid" type="button">
             I Paid (MMK)
           </button>
         </div>
