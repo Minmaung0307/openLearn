@@ -1141,9 +1141,14 @@ function ensureAnnModal() {
 
 // RENDER ONE ANNOUNCEMENT CARD (copy/paste replace)
 function renderAnnItem(id, a) {
-  const canEdit = typeof roleRank === "function"
-    ? roleRank(getRole?.() || "student") >= roleRank("instructor")
+  // Only instructors+ can see edit/delete
+  const canEdit = (typeof roleRank === "function" && typeof getRole === "function")
+    ? roleRank(getRole() || "student") >= roleRank("instructor")
     : false;
+
+  // Safe esc for attributes (prevent breaking out of quotes)
+  const escAttr = (s) =>
+    esc(String(s || "")).replace(/"/g, "&quot;");
 
   const div = document.createElement("div");
   div.className = "card";
@@ -1160,12 +1165,12 @@ function renderAnnItem(id, a) {
       ${canEdit ? `
       <div class="row" style="gap:6px">
         <button class="btn small"
-                data-ann-edit="${esc(id)}"
-                data-title="${esc(a.title || "")}"
-                data-body="${esc(a.body || "")}"
-                data-audience="${esc(a.audience || "all")}">Edit</button>
+                data-ann-edit="${escAttr(id)}"
+                data-title="${escAttr(a.title)}"
+                data-body="${escAttr(a.body)}"
+                data-audience="${escAttr(a.audience || "all")}">Edit</button>
         <button class="btn small"
-                data-ann-del="${esc(id)}">Delete</button>
+                data-ann-del="${escAttr(id)}">Delete</button>
       </div>` : ""}
     </div>
   `;
@@ -6285,26 +6290,55 @@ function __prependAnnCardInList(id, rec) {
     // });
   }
 
-  // ------- Delegated edit/delete -------
-  list?.addEventListener("click", async (e) => {
+  // ------- Delegated edit/delete (REPLACE THIS WHOLE BLOCK) -------
+list?.addEventListener("click", async (e) => {
+  const editBtn = e.target.closest?.("[data-ann-edit]");
   const delBtn  = e.target.closest?.("[data-ann-del]");
-  if (!delBtn) return;
 
+  // neither edit nor delete → ignore
+  if (!editBtn && !delBtn) return;
+
+  // DB handle (for delete)
   const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
-  if (!db) { toast?.("Database not ready"); return; }
 
-  const id = delBtn.getAttribute("data-ann-del");
-  if (!id) return;
-  if (!confirm("Delete this announcement?")) return;
+  // === DELETE ===
+  if (delBtn) {
+    if (!db) { toast?.("Database not ready"); return; }
+    const id = delBtn.getAttribute("data-ann-del");
+    if (!id) return;
+    if (!confirm("Delete this announcement?")) return;
+    try {
+      await remove(ref(db, `announcements/${id}`));
+      // remove from DOM immediately
+      document
+        .querySelector(`#annList .card[data-id="${CSS.escape(id)}"]`)
+        ?.remove();
+      toast?.("Deleted");
+    } catch (err) {
+      console.warn(err);
+      toast?.("Delete failed (permission?)");
+    }
+    return; // done with delete
+  }
 
-  try {
-    await remove(ref(db, `announcements/${id}`));
-    // UI remove immediately (onChildRemoved မလို)
-    document.querySelector(`#annList .card[data-id="${CSS.escape(id)}"]`)?.remove();
-    toast?.("Deleted");
-  } catch (err) {
-    console.warn(err);
-    toast?.("Delete failed (permission?)");
+  // === EDIT ===
+  if (editBtn) {
+    const id = editBtn.getAttribute("data-ann-edit") || "";
+    // prefill from data-* on the edit button (renderAnnItem must set these)
+    const title = editBtn.dataset.title || "";
+    const body  = editBtn.dataset.body || "";
+    const aud   = editBtn.dataset.audience || "all";
+
+    if (idEl) idEl.value = id;
+    if (tEl)  tEl.value  = title;
+    if (bEl)  bEl.value  = body;
+    if (aEl)  aEl.value  = aud;
+
+    const h = headerEl?.() || document.querySelector("#annModal .modal-title");
+    if (h) h.textContent = "Edit Announcement";
+
+    dlg?.showModal?.();
+    setTimeout(() => tEl?.focus(), 0);
   }
 });
 
