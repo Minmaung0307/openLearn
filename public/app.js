@@ -6697,3 +6697,23 @@ if (typeof saveCourseToCloud !== "function") {
   document.getElementById("btn-course-close")?.addEventListener("click", ()=>dlg?.close?.());
   document.getElementById("btn-course-cancel")?.addEventListener("click", ()=>dlg?.close?.());
 })();
+
+(function renderWallets(){
+  const cfg = window.OPENLEARN_CFG?.payments?.wallets || {};
+  const box = document.getElementById("wallets");
+  if (!box) return;
+
+  box.innerHTML = "";
+  Object.entries(cfg).forEach(([id, w]) => {
+    if (!w.enabled) return;
+    const card = document.createElement("div");
+    card.className = "col";
+    card.style.textAlign = "center";
+    card.innerHTML = `
+      <img class="qr" alt="${id}" src="${w.q}" style="max-width:150px;"/>
+      <div><b>${w.name}</b></div>
+      <div class="muted">${w.account}</div>
+    `;
+    box.appendChild(card);
+  });
+})();
