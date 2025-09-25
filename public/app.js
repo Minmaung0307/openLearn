@@ -961,9 +961,10 @@ document.addEventListener("DOMContentLoaded", () => {
 // ========== RTDB helpers ==========
 function getRTDB() {
   try {
-    // if already set by your firebase init, just reuse it
-    return window.rtdb || (window.rtdb = getDatabase(app));
+    // getDatabase() uses the default initialized app
+    return (window.rtdb ||= getDatabase());
   } catch (e) {
+    console.warn("getRTDB(): not ready yet");
     return null;
   }
 }
@@ -986,7 +987,8 @@ function annsRef() {
 // Mirror role -> RTDB, required by rules users/<uid>/role
 async function mirrorRoleToRTDB(uid, role) {
   try {
-    const db = await ensureRTDBReady();
+    const db = getRTDB();
+    if (!db || !uid) return; // don't block login
     await set(ref(db, `users/${uid}/role`), String(role || "student"));
   } catch (e) {
     console.warn("mirrorRoleToRTDB failed:", e);
@@ -6168,7 +6170,7 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
   openCourseForm("new");
 });
 
-// replace your announcement save handler block with this:
+// ===== Announcement save (replace your old submit wiring) =====
 (function wireAnnSaveOnce() {
   const dlg  = document.getElementById("annModal");
   const form = document.getElementById("annForm");
@@ -6188,15 +6190,16 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
     const audience = (aEl?.value || "all").trim();
     if (!title || !body) return toast("Title & message required");
 
-    const rec = {
-      title, body, audience,
-      author: getUser()?.email || "instructor",
-      ts: Date.now(),
-    };
-    const id = (idEl?.value || "").trim();
+    const rec = { title, body, audience, author: getUser()?.email || "instructor", ts: Date.now() };
+    const id  = (idEl?.value || "").trim();
 
     try {
-      const db = await ensureRTDBReady(); // ← wait RTDB
+      const db = getRTDB();
+      if (!db) {
+        // DB not ready → user မှာ reload/login advice
+        toast("Database not initialized — try again after login completes");
+        return;
+      }
       if (id) {
         await set(ref(db, `announcements/${id}`), rec);
         toast("Announcement updated");
@@ -6204,14 +6207,14 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
         await push(ref(db, "announcements"), rec);
         toast("Announcement posted");
       }
-      // success ⇒ close & reset
+      // ✅ success ⇒ close & reset
       try { dlg?.close(); } catch {}
       form.reset();
       (window.setAnnModalTitle || function(){})("New Announcement");
     } catch (err) {
       console.warn(err);
-      // rules fail ⇒ keep modal open so user can adjust
       toast("Save failed (permission?)");
+      // fail 时 modal မပိတ် — ပြန်ပြင်နိုင်စေ
     }
   });
 })();
