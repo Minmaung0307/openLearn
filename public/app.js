@@ -4723,53 +4723,103 @@ function renderAnnouncements() {
 }
 window.renderAnnouncements = renderAnnouncements;
 
+// ---- Announcement modal helpers (safe in any DOM) ----
+window.setAnnModalTitle = function (txt) {
+  const el = document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
+  if (el) el.textContent = txt;
+};
+
+window.__openAnnModalNew = function () {
+  const dlg  = document.getElementById("annModal");
+  const form = document.getElementById("annForm");
+  const tEl  = document.getElementById("annTitle");
+  const aEl  = document.getElementById("annAudience");
+  const idEl = document.getElementById("annId");
+  form?.reset();
+  if (idEl) idEl.value = "";
+  if (aEl)  aEl.value = "all";
+  setAnnModalTitle("New Announcement");
+  dlg?.showModal?.();
+  setTimeout(() => tEl?.focus(), 0);
+};
+
+window.__openAnnModalEdit = function (rec) {
+  const dlg  = document.getElementById("annModal");
+  const form = document.getElementById("annForm");
+  const tEl  = document.getElementById("annTitle");
+  const bEl  = document.getElementById("annBody");
+  const aEl  = document.getElementById("annAudience");
+  const idEl = document.getElementById("annId");
+  form?.reset();
+  if (idEl) idEl.value = rec.id || "";
+  if (tEl)  tEl.value  = rec.title || "";
+  if (bEl)  bEl.value  = rec.body  || "";
+  if (aEl)  aEl.value  = rec.audience || "all";
+  setAnnModalTitle("Edit Announcement");
+  dlg?.showModal?.();
+  setTimeout(() => tEl?.focus(), 0);
+};
+
 function wireAnnouncementEditButtons() {
-  const box = document.getElementById("annList");
+  const box   = document.getElementById("annList");
   const newBtn = document.getElementById("btn-new-post") || document.querySelector("[data-ann-new]");
   if (!box) return;
 
-  // Open NEW modal
+  // avoid double-wiring
+  if (box.__wired) return;
+  box.__wired = true;
+
+  // ---- NEW ----
   newBtn?.addEventListener("click", () => {
     if (roleRank(getRole()) < roleRank("instructor")) {
       return toast("Requires instructor+");
     }
-    // open empty form via helper
-    showAnnModal(null);
+    if (typeof showAnnModal === "function") {
+      showAnnModal(null);             // central helper available
+    } else {
+      window.__openAnnModalNew();     // fallback (manual fill)
+    }
   });
 
-  // Delegate edit/delete on the list (match current data-* attrs)
+  // ---- delegated EDIT / DELETE ----
   box.addEventListener("click", async (e) => {
     const editBtn = e.target.closest("[data-ann-edit]");
     const delBtn  = e.target.closest("[data-ann-del]");
     if (!editBtn && !delBtn) return;
 
-    if (editBtn) {
-      const id = editBtn.getAttribute("data-ann-edit");
-      // prefill from data-* embedded in the button
-      const a = {
-        id,
-        title: editBtn.dataset.title || "",
-        body: editBtn.dataset.body || "",
-        audience: editBtn.dataset.audience || "all",
-      };
-      showAnnModal(a);       // EDIT modal open
+    // DELETE
+    if (delBtn) {
+      const id = delBtn.getAttribute("data-ann-del");
+      if (!id) return;
+      if (!confirm("Delete this announcement?")) return;
+      try {
+        if (!window.rtdb) throw new Error("No RTDB");
+        await remove(ref(rtdb, `announcements/${id}`)); // rules expect 'announcements'
+        box.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+        toast("Deleted");
+      } catch (err) {
+        console.warn(err);
+        toast("Delete failed (permission?)");
+      }
       return;
     }
 
-    // Delete
-    const id = delBtn.getAttribute("data-ann-del");
-    if (!id) return;
-    if (!confirm("Delete this announcement?")) return;
-    try {
-      await remove(ref(rtdb, `announcements/${id}`));
-      // remove from DOM immediately
-      box.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
-      toast("Deleted");
-    } catch {
-      toast("Delete failed (permission?)");
+    // EDIT
+    const id = editBtn.getAttribute("data-ann-edit");
+    const rec = {
+      id,
+      title:    editBtn.dataset.title     || "",
+      body:     editBtn.dataset.body      || "",
+      audience: editBtn.dataset.audience  || "all",
+    };
+    if (typeof showAnnModal === "function") {
+      showAnnModal(rec);               // central helper available
+    } else {
+      window.__openAnnModalEdit(rec);  // fallback (manual fill)
     }
   });
 }
+
 $("#btn-new-post")?.addEventListener("click", () => {
   const f = $("#annForm");
   f?.reset();
