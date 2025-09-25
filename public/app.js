@@ -2902,6 +2902,89 @@ function openWalletModal(opt) {
   dlg.showModal?.();
 }
 
+// ==== Payments: Wallet (MMK) renderer ====
+function ensurePayModal() {
+  const cfg = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.payments) || {};
+  const wallets = (cfg.wallets) || {};
+  const listEl = document.getElementById("walletList");
+  const qrEl   = document.getElementById("walletQR");
+  const infoEl = document.getElementById("walletInfo");
+  const paidBtn= document.getElementById("mmkPaid");
+
+  // If MMK section not on page, skip
+  if (!listEl || !qrEl || !infoEl) return;
+
+  // Build available wallet options
+  const options = [];
+  if (wallets.KBZPay?.enabled) options.push({id:"kbz",  key:"KBZPay", label:"KBZPay"});
+  if (wallets.CBPay?.enabled)  options.push({id:"cb",   key:"CBPay",  label:"CBPay"});
+  if (wallets.AyaPay?.enabled) options.push({id:"aya",  key:"AyaPay", label:"AyaPay"});
+
+  // If none enabled → hide the whole MMK panel
+  if (!options.length) {
+    // hide radios & panel
+    listEl.innerHTML = `<div class="muted">MMK wallets disabled.</div>`;
+    document.getElementById("walletPanel").style.display = "none";
+    if (paidBtn) paidBtn.style.display = "none";
+    return;
+  }
+
+  // Render radio buttons
+  listEl.innerHTML = options.map((o, i) => {
+    return `
+      <label class="row" style="gap:6px; align-items:center">
+        <input type="radio" name="mmkWallet" value="${o.id}" ${i===0 ? "checked" : ""}>
+        ${o.label}
+      </label>`;
+  }).join("");
+
+  // helper to update QR + info by id
+  function showWallet(id) {
+    const opt = options.find(x => x.id === id);
+    if (!opt) return;
+
+    const w = wallets[opt.key] || {};
+    // prefer project assets (if you added the PNGs), else fallback demo URLs
+    const FALLBACK = {
+      kbz: "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=KBZPAY-DEMO",
+      cb:  "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CBPAY-DEMO",
+      aya: "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=AYAPAY-DEMO",
+    };
+    const imgSrc = (w.qr || ({
+      kbz: "/assets/qr/kbz.png",
+      cb:  "/assets/qr/cb.png",
+      aya: "/assets/qr/aya.png"
+    }[id])) || FALLBACK[id];
+
+    // set QR
+    qrEl.src = imgSrc;
+    qrEl.style.display = "block";
+
+    // set text info
+    const name = w.name || "Your Co";
+    const acc  = w.account || "09-xxxx";
+    infoEl.innerHTML = `<div><b>${opt.label}</b></div><div>${name}</div><div>${acc}</div>`;
+  }
+
+  // wire change
+  listEl.querySelectorAll('input[name="mmkWallet"]').forEach(r => {
+    r.addEventListener("change", () => showWallet(r.value));
+  });
+
+  // select first by default
+  showWallet(options[0].id);
+
+  // “I Paid (MMK)” handler (demo)
+  if (paidBtn && !paidBtn.__wired) {
+    paidBtn.__wired = true;
+    paidBtn.addEventListener("click", () => {
+      toast?.("Thanks! We'll verify your payment shortly.");
+      // you could mark enrollment here or call your own verify endpoint
+      try { document.getElementById("payModal")?.close(); } catch {}
+    });
+  }
+}
+
 /* ---------- details (catalog + meta merge) ---------- */
 async function openDetails(id) {
   const base =
@@ -5881,6 +5964,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // One-time import/export wiring
   wireAdminImportExportOnce();
 
+  // MMK wallets QR setup
+  ensurePayModal();
+
+  // Render payment radios/options right after DOM is ready
   renderPaymentOptions("payMethods");
 
   // Remove Finals from UI if present (robust no-op if missing)
