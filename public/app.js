@@ -6237,6 +6237,10 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
   const btnCancel = document.getElementById("annCancel");
   const btnSave   = document.getElementById("annSave");
 
+  function headerEl() {
+    return document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
+  }
+
   // Ann DB ref
   function _annRef() {
     const db = (window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null));
@@ -6250,8 +6254,8 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
     }
     form?.reset();
     if (idEl) idEl.value = "";
-    // title
-    (document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title"))?.textContent = "New Announcement";
+    const hh = headerEl();
+    if (hh) hh.textContent = "New Announcement";
     dlg?.showModal?.();
     setTimeout(()=>tEl?.focus(), 0);
   });
@@ -6264,7 +6268,7 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
       onChildAdded(aref, (snap) => {
         const a = snap.val() || {};
         const id = snap.key;
-        const node = renderAnnItem(id, a); // ⚠️ renderAnnItem(id,a) version ကို သုံးထားပါ
+        const node = renderAnnItem(id, a); // renderAnnItem(id,a) သုံးထားရမယ်
         const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
         old ? old.replaceWith(node) : list.prepend(node);
       });
@@ -6284,6 +6288,7 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
       if (!id) return;
       if (!confirm("Delete this announcement?")) return;
       try {
+        // child(aref, id) မသုံးချင်ရင် ref(rtdb, `announcements/${id}`) သုံးလို့ရ
         await remove(child(aref, id));
         list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
         toast?.("Deleted");
@@ -6296,7 +6301,8 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
     // edit
     if (editBtn) {
       const id = editBtn.getAttribute("data-ann-edit");
-      (document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title"))?.textContent = "Edit Announcement";
+      const hh = headerEl();
+      if (hh) hh.textContent = "Edit Announcement";
       if (idEl) idEl.value = id || "";
       if (tEl)  tEl.value  = editBtn.dataset.title || "";
       if (bEl)  bEl.value  = editBtn.dataset.body || "";
@@ -6313,9 +6319,9 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (form.__saving) return;            // 🚫 prevent double submit
+      if (form.__saving) return;            // prevent double submit
       form.__saving = true;
-      btnSave && (btnSave.disabled = true); // UI lock
+      if (btnSave) btnSave.disabled = true;
 
       try {
         const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
@@ -6341,19 +6347,18 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
           toast?.("Announcement posted");
         }
 
-        // ✅ success ⇒ close & reset
+        // success ⇒ close & reset
         try { dlg?.close(); } catch {}
         form.reset();
-        const titleEl = document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
-        if (titleEl) titleEl.textContent = "New Announcement";
+        const hh = headerEl();
+        if (hh) hh.textContent = "New Announcement";
 
       } catch (err) {
         console.warn(err);
         toast?.("Save failed (permission?)");
-        // keep modal open on error
       } finally {
         form.__saving = false;
-        btnSave && (btnSave.disabled = false);
+        if (btnSave) btnSave.disabled = false;
       }
     });
   }
