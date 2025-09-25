@@ -5794,7 +5794,7 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
   window.__OL_ONCE__.alertPatched = true;
 })();
 
-// === Open "Add Announcement" modal cleanly ===
+// === Open "Add Announcement" modal ===
 (function wireAnnCreateOnce(){
   if (window.__OL_ONCE__?.annCreateWired) return;
 
@@ -5807,37 +5807,30 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
       e.preventDefault();
       if (!canPostAnnouncements()) return toast?.("Only instructors/admins can post announcements.");
 
-      // silence any stray alerts during open
-      window.__SILENCE_ALERTS__ = true;
-
       // reset form
       try {
         form?.reset();
-        // optional default fields
-        const t = dlg.querySelector("#annTitle"); if (t) t.value = "";
-        const b = dlg.querySelector("#annBody");  if (b) b.value = "";
-        const v = dlg.querySelector("#annVisibleTo"); if (v && !v.value) v.value = "all";
+        dlg.querySelector("#annTitle").value = "";
+        dlg.querySelector("#annBody").value = "";
+        const v = dlg.querySelector("#annVisibleTo");
+        if (v && !v.value) v.value = "all";
       } catch {}
-
       dlg.showModal?.();
     });
 
-    // Close buttons → re-enable alerts if you want (still safe to keep silenced)
     dlg.querySelectorAll("[data-ann-close], .btn-close, #btn-ann-cancel").forEach((el)=>{
-      el.addEventListener("click", ()=>{
-        dlg.close?.();
-        // keep alerts silent globally; if you want to restore:
-        // window.__SILENCE_ALERTS__ = false;
-      });
+      el.addEventListener("click", ()=> dlg.close?.());
     });
 
-    // Submit (create) — write only if Firestore ready; otherwise local fallback
     form?.addEventListener("submit", async (e)=>{
       e.preventDefault();
       const title = dlg.querySelector("#annTitle")?.value?.trim() || "";
       const body  = dlg.querySelector("#annBody")?.value?.trim() || "";
       const vis   = dlg.querySelector("#annVisibleTo")?.value || "all";
-      if (!title || !body) return toast?.("Please fill title & body.");
+      if (!title || !body) {
+        toast?.("Please fill title & body.");
+        return;
+      }
 
       try {
         if (isFirestoreReady() && typeof addAnnouncementCloud === "function") {
