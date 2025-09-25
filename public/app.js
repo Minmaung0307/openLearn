@@ -984,121 +984,6 @@ function renderAnnItem(a) {
   return div;
 }
 
-// ===== REPLACE BLOCK: initAnnouncements (no alerts/prompt; modal-based) =====
-function initAnnouncements() {
-  // elements
-  const list = document.getElementById("annList");
-  const btn  = document.getElementById("btn-new-post")
-            || document.getElementById("btn-ann-add")
-            || document.querySelector("[data-ann-new]");
-
-  // modal + form stuff (IDs can be adjusted to your HTML)
-  const dlg     = document.getElementById("annModal") || document.getElementById("announcementModal");
-  const form    = document.getElementById("annForm")  || dlg?.querySelector("form");
-  const titleEl = dlg?.querySelector("#annTitle");
-  const bodyEl  = dlg?.querySelector("#annBody");
-  const visEl   = dlg?.querySelector("#annVisibleTo");
-  const btnClose  = dlg?.querySelector("#btn-ann-close");
-  const btnCancel = dlg?.querySelector("#btn-ann-cancel");
-
-  // helper permissions
-  const roleOrder = ["student","ta","instructor","admin","owner"];
-  const roleRank = (r)=> Math.max(0, roleOrder.indexOf(String(r||"student").toLowerCase()));
-  const canPost  = ()=> roleRank(getUser()?.role||"student") >= roleRank("instructor");
-
-  // Firebase Realtime DB ref getter (adapt if you use Firestore instead)
-  const aref = (function(){
-    try {
-      // If you already had annsRef() helper, reuse it:
-      return typeof annsRef === "function" ? annsRef() : null;
-    } catch { return null; }
-  })();
-
-  // (1) Realtime list → render items (no prompts involved)
-  if (list && aref) {
-    list.innerHTML = "";
-    onChildAdded(aref, (snap) => {
-      const a = snap.val?.() || snap.data || snap || {};
-      try {
-        list.prepend(renderAnnItem(a));
-      } catch(e) { console.warn("renderAnnItem failed:", e); }
-      // local mirror + badge
-      try {
-        const old = (typeof getAnns === "function" && getAnns()) || JSON.parse(localStorage.getItem("anns")||"[]");
-        old.push(a);
-        if (typeof setAnns === "function") setAnns(old); else localStorage.setItem("anns", JSON.stringify(old));
-        if (typeof updateAnnBadge === "function") updateAnnBadge();
-      } catch {}
-    });
-  }
-
-  // reset modal fields
-  function resetForm(){
-    try { form?.reset(); } catch {}
-    if (titleEl) titleEl.value = "";
-    if (bodyEl)  bodyEl.value  = "";
-    if (visEl && !visEl.value) visEl.value = "all";
-  }
-
-  // (2) Button → open modal (NO prompt/alert)
-  if (btn && dlg) {
-    // remove old listeners that might still call prompt()
-    btn.replaceWith(btn.cloneNode(true));
-    const freshBtn = document.getElementById("btn-new-post")
-                  || document.getElementById("btn-ann-add")
-                  || document.querySelector("[data-ann-new]");
-    freshBtn?.addEventListener("click", (e)=>{
-      e.preventDefault();
-      if (!canPost()) return toast?.("Requires instructor+");
-      resetForm();
-      dlg.showModal?.();
-    });
-  }
-
-  // (3) Modal close buttons
-  const doClose = ()=> dlg?.close?.();
-  btnClose?.addEventListener("click", doClose);
-  btnCancel?.addEventListener("click", doClose);
-  dlg?.addEventListener?.("keydown", (e)=>{ if (e.key === "Escape") doClose(); });
-
-  // (4) Submit → validate with toast; save cloud/local; close modal
-  if (form) {
-    form.addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      const title = (titleEl?.value||"").trim();
-      const body  = (bodyEl?.value||"").trim();
-      const vis   = (visEl?.value||"all").trim();
-      if (!title) { toast?.("Please add a title."); titleEl?.focus(); return; }
-      if (!body)  { toast?.("Please add a message."); bodyEl?.focus(); return; }
-
-      const rec = {
-        title, body, visibleTo: vis,
-        author: getUser()?.email || "instructor",
-        ts: Date.now()
-      };
-
-      try {
-        if (aref) {
-          await push(aref, rec);
-        } else {
-          // local fallback if no RTDB ref
-          const curr = (typeof getAnns === "function" && getAnns()) || JSON.parse(localStorage.getItem("anns")||"[]");
-          const next = [rec, ...curr];
-          if (typeof setAnns === "function") setAnns(next); else localStorage.setItem("anns", JSON.stringify(next));
-        }
-        doClose();
-        window.renderAnnouncements?.();
-        toast?.("Announcement posted ✅");
-      } catch (err) {
-        console.warn("Announce save failed:", err);
-        toast?.("Failed to post (saved locally if possible).");
-      }
-    });
-  }
-}
-
-// You can keep this line:
-document.addEventListener("DOMContentLoaded", initAnnouncements);
 // function initAnnouncements() {
 //   const list = document.getElementById("annList");
 //   const btn = document.getElementById("btn-new-post");
@@ -5987,139 +5872,84 @@ document.getElementById("btn-new-course")?.addEventListener("click", () => {
 })();
 
 // ===== Announcements: open modal (no alerts), validate with toast, save =====
-// ===== Announcements: Modal wiring (single submit; close on success; RTDB dual-path) =====
-(function setupAnnouncementModalOnce(){
+(function wireAnnouncementModalOnce(){
   if (window.__OL_ONCE__?.annModalWired) return;
 
-  const btnOpen = document.getElementById("btn-new-post")
-               || document.getElementById("btn-ann-add")
-               || document.querySelector("[data-ann-new]");
+  // IDs you have in HTML (adjust if different):
+  // - Button: #btn-ann-add  (or [data-ann-new])
+  // - Dialog: #annModal or #announcementModal
+  // - Form:   #annForm
+  // - Fields: #annTitle, #annBody, #annVisibleTo
+  const openBtn = document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
   const dlg     = document.getElementById("annModal") || document.getElementById("announcementModal");
-  let form      = document.getElementById("annForm")  || dlg?.querySelector("form");
+  const form    = document.getElementById("annForm") || dlg?.querySelector("form");
   const titleEl = dlg?.querySelector("#annTitle");
   const bodyEl  = dlg?.querySelector("#annBody");
   const visEl   = dlg?.querySelector("#annVisibleTo");
-  const btnClose  = dlg?.querySelector("#btn-ann-close");
-  const btnCancel = dlg?.querySelector("#btn-ann-cancel");
 
-  // --- helpers ---
-  const roleOrder = ["student","ta","instructor","admin","owner"];
-  const roleRank  = r => Math.max(0, roleOrder.indexOf(String(r||"student").toLowerCase()));
-  const canPost   = () => roleRank(getUser()?.role||"student") >= roleRank("instructor");
-  const doClose   = () => dlg?.close?.();
-  const resetForm = () => { try { form?.reset(); } catch{}; if (visEl && !visEl.value) visEl.value = "all"; };
-  const subBtn    = () => form?.querySelector('button[type="submit"], .primary');
-
-  // Remove any old listeners that still used prompt()/alert() or duplicate submits
-  if (btnOpen) {
-    const clone = btnOpen.cloneNode(true);
-    btnOpen.parentNode.replaceChild(clone, btnOpen);
+  // small helpers
+  function canPostAnnouncements(){
+    const role = (getUser()?.role || "guest").toLowerCase();
+    return role === "owner" || role === "admin" || role === "instructor";
   }
-  if (form) {
-    const fclone = form.cloneNode(true);
-    form.parentNode.replaceChild(fclone, form);
-    form = fclone;
+  function isFirestoreReady(){
+    return !!(window.db && window.auth && window.IS_AUTHED);
+  }
+  function resetForm(){
+    try {
+      form?.reset();
+      if (titleEl) titleEl.value = "";
+      if (bodyEl)  bodyEl.value  = "";
+      if (visEl && !visEl.value) visEl.value = "all";
+    } catch {}
   }
 
-  // Open modal (no alerts)
-  const freshBtn = document.getElementById("btn-new-post")
-                 || document.getElementById("btn-ann-add")
-                 || document.querySelector("[data-ann-new]");
-  freshBtn?.addEventListener("click", (e)=>{
+  // ⛔️ kill any old handlers that used alert()/prompt()
+  try {
+    openBtn?.replaceWith(openBtn.cloneNode(true));
+  } catch {}
+  const freshOpenBtn = document.getElementById("btn-ann-add") || document.querySelector("[data-ann-new]");
+
+  // Open: no alerts, just show dialog
+  freshOpenBtn?.addEventListener("click", (e)=>{
     e.preventDefault();
-    if (!canPost()) return toast?.("Requires instructor+");
+    if (!canPostAnnouncements()) return toast?.("Only instructors/admins can post announcements.");
     resetForm();
     dlg?.showModal?.();
-    // optional focus
-    setTimeout(()=> titleEl?.focus(), 0);
   });
 
-  // Close buttons
-  btnClose?.addEventListener("click", doClose);
-  btnCancel?.addEventListener("click", doClose);
-  dlg?.addEventListener?.("keydown", (e)=>{ if (e.key === "Escape") doClose(); });
+  // Close buttons inside modal
+  dlg?.querySelectorAll("[data-ann-close], .btn-close, #btn-ann-cancel").forEach(el=>{
+    el.addEventListener("click", ()=> dlg?.close?.());
+  });
 
-  // RTDB refs (both paths supported: /announcements and /anns)
-  function rtdb() {
-    try { return getDatabase?.() || window.dbRT; } catch { return null; }
-  }
-  function refAnnouncements() {
-    const db = rtdb();
-    try { return db ? ref(db, "announcements") : null; } catch { return null; }
-  }
-  function refAnns() {
-    const db = rtdb();
-    try { return db ? ref(db, "anns") : null; } catch { return null; }
-  }
-
-  // save → try /announcements first, then /anns; if both PERMISSION_DENIED → throw
-  async function saveAnnouncement(rec){
-    const aRef = refAnnouncements();
-    const nRef = refAnns();
-    const tryPush = async (r) => {
-      if (!r) throw new Error("no_ref");
-      // push() returns a reference; set() may be called automatically depending on SDK; we use push() helper import
-      return await push(r, rec);
-    };
-
-    // prefer /announcements
-    try { return await tryPush(aRef); }
-    catch (e1) {
-      const msg1 = String(e1 && (e1.message || e1));
-      if (!/PERMISSION_DENIED|permission_denied/i.test(msg1)) throw e1;
-      // fallback /anns
-      try { return await tryPush(nRef); }
-      catch (e2) {
-        throw e2; // bubble up (we'll fallback to local)
-      }
-    }
-  }
-
-  // Single-flight guard to avoid double submits
-  let inFlight = false;
-
+  // Submit: validate → toast (no alert), then save cloud/local
   form?.addEventListener("submit", async (e)=>{
     e.preventDefault();
-    if (inFlight) return;
-    const title = (titleEl?.value || "").trim();
-    const body  = (bodyEl?.value  || "").trim();
-    const vis   = (visEl?.value   || "all").trim();
+    const title = titleEl?.value?.trim() || "";
+    const body  = bodyEl?.value?.trim() || "";
+    const vis   = visEl?.value || "all";
 
     if (!title) { toast?.("Please add a title."); titleEl?.focus(); return; }
     if (!body)  { toast?.("Please add a message."); bodyEl?.focus(); return; }
 
-    const btn = subBtn();
-    btn && (btn.disabled = true);
-    inFlight = true;
-
-    const rec = {
-      title, body, visibleTo: vis,
-      author: getUser()?.email || "instructor",
-      ts: Date.now()
-    };
-
     try {
-      await saveAnnouncement(rec);
-      // success → close modal, rerender, toast
-      doClose();
+      if (isFirestoreReady() && typeof addAnnouncementCloud === "function") {
+        await addAnnouncementCloud({ title, body, visibleTo: vis });
+      } else {
+        // local fallback
+        const curr = getAnns?.() || JSON.parse(localStorage.getItem("anns") || "[]");
+        const rec = { id: Date.now().toString(36), title, body, visibleTo: vis, ts: Date.now() };
+        const next = [rec, ...curr];
+        localStorage.setItem("anns", JSON.stringify(next));
+        setAnns?.(next);
+      }
+      dlg?.close?.();
       window.renderAnnouncements?.();
       toast?.("Announcement posted ✅");
     } catch (err) {
-      // If DB blocked, fallback local mirror so UX still OK
-      console.warn("Ann save failed:", err);
-      try {
-        const curr = (typeof getAnns === "function" && getAnns()) || JSON.parse(localStorage.getItem("anns")||"[]");
-        const next = [rec, ...curr];
-        if (typeof setAnns === "function") setAnns(next); else localStorage.setItem("anns", JSON.stringify(next));
-        doClose();
-        window.renderAnnouncements?.();
-        toast?.("Posted locally (no DB write)");
-      } catch {
-        toast?.("Failed to post.");
-      }
-    } finally {
-      inFlight = false;
-      btn && (btn.disabled = false);
+      console.warn("Announcement save failed:", err);
+      toast?.("Failed to post (saved locally).");
     }
   });
 
