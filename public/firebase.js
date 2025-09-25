@@ -26,6 +26,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
+  initializeFirestore,
   getFirestore,
   collection,
   addDoc,
@@ -82,7 +83,12 @@ setPersistence(auth, browserLocalPersistence).catch(() => {});
 try { useDeviceLanguage(auth); } catch {}
 
 /* Firestore */
-export const db = getFirestore(app);
+// export const db = getFirestore(app);
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,   // သာမာန် dev/proxy အပြင်အဆင်တွေမှာ work ပိုတည်ငြိမ်
+  // experimentalForceLongPolling: true,     // ဒီတန်းပြန်ဖွင့်ရင် long-polling ကို အမြဲသုံး
+  ignoreUndefinedProperties: true
+});
 
 /* RTDB instance (★ add this) */
 export const rtdb = getDatabase(app);
@@ -180,3 +186,16 @@ export function initEmailJS() {
 }
 
 export { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+(function muteFirestoreNoise(){
+  const noisy = /(google\.firestore\.v1\.Firestore\/(Write|Listen)\/channel.*(TYPE=terminate|RID=rpc)|WebChannelConnection.*transport errored|net::ERR_QUIC_PROTOCOL_ERROR)/i;
+  const origE = console.error, origW = console.warn;
+  console.error = function(...args){
+    if (args.some(a => typeof a === "string" && noisy.test(a))) return;
+    origE.apply(console, args);
+  };
+  console.warn = function(...args){
+    if (args.some(a => typeof a === "string" && noisy.test(a))) return;
+    origW.apply(console, args);
+  };
+})();
