@@ -16,6 +16,8 @@ import {
   set,
   push,
   onChildAdded,
+  onChildChanged,     // ★ add
+  onChildRemoved,     // ★ add
   query,
   orderByChild,
   get,
@@ -6231,14 +6233,15 @@ function __updateAnnCardInList(id, rec) {
   const list = document.getElementById("annList");
   if (!list) return;
   const next = renderAnnItem(id, rec);
-  const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+  const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
   if (old) old.replaceWith(next);
 }
 
 function __prependAnnCardInList(id, rec) {
   const list = document.getElementById("annList");
   if (!list) return;
-  list.prepend(renderAnnItem(id, rec));
+  const next = renderAnnItem(id, rec);
+  list.prepend(next);
 }
 
 /* ===== Announcements (RTDB single-init) ===== */
@@ -6277,81 +6280,36 @@ function __prependAnnCardInList(id, rec) {
     setTimeout(()=>tEl?.focus(), 0);
   });
 
-    // ------- Live feed (re-renders immediately on any change) -------
-  if (list) {
-    list.innerHTML = "";
-    const db  = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
-    if (!db) {
-      console.warn("Announcements: RTDB not ready; live feed disabled.");
-    } else {
-      const aref = ref(db, "announcements");
+    // ------- Live feed (add/change/remove) -------
+if (list) {
+  list.innerHTML = "";
+  const aref = annsRef();              // annsRef() သည် ref(db, "announcements")
+  if (aref) {
+    // ADD → prepend (dedupe)
+    onChildAdded(aref, (snap) => {
+      const a = snap.val() || {};
+      const id = snap.key;
+      const node = renderAnnItem(id, a);
+      const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+      old ? old.replaceWith(node) : list.prepend(node);
+    });
 
-      // avoid double subscription
-      if (!window.__ANN_LIVE__) window.__ANN_LIVE__ = {};
+    // CHANGE → replace in-place (✅ Refresh မလို)
+    onChildChanged(aref, (snap) => {
+      const a = snap.val() || {};
+      const id = snap.key;
+      const node = renderAnnItem(id, a);
+      const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+      if (old) old.replaceWith(node);
+    });
 
-      const renderAll = (obj) => {
-        const entries = Object.entries(obj || {});
-        // newest first (by ts)
-        entries.sort((a, b) => (b[1]?.ts || 0) - (a[1]?.ts || 0));
-        // redraw list
-        list.innerHTML = "";
-        for (const [id, rec] of entries) {
-          list.appendChild(renderAnnItem(id, rec));
-        }
-      };
-
-      // Preferred: onValue (single callback for any add/change/remove)
-      if (typeof onValue === "function") {
-        if (!window.__ANN_LIVE__.onValue) {
-          window.__ANN_LIVE__.onValue = true;
-          onValue(aref, (snap) => {
-            renderAll(snap.val());
-          }, (err) => console.warn("announcements onValue error:", err));
-        }
-      } else {
-        // Fallback: child events (if available)
-        // First paint: load once
-        try {
-          // If you have get() available you can do:
-          // const snap = await get(aref); renderAll(snap.val());
-          // otherwise keep empty until adds arrive
-        } catch {}
-        if (typeof onChildAdded === "function") {
-          if (!window.__ANN_LIVE__.added) {
-            window.__ANN_LIVE__.added = true;
-            onChildAdded(aref, (snap) => {
-              const a = snap.val() || {};
-              const id = snap.key;
-              const node = renderAnnItem(id, a);
-              const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-              old ? old.replaceWith(node) : list.prepend(node);
-            });
-          }
-        }
-        if (typeof onChildChanged === "function") {
-          if (!window.__ANN_LIVE__.changed) {
-            window.__ANN_LIVE__.changed = true;
-            onChildChanged(aref, (snap) => {
-              const a = snap.val() || {};
-              const id = snap.key;
-              const node = renderAnnItem(id, a);
-              const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-              if (old) old.replaceWith(node);
-            });
-          }
-        }
-        if (typeof onChildRemoved === "function") {
-          if (!window.__ANN_LIVE__.removed) {
-            window.__ANN_LIVE__.removed = true;
-            onChildRemoved(aref, (snap) => {
-              const id = snap.key;
-              list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
-            });
-          }
-        }
-      }
-    }
+    // REMOVE → take out from DOM
+    onChildRemoved(aref, (snap) => {
+      const id = snap.key;
+      list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+    });
   }
+}
 
   // --- Delegated EDIT / DELETE ---
   list?.addEventListener("click", async (e) => {
@@ -6396,53 +6354,54 @@ function __prependAnnCardInList(id, rec) {
     form.__saving = false;
 
     form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (form.__saving) return;               // avoid double submit
-      form.__saving = true;
-      if (btnSave) btnSave.disabled = true;
+  e.preventDefault();
+  if (form.__saving) return;
+  form.__saving = true;
+  btnSave && (btnSave.disabled = true);
 
-      try {
-        const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
-        if (!db) { toast?.("Database not ready"); return; }
+  try {
+    const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
+    if (!db) { toast?.("Database not ready"); return; }
 
-        const title = (tEl?.value || "").trim();
-        const body  = (bEl?.value || "").trim();
-        const audience = (aEl?.value || "all").trim();
-        if (!title || !body) { toast?.("Title & message required"); return; }
+    const title = (tEl?.value || "").trim();
+    const body  = (bEl?.value || "").trim();
+    const audience = (aEl?.value || "all").trim();
+    if (!title || !body) { toast?.("Title & message required"); return; }
 
-        const rec = { title, body, audience, author: getUser?.()?.email || "instructor", ts: Date.now() };
-        const existingId = (idEl?.value || "").trim();
+    const rec = {
+      title, body, audience,
+      author: getUser?.()?.email || "instructor",
+      ts: Date.now()
+    };
 
-        if (existingId) {
-          await set(ref(db, `announcements/${existingId}`), rec);
-          toast?.("Announcement updated");
-          // UI will refresh via onChildChanged (and we also optimistically update below)
-          const old = document.querySelector(`#annList .card[data-id="${CSS.escape(existingId)}"]`);
-          if (old) old.replaceWith(renderAnnItem(existingId, rec));
-        } else {
-          const newRef = await push(ref(db, "announcements"), rec);
-          toast?.("Announcement posted");
-          // prepend for fast UX; onChildAdded will also reconcile
-          const newId = newRef.key || "";
-          if (newId) {
-            const node = renderAnnItem(newId, rec);
-            document.getElementById("annList")?.prepend(node);
-          }
-        }
+    const id = (idEl?.value || "").trim();
+    if (id) {
+      // EDIT → write + UI update right away
+      await set(ref(db, `announcements/${id}`), rec);
+      __updateAnnCardInList(id, rec);     // ✅ instant reflect
+      toast?.("Announcement updated");
+    } else {
+      // NEW → push + UI prepend
+      const newRef = await push(ref(db, "announcements"), rec);
+      const newId = newRef.key || "";
+      __prependAnnCardInList(newId, rec); // ✅ instant reflect
+      toast?.("Announcement posted");
+    }
 
-        // close & reset
-        try { dlg?.close(); } catch {}
-        form.reset();
-        const h = headerEl(); if (h) h.textContent = "New Announcement";
+    // Close & reset
+    try { dlg?.close(); } catch {}
+    form.reset();
+    const hh = document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
+    if (hh) hh.textContent = "New Announcement";
 
-      } catch (err) {
-        console.warn(err);
-        toast?.("Save failed (permission?)");
-      } finally {
-        form.__saving = false;
-        if (btnSave) btnSave.disabled = false;
-      }
-    });
+  } catch (err) {
+    console.warn(err);
+    toast?.("Save failed (permission?)");
+  } finally {
+    form.__saving = false;
+    btnSave && (btnSave.disabled = false);
+  }
+});
   }
 
   const doClose = () => { try { dlg?.close(); } catch {} };
