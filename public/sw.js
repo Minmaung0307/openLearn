@@ -2,7 +2,8 @@
 const CACHE = 'ol-v8';
 const ASSETS = [
   '/', '/index.html', '/styles.css', '/app.js',
-  '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png',
+  '/manifest.webmanifest',  // make sure filename matches
+  '/icons/icon-192.png', '/icons/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -22,30 +23,25 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// sw.js
-
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  // const url = new URL(req.url);
-  const url = new URL(event.request.url);
+  const url = new URL(req.url);
 
   // Always fetch fresh course data (no SW cache)
   if (url.origin === location.origin && url.pathname.startsWith('/data/')) {
-    event.respondWith(fetch(event.request));
+    event.respondWith(fetch(req));
     return;
   }
 
-  // 1) Only handle same-origin GET
-  const isSameOrigin = url.origin === self.location.origin;
-  if (req.method !== 'GET' || !isSameOrigin) return;
+  // Only same-origin GET
+  if (req.method !== 'GET' || url.origin !== location.origin) return;
 
-  // 2) Normal cache-first/network fallback (edit to your strategy)
+  // Cache-first, network fallback
   event.respondWith((async () => {
-    const cache = await caches.open('openlearn-v1');
+    const cache = await caches.open(CACHE);
     const cached = await cache.match(req);
     if (cached) return cached;
     const res = await fetch(req);
-    // Only cache successful, basic (same-origin) GET responses
     if (res.ok && res.type === 'basic') {
       cache.put(req, res.clone());
     }
