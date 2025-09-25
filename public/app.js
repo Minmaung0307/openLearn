@@ -1141,47 +1141,33 @@ function ensureAnnModal() {
 
 // Card renderer with edit/delete buttons (id + data attrs for quick edit)
 function renderAnnItem(id, a) {
+  const canEdit = typeof roleRank === "function"
+    ? roleRank(getRole?.() || "student") >= roleRank("instructor")
+    : false;
+
   const div = document.createElement("div");
   div.className = "card";
   div.dataset.id = id;
 
   const t = a.ts ? new Date(a.ts).toLocaleString() : "";
-  const who = a.author || "instructor";
-  const aud = (a.audience || "all").toLowerCase();
-  const badge =
-    aud === "students"
-      ? "👩‍🎓 Students"
-      : aud === "instructors"
-      ? "👩‍🏫 Instructors"
-      : "🌐 Everyone";
-  const canEdit = ["owner", "admin", "instructor", "ta"].includes(
-    (getRole() || "").toLowerCase()
-  );
-
   div.innerHTML = `
-    <div class="row" style="justify-content:space-between; align-items:flex-start">
+    <div class="small muted">${esc(a.author || "instructor")} • ${t}</div>
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px">
       <div>
-        <div class="small muted">${esc(
-          who
-        )} • <span class="tiny muted">${badge}</span></div>
-        <div><b>${esc(a.title || "")}</b></div>
+        <b>${esc(a.title || "")}</b>
         <div>${esc(a.body || "")}</div>
       </div>
-      <div class="small muted" style="white-space:nowrap">${t}</div>
+      ${canEdit ? `
+      <div class="row" style="gap:6px">
+        <button class="btn small"
+                data-ann-edit="${esc(id)}"
+                data-title="${esc(a.title || "")}"
+                data-body="${esc(a.body || "")}"
+                data-audience="${esc(a.audience || "all")}">Edit</button>
+        <button class="btn small"
+                data-ann-del="${esc(id)}">Delete</button>
+      </div>` : ""}
     </div>
-    ${
-      canEdit
-        ? `
-    <div class="row" style="gap:6px; margin-top:8px">
-      <button class="btn small"
-              data-ann-edit="${esc(id)}"
-              data-title="${esc(a.title || "")}"
-              data-body="${esc(a.body || "")}"
-              data-audience="${esc(a.audience || "all")}">Edit</button>
-      <button class="btn small" data-ann-del="${esc(id)}">Delete</button>
-    </div>`
-        : ``
-    }
   `;
   return div;
 }
@@ -4760,7 +4746,7 @@ function renderAnnouncements() {
     </div>`
       )
       .join("") || `<div class="muted">No announcements yet.</div>`;
-  wireAnnouncementEditButtons();
+  // wireAnnouncementEditButtons();
   updateAnnBadge();
   enforceRoleGates?.(); // 🔒 re-check after DOM updates
 }
