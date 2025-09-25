@@ -975,13 +975,15 @@ function ensureAnnModalMarkup() {
 function showAnnModal(a = null) {
   __ANN_EDIT_ID = a?.id || null;
   const dlg = document.getElementById("annModal");
-  const f   = document.getElementById("annForm");
+  const f = document.getElementById("annForm");
   if (!dlg || !f) return;
 
-  document.getElementById("annModalTitle").textContent = __ANN_EDIT_ID ? "Edit Announcement" : "New Announcement";
-  document.getElementById("annTitle").value    = a?.title    || "";
+  document.getElementById("annModalTitle").textContent = __ANN_EDIT_ID
+    ? "Edit Announcement"
+    : "New Announcement";
+  document.getElementById("annTitle").value = a?.title || "";
   document.getElementById("annAudience").value = a?.audience || "all";
-  document.getElementById("annBody").value     = a?.body     || "";
+  document.getElementById("annBody").value = a?.body || "";
 
   dlg.showModal?.();
 }
@@ -992,28 +994,38 @@ function renderAnnItem(id, a) {
   div.className = "card";
   div.dataset.id = id;
 
-  const t   = a.ts ? new Date(a.ts).toLocaleString() : "";
+  const t = a.ts ? new Date(a.ts).toLocaleString() : "";
   const who = a.author || "instructor";
   const aud = (a.audience || "all").toLowerCase();
-  const badge = aud === "students" ? "👩‍🎓 Students"
-              : aud === "instructors" ? "👩‍🏫 Instructors"
-              : "🌐 Everyone";
+  const badge =
+    aud === "students"
+      ? "👩‍🎓 Students"
+      : aud === "instructors"
+      ? "👩‍🏫 Instructors"
+      : "🌐 Everyone";
 
-  const canEdit = ["owner","admin","instructor","ta"]
-    .includes((getRole()||"").toLowerCase());
+  const canEdit = ["owner", "admin", "instructor", "ta"].includes(
+    (getRole() || "").toLowerCase()
+  );
 
   div.innerHTML = `
-    <div class="small muted">${esc(who)} • ${t} • <span class="tiny muted">${badge}</span></div>
+    <div class="small muted">${esc(
+      who
+    )} • ${t} • <span class="tiny muted">${badge}</span></div>
     <div style="display:flex; gap:8px; align-items:flex-start; justify-content:space-between">
       <div>
         <div><b>${esc(a.title || "")}</b></div>
         <div>${esc(a.body || "")}</div>
       </div>
-      ${canEdit ? `
+      ${
+        canEdit
+          ? `
       <div class="row" style="gap:6px; flex:0 0 auto">
         <button class="btn small" data-ann-edit="${esc(id)}">Edit</button>
         <button class="btn small" data-ann-del="${esc(id)}">Delete</button>
-      </div>` : ``}
+      </div>`
+          : ``
+      }
     </div>
   `;
   return div;
@@ -1028,80 +1040,64 @@ function initAnnouncements() {
   list.innerHTML = "";
   onChildAdded(aref, (snap) => {
     const a = snap.val() || {};
-    const id = snap.key;
-    const node = renderAnnItem(id, a);     // << changed
-    const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-    old ? old.replaceWith(node) : list.prepend(node);
-    // badge update
+    a._id = snap.key;
+    list.prepend(renderAnnItem(a));
     try {
-      const cache = Array.isArray(getAnns?.()) ? getAnns() : [];
-      const rest  = cache.filter(x => x.id !== id);
-      setAnns([...rest, { id, ...a }]);
-      updateAnnBadge?.();
+      const old = getAnns();
+      old.push(a);
+      setAnns(old);
+      updateAnnBadge();
     } catch {}
   });
 
-  // === Add Announcement button ===
+  // Add Announcement
   btn?.addEventListener("click", () => {
     if (roleRank(getRole()) < roleRank("instructor")) {
       return toast("Requires instructor+");
     }
     const dlg = document.getElementById("annModal");
-    // clear for NEW
-    document.getElementById("annId")?.value = "";
-    document.getElementById("annTitle").value = "";
-    document.getElementById("annBody").value = "";
-    const audSel = document.getElementById("annAudience");
-    if (audSel) audSel.value = "all";
-    document.getElementById("annModalTitle")?.textContent = "New Announcement";
     dlg?.showModal?.();
   });
 
-  // === Delegated edit/delete ===
+  // Delegated edit/delete
   list.addEventListener("click", async (e) => {
     const editBtn = e.target.closest("[data-ann-edit]");
-    const delBtn  = e.target.closest("[data-ann-del]");
+    const delBtn = e.target.closest("[data-ann-del]");
     if (!editBtn && !delBtn) return;
 
     let id = null;
-    if (editBtn) id = editBtn.getAttribute("data-ann-edit");
-    else id = delBtn.getAttribute("data-ann-del");
+    if (editBtn) {
+      id = editBtn.getAttribute("data-ann-edit");
+    } else if (delBtn) {
+      id = delBtn.getAttribute("data-ann-del");
+    }
     if (!id) return;
 
-    if (delBtn) {
+    if (editBtn) {
+      const dlg = document.getElementById("annModal");
+      document.getElementById("annId").value = id;
+      document.getElementById("annTitle").value = editBtn.dataset.title || "";
+      document.getElementById("annBody").value = editBtn.dataset.body || "";
+      document.getElementById("annAudience").value =
+        editBtn.dataset.audience || "all";
+      dlg?.showModal?.();
+    } else if (delBtn) {
       if (!confirm("Delete this announcement?")) return;
       try {
-        await remove(ref(rtdb, `anns/${id}`));       // << changed
+        await remove(child(aref, id));
         toast("Announcement deleted");
-        list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
       } catch {
         toast("Delete failed");
       }
-      return;
-    }
-
-    // edit
-    try {
-      const snap = await get(ref(rtdb, `anns/${id}`)); // << changed
-      const a = snap.val() || {};
-      document.getElementById("annId")?.value    = id;           // hidden input
-      document.getElementById("annTitle").value = a.title || "";
-      document.getElementById("annBody").value  = a.body  || "";
-      const audSel = document.getElementById("annAudience");
-      if (audSel) audSel.value = a.audience || "all";
-      document.getElementById("annModalTitle")?.textContent = "Edit Announcement";
-      document.getElementById("annModal")?.showModal?.();
-    } catch {
-      toast("Load failed");
     }
   });
 
-  // === Modal Save ===
+  // Modal Save
   document.getElementById("annSave")?.addEventListener("click", async () => {
-    const id    = document.getElementById("annId")?.value || ""; // << safe
+    const id = document.getElementById("annId").value;
     const title = document.getElementById("annTitle").value.trim();
-    const body  = document.getElementById("annBody").value.trim();
-    const audience = (document.getElementById("annAudience")?.value || "all");
+    const body = document.getElementById("annBody").value.trim();
+    const audience = document.getElementById("annAudience").value;
 
     if (!title || !body) return toast("Title & message required");
 
@@ -1115,13 +1111,13 @@ function initAnnouncements() {
 
     try {
       if (id) {
-        await set(ref(rtdb, `anns/${id}`), payload); // << changed
+        await set(child(aref, id), payload);
         toast("Announcement updated");
       } else {
         await push(aref, payload);
         toast("Announcement posted");
       }
-      document.getElementById("annModal")?.close(); // ✅ close on success
+      document.getElementById("annModal")?.close();
     } catch {
       toast("Ann save failed");
     }
@@ -4364,25 +4360,30 @@ let __COURSE_FORM_ID = null;
 
 // REPLACE your openCourseForm with this version
 async function openCourseForm(mode = "new", cid = null) {
-  if (mode === "new" && !canCreateCourse()) return toast?.("Only instructors/admins can create.");
-  if (mode === "edit" && !canEditCourse())   return toast?.("No permission to edit.");
+  if (mode === "new" && !canCreateCourse())
+    return toast?.("Only instructors/admins can create.");
+  if (mode === "edit" && !canEditCourse())
+    return toast?.("No permission to edit.");
 
   __COURSE_FORM_MODE = mode;
   __COURSE_FORM_ID = cid;
 
-  const dlg  = document.getElementById("courseModal");
+  const dlg = document.getElementById("courseModal");
   const form = document.getElementById("courseForm");
   if (!dlg || !form) return;
 
   // title label (robust)
   const titleEl =
-    form.querySelector(".modal-title") ||
-    dlg.querySelector(".modal-title");
-  if (titleEl) titleEl.textContent = mode === "edit" ? "Edit Course" : "New Course";
+    form.querySelector(".modal-title") || dlg.querySelector(".modal-title");
+  if (titleEl)
+    titleEl.textContent = mode === "edit" ? "Edit Course" : "New Course";
 
   // helpers
   const $id = (id) => document.getElementById(id);
-  const set = (id, val) => { const el = $id(id); if (el) el.value = val ?? ""; };
+  const set = (id, val) => {
+    const el = $id(id);
+    if (el) el.value = val ?? "";
+  };
 
   // Reset form before filling
   form.reset();
@@ -4405,11 +4406,14 @@ async function openCourseForm(mode = "new", cid = null) {
   } else {
     // === EDIT ===
     const id = cid;
-    const list = (typeof getCourses === "function") ? getCourses() : (window.ALL || []);
+    const list =
+      typeof getCourses === "function" ? getCourses() : window.ALL || [];
     const cRow = list.find((x) => x.id === id) || {};
     let meta = null;
     try {
-      meta = await fetch(`/data/courses/${id}/meta.json`).then((r) => (r.ok ? r.json() : null));
+      meta = await fetch(`/data/courses/${id}/meta.json`).then((r) =>
+        r.ok ? r.json() : null
+      );
     } catch {}
 
     // Normalize category (might be array in catalog)
@@ -4417,12 +4421,12 @@ async function openCourseForm(mode = "new", cid = null) {
       ? meta.category.join(", ")
       : Array.isArray(cRow?.category)
       ? cRow.category.join(", ")
-      : (meta?.category ?? cRow.category ?? "");
+      : meta?.category ?? cRow.category ?? "";
 
     // Normalize benefits (array|string → textarea)
     const ben = Array.isArray(meta?.benefits)
       ? meta.benefits.join("\n")
-      : (meta?.benefits ?? cRow.benefits ?? "");
+      : meta?.benefits ?? cRow.benefits ?? "";
 
     // Fill basics
     set("courseId", id);
@@ -4437,7 +4441,7 @@ async function openCourseForm(mode = "new", cid = null) {
     set("coursePrice", String(meta?.price ?? cRow.price ?? 0));
 
     // Lessons + quiz → lessonPlan lines
-    const mod0    = meta?.modules?.[0] || null;
+    const mod0 = meta?.modules?.[0] || null;
     const lessons = Array.isArray(mod0?.lessons) ? mod0.lessons : [];
     // Build quiz index set (from filenames like lesson-00.json)
     const quizSet = new Set(
