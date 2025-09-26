@@ -469,6 +469,7 @@ textarea::placeholder {
 }
 .course .course-body {
   margin-top: 8px;
+  padding: .75rem 1rem;
 }
 
 /* Reader */
@@ -1709,4 +1710,15 @@ details.help + details.help {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+.price-tag{
+  font-size:.95rem;
+  font-weight:700;
+  color:#0ea5e9;          /* sky */
+  background:#e0f2fe;     /* sky-100 */
+  padding:4px 10px;
+  border-radius:999px;
+  line-height:1;
+  white-space:nowrap;
 }

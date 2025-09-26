@@ -923,10 +923,7 @@ function renderCatalog() {
   const rawCat = $("#filterCategory")?.value || "";
   const rawLvl = $("#filterLevel")?.value || "";
   const sort = ($("#sortBy")?.value || "").trim();
-  const _norm = (s) =>
-    String(s || "")
-      .toLowerCase()
-      .trim();
+  const _norm = (s) => String(s || "").toLowerCase().trim();
   const _hasCategory = (c, want) =>
     Array.isArray(c.category)
       ? c.category.some((x) => _norm(x) === _norm(want))
@@ -936,13 +933,13 @@ function renderCatalog() {
   const lvl = _norm(rawLvl);
   const isAllCat = cat === "" || cat === "all" || cat === "all categories";
 
-  // filter + sort (sortCourses already defined)
+  // filter + sort
   let list = ALL.filter((c) => {
     const okCat = isAllCat ? true : _hasCategory(c, rawCat);
     const okLvl = lvl === "" ? true : _norm(c.level) === lvl;
     return okCat && okLvl;
   });
-  list = sortCourses(list, sort); // exists in your file  [oai_citation:3‡app.js](file-service://file-5iJmYVSYgMtNoDDhyckXdQ)
+  list = sortCourses(list, sort);
 
   if (!list.length) {
     grid.innerHTML = `<div class="muted">No courses match the filters.</div>`;
@@ -952,13 +949,17 @@ function renderCatalog() {
   grid.innerHTML = list
     .map((c) => {
       const r = Number(c.rating ?? 4.6);
-      const priceStr = (c.price || 0) > 0 ? "$" + c.price : "Free";
+      const priceNum = Number(c.price || 0);
+      const isPaid = priceNum > 0;
+      const priceStr = isPaid ? `$${priceNum.toFixed(2)}` : "Free";
+
       const search = [
         c.title,
         c.summary,
         Array.isArray(c.category) ? c.category.join(", ") : c.category,
         c.level,
       ].join(" ");
+
       const enrolled = getEnrolls().has(c.id);
       const ben = (c.benefits || "").trim();
       const benList = ben
@@ -968,14 +969,20 @@ function renderCatalog() {
             .join("")}</ul>`
         : "";
 
-      return `<div class="card course" data-id="${c.id}" data-search="${esc(
-        search
-      )}">
+      const primaryLabel = enrolled ? "Enrolled" : (isPaid ? `Buy ${priceStr}` : "Enroll");
+      const primaryAttr = enrolled
+        ? `disabled`
+        : (isPaid ? `data-buy="${esc(c.id)}"` : `data-enroll="${esc(c.id)}"`);
+
+      return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
   <img class="course-cover" src="${esc(
     c.image || `https://picsum.photos/seed/${c.id}/640/360`
   )}" alt="">
   <div class="course-body">
-    <strong>${esc(c.title)}</strong>
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px">
+      <strong>${esc(c.title)}</strong>
+      <span class="price-tag">${esc(priceStr)}</span>
+    </div>
     <div class="small muted">${esc(
       Array.isArray(c.category) ? c.category.join(", ") : c.category || ""
     )} • ${esc(c.level || "")} • ${renderStars(r)}</div>
@@ -983,9 +990,7 @@ function renderCatalog() {
     ${benList}
     <div class="row" style="justify-content:flex-end; gap:8px">
       <button class="btn" data-details="${c.id}">Details</button>
-      <button class="btn primary" data-enroll="${c.id}">${
-        enrolled ? "Enrolled" : "Enroll"
-      }</button>
+      <button class="btn primary" ${primaryAttr}>${primaryLabel}</button>
     </div>
   </div>
 </div>`;
@@ -993,16 +998,27 @@ function renderCatalog() {
     .join("");
 
   // bind actions
-  grid
-    .querySelectorAll("[data-enroll]")
-    .forEach(
-      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
-    );
-  grid
-    .querySelectorAll("[data-details]")
-    .forEach(
-      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
-    );
+  grid.querySelectorAll("[data-enroll]").forEach(
+    (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+  );
+  grid.querySelectorAll("[data-details]").forEach(
+    (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+  );
+
+  // paid courses → open pay modal
+  grid.querySelectorAll("[data-buy]").forEach((b) => {
+    b.onclick = () => {
+      const cid = b.getAttribute("data-buy");
+      const course = ALL.find((x) => x.id === cid);
+      if (!course) return;
+      if (typeof openPayModalForCourse === "function") {
+        openPayModalForCourse(course);
+      } else {
+        // fallback: if you still use handleEnroll to start checkout
+        handleEnroll?.(cid);
+      }
+    };
+  });
 }
 
 // default option before data arrives (kept)
