@@ -3597,10 +3597,10 @@ function renderProfilePanel() {
   const socialHtml = socialLinks.length
     ? `<div class="small" style="margin:.4rem 0">
          <b class="muted">Social:</b>
-         <div style="margin-top:.25rem;display:flex;gap:8px;flex-wrap:wrap">
+         <div style="margin-top:.25rem;display:flex;flex-direction:column;gap:6px;">
            ${socialLinks.map(u => {
              const safe = ensureHttp(u);
-             return `<a class="chip" href="${safe}" target="_blank" rel="noopener">${safe}</a>`;
+             return `<a class="chip" href="${safe}" target="_blank" rel="noopener" style="display:block">${safe}</a>`;
            }).join("")}
          </div>
        </div>`
