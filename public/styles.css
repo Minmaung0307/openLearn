@@ -1786,8 +1786,8 @@ details.help + details.help {
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--pf-border);
-  background: #f9fafb;
-  color: #111827;
+  background: #618585;
+  color: #8d5a03;
   text-decoration: none;
   font-size: .85rem;
   transition: all .15s ease;
