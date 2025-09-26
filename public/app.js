@@ -3562,103 +3562,161 @@ function renderProfilePanel() {
   const box = $("#profilePanel");
   if (!box) return;
 
-  const p = getProfile();
-  const name = p.displayName || getUser()?.email || "Guest";
-  const baseSrc = toImageSrc(p.photoURL);
+  const p = getProfile() || {};
+  const userEmail = getUser()?.email || "";
+  const name = p.displayName || (userEmail ? userEmail : "Guest");
+
+  // avatar (optional)
+  const baseSrc = toImageSrc?.(p.photoURL);
   const avatar = baseSrc
     ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
+    : "/assets/default-avatar.png";
+
+  // bio
+  const bio = p.bio ? String(p.bio).trim() : "";
+
+  // skills → accept array or comma-separated string
+  let skillsText = "";
+  if (Array.isArray(p.skills)) {
+    skillsText = p.skills.map(s => String(s).trim()).filter(Boolean).join(", ");
+  } else if (p.skills) {
+    skillsText = String(p.skills)
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  // ---- Portfolio links (accept: string | array | object{label:url}) ----
+  function normalizeLinks(v) {
+    // returns [{label, url}]
+    const out = [];
+    if (!v) return out;
+    // object map: { GitHub: "https://...", Website: "..." }
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      for (const [label, url] of Object.entries(v)) {
+        const u = String(url || "").trim();
+        if (u) out.push({ label: String(label || u), url: u });
+      }
+      return out;
+    }
+    // array: ["https://...", "https://..."]
+    if (Array.isArray(v)) {
+      v.forEach((u) => {
+        const s = String(u || "").trim();
+        if (!s) return;
+        out.push({ label: s.replace(/^https?:\/\//, ""), url: s });
+      });
+      return out;
+    }
+    // comma-separated string
+    if (typeof v === "string") {
+      v.split(",").map(s => s.trim()).filter(Boolean).forEach((s) => {
+        out.push({ label: s.replace(/^https?:\/\//, ""), url: s });
+      });
+    }
+    return out;
+  }
+
+  const portfolioLinks = normalizeLinks(p.portfolio || p.portfolios);
+  const socialLinks    = normalizeLinks(p.social || p.socials || p.links);
+
+  const portfolioHtml = portfolioLinks.length
+    ? `<div class="small" style="margin-top:.35rem">
+         <b>Portfolio:</b>
+         <ul class="link-list">
+           ${portfolioLinks.map(l => `
+             <li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a></li>
+           `).join("")}
+         </ul>
+       </div>`
     : "";
 
-  //   const completed = getCompletedRaw();                       // ← all completed
-  const dic = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
+  const socialHtml = socialLinks.length
+    ? `<div class="small" style="margin-top:.35rem">
+         <b>Social:</b>
+         <ul class="link-list">
+           ${socialLinks.map(l => `
+             <li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a></li>
+           `).join("")}
+         </ul>
+       </div>`
+    : "";
 
-  //   const transcriptItems = getCompletedRaw().map(x => {
-  //   const c = dic.get(x.id);
-  //   return { meta:x, course:c, title: c?.title || x.id };
-  // });
+  // ==== Transcript & Certificates (unchanged logic, with guards) ====
+  const coursesDict = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
+
   const transcriptItems = getCompletedRaw()
-    .map((x) => {
-      const c = dic.get(x.id);
-      return { meta: x, course: c, title: c?.title || x.id };
-    })
-    .filter((x) => x.course); // ✅ guard
+    .map((x) => ({ meta: x, course: coursesDict.get(x.id), title: (coursesDict.get(x.id)?.title || x.id) }))
+    .filter((x) => x.course); // guard
 
   const certItems = transcriptItems
     .map((x) => ({ ...x, cert: getIssuedCert(x.course?.id) }))
-    .filter((x) => x.cert); // only those issued
+    .filter((x) => x.cert);
 
   const transcriptHtml = transcriptItems.length
     ? `
-  <table class="ol-table small" style="margin-top:.35rem">
-    <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
-    <tbody>
-      ${transcriptItems
-        .map(
-          (r) => `
-        <tr>
-          <td>${esc(r.title)}</td>
-          <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
-          <td>${
-            r.meta.score != null ? Math.round(r.meta.score * 100) + "%" : "—"
-          }</td>
-        </tr>`
-        )
-        .join("")}
-    </tbody>
-  </table>`
-    : `<div class="small muted">No completed courses yet.</div>`;
+      <div style="margin-top:10px">
+        <b class="small">Transcript</b>
+        <table class="ol-table small" style="margin-top:.35rem">
+          <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
+          <tbody>
+            ${transcriptItems.map(r => `
+              <tr>
+                <td>${esc(r.title)}</td>
+                <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
+                <td>${r.meta.score != null ? Math.round(r.meta.score * 100) + "%" : "—"}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>`
+    : `<div class="small muted" style="margin-top:10px">No completed courses yet.</div>`;
 
   const certSection = certItems.length
     ? `
-    <div style="margin-top:14px">
-      <b class="small">Certificates</b>
-      <table class="ol-table small" style="margin-top:.35rem">
-        <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
-        <tbody>
-          ${certItems
-            .map(
-              ({ course }) => `
-            <tr>
-              <td>${esc(course.title)}</td>
-              <td style="text-align:right">
-                <button class="btn small" data-cert-view="${esc(
-                  course.id
-                )}">View</button>
-                <button class="btn small" data-cert-dl="${esc(
-                  course.id
-                )}">Download PDF</button>
-              </td>
-            </tr>`
-            )
-            .join("")}
-        </tbody>
-      </table>
-    </div>`
+      <div style="margin-top:12px">
+        <b class="small">Certificates</b>
+        <table class="ol-table small" style="margin-top:.35rem">
+          <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody>
+            ${certItems.map(({ course }) => `
+              <tr>
+                <td>${esc(course.title)}</td>
+                <td style="text-align:right">
+                  <button class="btn small" data-cert-view="${esc(course.id)}">View</button>
+                  <button class="btn small" data-cert-dl="${esc(course.id)}">Download PDF</button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>`
     : "";
 
+  // ==== Render ====
   box.innerHTML = `
-    <div class="row" style="gap:12px;align-items:flex-start">
-      <img src="${avatar || "/assets/default-avatar.png"}"
-           alt=""
-           style="width:72px;height:72px;border-radius:50%"
-           onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
+    <style>
+      #profilePanel .link-list{ list-style: disc; padding-left: 1.1rem; margin:.3rem 0 0; }
+      #profilePanel .hstack{ display:flex; gap:12px; align-items:flex-start; }
+      #profilePanel .avatar{ width:72px; height:72px; border-radius:50%; object-fit:cover }
+    </style>
+    <div class="hstack">
+      <img class="avatar" src="${esc(avatar)}" alt=""
+        onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
       <div class="grow">
         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
-        ${
-          p.bio
-            ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
-            : ""
-        }
-        ${
-          p.skills
-            ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
-            : ""
-        }
-        <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
+        ${bio ? `<div class="muted" style="margin:.25rem 0">${esc(bio)}</div>` : ""}
+        ${skillsText ? `<div class="small muted">Skills: ${esc(skillsText)}</div>` : ""}
+        ${portfolioHtml}
+        ${socialHtml}
+        ${transcriptHtml}
         ${certSection}
       </div>
-    </div>`;
+    </div>
+  `;
 
+  // cert buttons
   box.querySelectorAll("[data-cert-view]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-view");
@@ -3677,6 +3735,126 @@ function renderProfilePanel() {
   });
 }
 window.renderProfilePanel = renderProfilePanel;
+
+// function renderProfilePanel() {
+//   const box = $("#profilePanel");
+//   if (!box) return;
+
+//   const p = getProfile();
+//   const name = p.displayName || getUser()?.email || "Guest";
+//   const baseSrc = toImageSrc(p.photoURL);
+//   const avatar = baseSrc
+//     ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
+//     : "";
+
+//   //   const completed = getCompletedRaw();                       // ← all completed
+//   const dic = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
+
+//   //   const transcriptItems = getCompletedRaw().map(x => {
+//   //   const c = dic.get(x.id);
+//   //   return { meta:x, course:c, title: c?.title || x.id };
+//   // });
+//   const transcriptItems = getCompletedRaw()
+//     .map((x) => {
+//       const c = dic.get(x.id);
+//       return { meta: x, course: c, title: c?.title || x.id };
+//     })
+//     .filter((x) => x.course); // ✅ guard
+
+//   const certItems = transcriptItems
+//     .map((x) => ({ ...x, cert: getIssuedCert(x.course?.id) }))
+//     .filter((x) => x.cert); // only those issued
+
+//   const transcriptHtml = transcriptItems.length
+//     ? `
+//   <table class="ol-table small" style="margin-top:.35rem">
+//     <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
+//     <tbody>
+//       ${transcriptItems
+//         .map(
+//           (r) => `
+//         <tr>
+//           <td>${esc(r.title)}</td>
+//           <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
+//           <td>${
+//             r.meta.score != null ? Math.round(r.meta.score * 100) + "%" : "—"
+//           }</td>
+//         </tr>`
+//         )
+//         .join("")}
+//     </tbody>
+//   </table>`
+//     : `<div class="small muted">No completed courses yet.</div>`;
+
+//   const certSection = certItems.length
+//     ? `
+//     <div style="margin-top:14px">
+//       <b class="small">Certificates</b>
+//       <table class="ol-table small" style="margin-top:.35rem">
+//         <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
+//         <tbody>
+//           ${certItems
+//             .map(
+//               ({ course }) => `
+//             <tr>
+//               <td>${esc(course.title)}</td>
+//               <td style="text-align:right">
+//                 <button class="btn small" data-cert-view="${esc(
+//                   course.id
+//                 )}">View</button>
+//                 <button class="btn small" data-cert-dl="${esc(
+//                   course.id
+//                 )}">Download PDF</button>
+//               </td>
+//             </tr>`
+//             )
+//             .join("")}
+//         </tbody>
+//       </table>
+//     </div>`
+//     : "";
+
+//   box.innerHTML = `
+//     <div class="row" style="gap:12px;align-items:flex-start">
+//       <img src="${avatar || "/assets/default-avatar.png"}"
+//            alt=""
+//            style="width:72px;height:72px;border-radius:50%"
+//            onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
+//       <div class="grow">
+//         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
+//         ${
+//           p.bio
+//             ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
+//             : ""
+//         }
+//         ${
+//           p.skills
+//             ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
+//             : ""
+//         }
+//         <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
+//         ${certSection}
+//       </div>
+//     </div>`;
+
+//   box.querySelectorAll("[data-cert-view]").forEach((btn) => {
+//     btn.addEventListener("click", () => {
+//       const id = btn.getAttribute("data-cert-view");
+//       const c = (ALL.length ? ALL : getCourses()).find((x) => x.id === id);
+//       if (c) showCertificate(c, { issueIfMissing: false });
+//     });
+//   });
+//   box.querySelectorAll("[data-cert-dl]").forEach((btn) => {
+//     btn.addEventListener("click", () => {
+//       const id = btn.getAttribute("data-cert-dl");
+//       const c = (ALL.length ? ALL : getCourses()).find((x) => x.id === id);
+//       if (!c) return;
+//       showCertificate(c, { issueIfMissing: false });
+//       setTimeout(() => window.print(), 200);
+//     });
+//   });
+// }
+// window.renderProfilePanel = renderProfilePanel;
 
 // ---- Avatar Upload to Firebase Storage (non-destructive) ----
 import {
