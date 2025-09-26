@@ -1722,3 +1722,66 @@ details.help + details.help {
   line-height:1;
   white-space:nowrap;
 }
+
+/* ==== Profile Card (pretty) ==== */
+.profile-card {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow-soft);
+}
+
+.profile-avatar {
+  width: 88px; height: 88px; border-radius: 16px;
+  object-fit: cover; background: #0e1423; border: 1px solid var(--border);
+}
+
+.profile-name { font-size: 1.15rem; font-weight: 800; margin: 2px 0 4px; }
+.profile-bio { color: var(--muted); margin: 2px 0 4px; }
+.profile-skills { color: var(--muted); font-size: .95rem; }
+
+.profile-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.profile-section {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255,255,255,0.02);
+}
+.profile-section b.title {
+  display: inline-block;
+  font-size: .9rem;
+  opacity: .9;
+  margin-bottom: 6px;
+}
+
+.profile-links a {
+  display: block;               /* 👉 တစ်ကြောင်းစီ ပြမယ် */
+  color: #7dd3fc;               /* sky-300-ish */
+  text-decoration: none;
+  padding: 3px 0;
+  word-break: break-all;
+}
+.profile-links a:hover { text-decoration: underline; }
+
+.profile-tag {
+  display: inline-flex; align-items: center;
+  gap: 6px; font-size: .85rem;
+  padding: 4px 8px; border-radius: 999px;
+  background: rgba(37,99,235,.08); color: #a5b4fc;
+  border: 1px solid var(--border);
+}
+
+/* transcript table tighter inside the card */
+.profile-table { margin-top: .35rem; }
+.profile-table .ol-table th,
+.profile-table .ol-table td { padding: 8px 8px; }

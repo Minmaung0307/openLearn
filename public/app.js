@@ -3563,128 +3563,134 @@ function renderProfilePanel() {
   const box = document.getElementById("profilePanel");
   if (!box) return;
 
-  const p = (typeof getProfile === "function" ? getProfile() : {}) || {};
-  const name = p.displayName || (typeof getUser === "function" ? getUser()?.email : "") || "Guest";
+  const p = getProfile?.() || {};
+  const user = getUser?.() || {};
+  const name = p.displayName || user.email || "Guest";
+  const baseSrc = toImageSrc?.(p.photoURL);
+  const avatar = baseSrc
+    ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
+    : "/assets/default-avatar.png";
 
-  const toImageSrc = (u) => u || "/assets/default-avatar.png";
-  const baseSrc = toImageSrc(p.photoURL);
-  const avatar = baseSrc ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now() : "/assets/default-avatar.png";
-
-  // --- link helpers ---
-  const splitLinks = (s) =>
-    String(s || "")
-      .split(/[\s,]+/)
-      .map(x => x.trim())
+  // helpers
+  const escHtml = (s) => String(s || "").replace(/[&<>"']/g, m =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const parseList = (val) =>
+    String(val || "")
+      .split(/[\n,]+/)      // comma / newline இரண்டும் support
+      .map(s => s.trim())
       .filter(Boolean);
 
-  const ensureHttp = (u) => /^https?:\/\//i.test(u) ? u : `http://${u}`;
+  // social + portfolio
+  const socials = parseList(p.social);     // e.g. "https://x.com/me, https://fb.com/me"
+  const portfolio = (p.portfolio || "").trim(); // e.g. "https://github.com/me"
 
-  const portfolioLinks = splitLinks(p.links);          // ← portfolio input (name="links")
-  const socialLinks    = splitLinks(p.social);         // ← social input (name="social")
-
-  const portfolioHtml = portfolioLinks.length
-    ? `<div class="small" style="margin:.4rem 0">
-         <b class="muted">Portfolio:</b>
-         <div style="margin-top:.25rem;display:flex;gap:8px;flex-wrap:wrap">
-           ${portfolioLinks.map(u => {
-             const safe = ensureHttp(u);
-             return `<a class="chip" href="${safe}" target="_blank" rel="noopener">${safe}</a>`;
-           }).join("")}
-         </div>
-       </div>`
-    : "";
-
-  const socialHtml = socialLinks.length
-    ? `<div class="small" style="margin:.4rem 0">
-         <b class="muted">Social:</b>
-         <div style="margin-top:.25rem;display:flex;flex-direction:column;gap:6px;">
-           ${socialLinks.map(u => {
-             const safe = ensureHttp(u);
-             return `<a class="chip" href="${safe}" target="_blank" rel="noopener" style="display:block">${safe}</a>`;
-           }).join("")}
-         </div>
-       </div>`
-    : "";
-
-  // courses for transcript/certs
-  const courses = (window.ALL && window.ALL.length ? window.ALL : (typeof getCourses === "function" ? getCourses() : [])) || [];
-  const dic = new Map(courses.map(c => [c.id, c]));
-
-  const transcriptItems = (typeof getCompletedRaw === "function" ? getCompletedRaw() : [])
+  // map of courses for transcript
+  const dic = new Map((ALL.length ? ALL : getCourses()).map(c => [c.id, c]));
+  const transcriptItems = (getCompletedRaw?.() || [])
     .map(x => ({ meta: x, course: dic.get(x.id), title: (dic.get(x.id)?.title || x.id) }))
     .filter(x => x.course);
-
-  const transcriptHtml = transcriptItems.length
-    ? `<table class="ol-table small" style="margin-top:.35rem">
-         <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
-         <tbody>
-           ${transcriptItems.map(r => `
-             <tr>
-               <td>${(r.title||"").replace(/</g,"&lt;")}</td>
-               <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
-               <td>${r.meta.score != null ? Math.round(r.meta.score*100) + "%" : "—"}</td>
-             </tr>`).join("")}
-         </tbody>
-       </table>`
-    : `<div class="small muted">No completed courses yet.</div>`;
-
   const certItems = transcriptItems
-    .map(x => ({ ...x, cert: (typeof getIssuedCert === "function" ? getIssuedCert(x.course?.id) : null) }))
+    .map(x => ({ ...x, cert: getIssuedCert?.(x.course?.id) }))
     .filter(x => x.cert);
 
-  const certSection = certItems.length
-    ? `<div style="margin-top:14px">
-         <b class="small">Certificates</b>
-         <table class="ol-table small" style="margin-top:.35rem">
-           <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
-           <tbody>
-             ${certItems.map(({course}) => `
-               <tr>
-                 <td>${(course.title||"").replace(/</g,"&lt;")}</td>
-                 <td style="text-align:right">
-                   <button class="btn small" data-cert-view="${course.id}">View</button>
-                   <button class="btn small" data-cert-dl="${course.id}">Download PDF</button>
-                 </td>
-               </tr>`).join("")}
-           </tbody>
-         </table>
+  // build HTML
+  const socialsHtml = socials.length
+    ? `<div class="profile-section">
+         <b class="title">Social</b>
+         <div class="profile-links">
+           ${socials.map(u => `<a href="${escHtml(u)}" target="_blank" rel="noopener">${escHtml(u)}</a>`).join("")}
+         </div>
        </div>`
     : "";
 
-  const bioHtml    = p.bio ? `<div class="muted" style="margin:.25rem 0">${(p.bio||"").replace(/</g,"&lt;")}</div>` : "";
-  const skillsHtml = p.skills ? `<div class="small muted">Skills: ${(p.skills||"").replace(/</g,"&lt;")}</div>` : "";
+  const portfolioHtml = portfolio
+    ? `<div class="profile-section">
+         <b class="title">Portfolio</b>
+         <div class="profile-links">
+           <a href="${escHtml(portfolio)}" target="_blank" rel="noopener">${escHtml(portfolio)}</a>
+         </div>
+       </div>`
+    : "";
+
+  const transcriptHtml = transcriptItems.length
+    ? `<div class="profile-section profile-table">
+         <b class="title">Transcript</b>
+         <div class="table-responsive">
+           <table class="ol-table small">
+             <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
+             <tbody>
+               ${transcriptItems.map(r => `
+                 <tr>
+                   <td>${escHtml(r.title)}</td>
+                   <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
+                   <td>${r.meta.score != null ? Math.round(r.meta.score * 100) + "%" : "—"}</td>
+                 </tr>`).join("")}
+             </tbody>
+           </table>
+         </div>
+       </div>`
+    : `<div class="profile-section"><b class="title">Transcript</b><div class="small muted">No completed courses yet.</div></div>`;
+
+  const certHtml = certItems.length
+    ? `<div class="profile-section profile-table">
+         <b class="title">Certificates</b>
+         <div class="table-responsive">
+           <table class="ol-table small">
+             <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
+             <tbody>
+               ${certItems.map(({ course }) => `
+                 <tr>
+                   <td>${escHtml(course.title)}</td>
+                   <td style="text-align:right">
+                     <button class="btn small" data-cert-view="${escHtml(course.id)}">View</button>
+                     <button class="btn small" data-cert-dl="${escHtml(course.id)}">Download PDF</button>
+                   </td>
+                 </tr>`).join("")}
+             </tbody>
+           </table>
+         </div>
+       </div>`
+    : "";
+
+  // Only 3 lines under name: bio + skills (single line)
+  const bioLine = p.bio ? `<div class="profile-bio">${escHtml(p.bio)}</div>` : "";
+  const skillsLine = p.skills ? `<div class="profile-skills">Skills: ${escHtml(p.skills)}</div>` : "";
 
   box.innerHTML = `
-    <div class="row" style="gap:12px;align-items:flex-start">
-      <img src="${avatar}"
+    <div class="profile-card">
+      <img class="profile-avatar"
+           src="${escHtml(avatar)}"
            alt=""
-           style="width:72px;height:72px;border-radius:50%"
            onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
       <div class="grow">
-        <div class="h4" style="margin:.1rem 0">${(name||"").replace(/</g,"&lt;")}</div>
-        ${bioHtml}
-        ${skillsHtml}
-        ${portfolioHtml}
-        ${socialHtml}
-        <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
-        ${certSection}
-      </div>
-    </div>`;
+        <div class="profile-name">${escHtml(name)}</div>
+        ${bioLine}
+        ${skillsLine}
 
-  // cert buttons
+        <div class="profile-meta">
+          ${portfolioHtml}
+          ${socialsHtml}
+          ${transcriptHtml}
+          ${certHtml}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // wire cert buttons
   box.querySelectorAll("[data-cert-view]").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-view");
-      const c = courses.find(x => x.id === id);
-      if (c && typeof showCertificate === "function") showCertificate(c, { issueIfMissing: false });
+      const c = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
+      if (c) showCertificate?.(c, { issueIfMissing: false });
     });
   });
   box.querySelectorAll("[data-cert-dl]").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-dl");
-      const c = courses.find(x => x.id === id);
+      const c = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
       if (!c) return;
-      if (typeof showCertificate === "function") showCertificate(c, { issueIfMissing: false });
+      showCertificate?.(c, { issueIfMissing: false });
       setTimeout(() => window.print(), 200);
     });
   });
