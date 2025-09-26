@@ -2890,32 +2890,32 @@ function renderPaymentOptions(containerId, { name = "payMethod", priceUSD = 1.00
 
 // example: when opening pay modal for a course
 // === Open Pay Modal for a course ===
-function openPayModalForCourse(course) {
-  const dlg = document.getElementById("payModal");
-  if (!dlg) return;
+// function openPayModalForCourse(course) {
+//   const dlg = document.getElementById("payModal");
+//   if (!dlg) return;
 
-  // Modal ဖွင့်
-  dlg.showModal?.();
+//   // Modal ဖွင့်
+//   dlg.showModal?.();
 
-  // Render payment choices
-  renderPaymentOptions("payMethods", {
-    priceUSD: Number(course.price || 1.00),
-    courseId: course.id,
-  });
+//   // Render payment choices
+//   renderPaymentOptions("payMethods", {
+//     priceUSD: Number(course.price || 1.00),
+//     courseId: course.id,
+//   });
 
-  // Default PayPal ကို auto-select လိုချင်ရင်
-  const ppRadio = document.querySelector('#payMethods input[value="paypal"]');
-  if (ppRadio) {
-    ppRadio.checked = true;
-    ppRadio.dispatchEvent(new Event("change"));
-  }
+//   // Default PayPal ကို auto-select လိုချင်ရင်
+//   const ppRadio = document.querySelector('#payMethods input[value="paypal"]');
+//   if (ppRadio) {
+//     ppRadio.checked = true;
+//     ppRadio.dispatchEvent(new Event("change"));
+//   }
 
-  // Modal header ပြောင်း
-  const payTitle = document.getElementById("payTitle");
-  if (payTitle) {
-    payTitle.textContent = `Checkout: ${course.title || "Course"}`;
-  }
-}
+//   // Modal header ပြောင်း
+//   const payTitle = document.getElementById("payTitle");
+//   if (payTitle) {
+//     payTitle.textContent = `Checkout: ${course.title || "Course"}`;
+//   }
+// }
 
 // ===== Wallet panel (QR + info) =====
 function openWalletPanel(wallet) {
