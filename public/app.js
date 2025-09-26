@@ -3560,24 +3560,61 @@ function toImageSrc(u) {
 
 // ===== Profile panel (full paste-ready) =====
 // helper: escape + normalize URL
+// === REPLACE THESE HELPERS (put near renderProfilePanel) ===
 function __esc(s){return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
 function __normUrl(u){
   if(!u) return "";
   let s = String(u).trim();
+  if(!s) return "";
   if(!/^https?:\/\//i.test(s)) s = "https://" + s;
   return s;
 }
-// helper: accept many possible keys user might have used
+
+// Accept many possible keys & shapes for portfolio link
 function __getPortfolioUrl(p){
-  const cand = [
-    p?.portfolio,        // ✅ recommended
-    p?.profile,          // sometimes saved as "profile"
-    p?.portfolioLink,    // alternative
-    p?.website,          // generic
-    p?.site,
-    p?.github            // if user only put GitHub handle/url here
-  ].map(x => (x||"").toString().trim()).find(Boolean);
-  return cand ? __normUrl(cand) : "";
+  if(!p) return "";
+  const flatCandidates = [
+    p.portfolio,
+    p.profile,           // sometimes saved as "profile"
+    p.portfolioLink,     // alternative
+    p.profileLink,       // alternative
+    p.website,           // generic
+    p.site,              // generic
+    p.url,               // very generic
+    p.github             // some users put GitHub here
+  ];
+
+  // nested containers
+  const links = p.links || {};
+  const nestedCandidates = [
+    links.portfolio, links.profile, links.website, links.site, links.url, links.github
+  ];
+
+  // arrays
+  const arrCandidates = []
+    .concat(Array.isArray(p.portfolioLinks) ? p.portfolioLinks : [])
+    .concat(Array.isArray(p.portfolios) ? p.portfolios : []);
+
+  // fallback: take the first social that looks like a portfolio (github/gitlab/behance/dribbble/portfolio)
+  let socialFirst = "";
+  if (p.social) {
+    const parts = String(p.social)
+      .split(/[\n,]+/)
+      .map(s=>s.trim())
+      .filter(Boolean);
+    socialFirst = (parts.find(x=>/github\.com|gitlab\.com|bitbucket\.org|behance\.net|dribbble\.com|portfolio/i.test(x)) || "") || "";
+  }
+
+  const all = []
+    .concat(flatCandidates)
+    .concat(nestedCandidates)
+    .concat(arrCandidates)
+    .concat([socialFirst])
+    .map(x => (x||"").toString().trim())
+    .filter(Boolean);
+
+  const first = all.find(Boolean) || "";
+  return __normUrl(first);
 }
 
 function renderProfilePanel() {
