@@ -2874,7 +2874,7 @@ async function openPayPalPanel() {
     if (!paypal) {
       // fallback note
       document.getElementById("paypalNote").textContent =
-        "PayPal SDK not loaded (check config.js paypalClientId).";
+        "PayPal";
       return;
     }
     paypal.Buttons({

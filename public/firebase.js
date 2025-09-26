@@ -3,6 +3,13 @@
    <script src="/config.js"></script>
    <script type="module" src="/firebase.js"></script>
 */
+// (firebase.js very top)
+(function muteFirestoreWebChannelNoise(){
+  const noisy = /google\.firestore\.v1\.Firestore\/Listen\/channel/i;
+  const origE = console.error, origW = console.warn;
+  console.error = function(...a){ if(a.some(x=> typeof x==="string" && noisy.test(x))) return; origE.apply(console,a); };
+  console.warn  = function(...a){ if(a.some(x=> typeof x==="string" && noisy.test(x))) return; origW.apply(console,a); };
+})();
 // ---- Put this at TOP of firebase.js, BEFORE initializing Firebase ----
 (function muteFirestoreTerminate400(){
   const noisy = /google\.firestore\.v1\.Firestore\/(Write|Listen)\/channel.*TYPE=terminate/i;
