@@ -985,18 +985,15 @@ function renderCatalog() {
     <div class="row" style="justify-content:flex-end; gap:8px">
       <button class="btn" data-details="${c.id}">Details</button>
       
-      <button class="btn primary" onclick='openPayModalForCourse(${JSON.stringify(c)})'>
-  Buy / Enroll
-</button>
+       <button class="btn primary" data-enroll="${c.id}">${
+        enrolled ? "Enrolled" : "Enroll"
+      }</button>
+      
     </div>
   </div>
 </div>`;
     })
     .join("");
-
-    // <button class="btn primary" data-enroll="${c.id}">${
-    //     enrolled ? "Enrolled" : "Enroll"
-    //   }</button>
 
 
   // bind actions
