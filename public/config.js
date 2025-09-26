@@ -32,9 +32,9 @@ window.OPENLEARN_CFG = {
 window.OPENLEARN_CFG.payments = {
   paypal: { enabled: true },
   wallets: {
-    KBZPay: { enabled: true, qr: '/assets/qr/kbz.png', name: 'Your Co', account: '09-xxxx' },
-    CBPay:  { enabled: true, qr: '/assets/qr/cb.png',  name: 'Your Co', account: '09-xxxx' },
-    AyaPay: { enabled: true, qr: '/assets/qr/aya.png', name: 'Your Co', account: '09-xxxx' }
+    KBZPay: { enabled: true, qr: '/assets/qr/kbz.png', name: 'OpenLearn', account: '09-43829990' },
+    CBPay:  { enabled: true, qr: '/assets/qr/cb.png',  name: 'OpenLearn', account: '09-43829991' },
+    AyaPay: { enabled: true, qr: '/assets/qr/aya.png', name: 'OpenLearn', account: '09-43829992' }
   }
 };
 
