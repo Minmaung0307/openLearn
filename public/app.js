@@ -16,8 +16,8 @@ import {
   set,
   push,
   onChildAdded,
-  onChildChanged,     // ★ add
-  onChildRemoved,     // ★ add
+  onChildChanged, // ★ add
+  onChildRemoved, // ★ add
   query,
   orderByChild,
   get,
@@ -94,7 +94,9 @@ function canDeleteCourse() {
    - window.OPENLEARN_CFG.cloudOverride === true ဖြစ်ရင်သာ အသုံးချမယ်
    - overrides ကို Firestore doc: catalogOverrides/_index ထဲ map{id → overrideFields} နဲ့ သိမ်းမယ်
 */
-const CLOUD_OVERRIDE_ON = !!(window.OPENLEARN_CFG && window.OPENLEARN_CFG.cloudOverride);
+const CLOUD_OVERRIDE_ON = !!(
+  window.OPENLEARN_CFG && window.OPENLEARN_CFG.cloudOverride
+);
 
 // Firestore doc ref (single map)
 function catalogOverrideDoc() {
@@ -109,7 +111,7 @@ async function loadCatalogOverridesMap() {
     const ref = catalogOverrideDoc();
     if (!ref) return {};
     const snap = await getDoc(ref);
-    const data = snap.exists() ? (snap.data() || {}) : {};
+    const data = snap.exists() ? snap.data() || {} : {};
     return data.map || {};
   } catch {
     return {};
@@ -145,14 +147,28 @@ async function saveCourseToCloud(formData) {
     }
 
     // သင်ပြောင်းချင်တဲ့ field တွေကိုသာ ထည့် (undefined မထည့်စေဖို့ sanitize)
-    const allowed = ["title","category","level","price","credits","hours","summary","image","benefits"];
+    const allowed = [
+      "title",
+      "category",
+      "level",
+      "price",
+      "credits",
+      "hours",
+      "summary",
+      "image",
+      "benefits",
+    ];
     const clean = {};
     for (const k of allowed) {
-      if (formData[k] !== undefined && formData[k] !== null) clean[k] = formData[k];
+      if (formData[k] !== undefined && formData[k] !== null)
+        clean[k] = formData[k];
     }
 
     const id = String(formData.id || "").trim();
-    if (!id) { toast("Missing course id"); return false; }
+    if (!id) {
+      toast("Missing course id");
+      return false;
+    }
 
     // Firestore: { map: { [id]: {…fields} } }
     await setDoc(refDoc, { map: { [id]: clean } }, { merge: true });
@@ -847,17 +863,47 @@ async function loadCatalog() {
   }
   if (!items.length) {
     items = [
-      { id:"js-essentials", title:"JavaScript Essentials", category:"Web", level:"Beginner", price:0, credits:3, rating:4.7, hours:10, summary:"Start JavaScript from zero." },
-      { id:"react-fast",    title:"React Fast-Track",      category:"Web", level:"Intermediate", price:49, credits:2, rating:4.6, hours:8,  summary:"Build modern UIs." },
-      { id:"py-data",       title:"Data Analysis with Python", category:"Data", level:"Intermediate", price:79, credits:3, rating:4.8, hours:14, summary:"Pandas & plots." },
+      {
+        id: "js-essentials",
+        title: "JavaScript Essentials",
+        category: "Web",
+        level: "Beginner",
+        price: 0,
+        credits: 3,
+        rating: 4.7,
+        hours: 10,
+        summary: "Start JavaScript from zero.",
+      },
+      {
+        id: "react-fast",
+        title: "React Fast-Track",
+        category: "Web",
+        level: "Intermediate",
+        price: 49,
+        credits: 2,
+        rating: 4.6,
+        hours: 8,
+        summary: "Build modern UIs.",
+      },
+      {
+        id: "py-data",
+        title: "Data Analysis with Python",
+        category: "Data",
+        level: "Intermediate",
+        price: 79,
+        credits: 3,
+        rating: 4.8,
+        hours: 14,
+        summary: "Pandas & plots.",
+      },
     ];
   }
 
   // 👉 Cloud overrides ထည့်မလား?
   let ovMap = {};
   if (CLOUD_OVERRIDE_ON) {
-    ovMap = await loadCatalogOverridesMap();              // { [id]: {title?, price?, ...} }
-    items = applyCatalogOverrides(items, ovMap);          // base + cloud override
+    ovMap = await loadCatalogOverridesMap(); // { [id]: {title?, price?, ...} }
+    items = applyCatalogOverrides(items, ovMap); // base + cloud override
   }
 
   // local course records (localStorage) နဲ့ merge (id ထပ်ရင် base/cloud ကို ထိန်း)
@@ -923,7 +969,10 @@ function renderCatalog() {
   const rawCat = $("#filterCategory")?.value || "";
   const rawLvl = $("#filterLevel")?.value || "";
   const sort = ($("#sortBy")?.value || "").trim();
-  const _norm = (s) => String(s || "").toLowerCase().trim();
+  const _norm = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .trim();
   const _hasCategory = (c, want) =>
     Array.isArray(c.category)
       ? c.category.some((x) => _norm(x) === _norm(want))
@@ -969,12 +1018,20 @@ function renderCatalog() {
             .join("")}</ul>`
         : "";
 
-      const primaryLabel = enrolled ? "Enrolled" : (isPaid ? `Buy ${priceStr}` : "Enroll");
+      const primaryLabel = enrolled
+        ? "Enrolled"
+        : isPaid
+        ? `Buy ${priceStr}`
+        : "Enroll";
       const primaryAttr = enrolled
         ? `disabled`
-        : (isPaid ? `data-buy="${esc(c.id)}"` : `data-enroll="${esc(c.id)}"`);
+        : isPaid
+        ? `data-buy="${esc(c.id)}"`
+        : `data-enroll="${esc(c.id)}"`;
 
-      return `<div class="card course" data-id="${c.id}" data-search="${esc(search)}">
+      return `<div class="card course" data-id="${c.id}" data-search="${esc(
+        search
+      )}">
   <img class="course-cover" src="${esc(
     c.image || `https://picsum.photos/seed/${c.id}/640/360`
   )}" alt="">
@@ -998,12 +1055,16 @@ function renderCatalog() {
     .join("");
 
   // bind actions
-  grid.querySelectorAll("[data-enroll]").forEach(
-    (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
-  );
-  grid.querySelectorAll("[data-details]").forEach(
-    (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
-  );
+  grid
+    .querySelectorAll("[data-enroll]")
+    .forEach(
+      (b) => (b.onclick = () => handleEnroll(b.getAttribute("data-enroll")))
+    );
+  grid
+    .querySelectorAll("[data-details]")
+    .forEach(
+      (b) => (b.onclick = () => openDetails(b.getAttribute("data-details")))
+    );
 
   // paid courses → open pay modal
   grid.querySelectorAll("[data-buy]").forEach((b) => {
@@ -1053,9 +1114,10 @@ async function ensureRTDBReady(timeout = 4000) {
   return window.rtdb;
 }
 
-// Unified announcements ref
+// RTDB ref (use a single path consistently)
 function annsRef() {
-  const db = getRTDB();
+  const db =
+    window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
   return db ? ref(db, "announcements") : null;
 }
 
@@ -2812,14 +2874,42 @@ function getPaymentOptions() {
     out.push({ id: "paypal", label: "PayPal", kind: "paypal" });
   }
   const W = pm.wallets || {};
-  if (W.KBZPay?.enabled) out.push({ id:"kbz", label:"KBZPay", kind:"wallet", qr: W.KBZPay.qr, name: W.KBZPay.name, account: W.KBZPay.account });
-  if (W.CBPay?.enabled)  out.push({ id:"cb",  label:"CBPay",  kind:"wallet", qr: W.CBPay.qr,  name: W.CBPay.name,  account: W.CBPay.account  });
-  if (W.AyaPay?.enabled) out.push({ id:"aya", label:"AyaPay", kind:"wallet", qr: W.AyaPay.qr, name: W.AyaPay.name, account: W.AyaPay.account });
+  if (W.KBZPay?.enabled)
+    out.push({
+      id: "kbz",
+      label: "KBZPay",
+      kind: "wallet",
+      qr: W.KBZPay.qr,
+      name: W.KBZPay.name,
+      account: W.KBZPay.account,
+    });
+  if (W.CBPay?.enabled)
+    out.push({
+      id: "cb",
+      label: "CBPay",
+      kind: "wallet",
+      qr: W.CBPay.qr,
+      name: W.CBPay.name,
+      account: W.CBPay.account,
+    });
+  if (W.AyaPay?.enabled)
+    out.push({
+      id: "aya",
+      label: "AyaPay",
+      kind: "wallet",
+      qr: W.AyaPay.qr,
+      name: W.AyaPay.name,
+      account: W.AyaPay.account,
+    });
   return out;
 }
 
 // Demo QR fallback (when local file missing)
-function _demoQR(label){ return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent((label||"WALLET")+"-DEMO")}`; }
+function _demoQR(label) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+    (label || "WALLET") + "-DEMO"
+  )}`;
+}
 
 // ===== Render payment radio buttons =====
 function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
@@ -2830,16 +2920,20 @@ function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
     el.innerHTML = `<div class="muted">No payment methods enabled.</div>`;
     return;
   }
-  el.innerHTML = opts.map(o => `
+  el.innerHTML = opts
+    .map(
+      (o) => `
     <label class="row" style="gap:8px;align-items:center;margin:.25rem 0">
       <input type="radio" name="${name}" value="${o.id}">
       <span>${o.label}</span>
     </label>
-  `).join("");
+  `
+    )
+    .join("");
 
-  el.querySelectorAll(`input[name="${name}"]`).forEach(inp => {
+  el.querySelectorAll(`input[name="${name}"]`).forEach((inp) => {
     inp.addEventListener("change", () => {
-      const picked = opts.find(x => x.id === inp.value);
+      const picked = opts.find((x) => x.id === inp.value);
       if (!picked) return;
       if (picked.kind === "wallet") openWalletPanel(picked);
       else if (picked.kind === "paypal") openPayPalPanel();
@@ -2854,17 +2948,20 @@ function openWalletPanel(wallet) {
 
   const panel = document.getElementById("walletPanel");
   const title = document.getElementById("walletTitle");
-  const img   = document.getElementById("walletQR");
+  const img = document.getElementById("walletQR");
   const brand = document.getElementById("walletBrand");
-  const acct  = document.getElementById("walletAcct");
+  const acct = document.getElementById("walletAcct");
 
   title.textContent = `Pay with ${wallet.label}`;
   brand.textContent = wallet.name || "OpenLearn";
-  acct.textContent  = wallet.account || "09-43829990";
+  acct.textContent = wallet.account || "09-43829990";
 
   const src = wallet.qr || `/assets/qr/${wallet.id}.png`;
   img.src = src;
-  img.onerror = () => { img.onerror = null; img.src = _demoQR(wallet.label); };
+  img.onerror = () => {
+    img.onerror = null;
+    img.src = _demoQR(wallet.label);
+  };
 
   // show wallet, hide PayPal
   panel.hidden = false;
@@ -2893,18 +2990,21 @@ async function openPayPalPanel() {
         "Welcome to OpenLearn";
       return;
     }
-    paypal.Buttons({
-      createOrder: (data, actions) => actions.order.create({
-        purchase_units: [{ amount: { value: "1.00" } }]
-      }),
-      onApprove: async (data, actions) => {
-        await actions.order.capture();
-        toast?.("Payment successful. Enrolling…");
-        document.getElementById("payModal")?.close?.();
-        // TODO: mark enrolled
-      },
-      onError: () => toast?.("PayPal error")
-    }).render("#paypal-container");
+    paypal
+      .Buttons({
+        createOrder: (data, actions) =>
+          actions.order.create({
+            purchase_units: [{ amount: { value: "1.00" } }],
+          }),
+        onApprove: async (data, actions) => {
+          await actions.order.capture();
+          toast?.("Payment successful. Enrolling…");
+          document.getElementById("payModal")?.close?.();
+          // TODO: mark enrolled
+        },
+        onError: () => toast?.("PayPal error"),
+      })
+      .render("#paypal-container");
 
     target.__rendered = true;
   } catch (e) {
@@ -2923,18 +3023,20 @@ async function submitMmkPaymentRequest(courseId) {
     if (!u?.email) return toast?.("Login required to request payment.");
 
     // which wallet selected?
-    const picked = (document.querySelector('input[name="payMethod"]:checked')?.value || "").toLowerCase();
+    const picked = (
+      document.querySelector('input[name="payMethod"]:checked')?.value || ""
+    ).toLowerCase();
     const opts = getPaymentOptions();
-    const w = opts.find(x => x.id === picked && x.kind === "wallet");
+    const w = opts.find((x) => x.id === picked && x.kind === "wallet");
     if (!w) return toast?.("Choose a wallet first.");
 
     const rec = {
       courseId,
       user: u.email,
       uid: u.uid || "",
-      wallet: w.id,         // 'kbz' | 'cb' | 'aya'
+      wallet: w.id, // 'kbz' | 'cb' | 'aya'
       ts: Date.now(),
-      status: "pending"     // admin will set to 'approved' | 'rejected'
+      status: "pending", // admin will set to 'approved' | 'rejected'
     };
 
     // Store under /payments/requests/<pushId>
@@ -2996,14 +3098,17 @@ function openWalletModal(opt) {
   dlg.querySelector("#wmSubmit")?.addEventListener("click", async () => {
     const f = dlg.querySelector("#wmFile")?.files?.[0];
     const msg = dlg.querySelector("#wmMsg");
-    if (!f) { msg.textContent = "Please choose a file"; return; }
+    if (!f) {
+      msg.textContent = "Please choose a file";
+      return;
+    }
 
     // TODO: upload to Firebase Storage (folder: receipts/<uid>/<ts>-<name>)
     try {
       const u = (typeof getUser === "function" ? getUser() : null) || {};
       const uid = (u && u.uid) || "anon";
       const ts = Date.now();
-      const path = `receipts/${uid}/${ts}-${(f.name||"proof")}`;
+      const path = `receipts/${uid}/${ts}-${f.name || "proof"}`;
       // firebase.js: export { storageRef, uploadBytes, getDownloadURL }
       const r = storageRef(getStorage(), path);
       await uploadBytes(r, f);
@@ -3026,20 +3131,23 @@ function openWalletModal(opt) {
 // ==== Payments: Wallet (MMK) renderer ====
 function ensurePayModal() {
   const cfg = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.payments) || {};
-  const wallets = (cfg.wallets) || {};
+  const wallets = cfg.wallets || {};
   const listEl = document.getElementById("walletList");
-  const qrEl   = document.getElementById("walletQR");
+  const qrEl = document.getElementById("walletQR");
   const infoEl = document.getElementById("walletInfo");
-  const paidBtn= document.getElementById("mmkPaid");
+  const paidBtn = document.getElementById("mmkPaid");
 
   // If MMK section not on page, skip
   if (!listEl || !qrEl || !infoEl) return;
 
   // Build available wallet options
   const options = [];
-  if (wallets.KBZPay?.enabled) options.push({id:"kbz",  key:"KBZPay", label:"KBZPay"});
-  if (wallets.CBPay?.enabled)  options.push({id:"cb",   key:"CBPay",  label:"CBPay"});
-  if (wallets.AyaPay?.enabled) options.push({id:"aya",  key:"AyaPay", label:"AyaPay"});
+  if (wallets.KBZPay?.enabled)
+    options.push({ id: "kbz", key: "KBZPay", label: "KBZPay" });
+  if (wallets.CBPay?.enabled)
+    options.push({ id: "cb", key: "CBPay", label: "CBPay" });
+  if (wallets.AyaPay?.enabled)
+    options.push({ id: "aya", key: "AyaPay", label: "AyaPay" });
 
   // If none enabled → hide the whole MMK panel
   if (!options.length) {
@@ -3051,31 +3159,38 @@ function ensurePayModal() {
   }
 
   // Render radio buttons
-  listEl.innerHTML = options.map((o, i) => {
-    return `
+  listEl.innerHTML = options
+    .map((o, i) => {
+      return `
       <label class="row" style="gap:6px; align-items:center">
-        <input type="radio" name="mmkWallet" value="${o.id}" ${i===0 ? "checked" : ""}>
+        <input type="radio" name="mmkWallet" value="${o.id}" ${
+        i === 0 ? "checked" : ""
+      }>
         ${o.label}
       </label>`;
-  }).join("");
+    })
+    .join("");
 
   // helper to update QR + info by id
   function showWallet(id) {
-    const opt = options.find(x => x.id === id);
+    const opt = options.find((x) => x.id === id);
     if (!opt) return;
 
     const w = wallets[opt.key] || {};
     // prefer project assets (if you added the PNGs), else fallback demo URLs
     const FALLBACK = {
       kbz: "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=KBZPAY-DEMO",
-      cb:  "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CBPAY-DEMO",
+      cb: "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CBPAY-DEMO",
       aya: "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=AYAPAY-DEMO",
     };
-    const imgSrc = (w.qr || ({
-      kbz: "/assets/qr/kbz.png",
-      cb:  "/assets/qr/cb.png",
-      aya: "/assets/qr/aya.png"
-    }[id])) || FALLBACK[id];
+    const imgSrc =
+      w.qr ||
+      {
+        kbz: "/assets/qr/kbz.png",
+        cb: "/assets/qr/cb.png",
+        aya: "/assets/qr/aya.png",
+      }[id] ||
+      FALLBACK[id];
 
     // set QR
     qrEl.src = imgSrc;
@@ -3083,12 +3198,12 @@ function ensurePayModal() {
 
     // set text info
     const name = w.name || "OpenLearn";
-    const acc  = w.account || "09-43829990";
+    const acc = w.account || "09-43829990";
     infoEl.innerHTML = `<div><b>${opt.label}</b></div><div>${name}</div><div>${acc}</div>`;
   }
 
   // wire change
-  listEl.querySelectorAll('input[name="mmkWallet"]').forEach(r => {
+  listEl.querySelectorAll('input[name="mmkWallet"]').forEach((r) => {
     r.addEventListener("change", () => showWallet(r.value));
   });
 
@@ -3101,7 +3216,9 @@ function ensurePayModal() {
     paidBtn.addEventListener("click", () => {
       toast?.("Thanks! We'll verify your payment shortly.");
       // you could mark enrollment here or call your own verify endpoint
-      try { document.getElementById("payModal")?.close(); } catch {}
+      try {
+        document.getElementById("payModal")?.close();
+      } catch {}
     });
   }
 }
@@ -6090,12 +6207,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Render payment radios/options right after DOM is ready
   renderPaymentOptions("payMethods");
-  openWalletPanel(null);                // clear QR panel
+  openWalletPanel(null); // clear QR panel
 
   // I Paid → pending request only (no auto-enroll)
   document.getElementById("mmkPaid")?.addEventListener("click", () => {
     // RD.cid (reader context) သို့မဟုတ် currently selected courseId ကို ပြန်တင်ပါ
-    const cid = window.__CHECKOUT_COURSE_ID__ || RD?.cid || CURRENT_COURSE_ID || "";
+    const cid =
+      window.__CHECKOUT_COURSE_ID__ || RD?.cid || CURRENT_COURSE_ID || "";
     if (!cid) return toast?.("No course selected.");
     submitMmkPaymentRequest(cid);
   });
@@ -6622,7 +6740,7 @@ function __updateAnnCardInList(id, rec) {
   const list = document.getElementById("annList");
   if (!list) return;
   const next = renderAnnItem(id, rec);
-  const old  = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+  const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
   if (old) old.replaceWith(next);
 }
 
@@ -6639,71 +6757,111 @@ function __prependAnnCardInList(id, rec) {
   window.__ANN_ONCE__ = true;
 
   const list = document.getElementById("annList");
-  const newBtn = document.getElementById("btn-new-post") || document.querySelector("[data-ann-new]");
-  const dlg  = document.getElementById("annModal");
+  const newBtn =
+    document.getElementById("btn-new-post") ||
+    document.querySelector("[data-ann-new]");
+  const dlg = document.getElementById("annModal");
   const form = document.getElementById("annForm");
   const idEl = document.getElementById("annId");
-  const tEl  = document.getElementById("annTitle");
-  const bEl  = document.getElementById("annBody");
-  const aEl  = document.getElementById("annAudience");
-  const btnClose  = document.getElementById("annClose");
+  const tEl = document.getElementById("annTitle");
+  const bEl = document.getElementById("annBody");
+  const aEl = document.getElementById("annAudience");
+  const btnClose = document.getElementById("annClose");
   const btnCancel = document.getElementById("annCancel");
-  const btnSave   = document.getElementById("annSave");
-  const headerEl = () => document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
+  const btnSave = document.getElementById("annSave");
+  const headerEl = () =>
+    document.getElementById("annModalTitle") ||
+    document.querySelector("#annModal .modal-title");
 
   // RTDB ref (consistent path)
   function annRef() {
-    const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
+    const db =
+      window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
     return db ? ref(db, "announcements") : null;
   }
 
   // --- Open NEW modal ---
   newBtn?.addEventListener("click", () => {
-    if (typeof roleRank === "function" && roleRank(getRole?.() || "student") < roleRank("instructor")) {
+    if (
+      typeof roleRank === "function" &&
+      roleRank(getRole?.() || "student") < roleRank("instructor")
+    ) {
       return toast?.("Requires instructor+");
     }
     form?.reset();
     if (idEl) idEl.value = "";
-    const h = headerEl(); if (h) h.textContent = "New Announcement";
+    const h = headerEl();
+    if (h) h.textContent = "New Announcement";
     dlg?.showModal?.();
-    setTimeout(()=>tEl?.focus(), 0);
+    setTimeout(() => tEl?.focus(), 0);
   });
 
-    // ------- Live feed (add/change/remove) -------
-if (list) {
-  list.innerHTML = "";
-  const aref = annsRef();              // annsRef() သည် ref(db, "announcements")
-  if (aref) {
-    // ADD → prepend (dedupe)
-    onChildAdded(aref, (snap) => {
-      const a = snap.val() || {};
-      const id = snap.key;
-      const node = renderAnnItem(id, a);
-      const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-      old ? old.replaceWith(node) : list.prepend(node);
-    });
+  // ------- Live feed (add/change/remove) -------
+  if (list) {
+    list.innerHTML = "";
+    const aref = annsRef(); // annsRef() သည် ref(db, "announcements")
+    if (aref) {
+      // ADD → prepend (dedupe)
+      onChildAdded(aref, (snap) => {
+        const id = snap.key;
+        const a = { ...(snap.val() || {}), id };
 
-    // CHANGE → replace in-place (✅ Refresh မလို)
-    onChildChanged(aref, (snap) => {
-      const a = snap.val() || {};
-      const id = snap.key;
-      const node = renderAnnItem(id, a);
-      const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-      if (old) old.replaceWith(node);
-    });
+        // render (replace if exists)
+        const node = renderAnnItem(id, a); // <- your renderAnnItem(id, a) version
+        const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+        old ? old.replaceWith(node) : list.prepend(node);
 
-    // REMOVE → take out from DOM
-    onChildRemoved(aref, (snap) => {
-      const id = snap.key;
-      list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
-    });
+        // local mirror + badge
+        try {
+          const arr = Array.isArray(getAnns?.()) ? getAnns() : [];
+          const i = arr.findIndex((x) => x.id === id);
+          if (i >= 0) arr[i] = a;
+          else arr.push(a);
+          setAnns(arr);
+          updateAnnBadge();
+        } catch {}
+      });
+
+      // CHANGE → replace in-place (✅ Refresh မလို)
+      onChildChanged(aref, (snap) => {
+        const id = snap.key;
+        const a = { ...(snap.val() || {}), id };
+
+        // update DOM
+        const next = renderAnnItem(id, a);
+        const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+        old ? old.replaceWith(next) : list.prepend(next);
+
+        // local mirror + badge (count won’t change, but keep mirror fresh)
+        try {
+          const arr = Array.isArray(getAnns?.()) ? getAnns() : [];
+          const i = arr.findIndex((x) => x.id === id);
+          if (i >= 0) arr[i] = a;
+          else arr.push(a);
+          setAnns(arr);
+          updateAnnBadge();
+        } catch {}
+      });
+
+      // REMOVE → take out from DOM
+      onChildRemoved(aref, (snap) => {
+        const id = snap.key;
+        // remove DOM
+        list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
+        // local mirror + badge
+        try {
+          const arr = (getAnns?.() || []).filter((x) => x.id !== id);
+          setAnns(arr);
+          updateAnnBadge();
+        } catch {}
+      });
+    }
   }
-}
 
   // --- Delegated EDIT / DELETE ---
   list?.addEventListener("click", async (e) => {
     const editBtn = e.target.closest?.("[data-ann-edit]");
-    const delBtn  = e.target.closest?.("[data-ann-del]");
+    const delBtn = e.target.closest?.("[data-ann-del]");
     const aref = annRef();
     if (!aref) return;
 
@@ -6728,12 +6886,13 @@ if (list) {
     if (editBtn) {
       const id = editBtn.getAttribute("data-ann-edit") || "";
       if (idEl) idEl.value = id;
-      if (tEl)  tEl.value  = editBtn.dataset.title || "";
-      if (bEl)  bEl.value  = editBtn.dataset.body || "";
-      if (aEl)  aEl.value  = editBtn.dataset.audience || "all";
-      const h = headerEl(); if (h) h.textContent = "Edit Announcement";
+      if (tEl) tEl.value = editBtn.dataset.title || "";
+      if (bEl) bEl.value = editBtn.dataset.body || "";
+      if (aEl) aEl.value = editBtn.dataset.audience || "all";
+      const h = headerEl();
+      if (h) h.textContent = "Edit Announcement";
       dlg?.showModal?.();
-      setTimeout(()=>tEl?.focus(), 0);
+      setTimeout(() => tEl?.focus(), 0);
     }
   });
 
@@ -6743,57 +6902,74 @@ if (list) {
     form.__saving = false;
 
     form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (form.__saving) return;
-  form.__saving = true;
-  btnSave && (btnSave.disabled = true);
+      e.preventDefault();
+      if (form.__saving) return;
+      form.__saving = true;
+      btnSave && (btnSave.disabled = true);
 
-  try {
-    const db = window.rtdb || (typeof getDatabase === "function" ? getDatabase() : null);
-    if (!db) { toast?.("Database not ready"); return; }
+      try {
+        const db =
+          window.rtdb ||
+          (typeof getDatabase === "function" ? getDatabase() : null);
+        if (!db) {
+          toast?.("Database not ready");
+          return;
+        }
 
-    const title = (tEl?.value || "").trim();
-    const body  = (bEl?.value || "").trim();
-    const audience = (aEl?.value || "all").trim();
-    if (!title || !body) { toast?.("Title & message required"); return; }
+        const title = (tEl?.value || "").trim();
+        const body = (bEl?.value || "").trim();
+        const audience = (aEl?.value || "all").trim();
+        if (!title || !body) {
+          toast?.("Title & message required");
+          return;
+        }
 
-    const rec = {
-      title, body, audience,
-      author: getUser?.()?.email || "instructor",
-      ts: Date.now()
-    };
+        const rec = {
+          title,
+          body,
+          audience,
+          author: getUser?.()?.email || "instructor",
+          ts: Date.now(),
+        };
 
-    const id = (idEl?.value || "").trim();
-    if (id) {
-      // EDIT → write + UI update right away
-      await set(ref(db, `announcements/${id}`), rec);
-      __updateAnnCardInList(id, rec);     // ✅ instant reflect
-      toast?.("Announcement updated");
-    } else {
-      // NEW → push + UI prepend
-      const newRef = await push(ref(db, "announcements"), rec);
-      const newId = newRef.key || "";
-      __prependAnnCardInList(newId, rec); // ✅ instant reflect
-      toast?.("Announcement posted");
-    }
+        const id = (idEl?.value || "").trim();
+        if (id) {
+          // EDIT → write + UI update right away
+          await set(ref(db, `announcements/${id}`), rec);
+          __updateAnnCardInList(id, rec); // ✅ instant reflect
+          toast?.("Announcement updated");
+        } else {
+          // NEW → push + UI prepend
+          const newRef = await push(ref(db, "announcements"), rec);
+          const newId = newRef.key || "";
+          __prependAnnCardInList(newId, rec); // ✅ instant reflect
+          toast?.("Announcement posted");
+        }
 
-    // Close & reset
-    try { dlg?.close(); } catch {}
-    form.reset();
-    const hh = document.getElementById("annModalTitle") || document.querySelector("#annModal .modal-title");
-    if (hh) hh.textContent = "New Announcement";
-
-  } catch (err) {
-    console.warn(err);
-    toast?.("Save failed (permission?)");
-  } finally {
-    form.__saving = false;
-    btnSave && (btnSave.disabled = false);
+        // Close & reset
+        try {
+          dlg?.close();
+        } catch {}
+        form.reset();
+        const hh =
+          document.getElementById("annModalTitle") ||
+          document.querySelector("#annModal .modal-title");
+        if (hh) hh.textContent = "New Announcement";
+      } catch (err) {
+        console.warn(err);
+        toast?.("Save failed (permission?)");
+      } finally {
+        form.__saving = false;
+        btnSave && (btnSave.disabled = false);
+      }
+    });
   }
-});
-  }
 
-  const doClose = () => { try { dlg?.close(); } catch {} };
+  const doClose = () => {
+    try {
+      dlg?.close();
+    } catch {}
+  };
   btnClose?.addEventListener("click", doClose);
   btnCancel?.addEventListener("click", doClose);
 })();
@@ -6801,28 +6977,40 @@ if (list) {
 /* ==== KILL LEGACY ANNOUNCEMENT HANDLERS (LocalStorage version) ==== */
 /* place this AFTER all other announcement code */
 
-(function killLegacyAnnHandlers(){
+(function killLegacyAnnHandlers() {
   // 1) UI buttons that old code wired (#postModal/#postForm flow)
-  ["#btn-new-post","#closePostModal","#cancelPost","#postForm"].forEach(sel=>{
-    const el = document.querySelector(sel);
-    if (el) {
-      // cloning removes all old event listeners cleanly
-      el.replaceWith(el.cloneNode(true));
+  ["#btn-new-post", "#closePostModal", "#cancelPost", "#postForm"].forEach(
+    (sel) => {
+      const el = document.querySelector(sel);
+      if (el) {
+        // cloning removes all old event listeners cleanly
+        el.replaceWith(el.cloneNode(true));
+      }
     }
-  });
+  );
 
   // 2) Old global fns that re-render from localStorage – neutralize them
-  try { window.renderAnnouncements = function(){ /* disabled */ }; } catch {}
-  try { window.wireAnnouncementEditButtons = function(){ /* disabled */ }; } catch {}
+  try {
+    window.renderAnnouncements = function () {
+      /* disabled */
+    };
+  } catch {}
+  try {
+    window.wireAnnouncementEditButtons = function () {
+      /* disabled */
+    };
+  } catch {}
 
   // 3) Hide the old modal if it exists (safety)
   const oldDlg = document.getElementById("postModal");
-  try { oldDlg?.close?.(); } catch {}
+  try {
+    oldDlg?.close?.();
+  } catch {}
 })();
 
 /* ==== ENSURE RTDB VERSION IS ACTIVE ONLY ONCE ==== */
-(function ensureAnnRTDBOnce(){
-  if (window.__ANN_ONCE__) return;  // if your RTDB init already set this, it will skip
+(function ensureAnnRTDBOnce() {
+  if (window.__ANN_ONCE__) return; // if your RTDB init already set this, it will skip
   // If you *didn't* include the RTDB init block yet, uncomment next line and paste your init here.
   // initAnnouncementsOnce();
 })();
@@ -6838,10 +7026,14 @@ if (typeof saveCourseToCloud !== "function") {
       }
       // If you're re-exporting from firebase.js:
       const { doc, setDoc } = await import("./firebase.js");
-      await setDoc(doc(window.db, "catalogOverrides", rec.id), {
-        ...rec,
-        ts: Date.now(),
-      }, { merge: true });
+      await setDoc(
+        doc(window.db, "catalogOverrides", rec.id),
+        {
+          ...rec,
+          ts: Date.now(),
+        },
+        { merge: true }
+      );
       console.log("[cloud] saved override for", rec.id);
     } catch (e) {
       console.warn("saveCourseToCloud failed:", e);
@@ -6851,11 +7043,11 @@ if (typeof saveCourseToCloud !== "function") {
 }
 
 // ===== Wire the Course Form once =====
-(function wireCourseFormOnce(){
+(function wireCourseFormOnce() {
   if (window.__COURSE_FORM_WIRED__) return;
   window.__COURSE_FORM_WIRED__ = true;
 
-  const dlg  = document.getElementById("courseModal");
+  const dlg = document.getElementById("courseModal");
   const form = document.getElementById("courseForm");
   if (!form) return;
 
@@ -6863,27 +7055,46 @@ if (typeof saveCourseToCloud !== "function") {
     e.preventDefault();
 
     // 1) Read fields
-    const id        = document.getElementById("courseId")?.value.trim();
-    const category  = document.getElementById("courseCat")?.value.trim();
-    const title     = document.getElementById("courseTitle")?.value.trim();
-    const level     = document.getElementById("courseLevel")?.value.trim();
-    const summary   = document.getElementById("courseSummary")?.value.trim();
+    const id = document.getElementById("courseId")?.value.trim();
+    const category = document.getElementById("courseCat")?.value.trim();
+    const title = document.getElementById("courseTitle")?.value.trim();
+    const level = document.getElementById("courseLevel")?.value.trim();
+    const summary = document.getElementById("courseSummary")?.value.trim();
     const benefitsT = document.getElementById("courseBenefits")?.value || "";
-    const image     = document.getElementById("courseImage")?.value.trim();
-    const hours     = Number(document.getElementById("courseHours")?.value || 0);
-    const credits   = Number(document.getElementById("courseCredits")?.value || 0);
-    const price     = Number(document.getElementById("coursePrice")?.value || 0);
+    const image = document.getElementById("courseImage")?.value.trim();
+    const hours = Number(document.getElementById("courseHours")?.value || 0);
+    const credits = Number(
+      document.getElementById("courseCredits")?.value || 0
+    );
+    const price = Number(document.getElementById("coursePrice")?.value || 0);
 
-    if (!id || !title) { toast?.("ID & Title required"); return; }
+    if (!id || !title) {
+      toast?.("ID & Title required");
+      return;
+    }
 
     // normalize benefits (string -> newline list)
-    const benefits = benefitsT.split(/\r?\n/).map(s => s.trim()).filter(Boolean).join("\n");
+    const benefits = benefitsT
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join("\n");
 
     // 2) LOCAL: upsert into catalog (keeps your current logic)
-    const cur = (typeof getCourses === "function") ? getCourses() : (window.ALL || []);
-    const idx = cur.findIndex(c => c.id === id);
+    const cur =
+      typeof getCourses === "function" ? getCourses() : window.ALL || [];
+    const idx = cur.findIndex((c) => c.id === id);
     const row = {
-      id, title, category, level, price, credits, hours, summary, image, benefits
+      id,
+      title,
+      category,
+      level,
+      price,
+      credits,
+      hours,
+      summary,
+      image,
+      benefits,
     };
     if (idx >= 0) cur[idx] = { ...cur[idx], ...row };
     else cur.push(row);
@@ -6897,7 +7108,16 @@ if (typeof saveCourseToCloud !== "function") {
     if (CLOUD_OVERRIDE_ON) {
       try {
         await saveCourseToCloud({
-          id, title, category, level, price, credits, hours, summary, image, benefits,
+          id,
+          title,
+          category,
+          level,
+          price,
+          credits,
+          hours,
+          summary,
+          image,
+          benefits,
         });
         // 필요하면 cloud မှာ تازهသွားတာကို ချက်ချင်းရအောင် ပြန်ဖတ်
         // await loadCatalog();
@@ -6907,15 +7127,21 @@ if (typeof saveCourseToCloud !== "function") {
     }
 
     toast?.("Saved");
-    try { dlg?.close(); } catch {}
+    try {
+      dlg?.close();
+    } catch {}
   });
 
   // Close/Cancel buttons (optional)
-  document.getElementById("btn-course-close")?.addEventListener("click", ()=>dlg?.close?.());
-  document.getElementById("btn-course-cancel")?.addEventListener("click", ()=>dlg?.close?.());
+  document
+    .getElementById("btn-course-close")
+    ?.addEventListener("click", () => dlg?.close?.());
+  document
+    .getElementById("btn-course-cancel")
+    ?.addEventListener("click", () => dlg?.close?.());
 })();
 
-(function renderWallets(){
+(function renderWallets() {
   const cfg = window.OPENLEARN_CFG?.payments?.wallets || {};
   const box = document.getElementById("wallets");
   if (!box) return;
@@ -6936,8 +7162,9 @@ if (typeof saveCourseToCloud !== "function") {
 })();
 
 // ===== “I Paid (MMK)” handler — mark pending (no instant enroll) =====
-(function wireMmkPaidOnce(){
-  if (window.__WIRED_MMK__) return; window.__WIRED_MMK__ = true;
+(function wireMmkPaidOnce() {
+  if (window.__WIRED_MMK__) return;
+  window.__WIRED_MMK__ = true;
   document.getElementById("mmkPaid")?.addEventListener("click", () => {
     toast?.("Payment submitted for approval. We'll notify you once verified.");
     document.getElementById("payModal")?.close?.();
