@@ -3563,155 +3563,56 @@ function renderProfilePanel() {
   const box = document.getElementById("profilePanel");
   if (!box) return;
 
-  // --- tiny helper ---
-  const esc = (s) => String(s ?? "")
-    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-
-  const toImageSrc = (u) => (u && String(u).trim()) || "";
-
-  // ---- data sources ----
   const p = (typeof getProfile === "function" ? getProfile() : {}) || {};
-  const me = (typeof getUser === "function" ? getUser() : {}) || {};
-  const name = p.displayName || me.email || "Guest";
+  const name = p.displayName || (typeof getUser === "function" ? getUser()?.email : "") || "Guest";
+
+  const toImageSrc = (u) => u || "/assets/default-avatar.png";
   const baseSrc = toImageSrc(p.photoURL);
-  const avatar = baseSrc
-    ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
-    : "";
+  const avatar = baseSrc ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now() : "/assets/default-avatar.png";
 
-  const coursesAll = (Array.isArray(window.ALL) && window.ALL.length
-    ? window.ALL
-    : (typeof getCourses === "function" ? getCourses() : [])) || [];
+  // --- link helpers ---
+  const splitLinks = (s) =>
+    String(s || "")
+      .split(/[\s,]+/)
+      .map(x => x.trim())
+      .filter(Boolean);
 
-  // --- alias-friendly getters ---
-  const getAny = (obj, keys) => {
-    if (!obj || typeof obj !== "object") return undefined;
-    const map = Object.fromEntries(Object.keys(obj).map(k => [k.toLowerCase(), obj[k]]));
-    for (const k of keys) {
-      const v = map[k.toLowerCase()];
-      if (v != null && v !== "") return v;
-    }
-    return undefined;
-  };
+  const ensureHttp = (u) => /^https?:\/\//i.test(u) ? u : `http://${u}`;
 
-  // normalize links to [{label,url}]
-  function normalizeLinks(v) {
-    const out = [];
-    const pushPair = (label, url) => {
-      const raw = String(url || "").trim();
-      if (!raw) return;
-      let href = raw;
-      // add protocol if missing
-      if (!/^https?:\/\//i.test(href) && /^www\./i.test(href)) href = "https://" + href;
-      if (!/^https?:\/\//i.test(href) && /^[\w.-]+\.[a-z]{2,}($|[\/?#])/i.test(href)) href = "https://" + href;
-      const lbl = String(label || href).trim() || href;
-      out.push({ label: lbl, url: href });
-    };
-
-    const isUrlish = s =>
-      /^(https?:\/\/|www\.)\S+/i.test(String(s||"").trim()) ||
-      /^[\w.-]+\.[a-z]{2,}($|[\/?#])/i.test(String(s||""));
-
-    const parseOne = s => {
-      s = String(s).trim();
-      if (!s) return;
-      if (s.includes("|")) {
-        const [a,b] = s.split("|").map(x=>x.trim());
-        if (isUrlish(b)) return pushPair(a,b);
-        if (isUrlish(a)) return pushPair(b,a);
-      }
-      const m = s.match(/(https?:\/\/\S+|\bwww\.\S+|\b[\w.-]+\.[a-z]{2,}\S*)/i);
-      if (m) {
-        const url = m[1];
-        const label = s.replace(url,"").trim() || url;
-        return pushPair(label, url);
-      }
-      if (isUrlish(s)) return pushPair(s.replace(/^https?:\/\//,""), s);
-    };
-
-    if (!v) return out;
-
-    if (Array.isArray(v)) {
-      v.forEach(item => {
-        if (!item) return;
-        if (typeof item === "object") {
-          const url = item.url || item.link || item.href || "";
-          const label = item.label || item.name || url;
-          pushPair(label, url);
-        } else {
-          parseOne(item);
-        }
-      });
-      return out;
-    }
-
-    if (typeof v === "object") {
-      for (const [label, url] of Object.entries(v)) pushPair(label, url);
-      return out;
-    }
-
-    if (typeof v === "string") {
-      v.split(",").map(s=>s.trim()).filter(Boolean).forEach(parseOne);
-      return out;
-    }
-
-    return out;
-  }
-
-  // --- collect portfolio & social from many aliases ---
-  const portfolioRaw = getAny(p, [
-    "portfolio","portfolioLink","portfolioLinks","portfolios",
-    "portfolioUrl","portfolioURL",
-    "website","websites","homepage","site","sites",
-    "work","projects","projectLinks","linksPortfolio"
-  ]);
-  const socialRaw = getAny(p, [
-    "social","socials","socialLinks","links","contacts","profiles"
-  ]);
-
-  const portfolioLinks = normalizeLinks(portfolioRaw);
-  const socialLinks    = normalizeLinks(socialRaw);
-
-  // fallback: find 1st URL in bio/skills if portfolio empty
-  if (!portfolioLinks.length) {
-    const fallbackSrc = [p.portfolioText, p.about, p.bio, p.skills].filter(Boolean).join(" ");
-    const m = String(fallbackSrc).match(/(https?:\/\/\S+|\bwww\.\S+|\b[\w.-]+\.[a-z]{2,}\S*)/i);
-    if (m) portfolioLinks.push({ label: "Portfolio", url: m[1] });
-  }
-
-  // --- transcript & certs ---
-  const id2course = new Map(coursesAll.map(c => [c.id, c]));
-  const completed = (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
-
-  const transcriptItems = completed
-    .map(x => ({ meta: x, course: id2course.get(x.id), title: (id2course.get(x.id)?.title || x.id) }))
-    .filter(x => x.course);
-
-  const certItems = transcriptItems
-    .map(x => ({ ...x, cert: (typeof getIssuedCert === "function" ? getIssuedCert(x.course?.id) : null) }))
-    .filter(x => x.cert);
-
-  // --- render sub-sections ---
-  const bioHtml    = p.bio ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>` : "";
-  const skillsHtml = p.skills ? `<div class="small muted">Skills: ${esc(p.skills)}</div>` : "";
+  const portfolioLinks = splitLinks(p.links);          // ← portfolio input (name="links")
+  const socialLinks    = splitLinks(p.social);         // ← social input (name="social")
 
   const portfolioHtml = portfolioLinks.length
-    ? `<div class="small" style="margin-top:.35rem">
-         <b>Portfolio:</b>
-         <ul class="link-list">
-           ${portfolioLinks.map(l => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a></li>`).join("")}
-         </ul>
+    ? `<div class="small" style="margin:.4rem 0">
+         <b class="muted">Portfolio:</b>
+         <div style="margin-top:.25rem;display:flex;gap:8px;flex-wrap:wrap">
+           ${portfolioLinks.map(u => {
+             const safe = ensureHttp(u);
+             return `<a class="chip" href="${safe}" target="_blank" rel="noopener">${safe}</a>`;
+           }).join("")}
+         </div>
        </div>`
     : "";
 
   const socialHtml = socialLinks.length
-    ? `<div class="small" style="margin-top:.35rem">
-         <b>Social:</b>
-         <ul class="link-list">
-           ${socialLinks.map(l => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a></li>`).join("")}
-         </ul>
+    ? `<div class="small" style="margin:.4rem 0">
+         <b class="muted">Social:</b>
+         <div style="margin-top:.25rem;display:flex;gap:8px;flex-wrap:wrap">
+           ${socialLinks.map(u => {
+             const safe = ensureHttp(u);
+             return `<a class="chip" href="${safe}" target="_blank" rel="noopener">${safe}</a>`;
+           }).join("")}
+         </div>
        </div>`
     : "";
+
+  // courses for transcript/certs
+  const courses = (window.ALL && window.ALL.length ? window.ALL : (typeof getCourses === "function" ? getCourses() : [])) || [];
+  const dic = new Map(courses.map(c => [c.id, c]));
+
+  const transcriptItems = (typeof getCompletedRaw === "function" ? getCompletedRaw() : [])
+    .map(x => ({ meta: x, course: dic.get(x.id), title: (dic.get(x.id)?.title || x.id) }))
+    .filter(x => x.course);
 
   const transcriptHtml = transcriptItems.length
     ? `<table class="ol-table small" style="margin-top:.35rem">
@@ -3719,13 +3620,17 @@ function renderProfilePanel() {
          <tbody>
            ${transcriptItems.map(r => `
              <tr>
-               <td>${esc(r.title)}</td>
+               <td>${(r.title||"").replace(/</g,"&lt;")}</td>
                <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
-               <td>${r.meta.score != null ? Math.round(r.meta.score * 100) + "%" : "—"}</td>
+               <td>${r.meta.score != null ? Math.round(r.meta.score*100) + "%" : "—"}</td>
              </tr>`).join("")}
          </tbody>
        </table>`
     : `<div class="small muted">No completed courses yet.</div>`;
+
+  const certItems = transcriptItems
+    .map(x => ({ ...x, cert: (typeof getIssuedCert === "function" ? getIssuedCert(x.course?.id) : null) }))
+    .filter(x => x.cert);
 
   const certSection = certItems.length
     ? `<div style="margin-top:14px">
@@ -3733,12 +3638,12 @@ function renderProfilePanel() {
          <table class="ol-table small" style="margin-top:.35rem">
            <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
            <tbody>
-             ${certItems.map(({ course }) => `
+             ${certItems.map(({course}) => `
                <tr>
-                 <td>${esc(course.title)}</td>
+                 <td>${(course.title||"").replace(/</g,"&lt;")}</td>
                  <td style="text-align:right">
-                   <button class="btn small" data-cert-view="${esc(course.id)}">View</button>
-                   <button class="btn small" data-cert-dl="${esc(course.id)}">Download PDF</button>
+                   <button class="btn small" data-cert-view="${course.id}">View</button>
+                   <button class="btn small" data-cert-dl="${course.id}">Download PDF</button>
                  </td>
                </tr>`).join("")}
            </tbody>
@@ -3746,44 +3651,40 @@ function renderProfilePanel() {
        </div>`
     : "";
 
-  // --- final HTML ---
+  const bioHtml    = p.bio ? `<div class="muted" style="margin:.25rem 0">${(p.bio||"").replace(/</g,"&lt;")}</div>` : "";
+  const skillsHtml = p.skills ? `<div class="small muted">Skills: ${(p.skills||"").replace(/</g,"&lt;")}</div>` : "";
+
   box.innerHTML = `
     <div class="row" style="gap:12px;align-items:flex-start">
-      <img src="${avatar || "/assets/default-avatar.png"}"
+      <img src="${avatar}"
            alt=""
            style="width:72px;height:72px;border-radius:50%"
            onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
       <div class="grow">
-        <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
+        <div class="h4" style="margin:.1rem 0">${(name||"").replace(/</g,"&lt;")}</div>
         ${bioHtml}
         ${skillsHtml}
         ${portfolioHtml}
         ${socialHtml}
-        <div style="margin-top:10px">
-          <b class="small">Transcript</b>
-          ${transcriptHtml}
-        </div>
+        <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
         ${certSection}
       </div>
-    </div>
-  `;
+    </div>`;
 
-  // --- wire cert buttons ---
-  box.querySelectorAll("[data-cert-view]").forEach((btn) => {
+  // cert buttons
+  box.querySelectorAll("[data-cert-view]").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-view");
-      const c = coursesAll.find(x => x.id === id);
-      if (c && typeof showCertificate === "function") {
-        showCertificate(c, { issueIfMissing: false });
-      }
+      const c = courses.find(x => x.id === id);
+      if (c && typeof showCertificate === "function") showCertificate(c, { issueIfMissing: false });
     });
   });
-  box.querySelectorAll("[data-cert-dl]").forEach((btn) => {
+  box.querySelectorAll("[data-cert-dl]").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-dl");
-      const c = coursesAll.find(x => x.id === id);
-      if (!c || typeof showCertificate !== "function") return;
-      showCertificate(c, { issueIfMissing: false });
+      const c = courses.find(x => x.id === id);
+      if (!c) return;
+      if (typeof showCertificate === "function") showCertificate(c, { issueIfMissing: false });
       setTimeout(() => window.print(), 200);
     });
   });
