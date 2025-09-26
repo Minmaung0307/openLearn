@@ -3559,196 +3559,133 @@ function toImageSrc(u) {
 }
 
 // ===== Profile panel (full paste-ready) =====
-// helper: escape + normalize URL
-// === REPLACE THESE HELPERS (put near renderProfilePanel) ===
-function __esc(s){return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
-function __normUrl(u){
-  if(!u) return "";
-  let s = String(u).trim();
-  if(!s) return "";
-  if(!/^https?:\/\//i.test(s)) s = "https://" + s;
-  return s;
-}
-
-// Accept many possible keys & shapes for portfolio link
-function __getPortfolioUrl(p){
-  if(!p) return "";
-  const flatCandidates = [
-    p.portfolio,
-    p.profile,           // sometimes saved as "profile"
-    p.portfolioLink,     // alternative
-    p.profileLink,       // alternative
-    p.website,           // generic
-    p.site,              // generic
-    p.url,               // very generic
-    p.github             // some users put GitHub here
-  ];
-
-  // nested containers
-  const links = p.links || {};
-  const nestedCandidates = [
-    links.portfolio, links.profile, links.website, links.site, links.url, links.github
-  ];
-
-  // arrays
-  const arrCandidates = []
-    .concat(Array.isArray(p.portfolioLinks) ? p.portfolioLinks : [])
-    .concat(Array.isArray(p.portfolios) ? p.portfolios : []);
-
-  // fallback: take the first social that looks like a portfolio (github/gitlab/behance/dribbble/portfolio)
-  let socialFirst = "";
-  if (p.social) {
-    const parts = String(p.social)
-      .split(/[\n,]+/)
-      .map(s=>s.trim())
-      .filter(Boolean);
-    socialFirst = (parts.find(x=>/github\.com|gitlab\.com|bitbucket\.org|behance\.net|dribbble\.com|portfolio/i.test(x)) || "") || "";
-  }
-
-  const all = []
-    .concat(flatCandidates)
-    .concat(nestedCandidates)
-    .concat(arrCandidates)
-    .concat([socialFirst])
-    .map(x => (x||"").toString().trim())
-    .filter(Boolean);
-
-  const first = all.find(Boolean) || "";
-  return __normUrl(first);
-}
-
 function renderProfilePanel() {
   const box = document.getElementById("profilePanel");
   if (!box) return;
 
   const p = (typeof getProfile === "function" ? getProfile() : {}) || {};
-  const user = (typeof getUser === "function" ? getUser() : {}) || {};
-  const name = p.displayName || user.email || "Guest";
+  const name = p.displayName || (typeof getUser === "function" ? getUser()?.email : "") || "Guest";
 
-  const baseSrc = (typeof toImageSrc === "function" ? toImageSrc(p.photoURL) : p.photoURL) || "";
-  const avatar = baseSrc
-    ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
-    : "/assets/default-avatar.png";
+  const toImageSrc = (u) => u || "/assets/default-avatar.png";
+  const baseSrc = toImageSrc(p.photoURL);
+  const avatar = baseSrc ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now() : "/assets/default-avatar.png";
 
-  // simple list parser: comma OR newline
-  const parseList = (val) => String(val||"")
-    .split(/[\n,]+/)
-    .map(s=>s.trim())
-    .filter(Boolean);
+  // --- link helpers ---
+  const splitLinks = (s) =>
+    String(s || "")
+      .split(/[\s,]+/)
+      .map(x => x.trim())
+      .filter(Boolean);
 
-  // social + portfolio (now robust)
-  const socials = parseList(p.social);
-  const portfolioUrl = __getPortfolioUrl(p);
+  const ensureHttp = (u) => /^https?:\/\//i.test(u) ? u : `http://${u}`;
 
-  // map for transcript/certs
-  const allCourses = (window.ALL && window.ALL.length ? window.ALL : (typeof getCourses==="function"?getCourses():[]));
-  const dic = new Map(allCourses.map(c=>[c.id,c]));
-  const completed = (typeof getCompletedRaw==="function"?getCompletedRaw():[]);
-  const transcriptItems = completed
-    .map(x => ({ meta:x, course: dic.get(x.id), title: (dic.get(x.id)?.title || x.id) }))
-    .filter(x => x.course);
-  const certItems = transcriptItems
-    .map(x => ({ ...x, cert: (typeof getIssuedCert==="function"?getIssuedCert(x.course?.id):null) }))
-    .filter(x => x.cert);
+  const portfolioLinks = splitLinks(p.links);          // ← portfolio input (name="links")
+  const socialLinks    = splitLinks(p.social);         // ← social input (name="social")
 
-  const socialsHtml = socials.length
-    ? `<div class="profile-section">
-         <b class="title">Social</b>
-         <div class="profile-links">
-           ${socials.map(u => {
-             const nu = __normUrl(u);
-             return `<a href="${__esc(nu)}" target="_blank" rel="noopener">${__esc(u)}</a>`;
+  const portfolioHtml = portfolioLinks.length
+    ? `<div class="small" style="margin:.4rem 0">
+         <b class="muted">Portfolio:</b>
+         <div style="margin-top:.25rem;display:flex;gap:8px;flex-wrap:wrap">
+           ${portfolioLinks.map(u => {
+             const safe = ensureHttp(u);
+             return `<a class="chip" href="${safe}" target="_blank" rel="noopener">${safe}</a>`;
            }).join("")}
          </div>
-       </div>` : "";
+       </div>`
+    : "";
 
-  const portfolioHtml = portfolioUrl
-    ? `<div class="profile-section">
-         <b class="title">Portfolio</b>
-         <div class="profile-links">
-           <a href="${__esc(portfolioUrl)}" target="_blank" rel="noopener">${__esc(portfolioUrl)}</a>
-         </div>
-       </div>` : "";
-
-  const transcriptHtml = transcriptItems.length
-    ? `<div class="profile-section profile-table">
-         <b class="title">Transcript</b>
-         <div class="table-responsive">
-           <table class="ol-table small">
-             <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
-             <tbody>
-               ${transcriptItems.map(r=>`
-                 <tr>
-                   <td>${__esc(r.title)}</td>
-                   <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
-                   <td>${r.meta.score!=null? (Math.round(r.meta.score*100)+'%') : '—'}</td>
-                 </tr>`).join("")}
-             </tbody>
-           </table>
+  const socialHtml = socialLinks.length
+    ? `<div class="small" style="margin:.4rem 0">
+         <b class="muted">Social:</b>
+         <div style="margin-top:.25rem;display:flex;flex-direction:column;gap:6px;">
+           ${socialLinks.map(u => {
+             const safe = ensureHttp(u);
+             return `<a class="chip" href="${safe}" target="_blank" rel="noopener" style="display:block">${safe}</a>`;
+           }).join("")}
          </div>
        </div>`
-    : `<div class="profile-section"><b class="title">Transcript</b><div class="small muted">No completed courses yet.</div></div>`;
+    : "";
 
-  const certHtml = certItems.length
-    ? `<div class="profile-section profile-table">
-         <b class="title">Certificates</b>
-         <div class="table-responsive">
-           <table class="ol-table small">
-             <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
-             <tbody>
-               ${certItems.map(({course})=>`
-                 <tr>
-                   <td>${__esc(course.title)}</td>
-                   <td style="text-align:right">
-                     <button class="btn small" data-cert-view="${__esc(course.id)}">View</button>
-                     <button class="btn small" data-cert-dl="${__esc(course.id)}">Download PDF</button>
-                   </td>
-                 </tr>`).join("")}
-             </tbody>
-           </table>
-         </div>
-       </div>` : "";
+  // courses for transcript/certs
+  const courses = (window.ALL && window.ALL.length ? window.ALL : (typeof getCourses === "function" ? getCourses() : [])) || [];
+  const dic = new Map(courses.map(c => [c.id, c]));
 
-  const bioLine = p.bio ? `<div class="profile-bio">${__esc(p.bio)}</div>` : "";
-  const skillsLine = p.skills ? `<div class="profile-skills">Skills: ${__esc(p.skills)}</div>` : "";
+  const transcriptItems = (typeof getCompletedRaw === "function" ? getCompletedRaw() : [])
+    .map(x => ({ meta: x, course: dic.get(x.id), title: (dic.get(x.id)?.title || x.id) }))
+    .filter(x => x.course);
 
-  // pretty card markup (works with your CSS from previous step)
+  const transcriptHtml = transcriptItems.length
+    ? `<table class="ol-table small" style="margin-top:.35rem">
+         <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
+         <tbody>
+           ${transcriptItems.map(r => `
+             <tr>
+               <td>${(r.title||"").replace(/</g,"&lt;")}</td>
+               <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
+               <td>${r.meta.score != null ? Math.round(r.meta.score*100) + "%" : "—"}</td>
+             </tr>`).join("")}
+         </tbody>
+       </table>`
+    : `<div class="small muted">No completed courses yet.</div>`;
+
+  const certItems = transcriptItems
+    .map(x => ({ ...x, cert: (typeof getIssuedCert === "function" ? getIssuedCert(x.course?.id) : null) }))
+    .filter(x => x.cert);
+
+  const certSection = certItems.length
+    ? `<div style="margin-top:14px">
+         <b class="small">Certificates</b>
+         <table class="ol-table small" style="margin-top:.35rem">
+           <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
+           <tbody>
+             ${certItems.map(({course}) => `
+               <tr>
+                 <td>${(course.title||"").replace(/</g,"&lt;")}</td>
+                 <td style="text-align:right">
+                   <button class="btn small" data-cert-view="${course.id}">View</button>
+                   <button class="btn small" data-cert-dl="${course.id}">Download PDF</button>
+                 </td>
+               </tr>`).join("")}
+           </tbody>
+         </table>
+       </div>`
+    : "";
+
+  const bioHtml    = p.bio ? `<div class="muted" style="margin:.25rem 0">${(p.bio||"").replace(/</g,"&lt;")}</div>` : "";
+  const skillsHtml = p.skills ? `<div class="small muted">Skills: ${(p.skills||"").replace(/</g,"&lt;")}</div>` : "";
+
   box.innerHTML = `
-    <div class="profile-card">
-      <img class="profile-avatar"
-           src="${__esc(avatar)}"
+    <div class="row" style="gap:12px;align-items:flex-start">
+      <img src="${avatar}"
            alt=""
+           style="width:72px;height:72px;border-radius:50%"
            onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
       <div class="grow">
-        <div class="profile-name">${__esc(name)}</div>
-        ${bioLine}
-        ${skillsLine}
-
-        <div class="profile-meta">
-          ${portfolioHtml}
-          ${socialsHtml}
-          ${transcriptHtml}
-          ${certHtml}
-        </div>
+        <div class="h4" style="margin:.1rem 0">${(name||"").replace(/</g,"&lt;")}</div>
+        ${bioHtml}
+        ${skillsHtml}
+        ${portfolioHtml}
+        ${socialHtml}
+        <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
+        ${certSection}
       </div>
-    </div>
-  `;
+    </div>`;
 
-  // wire certificate actions
-  box.querySelectorAll("[data-cert-view]").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
+  // cert buttons
+  box.querySelectorAll("[data-cert-view]").forEach(btn => {
+    btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-view");
-      const c = allCourses.find(x=>x.id===id);
-      if (c && typeof showCertificate==="function") showCertificate(c, { issueIfMissing:false });
+      const c = courses.find(x => x.id === id);
+      if (c && typeof showCertificate === "function") showCertificate(c, { issueIfMissing: false });
     });
   });
-  box.querySelectorAll("[data-cert-dl]").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
+  box.querySelectorAll("[data-cert-dl]").forEach(btn => {
+    btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-dl");
-      const c = allCourses.find(x=>x.id===id);
+      const c = courses.find(x => x.id === id);
       if (!c) return;
-      if (typeof showCertificate==="function") showCertificate(c, { issueIfMissing:false });
-      setTimeout(()=>window.print(), 200);
+      if (typeof showCertificate === "function") showCertificate(c, { issueIfMissing: false });
+      setTimeout(() => window.print(), 200);
     });
   });
 }
