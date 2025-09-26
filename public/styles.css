@@ -1727,17 +1727,26 @@ details.help + details.help {
 
 /* container card look */
 #profilePanel {
-  --pf-bg: #477170;
-  --pf-muted: #6b7280;     /* gray-500 */
+  --pf-bg: #ffffff;
+  --pf-muted: #374151;     /* gray-500 */
   --pf-border: #e5e7eb;    /* gray-200 */
   --pf-shadow: 0 8px 24px rgba(0,0,0,.08);
-  background: var(--pf-bg);
+  background: var(--pf-bg) !important;
+  color: #0f172a !important;               /* dark text */
   border: 1px solid var(--pf-border);
   border-radius: 16px;
   box-shadow: var(--pf-shadow);
   padding: 18px;
   max-width: 980px;
   margin: 12px auto;
+}
+
+#profilePanel a { 
+  color: #0f172a;           /* slate-900 */
+  text-decoration: none;
+}
+#profilePanel a:hover { 
+  text-decoration: underline;
 }
 
 /* header row */
@@ -1769,6 +1778,10 @@ details.help + details.help {
   color: var(--pf-muted) !important;
 }
 
+#profilePanel .small.muted {
+  color: #4b5563 !important;               /* gray-600 */
+}
+
 /* small section blocks */
 #profilePanel .profile-section {
   margin-top: 12px;
@@ -1786,8 +1799,9 @@ details.help + details.help {
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--pf-border);
-  background: #f9fafb;
-  color: #111827;
+  background: #f3f4f6 !important;          /* gray-100 */
+  border-color: #d1d5db !important;        /* gray-300 */
+  color: #111827 !important;
   text-decoration: none;
   font-size: .85rem;
   transition: all .15s ease;
@@ -1796,8 +1810,8 @@ details.help + details.help {
   text-overflow: ellipsis;
 }
 #profilePanel .chip:hover {
-  background: #eef2ff;       /* indigo-50 */
-  border-color: #c7d2fe;     /* indigo-200 */
+  background: #e5e7eb !important;          /* gray-200 */
+  border-color: #9ca3af !important;        /* gray-400 */
 }
 
 /* make link blocks look neat on their own lines too */
@@ -1827,8 +1841,9 @@ details.help + details.help {
   background: #fff;
 }
 #profilePanel .ol-table thead th {
-  background: #f3f4f6;       /* gray-100 */
-  color: #111827;
+  background: #e5e7eb !important;          /* gray-200 */
+  color: #111827 !important;
+  border-bottom-color: #d1d5db !important;
   font-weight: 600;
   padding: 10px 12px;
   font-size: .85rem;
@@ -1839,13 +1854,29 @@ details.help + details.help {
   padding: 10px 12px;
   border-bottom: 1px solid #f1f5f9; /* slate-100 */
   font-size: .9rem;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-bottom-color: #e5e7eb !important; /* gray-200 */
 }
 #profilePanel .ol-table tbody tr:nth-child(odd) td {
-  background: #fcfcfd;
+  background: #f9fafb !important;          /* slate-50 */
+}
+
+#profilePanel img[style*="border-radius:50%"] {
+  border-color: #e5e7eb !important;        /* gray-200 */
+}
+
+#profilePanel .profile-section .title,
+#profilePanel b.small,
+#profilePanel .h4 {
+  color: #0b1220 !important;               /* very dark */
 }
 
 /* buttons in the certificate row */
 #profilePanel .btn.small {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #111827;
   padding: 6px 10px;
   border-radius: 8px;
 }
@@ -1858,9 +1889,52 @@ details.help + details.help {
   margin-top: 10px !important;
 }
 
+#profilePanel .btn.small:hover {
+  background: #f3f4f6;
+}
+
 /* responsive stack for header */
 @media (max-width: 520px) {
   #profilePanel > .row {
     align-items: flex-start !important;
   }
+}
+
+@media (prefers-color-scheme: dark) {
+  body { background-color: #0b1220; }
+  #profilePanel {
+    background: #0f172a !important;        /* dark slate */
+    color: #e5e7eb !important;
+    border-color: #1f2937 !important;
+  }
+  #profilePanel .muted,
+  #profilePanel .small.muted { color: #cbd5e1 !important; }
+  #profilePanel .chip {
+    background: #1f2937 !important;
+    border-color: #334155 !important;
+    color: #e5e7eb !important;
+  }
+  #profilePanel .chip:hover {
+    background: #2b394b !important;
+    border-color: #475569 !important;
+  }
+  #profilePanel .ol-table thead th {
+    background: #1f2937 !important;
+    color: #e5e7eb !important;
+    border-bottom-color: #334155 !important;
+  }
+  #profilePanel .ol-table tbody td {
+    background: #0f172a !important;
+    color: #e5e7eb !important;
+    border-bottom-color: #1f2937 !important;
+  }
+  #profilePanel .ol-table tbody tr:nth-child(odd) td {
+    background: #111827 !important;
+  }
+  #profilePanel .btn.small {
+    background: #111827;
+    border-color: #334155;
+    color: #e5e7eb;
+  }
+  #profilePanel a { color: #e5e7eb; }
 }
