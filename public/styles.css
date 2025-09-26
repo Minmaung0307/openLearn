@@ -399,6 +399,12 @@ main,
 
 #pay-with-paypal {
   padding-bottom: 12px;
+  text-align: center;
+}
+
+#paypalNote {
+  color: rgb(128, 109, 0);
+  text-align: center;
 }
 
 /* Cards */
