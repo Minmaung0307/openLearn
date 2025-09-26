@@ -22,7 +22,6 @@ import {
   orderByChild,
   get,
   remove,
-  ensurePayPal,
 
   // Firestore (for enroll sync)
   doc,
@@ -984,17 +983,14 @@ function renderCatalog() {
     ${benList}
     <div class="row" style="justify-content:flex-end; gap:8px">
       <button class="btn" data-details="${c.id}">Details</button>
-      
-       <button class="btn primary" data-enroll="${c.id}">${
+      <button class="btn primary" data-enroll="${c.id}">${
         enrolled ? "Enrolled" : "Enroll"
       }</button>
-      
     </div>
   </div>
 </div>`;
     })
     .join("");
-
 
   // bind actions
   grid
@@ -2794,62 +2790,23 @@ async function openPay(course) {
 
 // ===== Payments Config Helpers =====
 function getPaymentOptions() {
-  const pm = window.OPENLEARN_CFG?.payments || {};
+  const pm = (window.OPENLEARN_CFG && window.OPENLEARN_CFG.payments) || {};
   const out = [];
-  if (pm.paypal?.enabled) out.push({ id: 'paypal', label: 'PayPal', kind: 'paypal' });
-  const w = pm.wallets || {};
-  for (const [k, v] of Object.entries(w)) {
-    if (v?.enabled) out.push({ id: k.toLowerCase(), label: k, kind: 'wallet', ...v });
+  if (pm.paypal?.enabled) {
+    out.push({ id: "paypal", label: "PayPal", kind: "paypal" });
   }
+  const W = pm.wallets || {};
+  if (W.KBZPay?.enabled) out.push({ id:"kbz", label:"KBZPay", kind:"wallet", qr: W.KBZPay.qr, name: W.KBZPay.name, account: W.KBZPay.account });
+  if (W.CBPay?.enabled)  out.push({ id:"cb",  label:"CBPay",  kind:"wallet", qr: W.CBPay.qr,  name: W.CBPay.name,  account: W.CBPay.account  });
+  if (W.AyaPay?.enabled) out.push({ id:"aya", label:"AyaPay", kind:"wallet", qr: W.AyaPay.qr, name: W.AyaPay.name, account: W.AyaPay.account });
   return out;
 }
 
 // Demo QR fallback (when local file missing)
 function _demoQR(label){ return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent((label||"WALLET")+"-DEMO")}`; }
 
-async function initPayPalButtons({ amount = 1.00, courseId = "", onSuccess } = {}) {
-  try {
-    const pp = await ensurePayPal();
-    if (!pp) {
-      toast?.("PayPal SDK not loaded (check config.js paypalClientId).");
-      return;
-    }
-    const el = document.getElementById("paypal-container");
-    if (!el) {
-      console.warn("#paypal-container not found");
-      return;
-    }
-    el.innerHTML = ""; // clear previous renders
-
-    pp.Buttons({
-      createOrder: (data, actions) => {
-        return actions.order.create({
-          purchase_units: [{ amount: { value: amount.toFixed(2) } }],
-        });
-      },
-      onApprove: async (data, actions) => {
-        try {
-          await actions.order.capture();
-          toast?.("Payment completed with PayPal ✔");
-          if (typeof onSuccess === "function") onSuccess();
-        } catch (e) {
-          console.warn(e);
-          toast?.("PayPal capture failed");
-        }
-      },
-      onError: (err) => {
-        console.warn(err);
-        toast?.("PayPal error");
-      },
-    }).render("#paypal-container");
-  } catch (e) {
-    console.warn(e);
-    toast?.("PayPal SDK not loaded (check config.js paypalClientId).");
-  }
-}
-
 // ===== Render payment radio buttons =====
-function renderPaymentOptions(containerId, { name = "payMethod", priceUSD = 1.00, courseId = "" } = {}) {
+function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const opts = getPaymentOptions();
@@ -2868,54 +2825,11 @@ function renderPaymentOptions(containerId, { name = "payMethod", priceUSD = 1.00
     inp.addEventListener("change", () => {
       const picked = opts.find(x => x.id === inp.value);
       if (!picked) return;
-
-      if (picked.id === "paypal") {
-        // render PayPal buttons into #paypal-container
-        initPayPalButtons({
-          amount: Number(priceUSD || 1.00),
-          courseId,
-          onSuccess: () => {
-            // Enroll success hook; implement your own
-            try { enrollPaidCourse?.(courseId); } catch {}
-            // close modal if you want:
-            document.getElementById("payModal")?.close?.();
-          }
-        });
-      } else if (picked.kind === "wallet") {
-        openWalletModal(picked); // your wallet QR flow
-      }
+      if (picked.kind === "wallet") openWalletPanel(picked);
+      else if (picked.kind === "paypal") openPayPalPanel();
     });
   });
 }
-
-// example: when opening pay modal for a course
-// === Open Pay Modal for a course ===
-// function openPayModalForCourse(course) {
-//   const dlg = document.getElementById("payModal");
-//   if (!dlg) return;
-
-//   // Modal ဖွင့်
-//   dlg.showModal?.();
-
-//   // Render payment choices
-//   renderPaymentOptions("payMethods", {
-//     priceUSD: Number(course.price || 1.00),
-//     courseId: course.id,
-//   });
-
-//   // Default PayPal ကို auto-select လိုချင်ရင်
-//   const ppRadio = document.querySelector('#payMethods input[value="paypal"]');
-//   if (ppRadio) {
-//     ppRadio.checked = true;
-//     ppRadio.dispatchEvent(new Event("change"));
-//   }
-
-//   // Modal header ပြောင်း
-//   const payTitle = document.getElementById("payTitle");
-//   if (payTitle) {
-//     payTitle.textContent = `Checkout: ${course.title || "Course"}`;
-//   }
-// }
 
 // ===== Wallet panel (QR + info) =====
 function openWalletPanel(wallet) {
@@ -3031,137 +2945,64 @@ function ensureWalletModal() {
   return dlg;
 }
 function openWalletModal(opt) {
-  const dlg = document.getElementById('walletModal');
-  const body = document.getElementById('walletBody');
-  if (!dlg || !body) return;
+  const dlg = ensureWalletModal();
+  const meta = opt.meta || {};
+  const qr = meta.qr || "";
+  const who = meta.name || "";
+  const acct = meta.account || "";
 
-  const name = opt.name || '—';
-  const acct = opt.account || '—';
-  const qr = opt.qr || ''; // 必须 pointing to /assets/qr/*.png
-
-  body.innerHTML = `
-    <h3 class="h5">${opt.label}</h3>
-    <div class="muted">Choose a wallet and scan QR → press “I Paid”.</div>
-    <div class="row" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
-      <div>
-        <img class="qr" id="walletQR" alt="${opt.label} QR" 
-             style="max-width:220px;border:1px solid #eee;border-radius:8px"
-             src="${qr}">
-      </div>
-      <div>
-        <div><b>${name}</b></div>
-        <div class="muted">${acct}</div>
-        <div style="margin-top:10px">
-          <label class="small">Upload payment slip (image/pdf)
-            <input id="walletSlip" type="file" accept="image/*,application/pdf">
-          </label>
+  dlg.innerHTML = `
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <b>${opt.label} Payment</b>
+      <button class="btn small" id="wmClose">Close</button>
+    </div>
+    <div class="row" style="gap:16px;align-items:flex-start;margin-top:.5rem">
+      <img src="${qr}" alt="QR" style="width:160px;height:160px;object-fit:contain;border:1px solid #eee;border-radius:8px">
+      <div class="small">
+        <div><b>Account:</b> ${who} ${acct ? `• ${acct}` : ""}</div>
+        <ol style="margin:.5rem 0 0 1rem">
+          <li>Scan QR with your ${opt.label} app</li>
+          <li>Pay the course amount</li>
+          <li>Upload the payment slip below</li>
+        </ol>
+        <div style="margin-top:.5rem">
+          <input type="file" id="wmFile" accept="image/*,application/pdf">
         </div>
-        <button class="btn primary" id="walletPaid">I Paid (MMK)</button>
+        <div class="row" style="gap:8px;margin-top:.5rem">
+          <button class="btn" id="wmSubmit">Submit Proof</button>
+        </div>
+        <div class="tiny muted" id="wmMsg" style="margin-top:.25rem"></div>
       </div>
     </div>
   `;
-  dlg.showModal?.();
 
-  // wire submit
-  document.getElementById('walletPaid')?.addEventListener('click', () => {
-    submitWalletPayment(opt).catch(()=>{});
+  dlg.querySelector("#wmClose")?.addEventListener("click", () => dlg.close());
+  dlg.querySelector("#wmSubmit")?.addEventListener("click", async () => {
+    const f = dlg.querySelector("#wmFile")?.files?.[0];
+    const msg = dlg.querySelector("#wmMsg");
+    if (!f) { msg.textContent = "Please choose a file"; return; }
+
+    // TODO: upload to Firebase Storage (folder: receipts/<uid>/<ts>-<name>)
+    try {
+      const u = (typeof getUser === "function" ? getUser() : null) || {};
+      const uid = (u && u.uid) || "anon";
+      const ts = Date.now();
+      const path = `receipts/${uid}/${ts}-${(f.name||"proof")}`;
+      // firebase.js: export { storageRef, uploadBytes, getDownloadURL }
+      const r = storageRef(getStorage(), path);
+      await uploadBytes(r, f);
+      const url = await getDownloadURL(r);
+
+      msg.textContent = "Uploaded. We’ll verify and unlock the course soon.";
+      // (optional) save a record to Firestore for staff review
+      // await addDoc(collection(db, "payments"), { provider: opt.id, path, url, uid, ts, status:"pending" });
+
+      setTimeout(() => dlg.close(), 800);
+    } catch (e) {
+      console.warn(e);
+      msg.textContent = "Upload failed. Try again.";
+    }
   });
-  document.getElementById('walletClose')?.addEventListener('click', ()=>dlg.close());
-}
-
-async function submitWalletPayment(opt) {
-  try {
-    const u = (typeof getUser === 'function') ? getUser() : null;
-    if (!u || !u.email) { toast?.('Please sign in first'); return; }
-
-    // current course context (you can store when opening pay modal)
-    const course = window.__PAY_COURSE__ || {};
-    const cid = course.id || 'unknown';
-
-    const file = document.getElementById('walletSlip')?.files?.[0] || null;
-    if (!file) { toast?.('Please attach payment slip'); return; }
-
-    // Upload to Storage
-    const stamp = Date.now();
-    const path = `payments_pending/${u.uid || u.email}/${stamp}-${cid}-${file.name}`;
-    const sref = (window.storageRef || window.sRef || null);
-    if (!sref || !window.uploadBytes || !window.getDownloadURL) {
-      toast?.('Storage not ready'); return;
-    }
-    const handle = sref(window.storage, path);
-    await window.uploadBytes(handle, file);
-    const url = await window.getDownloadURL(handle);
-
-    // Write to RTDB (pending)
-    if (!window.rtdb && typeof getDatabase === 'function') window.rtdb = getDatabase();
-    if (!window.rtdb) { toast?.('Database not ready'); return; }
-
-    const payload = {
-      courseId: cid,
-      courseTitle: course.title || '',
-      wallet: opt.label,
-      account: opt.account || '',
-      amount: course.price || 0,
-      user: u.email,
-      uid: u.uid || '',
-      slipUrl: url,
-      ts: stamp,
-      status: 'pending'
-    };
-    await window.push(window.ref(window.rtdb, 'payments_pending'), payload);
-
-    toast?.('Payment submitted for approval');
-    document.getElementById('walletModal')?.close();
-  } catch (e) {
-    console.warn(e);
-    toast?.('Submit failed');
-  }
-}
-
-async function openPayModalForCourse(course) {
-  window.__PAY_COURSE__ = course; // wallet submit ရဲ့ context
-  const dlg = document.getElementById('payModal');
-  const box = document.getElementById('payBody');
-  if (!dlg || !box) return;
-
-  // Render payment methods (radio)
-  renderPaymentOptions('payMethods'); // ← သင်ထည့်ထားတဲ့ container id
-
-  // PayPal Buttons render
-  const container = document.getElementById('paypal-container');
-  const note = document.getElementById('paypalNote');
-  if (container) container.innerHTML = ''; // clear
-  if (note) note.textContent = '';
-
-  try {
-    // SDK load helper (firebase.js ထဲ ensurePayPal export ထားပြီးသား)
-    if (typeof ensurePayPal === 'function') {
-      const pp = await ensurePayPal();
-      if (pp && container) {
-        pp.Buttons({
-          createOrder: (_, actions) => actions.order.create({
-            purchase_units: [{ amount: { value: String(course.price || 0.01) } }]
-          }),
-          onApprove: async (_, actions) => {
-            await actions.order.capture();
-            toast?.('Payment successful — enrolling…');
-            // TODO: mark enrollment
-          },
-          onError: (err) => {
-            console.warn(err);
-            toast?.('PayPal error');
-          }
-        }).render('#paypal-container');
-      } else {
-        if (note) note.textContent = 'PayPal SDK not loaded (check config.js paypalClientId).';
-      }
-    } else {
-      if (note) note.textContent = 'PayPal helper missing (ensurePayPal).';
-    }
-  } catch (e) {
-    console.warn(e);
-    if (note) note.textContent = 'PayPal SDK not loaded (check config.js paypalClientId).';
-  }
 
   dlg.showModal?.();
 }
