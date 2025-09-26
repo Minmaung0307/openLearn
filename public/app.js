@@ -2843,8 +2843,8 @@ function openWalletPanel(wallet) {
   const acct  = document.getElementById("walletAcct");
 
   title.textContent = `Pay with ${wallet.label}`;
-  brand.textContent = wallet.name || "Your Co";
-  acct.textContent  = wallet.account || "09-xxxx";
+  brand.textContent = wallet.name || "OpenLearn";
+  acct.textContent  = wallet.account || "09-43829990";
 
   const src = wallet.qr || `/assets/qr/${wallet.id}.png`;
   img.src = src;
@@ -3066,8 +3066,8 @@ function ensurePayModal() {
     qrEl.style.display = "block";
 
     // set text info
-    const name = w.name || "Your Co";
-    const acc  = w.account || "09-xxxx";
+    const name = w.name || "OpenLearn";
+    const acc  = w.account || "09-43829990";
     infoEl.innerHTML = `<div><b>${opt.label}</b></div><div>${name}</div><div>${acc}</div>`;
   }
 

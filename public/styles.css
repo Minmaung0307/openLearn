@@ -404,7 +404,7 @@ main,
   font-size: 1.2rem;
 }
 
-#walletQR {
+.row #walletQR {
   align-items: center;
 }
 
