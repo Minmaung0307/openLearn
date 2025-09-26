@@ -1722,3 +1722,145 @@ details.help + details.help {
   line-height:1;
   white-space:nowrap;
 }
+
+/* ==== Profile Panel – Pretty UI ==== */
+
+/* container card look */
+#profilePanel {
+  --pf-bg: #ffffff;
+  --pf-muted: #6b7280;     /* gray-500 */
+  --pf-border: #e5e7eb;    /* gray-200 */
+  --pf-shadow: 0 8px 24px rgba(0,0,0,.08);
+  background: var(--pf-bg);
+  border: 1px solid var(--pf-border);
+  border-radius: 16px;
+  box-shadow: var(--pf-shadow);
+  padding: 18px;
+  max-width: 980px;
+  margin: 12px auto;
+}
+
+/* header row */
+#profilePanel > .row {
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+/* avatar — override inline size softly */
+#profilePanel img[style*="border-radius:50%"] {
+  width: 86px !important;
+  height: 86px !important;
+  border-radius: 50%;
+  border: 3px solid #f3f4f6;    /* gray-100 */
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  background: #fff;
+  object-fit: cover;
+}
+
+/* name */
+#profilePanel .h4 {
+  font-size: 1.35rem;
+  line-height: 1.2;
+  letter-spacing: .2px;
+}
+
+/* muted text */
+#profilePanel .muted {
+  color: var(--pf-muted) !important;
+}
+
+/* small section blocks */
+#profilePanel .profile-section {
+  margin-top: 12px;
+}
+#profilePanel .profile-section .title {
+  font-size: .85rem;
+  color: #111827;           /* gray-900 */
+}
+
+/* chips for links */
+#profilePanel .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--pf-border);
+  background: #f9fafb;
+  color: #111827;
+  text-decoration: none;
+  font-size: .85rem;
+  transition: all .15s ease;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#profilePanel .chip:hover {
+  background: #eef2ff;       /* indigo-50 */
+  border-color: #c7d2fe;     /* indigo-200 */
+}
+
+/* make link blocks look neat on their own lines too */
+#profilePanel .profile-links {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+@media (min-width: 520px) {
+  #profilePanel .profile-links {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
+}
+@media (min-width: 840px) {
+  #profilePanel .profile-links {
+    grid-template-columns: repeat(3, minmax(0,1fr));
+  }
+}
+
+/* transcript / cert tables */
+#profilePanel .ol-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--pf-border);
+  border-radius: 10px;
+  overflow: hidden; /* for rounded corners */
+  background: #fff;
+}
+#profilePanel .ol-table thead th {
+  background: #f3f4f6;       /* gray-100 */
+  color: #111827;
+  font-weight: 600;
+  padding: 10px 12px;
+  font-size: .85rem;
+  text-align: left;
+  border-bottom: 1px solid var(--pf-border);
+}
+#profilePanel .ol-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9; /* slate-100 */
+  font-size: .9rem;
+}
+#profilePanel .ol-table tbody tr:nth-child(odd) td {
+  background: #fcfcfd;
+}
+
+/* buttons in the certificate row */
+#profilePanel .btn.small {
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+/* subtle section separators */
+#profilePanel .grow > .small,
+#profilePanel .grow > .muted,
+#profilePanel .grow > .profile-section,
+#profilePanel .grow > div[style*="margin-top:10px"] {
+  margin-top: 10px !important;
+}
+
+/* responsive stack for header */
+@media (max-width: 520px) {
+  #profilePanel > .row {
+    align-items: flex-start !important;
+  }
+}
