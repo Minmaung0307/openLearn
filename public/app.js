@@ -3566,60 +3566,99 @@ function renderProfilePanel() {
   const userEmail = getUser()?.email || "";
   const name = p.displayName || (userEmail ? userEmail : "Guest");
 
-  // avatar (optional)
+  // avatar
   const baseSrc = toImageSrc?.(p.photoURL);
   const avatar = baseSrc
     ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
     : "/assets/default-avatar.png";
 
-  // bio
   const bio = p.bio ? String(p.bio).trim() : "";
 
-  // skills → accept array or comma-separated string
+  // skills: array or comma-separated
   let skillsText = "";
   if (Array.isArray(p.skills)) {
     skillsText = p.skills.map(s => String(s).trim()).filter(Boolean).join(", ");
   } else if (p.skills) {
-    skillsText = String(p.skills)
-      .split(",")
-      .map(s => s.trim())
-      .filter(Boolean)
-      .join(", ");
+    skillsText = String(p.skills).split(",").map(s=>s.trim()).filter(Boolean).join(", ");
   }
 
-  // ---- Portfolio links (accept: string | array | object{label:url}) ----
+  /* ================== Links ================== */
+  // helper: first non-null/undefined value
+  const pick = (...vals) => vals.find(v => v != null && v !== "");
+
+  // robust link normalizer → [{label,url}]
   function normalizeLinks(v) {
-    // returns [{label, url}]
     const out = [];
+    const pushPair = (label, url) => {
+      const u = String(url||"").trim();
+      if (!u) return;
+      const lbl = String(label||u).trim() || u;
+      out.push({ label: lbl, url: u });
+    };
+
     if (!v) return out;
-    // object map: { GitHub: "https://...", Website: "..." }
+
+    // object map: { Label: "https://..." }
     if (v && typeof v === "object" && !Array.isArray(v)) {
-      for (const [label, url] of Object.entries(v)) {
-        const u = String(url || "").trim();
-        if (u) out.push({ label: String(label || u), url: u });
-      }
+      for (const [label, url] of Object.entries(v)) pushPair(label, url);
       return out;
     }
-    // array: ["https://...", "https://..."]
+
+    // array of strings or array of {label,url}
     if (Array.isArray(v)) {
-      v.forEach((u) => {
-        const s = String(u || "").trim();
-        if (!s) return;
-        out.push({ label: s.replace(/^https?:\/\//, ""), url: s });
+      v.forEach(item => {
+        if (!item) return;
+        if (typeof item === "object") {
+          pushPair(item.label || item.url, item.url || item.link || "");
+        } else {
+          parseOne(String(item));
+        }
       });
       return out;
     }
-    // comma-separated string
+
+    // string → may be comma-separated
     if (typeof v === "string") {
-      v.split(",").map(s => s.trim()).filter(Boolean).forEach((s) => {
-        out.push({ label: s.replace(/^https?:\/\//, ""), url: s });
-      });
+      v.split(",").map(s=>s.trim()).filter(Boolean).forEach(parseOne);
+      return out;
     }
+
     return out;
+
+    // parse helper for one token (supports "Label|URL", "URL|Label", "URL Label", or plain URL)
+    function parseOne(s) {
+      // Label|URL or URL|Label
+      if (s.includes("|")) {
+        const [a,b] = s.split("|").map(x=>x.trim());
+        if (isLikelyUrl(b)) return pushPair(a,b);
+        if (isLikelyUrl(a)) return pushPair(b,a);
+      }
+      // "Label http(s)://…"
+      const m = s.match(/(https?:\/\/\S+)/i);
+      if (m) {
+        const url = m[1];
+        const label = s.replace(url,"").trim() || url;
+        return pushPair(label, url);
+      }
+      // plain URL
+      if (isLikelyUrl(s)) return pushPair(s.replace(/^https?:\/\//,""), s);
+      // otherwise ignore
+    }
   }
 
-  const portfolioLinks = normalizeLinks(p.portfolio || p.portfolios);
-  const socialLinks    = normalizeLinks(p.social || p.socials || p.links);
+  function isLikelyUrl(x) { return /^https?:\/\/\S+/i.test(String(x||"").trim()); }
+
+  // accept many aliases for portfolio & social
+  const portfolioRaw = pick(
+    p.portfolio, p.portfolios, p.portfolioLinks, p.portfolioLink,
+    p.website, p.websites, p.site, p.sites, p.work, p.projects
+  );
+  const socialRaw = pick(
+    p.social, p.socials, p.links, p.socialLinks, p.contacts
+  );
+
+  const portfolioLinks = normalizeLinks(portfolioRaw);
+  const socialLinks    = normalizeLinks(socialRaw);
 
   const portfolioHtml = portfolioLinks.length
     ? `<div class="small" style="margin-top:.35rem">
@@ -3643,12 +3682,11 @@ function renderProfilePanel() {
        </div>`
     : "";
 
-  // ==== Transcript & Certificates (unchanged logic, with guards) ====
+  /* ============== Transcript & Certificates ============== */
   const coursesDict = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
-
   const transcriptItems = getCompletedRaw()
     .map((x) => ({ meta: x, course: coursesDict.get(x.id), title: (coursesDict.get(x.id)?.title || x.id) }))
-    .filter((x) => x.course); // guard
+    .filter((x) => x.course);
 
   const certItems = transcriptItems
     .map((x) => ({ ...x, cert: getIssuedCert(x.course?.id) }))
