@@ -2874,7 +2874,7 @@ async function openPayPalPanel() {
     if (!paypal) {
       // fallback note
       document.getElementById("paypalNote").textContent =
-        "PayPal";
+        "Welcome to OpenLearn";
       return;
     }
     paypal.Buttons({

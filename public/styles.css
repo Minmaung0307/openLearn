@@ -397,8 +397,13 @@ main,
   font-weight: 600;
 }
 
+#pay-with-paypal {
+  padding-bottom: 12px;
+}
+
 /* Cards */
 .card {
+  line-height: 24px;
   background: var(--card);
   color: var(--fg);
   border: 1px solid var(--border);
