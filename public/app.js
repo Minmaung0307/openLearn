@@ -3559,58 +3559,79 @@ function toImageSrc(u) {
 }
 
 // ===== Profile panel (full paste-ready) =====
+// helper: escape + normalize URL
+function __esc(s){return String(s||"").replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
+function __normUrl(u){
+  if(!u) return "";
+  let s = String(u).trim();
+  if(!/^https?:\/\//i.test(s)) s = "https://" + s;
+  return s;
+}
+// helper: accept many possible keys user might have used
+function __getPortfolioUrl(p){
+  const cand = [
+    p?.portfolio,        // ✅ recommended
+    p?.profile,          // sometimes saved as "profile"
+    p?.portfolioLink,    // alternative
+    p?.website,          // generic
+    p?.site,
+    p?.github            // if user only put GitHub handle/url here
+  ].map(x => (x||"").toString().trim()).find(Boolean);
+  return cand ? __normUrl(cand) : "";
+}
+
 function renderProfilePanel() {
   const box = document.getElementById("profilePanel");
   if (!box) return;
 
-  const p = getProfile?.() || {};
-  const user = getUser?.() || {};
+  const p = (typeof getProfile === "function" ? getProfile() : {}) || {};
+  const user = (typeof getUser === "function" ? getUser() : {}) || {};
   const name = p.displayName || user.email || "Guest";
-  const baseSrc = toImageSrc?.(p.photoURL);
+
+  const baseSrc = (typeof toImageSrc === "function" ? toImageSrc(p.photoURL) : p.photoURL) || "";
   const avatar = baseSrc
     ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
     : "/assets/default-avatar.png";
 
-  // helpers
-  const escHtml = (s) => String(s || "").replace(/[&<>"']/g, m =>
-    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  const parseList = (val) =>
-    String(val || "")
-      .split(/[\n,]+/)      // comma / newline இரண்டும் support
-      .map(s => s.trim())
-      .filter(Boolean);
+  // simple list parser: comma OR newline
+  const parseList = (val) => String(val||"")
+    .split(/[\n,]+/)
+    .map(s=>s.trim())
+    .filter(Boolean);
 
-  // social + portfolio
-  const socials = parseList(p.social);     // e.g. "https://x.com/me, https://fb.com/me"
-  const portfolio = (p.portfolio || "").trim(); // e.g. "https://github.com/me"
+  // social + portfolio (now robust)
+  const socials = parseList(p.social);
+  const portfolioUrl = __getPortfolioUrl(p);
 
-  // map of courses for transcript
-  const dic = new Map((ALL.length ? ALL : getCourses()).map(c => [c.id, c]));
-  const transcriptItems = (getCompletedRaw?.() || [])
-    .map(x => ({ meta: x, course: dic.get(x.id), title: (dic.get(x.id)?.title || x.id) }))
+  // map for transcript/certs
+  const allCourses = (window.ALL && window.ALL.length ? window.ALL : (typeof getCourses==="function"?getCourses():[]));
+  const dic = new Map(allCourses.map(c=>[c.id,c]));
+  const completed = (typeof getCompletedRaw==="function"?getCompletedRaw():[]);
+  const transcriptItems = completed
+    .map(x => ({ meta:x, course: dic.get(x.id), title: (dic.get(x.id)?.title || x.id) }))
     .filter(x => x.course);
   const certItems = transcriptItems
-    .map(x => ({ ...x, cert: getIssuedCert?.(x.course?.id) }))
+    .map(x => ({ ...x, cert: (typeof getIssuedCert==="function"?getIssuedCert(x.course?.id):null) }))
     .filter(x => x.cert);
 
-  // build HTML
   const socialsHtml = socials.length
     ? `<div class="profile-section">
          <b class="title">Social</b>
          <div class="profile-links">
-           ${socials.map(u => `<a href="${escHtml(u)}" target="_blank" rel="noopener">${escHtml(u)}</a>`).join("")}
+           ${socials.map(u => {
+             const nu = __normUrl(u);
+             return `<a href="${__esc(nu)}" target="_blank" rel="noopener">${__esc(u)}</a>`;
+           }).join("")}
          </div>
-       </div>`
-    : "";
+       </div>` : "";
 
-  const portfolioHtml = portfolio
+  const portfolioHtml = portfolioUrl
     ? `<div class="profile-section">
          <b class="title">Portfolio</b>
          <div class="profile-links">
-           <a href="${escHtml(portfolio)}" target="_blank" rel="noopener">${escHtml(portfolio)}</a>
+           <a href="${__esc(portfolioUrl)}" target="_blank" rel="noopener">${__esc(portfolioUrl)}</a>
          </div>
-       </div>`
-    : "";
+       </div>` : "";
 
   const transcriptHtml = transcriptItems.length
     ? `<div class="profile-section profile-table">
@@ -3619,11 +3640,11 @@ function renderProfilePanel() {
            <table class="ol-table small">
              <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
              <tbody>
-               ${transcriptItems.map(r => `
+               ${transcriptItems.map(r=>`
                  <tr>
-                   <td>${escHtml(r.title)}</td>
+                   <td>${__esc(r.title)}</td>
                    <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
-                   <td>${r.meta.score != null ? Math.round(r.meta.score * 100) + "%" : "—"}</td>
+                   <td>${r.meta.score!=null? (Math.round(r.meta.score*100)+'%') : '—'}</td>
                  </tr>`).join("")}
              </tbody>
            </table>
@@ -3638,32 +3659,31 @@ function renderProfilePanel() {
            <table class="ol-table small">
              <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
              <tbody>
-               ${certItems.map(({ course }) => `
+               ${certItems.map(({course})=>`
                  <tr>
-                   <td>${escHtml(course.title)}</td>
+                   <td>${__esc(course.title)}</td>
                    <td style="text-align:right">
-                     <button class="btn small" data-cert-view="${escHtml(course.id)}">View</button>
-                     <button class="btn small" data-cert-dl="${escHtml(course.id)}">Download PDF</button>
+                     <button class="btn small" data-cert-view="${__esc(course.id)}">View</button>
+                     <button class="btn small" data-cert-dl="${__esc(course.id)}">Download PDF</button>
                    </td>
                  </tr>`).join("")}
              </tbody>
            </table>
          </div>
-       </div>`
-    : "";
+       </div>` : "";
 
-  // Only 3 lines under name: bio + skills (single line)
-  const bioLine = p.bio ? `<div class="profile-bio">${escHtml(p.bio)}</div>` : "";
-  const skillsLine = p.skills ? `<div class="profile-skills">Skills: ${escHtml(p.skills)}</div>` : "";
+  const bioLine = p.bio ? `<div class="profile-bio">${__esc(p.bio)}</div>` : "";
+  const skillsLine = p.skills ? `<div class="profile-skills">Skills: ${__esc(p.skills)}</div>` : "";
 
+  // pretty card markup (works with your CSS from previous step)
   box.innerHTML = `
     <div class="profile-card">
       <img class="profile-avatar"
-           src="${escHtml(avatar)}"
+           src="${__esc(avatar)}"
            alt=""
            onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
       <div class="grow">
-        <div class="profile-name">${escHtml(name)}</div>
+        <div class="profile-name">${__esc(name)}</div>
         ${bioLine}
         ${skillsLine}
 
@@ -3677,21 +3697,21 @@ function renderProfilePanel() {
     </div>
   `;
 
-  // wire cert buttons
-  box.querySelectorAll("[data-cert-view]").forEach(btn => {
-    btn.addEventListener("click", () => {
+  // wire certificate actions
+  box.querySelectorAll("[data-cert-view]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
       const id = btn.getAttribute("data-cert-view");
-      const c = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
-      if (c) showCertificate?.(c, { issueIfMissing: false });
+      const c = allCourses.find(x=>x.id===id);
+      if (c && typeof showCertificate==="function") showCertificate(c, { issueIfMissing:false });
     });
   });
-  box.querySelectorAll("[data-cert-dl]").forEach(btn => {
-    btn.addEventListener("click", () => {
+  box.querySelectorAll("[data-cert-dl]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
       const id = btn.getAttribute("data-cert-dl");
-      const c = (ALL.length ? ALL : getCourses()).find(x => x.id === id);
+      const c = allCourses.find(x=>x.id===id);
       if (!c) return;
-      showCertificate?.(c, { issueIfMissing: false });
-      setTimeout(() => window.print(), 200);
+      if (typeof showCertificate==="function") showCertificate(c, { issueIfMissing:false });
+      setTimeout(()=>window.print(), 200);
     });
   });
 }
