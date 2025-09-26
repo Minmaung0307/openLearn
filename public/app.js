@@ -22,6 +22,7 @@ import {
   orderByChild,
   get,
   remove,
+  ensurePayPal,
 
   // Firestore (for enroll sync)
   doc,
@@ -983,14 +984,20 @@ function renderCatalog() {
     ${benList}
     <div class="row" style="justify-content:flex-end; gap:8px">
       <button class="btn" data-details="${c.id}">Details</button>
-      <button class="btn primary" data-enroll="${c.id}">${
-        enrolled ? "Enrolled" : "Enroll"
-      }</button>
+      
+      <button class="btn primary" onclick='openPayModalForCourse(${JSON.stringify(c)})'>
+  Buy / Enroll
+</button>
     </div>
   </div>
 </div>`;
     })
     .join("");
+
+    // <button class="btn primary" data-enroll="${c.id}">${
+    //     enrolled ? "Enrolled" : "Enroll"
+    //   }</button>
+
 
   // bind actions
   grid
@@ -2805,8 +2812,49 @@ function getPaymentOptions() {
 // Demo QR fallback (when local file missing)
 function _demoQR(label){ return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent((label||"WALLET")+"-DEMO")}`; }
 
+async function initPayPalButtons({ amount = 1.00, courseId = "", onSuccess } = {}) {
+  try {
+    const pp = await ensurePayPal();
+    if (!pp) {
+      toast?.("PayPal SDK not loaded (check config.js paypalClientId).");
+      return;
+    }
+    const el = document.getElementById("paypal-container");
+    if (!el) {
+      console.warn("#paypal-container not found");
+      return;
+    }
+    el.innerHTML = ""; // clear previous renders
+
+    pp.Buttons({
+      createOrder: (data, actions) => {
+        return actions.order.create({
+          purchase_units: [{ amount: { value: amount.toFixed(2) } }],
+        });
+      },
+      onApprove: async (data, actions) => {
+        try {
+          await actions.order.capture();
+          toast?.("Payment completed with PayPal ✔");
+          if (typeof onSuccess === "function") onSuccess();
+        } catch (e) {
+          console.warn(e);
+          toast?.("PayPal capture failed");
+        }
+      },
+      onError: (err) => {
+        console.warn(err);
+        toast?.("PayPal error");
+      },
+    }).render("#paypal-container");
+  } catch (e) {
+    console.warn(e);
+    toast?.("PayPal SDK not loaded (check config.js paypalClientId).");
+  }
+}
+
 // ===== Render payment radio buttons =====
-function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
+function renderPaymentOptions(containerId, { name = "payMethod", priceUSD = 1.00, courseId = "" } = {}) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const opts = getPaymentOptions();
@@ -2825,10 +2873,53 @@ function renderPaymentOptions(containerId, { name = "payMethod" } = {}) {
     inp.addEventListener("change", () => {
       const picked = opts.find(x => x.id === inp.value);
       if (!picked) return;
-      if (picked.kind === "wallet") openWalletPanel(picked);
-      else if (picked.kind === "paypal") openPayPalPanel();
+
+      if (picked.id === "paypal") {
+        // render PayPal buttons into #paypal-container
+        initPayPalButtons({
+          amount: Number(priceUSD || 1.00),
+          courseId,
+          onSuccess: () => {
+            // Enroll success hook; implement your own
+            try { enrollPaidCourse?.(courseId); } catch {}
+            // close modal if you want:
+            document.getElementById("payModal")?.close?.();
+          }
+        });
+      } else if (picked.kind === "wallet") {
+        openWalletModal(picked); // your wallet QR flow
+      }
     });
   });
+}
+
+// example: when opening pay modal for a course
+// === Open Pay Modal for a course ===
+function openPayModalForCourse(course) {
+  const dlg = document.getElementById("payModal");
+  if (!dlg) return;
+
+  // Modal ဖွင့်
+  dlg.showModal?.();
+
+  // Render payment choices
+  renderPaymentOptions("payMethods", {
+    priceUSD: Number(course.price || 1.00),
+    courseId: course.id,
+  });
+
+  // Default PayPal ကို auto-select လိုချင်ရင်
+  const ppRadio = document.querySelector('#payMethods input[value="paypal"]');
+  if (ppRadio) {
+    ppRadio.checked = true;
+    ppRadio.dispatchEvent(new Event("change"));
+  }
+
+  // Modal header ပြောင်း
+  const payTitle = document.getElementById("payTitle");
+  if (payTitle) {
+    payTitle.textContent = `Checkout: ${course.title || "Course"}`;
+  }
 }
 
 // ===== Wallet panel (QR + info) =====
