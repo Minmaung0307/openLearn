@@ -1634,12 +1634,13 @@ details.help + details.help {
 .wallet-card {
   flex: 1;
   min-width: 280px;
-  background: #fff;
+  background: #dedbdb;
   border-radius: 12px;
-  padding: 1rem 1.2rem;
+  padding: 1.5rem;
   box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-  border: 1px solid #eee;
+  border: 1px solid #807f7f;
   animation: fadeIn 0.3s ease-in-out;
+  text-align: center;   /* title ကို အလယ်ထားမယ် */
 }
 
 .wallet-title {
@@ -1647,15 +1648,22 @@ details.help + details.help {
   font-weight: 600;
   color: #333;
   margin-bottom: 1rem;
-  border-left: 4px solid #3b82f6;
-  padding-left: 8px;
+  display: inline-block;
+  border-bottom: 2px solid #3b82f6;
+  padding-bottom: 4px;
 }
 
 .wallet-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column; /* row → column */
   gap: 16px;
-  align-items: flex-start;
+  align-items: center;    /* center horizontally */
+}
+
+.wallet-qr-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .wallet-qr {
@@ -1674,13 +1682,14 @@ details.help + details.help {
 
 .wallet-info {
   flex: 1;
-  min-width: 200px;
+  max-width: 300px;
+  text-align: center; /* info ကိုလည်း အလယ်ထား */
 }
 
 .wallet-brand {
   font-weight: 700;
   font-size: 1.1rem;
-  color: #111827;
+  color: #c88d05;
   margin-bottom: 4px;
 }
 
