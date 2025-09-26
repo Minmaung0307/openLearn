@@ -574,9 +574,10 @@ function ensureCertIssued(course, profile, score) {
 
   return rec;
 }
-function getIssuedCert(courseId) {
-  return getCerts()[certKey(courseId)] || null;
-}
+
+// function getIssuedCert(courseId) {
+//   return getCerts()[certKey(courseId)] || null;
+// }
 
 /* --- /assets/ ပေါင်းပေးမယ့် helper --- */
 function resolveAssetUrl(u) {
@@ -3411,22 +3412,127 @@ async function migrateProgressKey() {
   }
 }
 
+// ==== Cloud Progress Sync Helpers ====
+// Requires firebase.js exports: db, doc, getDoc, setDoc
+// And your local helpers: getUser(), getCompletedRaw(), setCompletedRaw()
+// Optional: local 'certs' map in localStorage (getIssuedCert uses it)
+
 async function loadProgressCloud() {
-  const ref = progressDocRef();
-  if (!ref) return null;
   try {
+    const u = typeof getUser === "function" ? getUser() : null;
+    if (!u || !u.email) return { completed: [], certs: [] };
+    const uid =
+      (window.auth && auth.currentUser && auth.currentUser.uid) || null;
+    if (!uid) return { completed: [], certs: [] };
+
+    const ref = doc(db, "users", uid); // users/{uid}
     const snap = await getDoc(ref);
-    return snap.exists() ? snap.data() : null;
+    const data = snap.exists() ? snap.data() : {};
+    const cloud = data.progress || {};
+    return {
+      completed: Array.isArray(cloud.completed) ? cloud.completed : [],
+      certs: Array.isArray(cloud.certs) ? cloud.certs : [],
+    };
   } catch {
-    return null;
+    return { completed: [], certs: [] };
   }
 }
-async function saveProgressCloud(patch) {
-  const ref = progressDocRef();
-  if (!ref) return;
+
+function _dedupeByCourse(list) {
+  const by = new Map();
+  for (const it of Array.isArray(list) ? list : []) {
+    const id = it && it.id;
+    if (!id) continue;
+    const prev = by.get(id);
+    if (!prev) {
+      by.set(id, it);
+      continue;
+    }
+    // keep the newest / highest score
+    const newer =
+      it.ts && prev.ts ? (it.ts >= prev.ts ? it : prev) : it.ts ? it : prev;
+    const best = { ...(newer || it || prev) };
+    if (typeof prev.score === "number" && typeof it.score === "number") {
+      best.score = Math.max(prev.score, it.score);
+    }
+    by.set(id, best);
+  }
+  return Array.from(by.values());
+}
+
+function mergeProgress(localArr, cloudArr) {
+  const merged = _dedupeByCourse([...(localArr || []), ...(cloudArr || [])]);
+  // detect change
+  const key = (a) =>
+    JSON.stringify(a.slice().sort((x, y) => x.id.localeCompare(y.id)));
+  const changed = key(localArr || []) !== key(merged);
+  return { list: merged, changed };
+}
+
+function getAllIssuedCertIds() {
+  // try your own helpers first
+  if (typeof getIssuedCertIds === "function") return getIssuedCertIds();
+  // fallback from localStorage map: { [courseId]: {ts:...} }
   try {
-    await setDoc(ref, patch, { merge: true });
+    const map = JSON.parse(localStorage.getItem("certs") || "{}");
+    return Object.keys(map || {});
+  } catch {
+    return [];
+  }
+}
+
+async function saveProgressCloud() {
+  try {
+    const uid =
+      (window.auth && auth.currentUser && auth.currentUser.uid) || null;
+    if (!uid) return;
+    const completed =
+      (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
+    const certs = getAllIssuedCertIds();
+
+    const ref = doc(db, "users", uid);
+    // merge to not wipe other user fields
+    await setDoc(
+      ref,
+      {
+        progress: { completed, certs },
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.warn("saveProgressCloud failed:", e && e.message ? e.message : e);
+  }
+}
+
+// ==== CERT STORAGE (local) ====
+// keep simple map in localStorage: { [courseId]: { id, name, photo, score, issuedAt } }
+
+function _certKey() { return "certs"; }
+
+function getIssuedCert(courseId) {
+  try {
+    const m = JSON.parse(localStorage.getItem(_certKey()) || "{}");
+    return m[courseId] || null;
+  } catch { return null; }
+}
+
+function setIssuedCert(courseId, cert) {
+  try {
+    const m = JSON.parse(localStorage.getItem(_certKey()) || "{}");
+    m[courseId] = cert;
+    localStorage.setItem(_certKey(), JSON.stringify(m));
   } catch {}
+}
+
+// small id generator
+function genCertId() {
+  return "OL-" + Math.random().toString(36).slice(2, 8).toUpperCase() + "-" + Date.now().toString(36).toUpperCase();
+}
+
+// already added earlier; keep here if you don’t have it in helpers:
+async function saveProgressCloudSafe(payload) {
+  try { if (typeof saveProgressCloud === "function") await saveProgressCloud(payload); }
+  catch (e) { console.warn("saveProgressCloud failed:", e?.message || e); }
 }
 
 // Cloud → Local fallback
@@ -3532,19 +3638,46 @@ const setCompletedRaw = (arr) => _write("ol_completed_v2", arr || []);
 // const hasCompleted    = (id) => getCompletedRaw().some((x) => x.id === id);
 const getCompleted = () => new Set(getCompletedRaw().map((x) => x.id));
 
-function markCourseComplete(id, score = null) {
-  const arr = getCompletedRaw();
-  if (!arr.some((x) => x.id === id)) {
+// === REPLACE your markCourseComplete with this ===
+async function markCourseComplete(id, score = null) {
+  const arr = Array.isArray(getCompletedRaw?.()) ? getCompletedRaw() : [];
+  const i = arr.findIndex((x) => x.id === id);
+  const now = Date.now();
+
+  if (i < 0) {
     arr.push({
       id,
-      ts: Date.now(),
+      ts: now,
       score: typeof score === "number" ? score : null,
     });
-    setCompletedRaw(arr);
+  } else {
+    // update existing record
+    arr[i].ts = now;
+    if (typeof score === "number") arr[i].score = score;
   }
+
+  setCompletedRaw?.(arr);
+
+  // after setCompletedRaw(...), UI refresh lines in your markCourseComplete:
+try {
+  const passScore = typeof score === "number" ? score : LAST_QUIZ_SCORE || 0;
+  const already = getIssuedCert(id);
+  if (!already && passScore >= (window.QUIZ_PASS || 0.6)) {
+    // issue cert once
+    await issueCertificateForCourse({ id, title: (ALL.find(c=>c.id===id)?.title || id), credits: ALL.find(c=>c.id===id)?.credits || 3 }, passScore);
+  }
+} catch (e) {
+  console.warn("auto-issue cert failed:", e?.message || e);
+}
+
+// and keep your:  await saveProgressCloudSafe({ completed: getCompletedRaw(), ts: Date.now() });
+
+  // refresh UI
   window.renderProfilePanel?.();
   window.renderMyLearning?.();
-  saveProgressCloud({ completed: getCompletedRaw(), ts: Date.now() });
+
+  // persist to cloud (single call)
+  await saveProgressCloudSafe({ completed: arr, ts: now });
 }
 
 function toImageSrc(u) {
@@ -4284,74 +4417,79 @@ function renderQuiz(p) {
   const isLastPage = () => RD.i === RD.pages.length - 1;
 
   // 4) Grading + feedback
-  $("#qCheck").onclick = () => {
-    let correct = 0;
+  // === REPLACE your existing qCheck handler with this async version ===
+$("#qCheck").onclick = async () => {
+  let correct = 0;
 
-    q.forEach((it, i) => {
-      let isOK = false;
-      let userAnsForFeedback = null;
+  q.forEach((it, i) => {
+    let isOK = false;
+    let userAnsForFeedback = null;
 
-      if (it.type === "single") {
-        const picked = document.querySelector(`input[name="q${i}"]:checked`);
-        const val = picked ? Number(picked.value) : -1;
-        isOK = val === it.correct;
-        userAnsForFeedback = val;
-        if (isOK) correct++;
-      } else if (it.type === "multiple") {
-        const picks = Array.from(
-          document.querySelectorAll(`input[name="q${i}"]:checked`)
-        )
-          .map((x) => Number(x.value))
-          .sort();
-        const want = Array.isArray(it.correct) ? it.correct.slice().sort() : [];
-        isOK =
-          picks.length === want.length &&
-          picks.every((v, idx) => v === want[idx]);
-        userAnsForFeedback = picks;
-        if (isOK) correct++;
-      } else {
-        // short
-        const input = document.querySelector(`input[name="q${i}"]`);
-        const ans = (input?.value || "").trim().toLowerCase();
-        const accepts = Array.isArray(it.answers)
-          ? it.answers.map((x) => String(x).toLowerCase())
-          : [String(it.answer || "").toLowerCase()];
-        isOK = accepts.includes(ans);
-        userAnsForFeedback = ans;
-        if (isOK) correct++;
-      }
-
-      // feedback
-      const fb = document.getElementById(`fb-${i}`);
-      if (fb) {
-        fb.innerHTML = getFeedback(it, userAnsForFeedback, isOK); // innerHTML for <br>/<code>
-        fb.style.color = isOK ? "var(--ok, #16a34a)" : "var(--err, #ef4444)";
-      }
-    });
-
-    const score = correct / (q.length || 1);
-    LAST_QUIZ_SCORE = score;
-    $("#qMsg").textContent = `Score: ${Math.round(score * 100)}% (${correct}/${
-      q.length
-    })`;
-
-    if (score >= QUIZ_PASS) {
-      setPassedQuiz(RD.cid, RD.i, score);
-      if (score >= 0.85) launchFireworks();
-      if (isLastPage()) {
-        markCourseComplete(RD.cid, score);
-        showCongrats();
-      } else {
-        toast("Great! You unlocked the next lesson 🎉");
-      }
-      $("#qRetake").style.display = "none";
+    if (it.type === "single" || it.type === "mcq") {
+      const picked = document.querySelector(`input[name="q${i}"]:checked`);
+      const val = picked ? Number(picked.value) : -1;
+      isOK = val === it.correct;
+      userAnsForFeedback = val;
+      if (isOK) correct++;
+    } else if (it.type === "multiple") {
+      const picks = Array.from(
+        document.querySelectorAll(`input[name="q${i}"]:checked`)
+      )
+        .map((x) => Number(x.value))
+        .sort();
+      const want = Array.isArray(it.correct) ? it.correct.slice().sort() : [];
+      isOK =
+        picks.length === want.length &&
+        picks.every((v, idx) => v === want[idx]);
+      userAnsForFeedback = picks;
+      if (isOK) correct++;
     } else {
-      toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% — try again`);
-      $("#qRetake").style.display = "";
+      // short / tf
+      const input = document.querySelector(`input[name="q${i}"]`);
+      const ans = (input?.value || "").trim().toLowerCase();
+      const accepts = Array.isArray(it.answers)
+        ? it.answers.map((x) => String(x).toLowerCase())
+        : [String(it.a || it.answer || "").toLowerCase()];
+      isOK = accepts.includes(ans);
+      userAnsForFeedback = ans;
+      if (isOK) correct++;
     }
 
-    $("#rdFinish")?.toggleAttribute("disabled", score < QUIZ_PASS);
-  };
+    // feedback
+    const fb = document.getElementById(`fb-${i}`);
+    if (fb) {
+      fb.innerHTML = getFeedback(it, userAnsForFeedback, isOK); // allow <code>/<br>
+      fb.style.color = isOK ? "var(--ok, #16a34a)" : "var(--err, #ef4444)";
+    }
+  });
+
+  const score = correct / (q.length || 1);
+  LAST_QUIZ_SCORE = score;
+  $("#qMsg").textContent = `Score: ${Math.round(score * 100)}% (${correct}/${q.length})`;
+
+  if (score >= QUIZ_PASS) {
+    setPassedQuiz(RD.cid, RD.i, score);
+
+    if (score >= 0.85) launchFireworks();
+
+    if (isLastPage()) {
+      await markCourseComplete(RD.cid, score);   // await so cloud save completes
+      showCongrats();
+    } else {
+      toast("Great! You unlocked the next lesson 🎉");
+    }
+
+    // persist progress snapshot
+    await saveProgressCloudSafe();
+
+    $("#qRetake").style.display = "none";
+  } else {
+    toast(`Need ≥ ${Math.round(QUIZ_PASS * 100)}% — try again`);
+    $("#qRetake").style.display = "";
+  }
+
+  $("#rdFinish")?.toggleAttribute("disabled", score < QUIZ_PASS);
+};
 
   $("#qRetake").onclick = () => {
     LAST_QUIZ_SCORE = 0;
@@ -4671,6 +4809,30 @@ function renderStars(r) {
   );
 }
 
+// === ISSUE (real work happens here) ===
+async function issueCertificateForCourse(course, score = null) {
+  try {
+    const p = (typeof getProfile === "function" ? getProfile() : {}) || {};
+    const cert = {
+      id: genCertId(),
+      name: p.displayName || (typeof getUser === "function" ? getUser()?.email : "") || "Student",
+      photo: p.photoURL || "",
+      score: typeof score === "number" ? score : null,
+      issuedAt: Date.now(),
+    };
+    setIssuedCert(course.id, cert);
+
+    // persist progress/certs to cloud too
+    await saveProgressCloudSafe();
+
+    // optional: toast + open viewer
+    try { toast?.("Certificate issued 🎉"); } catch {}
+    try { showCertificate?.(course, { issueIfMissing: false }); } catch {}
+  } catch (e) {
+    console.warn("issueCertificateForCourse failed:", e?.message || e);
+  }
+}
+
 function renderCertificate(course, cert) {
   const p = getProfile();
   const name = cert?.name || p.displayName || getUser()?.email || "Student";
@@ -4790,41 +4952,101 @@ function cleanupStrayCertButtons() {
   });
 }
 
-function showCertificate(course, opts = { issueIfMissing: true }) {
-  hardCloseCert(); // old/stale modal/backdrop cleanup
+// ===== Single, merged showCertificate() =====
+function showCertificate(course, { issueIfMissing = false } = {}) {
+  // ensure a cert object exists (sync)
+  let cert = (typeof getIssuedCert === "function") ? getIssuedCert(course.id) : null;
+  if (!cert && issueIfMissing) {
+    // Create a simple cert synchronously so UI can render immediately
+    try {
+      const p = (typeof getProfile === "function" ? getProfile() : {}) || {};
+      cert = {
+        id: (typeof genCertId === "function" ? genCertId() : ("OL-" + Date.now())),
+        name: p.displayName || (typeof getUser === "function" ? getUser()?.email : "") || "Student",
+        photo: p.photoURL || "",
+        score: (typeof LAST_QUIZ_SCORE === "number" ? LAST_QUIZ_SCORE : null),
+        issuedAt: Date.now(),
+      };
+      if (typeof setIssuedCert === "function") setIssuedCert(course.id, cert);
+      // fire-and-forget cloud persist
+      try { saveProgressCloudSafe?.(); } catch {}
+    } catch {}
+  }
+  if (!cert) { try { toast?.("No certificate yet for this course."); } catch {} return; }
 
-  const dlg = document.getElementById("certModal");
-  const body = document.getElementById("certBody");
-  if (!dlg || !body) return;
+  // Prefer existing markup (#certModal + #certBody). If missing, create a lightweight dialog.
+  let dlg = document.getElementById("certModal");
+  let host = document.getElementById("certBody");
+  if (!dlg || !host) {
+    // build a minimal dialog host
+    dlg = document.getElementById("certModal");
+    if (!dlg) {
+      dlg = document.createElement("dialog");
+      dlg.id = "certModal";
+      dlg.className = "ol-modal card";
+      dlg.innerHTML = `
+        <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+          <b class="modal-title">Certificate</b>
+          <button class="btn small" id="certCloseBtn" type="button">Close</button>
+        </div>
+        <div id="certWrap"></div>
+      `;
+      document.body.appendChild(dlg);
+      dlg.querySelector("#certCloseBtn").onclick = () => dlg.close();
+    }
+    host = document.getElementById("certWrap");
+  }
 
-  // ✅ buttons duplicate guard: remove any existing action bars inside the modal
-  dlg
-    .querySelectorAll("#certActions, .row.no-print")
-    .forEach((n) => n.remove());
+  // Clean any duplicated action bars inside the host (if rerendering)
+  try {
+    dlg.querySelectorAll("#certActions, .row.no-print").forEach(n => n.remove());
+  } catch {}
 
-  // render once (this already includes the action bar)
-  body.innerHTML = renderCertificate(
-    course,
-    getIssuedCert(course.id) || ensureCertIssued(course, getProfile())
-  );
+  // Render certificate HTML (this renderer already includes its own action bar)
+  const html = (typeof renderCertificate === "function")
+    ? renderCertificate(course, cert)
+    : `<div class="muted">renderCertificate() not found.</div>`;
+  host.innerHTML = html;
 
-  dlg.showModal();
+  // Show dialog
+  dlg.showModal?.();
 
-  // wire only INSIDE the modal
-  dlg
-    .querySelector("#certPrint")
-    ?.addEventListener("click", () => window.print(), { once: true });
-  dlg
-    .querySelector("#certClose")
-    ?.addEventListener("click", () => hardCloseCert(), { once: true });
-  dlg.addEventListener(
-    "cancel",
-    (e) => {
-      e.preventDefault();
-      hardCloseCert();
-    },
-    { once: true }
-  );
+  // Wire print / close buttons INSIDE rendered content
+  const doHardClose = () => {
+    try {
+      if (typeof hardCloseCert === "function") {
+        hardCloseCert();
+      } else {
+        dlg.close();
+      }
+    } catch { dlg.close(); }
+  };
+  dlg.querySelector("#certPrint")?.addEventListener("click", () => window.print(), { once: true });
+  dlg.querySelector("#certClose")?.addEventListener("click", doHardClose, { once: true });
+
+  // Close on Esc
+  dlg.addEventListener("cancel", (e) => { e.preventDefault(); doHardClose(); }, { once: true });
+
+  // Fill meta spans if present
+  try {
+    const now = new Date();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    const ua = (navigator.userAgent || "").slice(0, 120);
+    const root = host;
+    root.querySelector(".prt-date")?.replaceChildren(document.createTextNode(now.toLocaleString()));
+    root.querySelector(".prt-tz")?.replaceChildren(document.createTextNode(tz));
+    root.querySelector(".prt-ua")?.replaceChildren(document.createTextNode(ua));
+  } catch {}
+}
+
+// (optional) If you want a very small hardClose helper when original isn't present:
+if (typeof window.hardCloseCert !== "function") {
+  window.hardCloseCert = function() {
+    const dlg = document.getElementById("certModal");
+    try { dlg?.close(); } catch {}
+    // remove any stale overlays if your app creates them
+    document.querySelectorAll(".modal-backdrop")?.forEach(n => n.remove());
+  };
 }
 
 // function showCertificate(course, opts = { issueIfMissing: true }) {
@@ -6316,13 +6538,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof onAuthStateChanged === "function" && auth) {
     // Auth state → UI (register once here)
     // ===== Auth state & per-user scope + Cloud sync (REPLACE YOUR BLOCK) =====
+    // === DROP-IN: replace your whole onAuthStateChanged block with this ===
     onAuthStateChanged(auth, async (u) => {
       IS_AUTHED = !!u;
       setAppLocked(!IS_AUTHED);
 
       try {
         if (u) {
-          // 1) Resolve role + set user
+          // 1) resolve role + set user
           const email = (u.email || "").toLowerCase();
           const role =
             (typeof resolveUserRole === "function"
@@ -6334,7 +6557,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           setUser({ email, role });
           setLogged(true, email);
 
-          // 2) RTDB mirror (rules အတွက်) — RTDB တက်မှ ခေါ်မယ်
+          // 1b) RTDB mirror (for RTDB rules)
           try {
             if (typeof ensureRTDBReady === "function") await ensureRTDBReady();
             await mirrorRoleToRTDB?.(u.uid, role);
@@ -6342,44 +6565,95 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.warn("mirrorRoleToRTDB skipped:", e?.message || e);
           }
 
-          // 3) Local storage scope ကို UID အလိုက် ခွဲ (PC/Phone data မရောအောင်)
+          // 1c) scope local storage by uid (avoid PC/Phone mixing)
           try {
             switchLocalStateForUser?.(u.uid);
           } catch {}
 
-          // 4) Local migrations (optional helpers)
+          // 1d) local migrations
           try {
             await migrateProfileToScopedOnce?.();
           } catch {}
           try {
             await migrateEnrollsToScopedOnce?.();
           } catch {}
-          // 4) Merge cloud profile → local (cloud overwrites local)
+
+          // 2) Run in parallel for speed:
+          const tasks = [];
+
+          // 2a) Cloud profile load (existing)
+          let cloudProfilePromise = null;
+          if (typeof loadProfileCloud === "function") {
+            cloudProfilePromise = loadProfileCloud();
+            tasks.push(cloudProfilePromise);
+          }
+
+          // 2b) Enroll migrations + sync (existing)
+          if (
+            typeof migrateEnrollsToScopedOnce === "function" ||
+            typeof syncEnrollsBothWays === "function"
+          ) {
+            const enrollTask = (async () => {
+              if (typeof migrateEnrollsToScopedOnce === "function") {
+                await migrateEnrollsToScopedOnce();
+              }
+              if (typeof syncEnrollsBothWays === "function") {
+                await syncEnrollsBothWays();
+              }
+            })();
+            tasks.push(enrollTask);
+          }
+
+          // ★★★ 2c) NEW: Cloud progress load
+          const cloudProgressPromise =
+            typeof loadProgressCloud === "function"
+              ? loadProgressCloud()
+              : Promise.resolve({ completed: [], certs: [] });
+          tasks.push(cloudProgressPromise);
+
+          // 3) Wait for all
+          const results = await Promise.all(tasks);
+
+          // 4) Merge cloud profile → local (existing)
           if (cloudProfilePromise) {
-            const cloudP = results[0]; // first pushed
+            const cloudP = results[0]; // first in tasks array above (profile)
             if (cloudP) {
               const localP =
                 typeof getProfile === "function" ? getProfile() || {} : {};
               if (typeof setProfile === "function") {
                 setProfile({ ...localP, ...cloudP });
-
-                // ★★★ ADD HERE → save to Cloud as well ★★★
+                // Optional: immediately persist profile to cloud
                 try {
-                  await saveProfileCloud(getProfile());
+                  await saveProfileCloud?.(getProfile());
                 } catch {}
               }
             }
           }
 
-          // 5) Cloud ⇄ Local sync (parallel, named — index တွေပေါ် မယုံ)
-          const syncs = [];
-          if (typeof syncEnrollsBothWays === "function")
-            syncs.push(syncEnrollsBothWays());
-          if (typeof syncProfileBothWays === "function")
-            syncs.push(syncProfileBothWays());
-          await Promise.all(syncs);
+          // ★★★ 4b) NEW: Merge progress (cloud → local) then save back if changed
+          // results order = [cloudProfilePromise?, enrollTask?, cloudProgressPromise]
+          const cloudProg = results[results.length - 1] || {
+            completed: [],
+            certs: [],
+          };
+          const localProg =
+            (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) ||
+            [];
+          if (typeof mergeProgress === "function") {
+            const { list: merged, changed } = mergeProgress(
+              localProg,
+              cloudProg.completed || []
+            );
+            if (changed && typeof setCompletedRaw === "function") {
+              setCompletedRaw(merged);
+              // (optional) merge certs to local store if you keep one
+              try {
+                await saveProgressCloud?.();
+              } catch {}
+            }
+          }
 
-          // 6) UI re-render (ရှိရင်သာ ခေါ်)
+          // 5) UI updates (existing)
           try {
             renderCatalog?.();
           } catch {}
@@ -6390,13 +6664,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             renderProfilePanel?.();
           } catch {}
           try {
-            window.renderAnnouncements?.();
-          } catch {}
-          try {
             window.renderGradebook?.();
           } catch {}
+          try {
+            window.renderAnnouncements?.();
+          } catch {}
         } else {
-          // Logged-out
+          // Logged out
           setUser(null);
           setLogged(false);
           try {
