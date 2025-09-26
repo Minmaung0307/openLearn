@@ -3564,32 +3564,39 @@ function renderProfilePanel() {
   if (!box) return;
 
   const p = (typeof getProfile === "function" ? getProfile() : {}) || {};
-  const name = p.displayName || (typeof getUser === "function" ? getUser()?.email : "") || "Guest";
+  const name =
+    p.displayName ||
+    (typeof getUser === "function" ? getUser()?.email : "") ||
+    "Guest";
 
   const toImageSrc = (u) => u || "/assets/default-avatar.png";
   const baseSrc = toImageSrc(p.photoURL);
-  const avatar = baseSrc ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now() : "/assets/default-avatar.png";
+  const avatar = baseSrc
+    ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
+    : "/assets/default-avatar.png";
 
   // --- link helpers ---
   const splitLinks = (s) =>
     String(s || "")
       .split(/[\s,]+/)
-      .map(x => x.trim())
+      .map((x) => x.trim())
       .filter(Boolean);
 
-  const ensureHttp = (u) => /^https?:\/\//i.test(u) ? u : `http://${u}`;
+  const ensureHttp = (u) => (/^https?:\/\//i.test(u) ? u : `http://${u}`);
 
-  const portfolioLinks = splitLinks(p.links);          // ← portfolio input (name="links")
-  const socialLinks    = splitLinks(p.social);         // ← social input (name="social")
+  const portfolioLinks = splitLinks(p.links); // ← portfolio input (name="links")
+  const socialLinks = splitLinks(p.social); // ← social input (name="social")
 
   const portfolioHtml = portfolioLinks.length
     ? `<div class="small" style="margin:.4rem 0">
          <b class="muted">Portfolio:</b>
          <div style="margin-top:.25rem;display:flex;gap:8px;flex-wrap:wrap">
-           ${portfolioLinks.map(u => {
-             const safe = ensureHttp(u);
-             return `<a class="chip" href="${safe}" target="_blank" rel="noopener">${safe}</a>`;
-           }).join("")}
+           ${portfolioLinks
+             .map((u) => {
+               const safe = ensureHttp(u);
+               return `<a class="chip" href="${safe}" target="_blank" rel="noopener">${safe}</a>`;
+             })
+             .join("")}
          </div>
        </div>`
     : "";
@@ -3598,39 +3605,66 @@ function renderProfilePanel() {
     ? `<div class="small" style="margin:.4rem 0">
          <b class="muted">Social:</b>
          <div style="margin-top:.25rem;display:flex;flex-direction:column;gap:6px;">
-           ${socialLinks.map(u => {
-             const safe = ensureHttp(u);
-             return `<a class="chip" href="${safe}" target="_blank" rel="noopener" style="display:block">${safe}</a>`;
-           }).join("")}
+           ${socialLinks
+             .map((u) => {
+               const safe = ensureHttp(u);
+               return `<a class="chip" href="${safe}" target="_blank" rel="noopener" style="display:block">${safe}</a>`;
+             })
+             .join("")}
          </div>
        </div>`
     : "";
 
   // courses for transcript/certs
-  const courses = (window.ALL && window.ALL.length ? window.ALL : (typeof getCourses === "function" ? getCourses() : [])) || [];
-  const dic = new Map(courses.map(c => [c.id, c]));
+  const courses =
+    (window.ALL && window.ALL.length
+      ? window.ALL
+      : typeof getCourses === "function"
+      ? getCourses()
+      : []) || [];
+  const dic = new Map(courses.map((c) => [c.id, c]));
 
-  const transcriptItems = (typeof getCompletedRaw === "function" ? getCompletedRaw() : [])
-    .map(x => ({ meta: x, course: dic.get(x.id), title: (dic.get(x.id)?.title || x.id) }))
-    .filter(x => x.course);
+  const transcriptItems = (
+    typeof getCompletedRaw === "function" ? getCompletedRaw() : []
+  )
+    .map((x) => ({
+      meta: x,
+      course: dic.get(x.id),
+      title: dic.get(x.id)?.title || x.id,
+    }))
+    .filter((x) => x.course);
 
   const transcriptHtml = transcriptItems.length
     ? `<table class="ol-table small" style="margin-top:.35rem">
          <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
          <tbody>
-           ${transcriptItems.map(r => `
+           ${transcriptItems
+             .map(
+               (r) => `
              <tr>
-               <td>${(r.title||"").replace(/</g,"&lt;")}</td>
+               <td>${(r.title || "").replace(/</g, "&lt;")}</td>
                <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
-               <td>${r.meta.score != null ? Math.round(r.meta.score*100) + "%" : "—"}</td>
-             </tr>`).join("")}
+               <td>${
+                 r.meta.score != null
+                   ? Math.round(r.meta.score * 100) + "%"
+                   : "—"
+               }</td>
+             </tr>`
+             )
+             .join("")}
          </tbody>
        </table>`
     : `<div class="small muted">No completed courses yet.</div>`;
 
   const certItems = transcriptItems
-    .map(x => ({ ...x, cert: (typeof getIssuedCert === "function" ? getIssuedCert(x.course?.id) : null) }))
-    .filter(x => x.cert);
+    .map((x) => ({
+      ...x,
+      cert:
+        typeof getIssuedCert === "function"
+          ? getIssuedCert(x.course?.id)
+          : null,
+    }))
+    .filter((x) => x.cert);
 
   const certSection = certItems.length
     ? `<div style="margin-top:14px">
@@ -3638,21 +3672,39 @@ function renderProfilePanel() {
          <table class="ol-table small" style="margin-top:.35rem">
            <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
            <tbody>
-             ${certItems.map(({course}) => `
+             ${certItems
+               .map(
+                 ({ course }) => `
                <tr>
-                 <td>${(course.title||"").replace(/</g,"&lt;")}</td>
+                 <td>${(course.title || "").replace(/</g, "&lt;")}</td>
                  <td style="text-align:right">
-                   <button class="btn small" data-cert-view="${course.id}">View</button>
-                   <button class="btn small" data-cert-dl="${course.id}">Download PDF</button>
+                   <button class="btn small" data-cert-view="${
+                     course.id
+                   }">View</button>
+                   <button class="btn small" data-cert-dl="${
+                     course.id
+                   }">Download PDF</button>
                  </td>
-               </tr>`).join("")}
+               </tr>`
+               )
+               .join("")}
            </tbody>
          </table>
        </div>`
     : "";
 
-  const bioHtml    = p.bio ? `<div class="muted" style="margin:.25rem 0">${(p.bio||"").replace(/</g,"&lt;")}</div>` : "";
-  const skillsHtml = p.skills ? `<div class="small muted">Skills: ${(p.skills||"").replace(/</g,"&lt;")}</div>` : "";
+  const bioHtml = p.bio
+    ? `<div class="muted" style="margin:.25rem 0">${(p.bio || "").replace(
+        /</g,
+        "&lt;"
+      )}</div>`
+    : "";
+  const skillsHtml = p.skills
+    ? `<div class="small muted">Skills: ${(p.skills || "").replace(
+        /</g,
+        "&lt;"
+      )}</div>`
+    : "";
 
   box.innerHTML = `
     <div class="row" style="gap:12px;align-items:flex-start">
@@ -3661,7 +3713,10 @@ function renderProfilePanel() {
            style="width:72px;height:72px;border-radius:50%"
            onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
       <div class="grow">
-        <div class="h4" style="margin:.1rem 0">${(name||"").replace(/</g,"&lt;")}</div>
+        <div class="h4" style="margin:.1rem 0">${(name || "").replace(
+          /</g,
+          "&lt;"
+        )}</div>
         ${bioHtml}
         ${skillsHtml}
         ${portfolioHtml}
@@ -3672,19 +3727,21 @@ function renderProfilePanel() {
     </div>`;
 
   // cert buttons
-  box.querySelectorAll("[data-cert-view]").forEach(btn => {
+  box.querySelectorAll("[data-cert-view]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-view");
-      const c = courses.find(x => x.id === id);
-      if (c && typeof showCertificate === "function") showCertificate(c, { issueIfMissing: false });
+      const c = courses.find((x) => x.id === id);
+      if (c && typeof showCertificate === "function")
+        showCertificate(c, { issueIfMissing: false });
     });
   });
-  box.querySelectorAll("[data-cert-dl]").forEach(btn => {
+  box.querySelectorAll("[data-cert-dl]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-dl");
-      const c = courses.find(x => x.id === id);
+      const c = courses.find((x) => x.id === id);
       if (!c) return;
-      if (typeof showCertificate === "function") showCertificate(c, { issueIfMissing: false });
+      if (typeof showCertificate === "function")
+        showCertificate(c, { issueIfMissing: false });
       setTimeout(() => window.print(), 200);
     });
   });
@@ -3854,26 +3911,66 @@ async function uploadAvatarFile(file) {
 // }
 
 // ===== Cloud profile (Firestore /users/{uid}) =====
+// === Profile cloud sync (Firestore) ==================================
+function profileDocRef() {
+  const uid = auth?.currentUser?.uid || "";
+  if (!uid || !db) return null;
+  return doc(db, "profiles", uid);
+}
+
 async function loadProfileCloud() {
+  const ref = profileDocRef();
+  if (!ref) return null;
   try {
-    const uid = auth?.currentUser?.uid;
-    if (!uid || !db) return null;
-    const docRef = doc(db, "users", uid);
-    const snap = await getDoc(docRef);
-    return snap.exists() ? snap.data() : null;
-  } catch {
+    const snap = await getDoc(ref);
+    return snap.exists() ? snap.data() || null : null;
+  } catch (e) {
+    console.warn("loadProfileCloud failed:", e?.message || e);
     return null;
   }
 }
 
-async function saveProfileCloud(patch) {
+async function saveProfileCloud(local) {
+  const ref = profileDocRef();
+  if (!ref) return;
   try {
-    const uid = auth?.currentUser?.uid;
-    if (!uid || !db) return;
-    const docRef = doc(db, "users", uid);
-    await setDoc(docRef, patch, { merge: true });
-  } catch {}
+    await setDoc(ref, { ...local, ts: Date.now() }, { merge: true });
+  } catch (e) {
+    console.warn("saveProfileCloud failed:", e?.message || e);
+  }
 }
+
+// Cloud ⇄ Local (profile) — cloud ကို အလွန်တော်သော်ဦးစား
+async function syncProfileBothWays() {
+  if (!db || !auth?.currentUser) {
+    // no cloud → local only
+    window.renderProfilePanel?.();
+    return;
+  }
+  try {
+    const cloud = await loadProfileCloud(); // null | object
+    if (cloud) {
+      setProfile({
+        displayName: cloud.displayName || "",
+        photoURL: cloud.photoURL || "",
+        bio: cloud.bio || "",
+        skills: cloud.skills || "",
+        links: cloud.links || "",
+        social: cloud.social || "",
+      });
+    } else {
+      // first-time → push local to cloud (if something exists)
+      const p = getProfile();
+      await saveProfileCloud(p);
+    }
+  } catch (e) {
+    console.warn("syncProfileBothWays failed:", e?.message || e);
+  }
+  window.renderProfilePanel?.();
+}
+
+// မည်သည့်နေရာမဆို local profile ပြောင်းလဲကြောင်းကို cloud ပြန်တင်ချင်ရင် ဒီဟာကိုခေါ်ပါ:
+//   await saveProfileCloud(getProfile());
 
 (function wireAvatarUploadOnce() {
   const fInput = document.getElementById("avatarFile");
@@ -6218,61 +6315,45 @@ document.addEventListener("DOMContentLoaded", async () => {
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
     // Auth state → UI (register once here)
+    // ===== Auth state & per-user scope + Cloud sync (REPLACE YOUR BLOCK) =====
     onAuthStateChanged(auth, async (u) => {
       IS_AUTHED = !!u;
       setAppLocked(!IS_AUTHED);
 
-      if (u) {
-        // 🔑 role ကို Firestore (သို့) fallback map က resolve
-        let role = "student";
-        // 🔑 role ကို Firestore/fallback က resolveပြီးတာနဲ့…
-        role = (await resolveUserRole(u)) || "student";
+      try {
+        if (u) {
+          // 1) Resolve role + set user
+          const email = (u.email || "").toLowerCase();
+          const role =
+            (typeof resolveUserRole === "function"
+              ? await resolveUserRole(u)
+              : null) || "student";
+          try {
+            await ensureUserDoc?.(u, role);
+          } catch {}
+          setUser({ email, role });
+          setLogged(true, email);
 
-        // (optional) keep your ensureUserDoc(u, role)
-        await ensureUserDoc(u, role).catch(() => {});
-
-        // ★★★ ADD THIS: mirror role → RTDB for Realtime Database rules ★★★
-        await mirrorRoleToRTDB(u.uid, role);
-
-        setUser({ email: u.email || "", role });
-        setLogged(true, u.email || "");
-
-        // ... rest sync ...
-        try {
-          // 1) migrate profile (if the helper exists)
-          if (typeof migrateProfileToScopedOnce === "function") {
-            await migrateProfileToScopedOnce();
+          // 2) RTDB mirror (rules အတွက်) — RTDB တက်မှ ခေါ်မယ်
+          try {
+            if (typeof ensureRTDBReady === "function") await ensureRTDBReady();
+            await mirrorRoleToRTDB?.(u.uid, role);
+          } catch (e) {
+            console.warn("mirrorRoleToRTDB skipped:", e?.message || e);
           }
 
-          // 2) Run in parallel for speed:
-          const tasks = [];
+          // 3) Local storage scope ကို UID အလိုက် ခွဲ (PC/Phone data မရောအောင်)
+          try {
+            switchLocalStateForUser?.(u.uid);
+          } catch {}
 
-          // 2a) Cloud profile load
-          let cloudProfilePromise = null;
-          if (typeof loadProfileCloud === "function") {
-            cloudProfilePromise = loadProfileCloud();
-            tasks.push(cloudProfilePromise);
-          }
-
-          // 2b) Enroll migrations + sync
-          if (
-            typeof migrateEnrollsToScopedOnce === "function" ||
-            typeof syncEnrollsBothWays === "function"
-          ) {
-            const enrollTask = (async () => {
-              if (typeof migrateEnrollsToScopedOnce === "function") {
-                await migrateEnrollsToScopedOnce();
-              }
-              if (typeof syncEnrollsBothWays === "function") {
-                await syncEnrollsBothWays(); // one time is enough
-              }
-            })();
-            tasks.push(enrollTask);
-          }
-
-          // 3) Wait for all
-          const results = await Promise.all(tasks);
-
+          // 4) Local migrations (optional helpers)
+          try {
+            await migrateProfileToScopedOnce?.();
+          } catch {}
+          try {
+            await migrateEnrollsToScopedOnce?.();
+          } catch {}
           // 4) Merge cloud profile → local (cloud overwrites local)
           if (cloudProfilePromise) {
             const cloudP = results[0]; // first pushed
@@ -6281,32 +6362,61 @@ document.addEventListener("DOMContentLoaded", async () => {
                 typeof getProfile === "function" ? getProfile() || {} : {};
               if (typeof setProfile === "function") {
                 setProfile({ ...localP, ...cloudP });
+
+                // ★★★ ADD HERE → save to Cloud as well ★★★
+                try {
+                  await saveProfileCloud(getProfile());
+                } catch {}
               }
             }
           }
 
-          // 5) UI updates (call only if they exist)
-          if (typeof renderCatalog === "function") renderCatalog();
-          if (
-            typeof window !== "undefined" &&
-            typeof window.renderMyLearning === "function"
-          )
-            window.renderMyLearning();
-          if (typeof renderProfilePanel === "function") renderProfilePanel();
-          if (
-            typeof window !== "undefined" &&
-            typeof window.renderGradebook === "function"
-          )
-            window.renderGradebook();
-        } catch (syncErr) {
-          console.warn(
-            "Post-login sync failed:",
-            syncErr && syncErr.message ? syncErr.message : syncErr
-          );
+          // 5) Cloud ⇄ Local sync (parallel, named — index တွေပေါ် မယုံ)
+          const syncs = [];
+          if (typeof syncEnrollsBothWays === "function")
+            syncs.push(syncEnrollsBothWays());
+          if (typeof syncProfileBothWays === "function")
+            syncs.push(syncProfileBothWays());
+          await Promise.all(syncs);
+
+          // 6) UI re-render (ရှိရင်သာ ခေါ်)
+          try {
+            renderCatalog?.();
+          } catch {}
+          try {
+            window.renderMyLearning?.();
+          } catch {}
+          try {
+            renderProfilePanel?.();
+          } catch {}
+          try {
+            window.renderAnnouncements?.();
+          } catch {}
+          try {
+            window.renderGradebook?.();
+          } catch {}
+        } else {
+          // Logged-out
+          setUser(null);
+          setLogged(false);
+          try {
+            switchLocalStateForUser?.("anon");
+          } catch {}
+          try {
+            renderCatalog?.();
+          } catch {}
+          try {
+            window.renderMyLearning?.();
+          } catch {}
+          try {
+            renderProfilePanel?.();
+          } catch {}
+          try {
+            window.renderAnnouncements?.();
+          } catch {}
         }
-      } else {
-        setUser(null);
-        setLogged(false);
+      } catch (e) {
+        console.warn("onAuthStateChanged failed:", e?.message || e);
       }
     });
   }
