@@ -3558,115 +3558,148 @@ function toImageSrc(u) {
   return "/" + s.replace(/^\.?\//, "");
 }
 
+// ===== Profile panel (full paste-ready) =====
 function renderProfilePanel() {
-  const box = $("#profilePanel");
+  const box = document.getElementById("profilePanel");
   if (!box) return;
 
-  const p = getProfile() || {};
-  const userEmail = getUser()?.email || "";
-  const name = p.displayName || (userEmail ? userEmail : "Guest");
+  // --- tiny helper ---
+  const esc = (s) => String(s ?? "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 
-  // avatar
-  const baseSrc = toImageSrc?.(p.photoURL);
+  const toImageSrc = (u) => (u && String(u).trim()) || "";
+
+  // ---- data sources ----
+  const p = (typeof getProfile === "function" ? getProfile() : {}) || {};
+  const me = (typeof getUser === "function" ? getUser() : {}) || {};
+  const name = p.displayName || me.email || "Guest";
+  const baseSrc = toImageSrc(p.photoURL);
   const avatar = baseSrc
     ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
-    : "/assets/default-avatar.png";
+    : "";
 
-  const bio = p.bio ? String(p.bio).trim() : "";
+  const coursesAll = (Array.isArray(window.ALL) && window.ALL.length
+    ? window.ALL
+    : (typeof getCourses === "function" ? getCourses() : [])) || [];
 
-  // skills: array or comma-separated
-  let skillsText = "";
-  if (Array.isArray(p.skills)) {
-    skillsText = p.skills.map(s => String(s).trim()).filter(Boolean).join(", ");
-  } else if (p.skills) {
-    skillsText = String(p.skills).split(",").map(s=>s.trim()).filter(Boolean).join(", ");
-  }
+  // --- alias-friendly getters ---
+  const getAny = (obj, keys) => {
+    if (!obj || typeof obj !== "object") return undefined;
+    const map = Object.fromEntries(Object.keys(obj).map(k => [k.toLowerCase(), obj[k]]));
+    for (const k of keys) {
+      const v = map[k.toLowerCase()];
+      if (v != null && v !== "") return v;
+    }
+    return undefined;
+  };
 
-  /* ================== Links ================== */
-  // helper: first non-null/undefined value
-  const pick = (...vals) => vals.find(v => v != null && v !== "");
-
-  // robust link normalizer → [{label,url}]
+  // normalize links to [{label,url}]
   function normalizeLinks(v) {
     const out = [];
     const pushPair = (label, url) => {
-      const u = String(url||"").trim();
-      if (!u) return;
-      const lbl = String(label||u).trim() || u;
-      out.push({ label: lbl, url: u });
+      const raw = String(url || "").trim();
+      if (!raw) return;
+      let href = raw;
+      // add protocol if missing
+      if (!/^https?:\/\//i.test(href) && /^www\./i.test(href)) href = "https://" + href;
+      if (!/^https?:\/\//i.test(href) && /^[\w.-]+\.[a-z]{2,}($|[\/?#])/i.test(href)) href = "https://" + href;
+      const lbl = String(label || href).trim() || href;
+      out.push({ label: lbl, url: href });
+    };
+
+    const isUrlish = s =>
+      /^(https?:\/\/|www\.)\S+/i.test(String(s||"").trim()) ||
+      /^[\w.-]+\.[a-z]{2,}($|[\/?#])/i.test(String(s||""));
+
+    const parseOne = s => {
+      s = String(s).trim();
+      if (!s) return;
+      if (s.includes("|")) {
+        const [a,b] = s.split("|").map(x=>x.trim());
+        if (isUrlish(b)) return pushPair(a,b);
+        if (isUrlish(a)) return pushPair(b,a);
+      }
+      const m = s.match(/(https?:\/\/\S+|\bwww\.\S+|\b[\w.-]+\.[a-z]{2,}\S*)/i);
+      if (m) {
+        const url = m[1];
+        const label = s.replace(url,"").trim() || url;
+        return pushPair(label, url);
+      }
+      if (isUrlish(s)) return pushPair(s.replace(/^https?:\/\//,""), s);
     };
 
     if (!v) return out;
 
-    // object map: { Label: "https://..." }
-    if (v && typeof v === "object" && !Array.isArray(v)) {
-      for (const [label, url] of Object.entries(v)) pushPair(label, url);
-      return out;
-    }
-
-    // array of strings or array of {label,url}
     if (Array.isArray(v)) {
       v.forEach(item => {
         if (!item) return;
         if (typeof item === "object") {
-          pushPair(item.label || item.url, item.url || item.link || "");
+          const url = item.url || item.link || item.href || "";
+          const label = item.label || item.name || url;
+          pushPair(label, url);
         } else {
-          parseOne(String(item));
+          parseOne(item);
         }
       });
       return out;
     }
 
-    // string → may be comma-separated
+    if (typeof v === "object") {
+      for (const [label, url] of Object.entries(v)) pushPair(label, url);
+      return out;
+    }
+
     if (typeof v === "string") {
       v.split(",").map(s=>s.trim()).filter(Boolean).forEach(parseOne);
       return out;
     }
 
     return out;
-
-    // parse helper for one token (supports "Label|URL", "URL|Label", "URL Label", or plain URL)
-    function parseOne(s) {
-      // Label|URL or URL|Label
-      if (s.includes("|")) {
-        const [a,b] = s.split("|").map(x=>x.trim());
-        if (isLikelyUrl(b)) return pushPair(a,b);
-        if (isLikelyUrl(a)) return pushPair(b,a);
-      }
-      // "Label http(s)://…"
-      const m = s.match(/(https?:\/\/\S+)/i);
-      if (m) {
-        const url = m[1];
-        const label = s.replace(url,"").trim() || url;
-        return pushPair(label, url);
-      }
-      // plain URL
-      if (isLikelyUrl(s)) return pushPair(s.replace(/^https?:\/\//,""), s);
-      // otherwise ignore
-    }
   }
 
-  function isLikelyUrl(x) { return /^https?:\/\/\S+/i.test(String(x||"").trim()); }
-
-  // accept many aliases for portfolio & social
-  const portfolioRaw = pick(
-    p.portfolio, p.portfolios, p.portfolioLinks, p.portfolioLink,
-    p.website, p.websites, p.site, p.sites, p.work, p.projects
-  );
-  const socialRaw = pick(
-    p.social, p.socials, p.links, p.socialLinks, p.contacts
-  );
+  // --- collect portfolio & social from many aliases ---
+  const portfolioRaw = getAny(p, [
+    "portfolio","portfolioLink","portfolioLinks","portfolios",
+    "portfolioUrl","portfolioURL",
+    "website","websites","homepage","site","sites",
+    "work","projects","projectLinks","linksPortfolio"
+  ]);
+  const socialRaw = getAny(p, [
+    "social","socials","socialLinks","links","contacts","profiles"
+  ]);
 
   const portfolioLinks = normalizeLinks(portfolioRaw);
   const socialLinks    = normalizeLinks(socialRaw);
+
+  // fallback: find 1st URL in bio/skills if portfolio empty
+  if (!portfolioLinks.length) {
+    const fallbackSrc = [p.portfolioText, p.about, p.bio, p.skills].filter(Boolean).join(" ");
+    const m = String(fallbackSrc).match(/(https?:\/\/\S+|\bwww\.\S+|\b[\w.-]+\.[a-z]{2,}\S*)/i);
+    if (m) portfolioLinks.push({ label: "Portfolio", url: m[1] });
+  }
+
+  // --- transcript & certs ---
+  const id2course = new Map(coursesAll.map(c => [c.id, c]));
+  const completed = (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
+
+  const transcriptItems = completed
+    .map(x => ({ meta: x, course: id2course.get(x.id), title: (id2course.get(x.id)?.title || x.id) }))
+    .filter(x => x.course);
+
+  const certItems = transcriptItems
+    .map(x => ({ ...x, cert: (typeof getIssuedCert === "function" ? getIssuedCert(x.course?.id) : null) }))
+    .filter(x => x.cert);
+
+  // --- render sub-sections ---
+  const bioHtml    = p.bio ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>` : "";
+  const skillsHtml = p.skills ? `<div class="small muted">Skills: ${esc(p.skills)}</div>` : "";
 
   const portfolioHtml = portfolioLinks.length
     ? `<div class="small" style="margin-top:.35rem">
          <b>Portfolio:</b>
          <ul class="link-list">
-           ${portfolioLinks.map(l => `
-             <li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a></li>
-           `).join("")}
+           ${portfolioLinks.map(l => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a></li>`).join("")}
          </ul>
        </div>`
     : "";
@@ -3675,98 +3708,81 @@ function renderProfilePanel() {
     ? `<div class="small" style="margin-top:.35rem">
          <b>Social:</b>
          <ul class="link-list">
-           ${socialLinks.map(l => `
-             <li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a></li>
-           `).join("")}
+           ${socialLinks.map(l => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label)}</a></li>`).join("")}
          </ul>
        </div>`
     : "";
 
-  /* ============== Transcript & Certificates ============== */
-  const coursesDict = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
-  const transcriptItems = getCompletedRaw()
-    .map((x) => ({ meta: x, course: coursesDict.get(x.id), title: (coursesDict.get(x.id)?.title || x.id) }))
-    .filter((x) => x.course);
-
-  const certItems = transcriptItems
-    .map((x) => ({ ...x, cert: getIssuedCert(x.course?.id) }))
-    .filter((x) => x.cert);
-
   const transcriptHtml = transcriptItems.length
-    ? `
-      <div style="margin-top:10px">
-        <b class="small">Transcript</b>
-        <table class="ol-table small" style="margin-top:.35rem">
-          <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
-          <tbody>
-            ${transcriptItems.map(r => `
-              <tr>
-                <td>${esc(r.title)}</td>
-                <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
-                <td>${r.meta.score != null ? Math.round(r.meta.score * 100) + "%" : "—"}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>`
-    : `<div class="small muted" style="margin-top:10px">No completed courses yet.</div>`;
+    ? `<table class="ol-table small" style="margin-top:.35rem">
+         <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
+         <tbody>
+           ${transcriptItems.map(r => `
+             <tr>
+               <td>${esc(r.title)}</td>
+               <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
+               <td>${r.meta.score != null ? Math.round(r.meta.score * 100) + "%" : "—"}</td>
+             </tr>`).join("")}
+         </tbody>
+       </table>`
+    : `<div class="small muted">No completed courses yet.</div>`;
 
   const certSection = certItems.length
-    ? `
-      <div style="margin-top:12px">
-        <b class="small">Certificates</b>
-        <table class="ol-table small" style="margin-top:.35rem">
-          <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
-          <tbody>
-            ${certItems.map(({ course }) => `
-              <tr>
-                <td>${esc(course.title)}</td>
-                <td style="text-align:right">
-                  <button class="btn small" data-cert-view="${esc(course.id)}">View</button>
-                  <button class="btn small" data-cert-dl="${esc(course.id)}">Download PDF</button>
-                </td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>`
+    ? `<div style="margin-top:14px">
+         <b class="small">Certificates</b>
+         <table class="ol-table small" style="margin-top:.35rem">
+           <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
+           <tbody>
+             ${certItems.map(({ course }) => `
+               <tr>
+                 <td>${esc(course.title)}</td>
+                 <td style="text-align:right">
+                   <button class="btn small" data-cert-view="${esc(course.id)}">View</button>
+                   <button class="btn small" data-cert-dl="${esc(course.id)}">Download PDF</button>
+                 </td>
+               </tr>`).join("")}
+           </tbody>
+         </table>
+       </div>`
     : "";
 
-  // ==== Render ====
+  // --- final HTML ---
   box.innerHTML = `
-    <style>
-      #profilePanel .link-list{ list-style: disc; padding-left: 1.1rem; margin:.3rem 0 0; }
-      #profilePanel .hstack{ display:flex; gap:12px; align-items:flex-start; }
-      #profilePanel .avatar{ width:72px; height:72px; border-radius:50%; object-fit:cover }
-    </style>
-    <div class="hstack">
-      <img class="avatar" src="${esc(avatar)}" alt=""
-        onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
+    <div class="row" style="gap:12px;align-items:flex-start">
+      <img src="${avatar || "/assets/default-avatar.png"}"
+           alt=""
+           style="width:72px;height:72px;border-radius:50%"
+           onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
       <div class="grow">
         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
-        ${bio ? `<div class="muted" style="margin:.25rem 0">${esc(bio)}</div>` : ""}
-        ${skillsText ? `<div class="small muted">Skills: ${esc(skillsText)}</div>` : ""}
+        ${bioHtml}
+        ${skillsHtml}
         ${portfolioHtml}
         ${socialHtml}
-        ${transcriptHtml}
+        <div style="margin-top:10px">
+          <b class="small">Transcript</b>
+          ${transcriptHtml}
+        </div>
         ${certSection}
       </div>
     </div>
   `;
 
-  // cert buttons
+  // --- wire cert buttons ---
   box.querySelectorAll("[data-cert-view]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-view");
-      const c = (ALL.length ? ALL : getCourses()).find((x) => x.id === id);
-      if (c) showCertificate(c, { issueIfMissing: false });
+      const c = coursesAll.find(x => x.id === id);
+      if (c && typeof showCertificate === "function") {
+        showCertificate(c, { issueIfMissing: false });
+      }
     });
   });
   box.querySelectorAll("[data-cert-dl]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cert-dl");
-      const c = (ALL.length ? ALL : getCourses()).find((x) => x.id === id);
-      if (!c) return;
+      const c = coursesAll.find(x => x.id === id);
+      if (!c || typeof showCertificate !== "function") return;
       showCertificate(c, { issueIfMissing: false });
       setTimeout(() => window.print(), 200);
     });
