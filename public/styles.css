@@ -397,17 +397,6 @@ main,
   font-weight: 600;
 }
 
-#walletTitle {
-  color: #c29c06;
-  text-align: center;
-  padding-bottom: 12px;
-  font-size: 1.2rem;
-}
-
-.row #walletQR {
-  align-items: center;
-}
-
 #pay-with-paypal {
   padding-bottom: 12px;
   text-align: center;
@@ -1639,4 +1628,76 @@ details.help + details.help {
   display: none !important;
   border: 0 !important;
   padding: 0 !important;
+}
+
+/* Wallet Panel */
+.wallet-card {
+  flex: 1;
+  min-width: 280px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  border: 1px solid #eee;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.wallet-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 1rem;
+  border-left: 4px solid #3b82f6;
+  padding-left: 8px;
+}
+
+.wallet-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.wallet-qr {
+  width: 240px;
+  height: 240px;
+  object-fit: contain;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fafafa;
+  padding: 6px;
+  transition: transform 0.2s ease;
+}
+.wallet-qr:hover {
+  transform: scale(1.03);
+}
+
+.wallet-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.wallet-brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.wallet-acct {
+  color: #6b7280;
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.wallet-hint {
+  color: #4b5563;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+/* Fade animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

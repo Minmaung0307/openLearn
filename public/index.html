@@ -542,43 +542,22 @@
         </div>
 
         <!-- RIGHT: wallet panel (QR + info). Hidden until a wallet is selected -->
-        <div
-          id="walletPanel"
-          class="card"
-          style="flex: 1; min-width: 260px"
-          hidden
-        >
-          <h3 class="h4" id="walletTitle">Pay with MMK</h3>
-          <div
-            class="row"
-            style="gap: 12px; align-items: flex-start; flex-wrap: wrap"
-          >
-            <img
-              id="walletQR"
-              alt="Wallet QR"
-              style="
-                width: 240px;
-                height: 240px;
-                object-fit: contain;
-                border: 1px solid #eee;
-                border-radius: 8px;
-                background: #fff;
-              "
-            />
-            <div>
-              <div id="walletBrand" style="font-weight: 600"></div>
-              <div id="walletAcct" class="muted"></div>
-              <p class="muted" style="margin-top: 0.5rem">
-                Scan & pay, then press <b>“I Paid (MMK)”</b> to submit for
-                approval.
-              </p>
-              <button class="btn" id="mmkPaid" type="button">
-                I Paid (MMK)
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+        <div id="walletPanel" class="wallet-card" hidden>
+  <h3 class="wallet-title" id="walletTitle">Pay with MMK</h3>
+  <div class="wallet-row">
+    <img id="walletQR" alt="Wallet QR" class="wallet-qr" />
+    <div class="wallet-info">
+      <div id="walletBrand" class="wallet-brand"></div>
+      <div id="walletAcct" class="wallet-acct"></div>
+      <p class="wallet-hint">
+        Scan & pay, then press <b>“I Paid (MMK)”</b> to submit for approval.
+      </p>
+      <button class="btn primary" id="mmkPaid" type="button">
+        I Paid (MMK)
+      </button>
+    </div>
+  </div>
+</div>
     </dialog>
 
     <dialog id="courseModal" class="ol-modal card">
