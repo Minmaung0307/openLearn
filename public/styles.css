@@ -1727,7 +1727,7 @@ details.help + details.help {
 
 /* container card look */
 #profilePanel {
-  --pf-bg: #ffffff;
+  --pf-bg: #477170;
   --pf-muted: #6b7280;     /* gray-500 */
   --pf-border: #e5e7eb;    /* gray-200 */
   --pf-shadow: 0 8px 24px rgba(0,0,0,.08);
@@ -1786,8 +1786,8 @@ details.help + details.help {
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--pf-border);
-  background: #618585;
-  color: #8d5a03;
+  background: #f9fafb;
+  color: #111827;
   text-decoration: none;
   font-size: .85rem;
   transition: all .15s ease;
