@@ -397,6 +397,17 @@ main,
   font-weight: 600;
 }
 
+#walletTitle {
+  color: #c29c06;
+  text-align: center;
+  padding-bottom: 12px;
+  font-size: 1.2rem;
+}
+
+#walletQR {
+  align-items: center;
+}
+
 #pay-with-paypal {
   padding-bottom: 12px;
   text-align: center;
