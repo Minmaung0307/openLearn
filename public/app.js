@@ -514,10 +514,6 @@ function shuffle(arr) {
   return arr;
 }
 
-// One source of truth for passing score
-window.QUIZ_PASS =
-  typeof window.QUIZ_PASS === "number" ? window.QUIZ_PASS : 0.7;
-
 const QUIZ_STATE_KEY = "ol_quiz_state"; // {"cid:idx":{best:0.8,passed:true}}
 const getQuizState = () => _read(QUIZ_STATE_KEY, {});
 const setQuizState = (o) => _write(QUIZ_STATE_KEY, o);
@@ -535,31 +531,6 @@ const setPassedQuiz = (cid, idx, score) => {
     saveProgressCloud({ quiz: getQuizState(), ts: Date.now() });
   } catch {}
 };
-
-function isLessonUnlocked(cid, targetIndex) {
-  const pages =
-    (window.RD && window.RD.cid === cid ? window.RD.pages : []) || [];
-  for (let i = 0; i < targetIndex; i++) {
-    const p = pages[i];
-    if (p?.type === "quiz") {
-      const passed =
-        (typeof hasPassedQuiz === "function" && hasPassedQuiz(cid, i)) ||
-        (i === window.RD?.i &&
-          (window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7));
-      if (!passed) return false;
-    }
-  }
-  return true;
-}
-
-function firstUnpassedQuizIndex(cid) {
-  const pages =
-    (window.RD && window.RD.cid === cid ? window.RD.pages : []) || [];
-  for (let i = 0; i < pages.length; i++) {
-    if (pages[i]?.type === "quiz" && !hasPassedQuiz?.(cid, i)) return i;
-  }
-  return -1;
-}
 
 // Add once (near top-level) to mute noisy Firestore channel terminate logs
 (function muteFirestoreTerminate400() {
@@ -1920,26 +1891,51 @@ function initSearch() {
   // ❗ Important: don't close on blur before click
   // use pointerdown on the results so we capture before input blur hides box
   list.addEventListener("pointerdown", (e) => {
-    const a = e.target.closest("a,[data-open-course],[data-open-lesson]");
-    if (!a) return;
-    e.preventDefault(); // prevent focus loss race
-    e.stopPropagation();
+  const a = e.target.closest("a, [data-open-course], [data-open-lesson], [data-jump], [data-idx]");
+  if (!a) return;
 
-    const cid = a.getAttribute("data-cid");
-    const pageIdx = Number(a.getAttribute("data-page-idx") || -1);
-    box.classList.add("hidden");
+  // read optional lesson index (if this item is a lesson)
+  const idxAttr = a.getAttribute?.("data-jump") ?? a.getAttribute?.("data-idx");
+  const idx = Number(idxAttr);
 
-    if (a.hasAttribute("data-open-course")) {
-      // open course details
-      if (typeof openDetails === "function") openDetails(cid);
-      else showPage?.("courses");
-      return;
+  e.preventDefault(); // prevent focus loss race
+  e.stopPropagation();
+
+  const cid = a.getAttribute("data-cid");
+  const pageIdx = Number(a.getAttribute("data-page-idx") || -1);
+  box.classList.add("hidden");
+
+  if (a.hasAttribute("data-open-course")) {
+    if (typeof openDetails === "function") openDetails(cid);
+    else showPage?.("courses");
+    return;
+  }
+
+  // If this anchor represents a *specific lesson* (via data-jump/data-idx)
+  if (Number.isFinite(idx)) {
+    // gate by previous quizzes
+    if (!isLessonUnlocked(cid, idx)) {
+      const need = Math.round((window.QUIZ_PASS || 0.7) * 100);
+      return toast?.(`Need ≥ ${need}% on earlier quiz to open this lesson`);
     }
-    if (a.hasAttribute("data-open-lesson")) {
-      openReaderAt(cid, isNaN(pageIdx) || pageIdx < 0 ? 0 : pageIdx);
-      return;
+    // open reader at that lesson
+    if (typeof openReaderAt === "function") openReaderAt(cid, idx);
+    else goToLesson?.(cid, idx);
+    return;
+  }
+
+  if (a.hasAttribute("data-open-lesson")) {
+    // fallback path: use data-page-idx if provided
+    const target = (isNaN(pageIdx) || pageIdx < 0) ? 0 : pageIdx;
+    if (!isLessonUnlocked(cid, target)) {
+      const need = Math.round((window.QUIZ_PASS || 0.7) * 100);
+      return toast?.(`Need ≥ ${need}% on earlier quiz to open this lesson`);
     }
-  });
+    if (typeof openReaderAt === "function") openReaderAt(cid, target);
+    else goToLesson?.(cid, target);
+    return;
+  }
+});
 
   // click outside → close
   document.addEventListener("pointerdown", (e) => {
@@ -2063,29 +2059,46 @@ function runSearch(query, listEl, boxEl) {
 
   // results click — pointerdown သုံး (blur race မဖြစ်စေ)
   results.addEventListener("pointerdown", (e) => {
-    const a = e.target.closest("a,[data-open-course],[data-open-lesson]");
-    if (!a) return;
-    e.preventDefault();
-    e.stopPropagation();
+  const a = e.target.closest("a, [data-open-course], [data-open-lesson], [data-jump], [data-idx]");
+  if (!a) return;
 
-    const cid = a.getAttribute("data-cid");
-    const pi = Number(a.getAttribute("data-page-idx") || -1);
-    results.hidden = true;
-    input.blur();
+  const idxAttr = a.getAttribute?.("data-jump") ?? a.getAttribute?.("data-idx");
+  const idx = Number(idxAttr);
 
-    if (a.hasAttribute("data-open-course")) {
-      if (typeof openDetails === "function") openDetails(cid);
-      else showPage?.("courses");
-    } else if (a.hasAttribute("data-open-lesson")) {
-      // helper required
-      if (typeof openReaderAt === "function") {
-        openReaderAt(cid, isNaN(pi) || pi < 0 ? 0 : pi);
-      } else {
-        // minimal fallback
-        openReader?.(cid);
-      }
+  e.preventDefault();
+  e.stopPropagation();
+
+  const cid = a.getAttribute("data-cid");
+  const pi = Number(a.getAttribute("data-page-idx") || -1);
+  results.hidden = true;
+  input.blur();
+
+  if (a.hasAttribute("data-open-course")) {
+    if (typeof openDetails === "function") openDetails(cid);
+    else showPage?.("courses");
+    return;
+  }
+
+  if (Number.isFinite(idx)) {
+    if (!isLessonUnlocked(cid, idx)) {
+      const need = Math.round((window.QUIZ_PASS || 0.7) * 100);
+      return toast?.(`Need ≥ ${need}% on earlier quiz to open this lesson`);
     }
-  });
+    if (typeof openReaderAt === "function") openReaderAt(cid, idx);
+    else goToLesson?.(cid, idx);
+    return;
+  }
+
+  if (a.hasAttribute("data-open-lesson")) {
+    const target = (isNaN(pi) || pi < 0) ? 0 : pi;
+    if (!isLessonUnlocked(cid, target)) {
+      const need = Math.round((window.QUIZ_PASS || 0.7) * 100);
+      return toast?.(`Need ≥ ${need}% on earlier quiz to open this lesson`);
+    }
+    if (typeof openReaderAt === "function") openReaderAt(cid, target);
+    else goToLesson?.(cid, target);
+  }
+});
 
   // click outside → close
   document.addEventListener("pointerdown", (e) => {
@@ -7464,4 +7477,96 @@ if (typeof saveCourseToCloud !== "function") {
     toast?.("Payment submitted for approval. We'll notify you once verified.");
     document.getElementById("payModal")?.close?.();
   });
+})();
+
+
+// ===== QUIZ GATING HELPERS =====
+window.QUIZ_PASS = typeof QUIZ_PASS === "number" ? QUIZ_PASS : 0.70;
+
+// already-passed check is in your code:
+// hasPassedQuiz(cid, idx) → true/false
+function isLessonUnlocked(cid, targetIdx) {
+  if (!window.RD || window.RD.cid !== cid || !Array.isArray(window.RD.pages)) {
+    return true; // fallback
+  }
+  // All quizzes BEFORE targetIdx must be passed
+  for (let i = 0; i < targetIdx; i++) {
+    const p = window.RD.pages[i];
+    if (p?.type === "quiz") {
+      const ok =
+        (typeof window.hasPassedQuiz === "function" &&
+          window.hasPassedQuiz(cid, i)) ||
+        ((window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7) &&
+          i === window.RD.i); // allow just-passed current quiz
+      if (!ok) return false;
+    }
+  }
+  return true;
+}
+function firstLockedIndex(cid, targetIdx) {
+  if (!window.RD || window.RD.cid !== cid || !Array.isArray(window.RD.pages)) {
+    return targetIdx;
+  }
+  for (let i = 0; i < targetIdx; i++) {
+    const p = window.RD.pages[i];
+    if (p?.type === "quiz") {
+      const ok =
+        (typeof window.hasPassedQuiz === "function" &&
+          window.hasPassedQuiz(cid, i)) ||
+        ((window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7) &&
+          i === window.RD.i);
+      if (!ok) return i; // lock here
+    }
+  }
+  return targetIdx;
+}
+
+// ===== PATCH: wrap goToLesson with gating =====
+(function guardGoToLessonOnce(){
+  if (window.__patchedNavGuard) return;
+  window.__patchedNavGuard = true;
+
+  const originalGoToLesson = window.goToLesson;
+  if (typeof originalGoToLesson !== "function") {
+    console.warn("goToLesson not found yet; retrying in 300ms…");
+    setTimeout(guardGoToLessonOnce, 300);
+    return;
+  }
+
+  window.goToLesson = function(cid, idx){
+    try {
+      if (!isLessonUnlocked(cid, idx)) {
+        const lockAt = firstLockedIndex(cid, idx);
+        const need = Math.round((window.QUIZ_PASS || 0.7) * 100);
+        window.toast?.(`Need ≥ ${need}% on earlier quiz to continue`);
+        // jump only up to the last unlocked page
+        return originalGoToLesson.call(this, cid, Math.max(0, lockAt));
+      }
+    } catch {}
+    return originalGoToLesson.call(this, cid, idx);
+  };
+})();
+
+// ===== Optional: block locked TOC clicks too (dedupe-safe) =====
+(function guardTocOnce(){
+  if (window.__TOC_GUARD__) return;
+  window.__TOC_GUARD__ = true;
+
+  document.addEventListener("click", (e)=>{
+    // ✅ cover multiple patterns
+    const a = e.target.closest?.("[data-jump], [data-idx], [data-open-lesson]");
+    if (!a || !window.RD) return;
+
+    // ✅ idx may be in data-jump OR data-idx
+    const idxAttr = a.getAttribute("data-jump") ?? a.getAttribute("data-idx");
+    const idx = Number(idxAttr);
+    const cid = window.RD.cid;
+    if (!Number.isFinite(idx)) return;
+
+    if (!isLessonUnlocked(cid, idx)) {
+      e.preventDefault();
+      const need = Math.round((window.QUIZ_PASS || 0.7) * 100);
+      window.toast?.(`Need ≥ ${need}% on earlier quiz to open this lesson`);
+    }
+  }, {capture:true});
 })();
