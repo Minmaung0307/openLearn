@@ -7754,243 +7754,121 @@ if (typeof saveCourseToCloud !== "function") {
   }, {capture:true});
 })();
 
-/* ===== Notes & Bookmark — Robust Context (v2) ===== */
+/* ===== Notes & Bookmark — View List + Jump (UI Add-ons) ===== */
 (function(){
-  // ---------- helpers ----------
   const getUID = ()=> { try { return auth?.currentUser?.uid || "anon"; } catch { return "anon"; } };
   const bmKey   = (cid)=> `ol_bm_${getUID()}_${cid}`;
   const noteKey = (cid, idx)=> `ol_note_${getUID()}_${cid}_${idx}`;
-
   const $ = (s, r=document)=> r.querySelector(s);
-  function $reader(){ return $("#reader") || document.getElementById("reader") || $("#rdHost") || $("#rdContainer"); }
 
-  function rememberCtx(cid, idx){
-    const host = $reader();
-    if (host){ host.dataset.cid = String(cid); host.dataset.idx = String(idx); }
-    try { localStorage.setItem("ol_last_ctx", JSON.stringify({cid, idx:Number(idx)||0})); } catch {}
-  }
-  function loadLastCtx(){
-    try { const o = JSON.parse(localStorage.getItem("ol_last_ctx")||"null"); return (o && o.cid!=null) ? o : null; } catch { return null; }
-  }
-
-  // Try to sniff from various DOMs
-  function trySeedCtxFromDOM(){
-    // 1) Any element that carries both cid & idx
-    let el = document.querySelector("[data-cid][data-idx]") || document.querySelector("[data-cid][data-page-idx]");
-    if (el){
-      const cid = el.getAttribute("data-cid");
-      const idx = Number(el.getAttribute("data-idx") ?? el.getAttribute("data-page-idx"));
-      if (cid && Number.isFinite(idx)) { rememberCtx(cid, idx); return true; }
-    }
-    // 2) TOC active
-    const toc = document.getElementById("toc") || document.querySelector("#toc,.toc,[data-toc]");
-    if (toc){
-      const active = toc.querySelector('[aria-current="page"], .active, [data-active="1"], [data-current="1"]') || null;
-      const link = active || toc.querySelector("[data-jump],[data-idx]");
-      const attr = link?.getAttribute?.("data-jump") ?? link?.getAttribute?.("data-idx");
-      const idx = Number(attr);
-      // try to find course id near toc
-      const cid = ( $reader()?.dataset?.cid ) || window.RD?.cid || toc.getAttribute("data-cid") || loadLastCtx()?.cid || null;
-      if (cid && Number.isFinite(idx)) { rememberCtx(cid, idx); return true; }
-    }
-    // 3) URL hash/query like ?cid=abc&i=2
-    try {
-      const u = new URL(location.href);
-      const cid = u.searchParams.get("cid") || u.hash.replace(/^#/, "").split(":")[0] || null;
-      const idx = Number(u.searchParams.get("i") || u.searchParams.get("idx"));
-      if (cid && Number.isFinite(idx)) { rememberCtx(cid, idx); return true; }
-    } catch {}
-    return false;
-  }
-
-  function getLessonCtx(){
-    // 1) window.RD
-    if (window.RD && window.RD.cid != null && Number.isFinite(Number(window.RD.i))) {
+  // Already provided by previous patch:
+  const getLessonCtx = window.getLessonCtx || function(){
+    if (window.RD && window.RD.cid!=null && Number.isFinite(Number(window.RD.i))) {
       return { cid: window.RD.cid, idx: Number(window.RD.i) };
     }
-    // 2) reader dataset
-    const host = $reader();
+    const host = document.getElementById("reader");
     const dCid = host?.dataset?.cid, dIdx = Number(host?.dataset?.idx);
     if (dCid && Number.isFinite(dIdx)) return { cid: dCid, idx: dIdx };
-    // 3) sniff DOM (one-shot)
-    if (trySeedCtxFromDOM()){
-      const host2 = $reader();
-      const c2 = host2?.dataset?.cid, i2 = Number(host2?.dataset?.idx);
-      if (c2 && Number.isFinite(i2)) return { cid: c2, idx: i2 };
-    }
-    // 4) last known
-    const last = loadLastCtx();
-    if (last) return last;
+    try { const o = JSON.parse(localStorage.getItem("ol_last_ctx")||"null"); return (o && o.cid!=null) ? o : null; } catch {}
     return null;
-  }
+  };
 
-  // ---------- Sticky note UI ----------
-  (function ensureNoteLayer(){
-    if (document.getElementById("ol-note-layer")) return;
-    const host = document.createElement("div");
-    host.id = "ol-note-layer";
-    host.innerHTML = `
-      <div id="ol-note-backdrop"></div>
-      <div id="ol-note-card" role="dialog" aria-modal="true">
-        <div class="hdr">
-          <b id="ol-note-title">Note</b>
-          <button class="btn" id="ol-note-close" type="button">Close</button>
-        </div>
-        <textarea id="ol-note-ta" placeholder="Write your note for this page…"></textarea>
-        <div class="row">
-          <button class="btn" id="ol-note-cancel" type="button">Cancel</button>
-          <button class="btn primary" id="ol-note-save" type="button">Save</button>
-        </div>
-      </div>`;
-    document.body.appendChild(host);
-    const hide=()=>host.style.display="none";
-    $("#ol-note-backdrop").onclick = hide;
-    $("#ol-note-close").onclick   = hide;
-    $("#ol-note-cancel").onclick  = hide;
-  })();
-
-  function renderNoteHint(){
-    const btn = document.getElementById("rdNote");
-    if (!btn) return;
-    const ctx = getLessonCtx();
-    if (!ctx){ btn.classList.remove("active"); return; }
-    const has = !!localStorage.getItem(noteKey(ctx.cid, ctx.idx));
-    btn.classList.toggle("active", has);
-  }
-
-  function openNoteEditor(){
-    // seed once more right before open
-    trySeedCtxFromDOM();
-    const ctx = getLessonCtx();
-    if (!ctx){ toast?.("Open a lesson first"); return; }
-    const { cid, idx } = ctx;
-    const host  = document.getElementById("ol-note-layer");
-    const title = document.getElementById("ol-note-title");
-    const ta    = document.getElementById("ol-note-ta");
-    title.textContent = `Note — ${cid} · Page ${idx+1}`;
-    ta.value = localStorage.getItem(noteKey(cid, idx)) || "";
-    host.style.display = "block";
-    document.getElementById("ol-note-save").onclick = ()=>{
-      const v = (ta.value||"").trim();
-      if (v) localStorage.setItem(noteKey(cid, idx), v);
-      else localStorage.removeItem(noteKey(cid, idx));
-      toast?.("Saved note for this page");
-      host.style.display = "none";
-      renderNoteHint();
-    };
-  }
-
-  // ---------- soft wrappers (cover more APIs) ----------
-  function softWrap(fnName, wrapper){
-    const orig = window[fnName];
-    if (typeof orig === "function"){
-      if (orig.__wrapped) return;
-      const fn = function(){ return wrapper(orig, this, arguments); };
-      fn.__wrapped = true;
-      window[fnName] = fn;
-      return;
-    }
-    // not present yet → observe once for it
-    let tries = 0;
-    const max = 30;
-    const t = setInterval(()=>{
-      const f = window[fnName];
-      if (typeof f === "function"){
-        clearInterval(t);
-        if (f.__wrapped) return;
-        const fn = function(){ return wrapper(f, this, arguments); };
-        fn.__wrapped = true;
-        window[fnName] = fn;
-      } else if (++tries >= max) {
-        clearInterval(t);
+  function listNotesForCourse(cid){
+    const out = [];
+    for (let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if (!k) continue;
+      const m = k.match(/^ol_note_[^_]+_([^_]+)_(\d+)$/);
+      if (!m) continue;
+      const kc = m[1], idx = Number(m[2]);
+      if (kc === cid) {
+        const txt = localStorage.getItem(k) || "";
+        out.push({ idx, txt });
       }
-    }, 200);
-  }
-
-  function afterNav(cid, idx){
-    if (cid!=null && Number.isFinite(Number(idx))) {
-      rememberCtx(cid, Number(idx));
-      try { localStorage.setItem(bmKey(cid), String(idx)); } catch {}
-      setTimeout(renderNoteHint, 120);
-    } else {
-      // last ditch: sniff
-      setTimeout(()=>{ trySeedCtxFromDOM(); renderNoteHint(); }, 150);
     }
+    out.sort((a,b)=> a.idx - b.idx);
+    return out;
   }
 
-  // Originally wrapped
-  softWrap("goToLesson", (orig, self, args)=>{
-    const [cid, idx] = args;
-    const r = orig.apply(self, args);
-    afterNav(cid, idx);
-    return r;
-  });
-  softWrap("openReaderAt", (orig, self, args)=>{
-    const [cid, idx] = args;
-    const r = orig.apply(self, args);
-    afterNav(cid, idx);
-    return r;
-  });
-  softWrap("renderReader", (orig, self, args)=>{
-    const RD = args && args[0];
-    const r = orig.apply(self, args);
-    if (RD?.cid!=null && Number.isFinite(Number(RD.i))) afterNav(RD.cid, RD.i);
-    else afterNav(window.RD?.cid, window.RD?.i);
-    return r;
-  });
+  function ensureListDialog(){
+    if (document.getElementById("ol-notes-list")) return;
+    const dlg = document.createElement("dialog");
+    dlg.id = "ol-notes-list";
+    dlg.className = "ol-modal card";
+    dlg.innerHTML = `
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+        <b class="modal-title">My Notes</b>
+        <button class="btn small" id="ol-notes-close" type="button">Close</button>
+      </div>
+      <div id="ol-notes-body" style="max-height:50vh;overflow:auto"></div>
+    `;
+    document.body.appendChild(dlg);
+    dlg.querySelector("#ol-notes-close").onclick = ()=> dlg.close();
+  }
 
-  // NEW: also wrap these common names your app might be using
-  softWrap("openReader", (orig, self, args)=>{
-    const r = orig.apply(self, args);
-    // try to read from global RD shortly after
-    setTimeout(()=> afterNav(window.RD?.cid, window.RD?.i), 120);
-    return r;
-  });
-  softWrap("renderPage", (orig, self, args)=>{
-    const r = orig.apply(self, args);
-    // many apps set RD inside renderPage
-    setTimeout(()=> afterNav(window.RD?.cid, window.RD?.i), 60);
-    return r;
-  });
-  softWrap("showPage", (orig, self, args)=>{
-    const r = orig.apply(self, args);
-    // when switching to 'reader', probe RD then DOM
-    const name = args && args[0];
-    if (name === "reader") setTimeout(()=> {
-      if (!afterNav(window.RD?.cid, window.RD?.i)) { trySeedCtxFromDOM(); renderNoteHint(); }
-    }, 120);
-    return r;
-  });
+  function openNotesPanel(cid){
+    ensureListDialog();
+    const dlg = document.getElementById("ol-notes-list");
+    const body = document.getElementById("ol-notes-body");
+    const items = listNotesForCourse(cid);
+    if (!items.length){
+      body.innerHTML = `<div class="muted small">No notes yet for this course.</div>`;
+    } else {
+      body.innerHTML = items.map(it => `
+        <div class="card" style="margin-bottom:8px">
+          <div class="row" style="justify-content:space-between;align-items:center;gap:8px">
+            <div><b>Page ${it.idx+1}</b></div>
+            <div class="row" style="gap:6px">
+              <button class="btn small" data-open-note="${it.idx}">Open</button>
+              <button class="btn small" data-del-note="${it.idx}">Delete</button>
+            </div>
+          </div>
+          <div class="small muted" style="margin-top:6px; white-space:pre-wrap">${it.txt.replace(/[<>&]/g, s=>({ '<':'&lt;','>':'&gt;','&':'&amp;' }[s]))}</div>
+        </div>
+      `).join("");
+      body.querySelectorAll("[data-open-note]").forEach(b=>{
+        b.onclick = ()=> { try { window.goToLesson?.(cid, Number(b.dataset.openNote)); } catch {} };
+      });
+      body.querySelectorAll("[data-del-note]").forEach(b=>{
+        b.onclick = ()=> {
+          const idx = Number(b.dataset.delNote);
+          localStorage.removeItem(noteKey(cid, idx));
+          openNotesPanel(cid); // refresh
+        };
+      });
+    }
+    dlg.showModal();
+  }
 
-  // Fallback: watch #reader mutations to infer active idx from TOC
-  (function watchReaderOnce(){
-    const host = $reader();
-    if (!host) return; // wrappers will cover when reader shows up
-    const mo = new MutationObserver(()=> {
-      // try TOC every mutation batch
-      if (trySeedCtxFromDOM()) renderNoteHint();
-    });
-    mo.observe(host, { childList:true, subtree:true });
-  })();
-
-  // Optional hook apps can call: window.setLessonCtx(cid, idx)
-  window.setLessonCtx = function(cid, idx){ rememberCtx(cid, idx); renderNoteHint(); };
-
-  // Buttons (single delegated listener)
+  // One delegated listener to handle:
+  // - rdNote (open editor) is already wired by previous patch
+  // - rdNotesList (open list)
+  // - rdBookmark (Ctrl/⌘/Shift to jump)
   document.addEventListener("click", (e)=>{
     const t = e.target;
     if (!t) return;
-    if (t.id === "rdNote"){ e.preventDefault(); openNoteEditor(); }
-    if (t.id === "rdBookmark"){
-      // try to seed once more before failing
-      trySeedCtxFromDOM();
+
+    if (t.id === "rdNotesList"){
+      e.preventDefault();
       const ctx = getLessonCtx();
       if (!ctx){ toast?.("Open a lesson first"); return; }
+      openNotesPanel(ctx.cid);
+      return;
+    }
+
+    if (t.id === "rdBookmark"){
+      const ctx = getLessonCtx();
+      if (!ctx){ toast?.("Open a lesson first"); return; }
+      const saved = localStorage.getItem(bmKey(ctx.cid));
+      // With modifier → jump back to bookmarked page (if exists)
+      if ((e.ctrlKey || e.metaKey || e.shiftKey) && saved != null){
+        const i = Number(saved);
+        if (Number.isFinite(i)) { window.goToLesson?.(ctx.cid, i); return; }
+      }
+      // Default → save current
       localStorage.setItem(bmKey(ctx.cid), String(ctx.idx));
-      toast?.(`Bookmarked: ${ctx.cid} · Page ${ctx.idx+1}`);
+      toast?.(`Bookmarked: ${ctx.cid} · Page ${ctx.idx+1} (Ctrl/⌘/Shift+Click to jump)`);
+      return;
     }
   }, true);
-
-  // First paint hint
-  document.addEventListener("DOMContentLoaded", ()=> setTimeout(()=>{ trySeedCtxFromDOM(); renderNoteHint(); }, 200));
 })();

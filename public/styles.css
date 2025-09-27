@@ -2098,19 +2098,37 @@ details.help + details.help {
 }
 
 /* Sticky Note UI + pointer */
-#ol-note-layer{position:fixed;inset:0;display:none;z-index:9999}
-#ol-note-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.35)}
-#ol-note-card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:min(640px,92vw);background:#fff;color:#111;border:1px solid #e5e7eb;border-radius:12px;
-  box-shadow:0 24px 64px rgba(0,0,0,.22);padding:12px}
-#ol-note-card .hdr{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+#ol-note-layer { 
+  position: fixed; inset: 0; z-index: 1000; display:none; 
+}
+#ol-note-backdrop {
+  position:absolute; inset:0; background: rgba(0,0,0,.45);
+}
+#ol-note-card {
+  position:absolute; left:50%; top:50%; transform: translate(-50%,-50%);
+  width: min(640px, 92vw); background: #fff; color:#0f172a;
+  border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  padding: 14px;
+}
+#ol-note-card .hdr {
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
+}
+#ol-note-ta {
+  width:100%; min-height: 160px;
+  background:#ffffff; color:#0f172a; 
+  border:1px solid #d1d5db; border-radius:10px;
+  padding:10px; outline: none;
+}
+#ol-note-ta::placeholder { color:#6b7280; } /* gray-500 */
+#ol-note-card .row { margin-top:10px; justify-content:flex-end; gap:8px; }
 #ol-note-card textarea{width:100%;min-height:180px;border:1px solid #d1d5db;border-radius:8px;padding:10px;font:inherit;resize:vertical;background:#f9fafb}
 #ol-note-card .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
 #ol-note-card .btn{padding:6px 10px;border-radius:8px;border:1px solid #d1d5db;background:#fff}
 #ol-note-card .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb}
 #rdNote,#rdBookmark{cursor:pointer}
-@media (prefers-color-scheme: dark){
-  #ol-note-card{background:#0f172a;color:#e5e7eb;border-color:#334155}
-  #ol-note-card textarea{background:#0b1220;color:#e5e7eb;border-color:#334155}
-  #ol-note-backdrop{background:rgba(0,0,0,.55)}
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  #ol-note-card { background: #0f172a; color:#e5e7eb; }
+  #ol-note-ta { background:#111827; color:#e5e7eb; border-color:#334155; }
+  #ol-note-ta::placeholder { color:#9ca3af; }
 }
