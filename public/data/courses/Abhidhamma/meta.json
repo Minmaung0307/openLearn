@@ -9,60 +9,60 @@
   "description": "အဘိဓမ္မာဟူသည် အလွန်လေးနက်သော သဘောတရားများဖြစ်သည်။ လူသားအားလုံးနှင့် သက်ဆိုင်သော သဘောတရားများဖြစ်သည်။",
   "modules": [
     {
-    "id": "m1",
+    "id": "lesson1-html",
     "title": "Chapter 1 - အကုသိုလ်စိတ်",
     "lessons": [
       { "file": "lesson1-html.html", "title": "အကုသိုလ်စိတ်"}
     ],
-    "quiz": "m1"
+    "quiz": "lesson1"
   },
   {
-    "id": "m2",
+    "id": "lesson2-html",
     "title": "Chapter 2 - အဟိတ်စိတ်",
     "lessons": [
       { "file": "lesson2-html.html", "title": "အကုသိုလ်စိတ်"}
     ],
-    "quiz": "m2"
+    "quiz": "lesson2"
   },
   {
-    "id": "m3",
+    "id": "lesson3-html",
     "title": "Chapter 3 - ကာမာဝစရသောဘနစိတ်",
     "lessons": [
       { "file": "lesson3-html.html", "title": "အကုသိုလ်စိတ်"}
     ],
-    "quiz": "m3"
+    "quiz": "lesson3"
   },
   {
-    "id": "m4",
+    "id": "lesson4-html",
     "title": "Chapter 4 - ရူပါဝစရစိတ်",
     "lessons": [
       { "file": "lesson4-html.html", "title": "အကုသိုလ်စိတ်"}
     ],
-    "quiz": "m4"
+    "quiz": "lesson4"
   },
   {
-    "id": "m5",
+    "id": "lesson5-html",
     "title": "Chapter 5 - အရူပါဝစရစိတ်",
     "lessons": [
       { "file": "lesson5-html.html", "title": "အကုသိုလ်စိတ်"}
     ],
-    "quiz": "m5"
+    "quiz": "lesson5"
   },
   {
-    "id": "m6",
+    "id": "lesson6-html",
     "title": "Chapter 6 - လောကုတ္တရာစိတ်",
     "lessons": [
       { "file": "lesson6-html.html", "title": "အကုသိုလ်စိတ်"}
     ],
-    "quiz": "m6"
+    "quiz": "lesson6"
   },
   {
-    "id": "m7",
+    "id": "lesson7-html",
     "title": "Chapter 7 - စိတ်အကျယ်(၁၂၁)",
     "lessons": [
       { "file": "lesson7-html.html", "title": "အကုသိုလ်စိတ်"}
     ],
-    "quiz": "m7"
+    "quiz": "lesson7"
   }
   ]
 }
