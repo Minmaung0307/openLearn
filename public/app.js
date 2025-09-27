@@ -7754,176 +7754,191 @@ if (typeof saveCourseToCloud !== "function") {
   }, {capture:true});
 })();
 
-/* =========================
-   Notes & Bookmark (robust)
-   ========================= */
-
-/* --- helpers (safe fallbacks) --- */
-function __uid(){ try{ return auth?.currentUser?.uid || "anon"; }catch{return "anon";} }
-function __noteKey(cid, idx){ return `ol_note_${__uid()}_${cid}_${idx}`; }
-function __bmKey(cid){ return `ol_bm_${__uid()}_${cid}`; }
-
-/* Build sticky-note layer once */
-(function __ensureNoteLayer(){
-  if (document.getElementById("ol-note-layer")) return;
-  const host = document.createElement("div");
-  host.id = "ol-note-layer";
-  host.innerHTML = `
-    <div id="ol-note-backdrop"></div>
-    <div id="ol-note-card" role="dialog" aria-modal="true">
-      <div class="hdr">
-        <b id="ol-note-title">Note</b>
-        <button class="btn" id="ol-note-close" type="button">Close</button>
-      </div>
-      <textarea id="ol-note-ta" placeholder="Write your note for this page…"></textarea>
-      <div class="row">
-        <button class="btn" id="ol-note-cancel" type="button">Cancel</button>
-        <button class="btn primary" id="ol-note-save" type="button">Save</button>
-      </div>
-    </div>`;
-  document.body.appendChild(host);
-  const hide=()=>host.style.display="none";
-  document.getElementById("ol-note-backdrop").onclick = hide;
-  document.getElementById("ol-note-close").onclick   = hide;
-  document.getElementById("ol-note-cancel").onclick  = hide;
-})();
-
-/* Get current lesson context (tries window.RD, then #reader dataset, then last known) */
+/* ===== Notes & Bookmark — Robust Context ===== */
 (function(){
-  window.__lastReaderCtx = window.__lastReaderCtx || null;
-})();
+  // ---------- helpers ----------
+  const getUID = ()=> { try { return auth?.currentUser?.uid || "anon"; } catch { return "anon"; } };
+  const bmKey   = (cid)=> `ol_bm_${getUID()}_${cid}`;
+  const noteKey = (cid, idx)=> `ol_note_${getUID()}_${cid}_${idx}`;
 
-function getReaderHost(){
-  return document.getElementById("reader") || document.querySelector("#reader");
-}
-
-function setReaderDataset(cid, idx){
-  const host = getReaderHost();
-  if (!host) return;
-  host.dataset.cid = String(cid);
-  host.dataset.idx = String(idx);
-  window.__lastReaderCtx = { cid, idx };
-}
-
-function getLessonCtx() {
-  // 1) window.RD
-  const RD = window.RD;
-  if (RD?.cid != null && Number.isFinite(Number(RD.i))) {
-    return { cid: RD.cid, idx: Number(RD.i) };
+  function $reader(){ return document.getElementById("reader") || document.querySelector("#reader"); }
+  function rememberCtx(cid, idx){
+    const host = $reader();
+    if (host){ host.dataset.cid = String(cid); host.dataset.idx = String(idx); }
+    try { localStorage.setItem("ol_last_ctx", JSON.stringify({cid, idx:Number(idx)||0})); } catch {}
   }
-  // 2) #reader dataset
-  const host = getReaderHost();
-  if (host?.dataset?.cid && host?.dataset?.idx) {
-    const idx = Number(host.dataset.idx);
-    if (Number.isFinite(idx)) return { cid: host.dataset.cid, idx };
+  function loadLastCtx(){
+    try { const o = JSON.parse(localStorage.getItem("ol_last_ctx")||"null"); return (o && o.cid!=null) ? o : null; } catch { return null; }
   }
-  // 3) last known
-  if (window.__lastReaderCtx) return window.__lastReaderCtx;
-  return null;
-}
 
-/* Patch goToLesson once: mirror context into #reader dataset, auto-bookmark, refresh hint */
-(function patchGoToLessonOnce(){
-  if (window.__patch_nav_ctx) return;
-  const orig = window.goToLesson;
-  if (typeof orig !== "function") {
-    // retry a few times quietly
-    let tries = 0;
-    const t = setInterval(()=>{
-      const f = window.goToLesson;
-      if (typeof f === "function" || tries++ > 30) {
-        clearInterval(t);
-        if (typeof f === "function") patchGoToLessonOnceReal(f);
-      }
-    }, 200);
-    return;
+  function getCtxFromTOC(){
+    // Try active item in TOC (supports multiple attribute styles)
+    const toc = document.getElementById("toc") || document.querySelector("#toc,.toc");
+    const host = $reader();
+    const cid = (host?.dataset?.cid) || window.RD?.cid || loadLastCtx()?.cid || null;
+    if (!toc) return null;
+    const active = toc.querySelector('[aria-current="page"], .active, [data-active="1"]') || null;
+    const link = active || toc.querySelector("[data-jump],[data-idx]");
+    const attr = link?.getAttribute?.("data-jump") ?? link?.getAttribute?.("data-idx");
+    const idx = Number(attr);
+    if (cid && Number.isFinite(idx)) return { cid, idx };
+    return null;
   }
-  patchGoToLessonOnceReal(orig);
 
-  function patchGoToLessonOnceReal(fn){
-    window.__patch_nav_ctx = true;
-    window.goToLesson = function(cid, idx){
-      // mirror dataset + remember
-      try { setReaderDataset(cid, idx); } catch {}
-      // auto bookmark
-      try { localStorage.setItem(__bmKey(cid), String(idx)); } catch {}
-      const r = fn.call(this, cid, idx);
-      setTimeout(renderNoteHint, 80);
-      return r;
+  function getLessonCtx(){
+    // 1) window.RD
+    if (window.RD && window.RD.cid != null && Number.isFinite(Number(window.RD.i))) {
+      return { cid: window.RD.cid, idx: Number(window.RD.i) };
+    }
+    // 2) #reader dataset
+    const host = $reader();
+    const dCid = host?.dataset?.cid, dIdx = Number(host?.dataset?.idx);
+    if (dCid && Number.isFinite(dIdx)) return { cid: dCid, idx: dIdx };
+    // 3) TOC
+    const toc = getCtxFromTOC();
+    if (toc) return toc;
+    // 4) last known
+    const last = loadLastCtx();
+    if (last) return last;
+    return null;
+  }
+
+  // ---------- Sticky note UI ----------
+  (function ensureNoteLayer(){
+    if (document.getElementById("ol-note-layer")) return;
+    const host = document.createElement("div");
+    host.id = "ol-note-layer";
+    host.innerHTML = `
+      <div id="ol-note-backdrop"></div>
+      <div id="ol-note-card" role="dialog" aria-modal="true">
+        <div class="hdr">
+          <b id="ol-note-title">Note</b>
+          <button class="btn" id="ol-note-close" type="button">Close</button>
+        </div>
+        <textarea id="ol-note-ta" placeholder="Write your note for this page…"></textarea>
+        <div class="row">
+          <button class="btn" id="ol-note-cancel" type="button">Cancel</button>
+          <button class="btn primary" id="ol-note-save" type="button">Save</button>
+        </div>
+      </div>`;
+    document.body.appendChild(host);
+    const hide=()=>host.style.display="none";
+    document.getElementById("ol-note-backdrop").onclick = hide;
+    document.getElementById("ol-note-close").onclick   = hide;
+    document.getElementById("ol-note-cancel").onclick  = hide;
+  })();
+
+  function renderNoteHint(){
+    const btn = document.getElementById("rdNote");
+    if (!btn) return;
+    const ctx = getLessonCtx();
+    if (!ctx){ btn.classList.remove("active"); return; }
+    const has = !!localStorage.getItem(noteKey(ctx.cid, ctx.idx));
+    btn.classList.toggle("active", has);
+  }
+
+  function openNoteEditor(){
+    const ctx = getLessonCtx();
+    if (!ctx){ toast?.("Open a lesson first"); return; }
+    const { cid, idx } = ctx;
+    const host  = document.getElementById("ol-note-layer");
+    const title = document.getElementById("ol-note-title");
+    const ta    = document.getElementById("ol-note-ta");
+    title.textContent = `Note — ${cid} · Page ${idx+1}`;
+    ta.value = localStorage.getItem(noteKey(cid, idx)) || "";
+    host.style.display = "block";
+    document.getElementById("ol-note-save").onclick = ()=>{
+      const v = (ta.value||"").trim();
+      if (v) localStorage.setItem(noteKey(cid, idx), v);
+      else localStorage.removeItem(noteKey(cid, idx));
+      toast?.("Saved note for this page");
+      host.style.display = "none";
+      renderNoteHint();
     };
   }
-})();
 
-/* If you have renderReader(RD), lightly mirror there too (no-op if missing) */
-(function patchRenderReaderOnce(){
-  if (window.__patch_render_ctx) return;
-  const orig = window.renderReader;
-  if (typeof orig !== "function") return;
-  window.__patch_render_ctx = true;
-  window.renderReader = function(RD){
-    try {
-      if (RD?.cid != null && Number.isFinite(Number(RD.i))) {
-        setReaderDataset(RD.cid, Number(RD.i));
+  // ---------- Minimal, quiet patchers (no spam) ----------
+  function softWrap(fnName, wrapper){
+    const orig = window[fnName];
+    if (typeof orig === "function"){
+      if (orig.__wrapped) return;
+      const fn = function(){ return wrapper(orig, this, arguments); };
+      fn.__wrapped = true;
+      window[fnName] = fn;
+      return;
+    }
+    // not present yet → observe once for it
+    let tries = 0;
+    const max = 20;
+    const t = setInterval(()=>{
+      const f = window[fnName];
+      if (typeof f === "function"){
+        clearInterval(t);
+        if (f.__wrapped) return;
+        const fn = function(){ return wrapper(f, this, arguments); };
+        fn.__wrapped = true;
+        window[fnName] = fn;
+      } else if (++tries >= max) {
+        clearInterval(t);
       }
-    } catch {}
-    const r = orig.call(this, RD);
-    setTimeout(renderNoteHint, 60);
+    }, 200);
+  }
+
+  // When any navigation happens, remember cid/idx and auto-bookmark
+  softWrap("goToLesson", (orig, self, args)=>{
+    const [cid, idx] = args;
+    rememberCtx(cid, idx);
+    try { localStorage.setItem(bmKey(cid), String(idx)); } catch {}
+    const r = orig.apply(self, args);
+    setTimeout(renderNoteHint, 80);
     return r;
-  };
-})();
+  });
 
-/* Sticky note UI */
-function openNoteEditor(){
-  const ctx = getLessonCtx();
-  if (!ctx) { toast?.("Open a lesson first"); return; }
-  const { cid, idx } = ctx;
-  const key   = __noteKey(cid, idx);
-  const host  = document.getElementById("ol-note-layer");
-  const title = document.getElementById("ol-note-title");
-  const ta    = document.getElementById("ol-note-ta");
-  title.textContent = `Note — ${cid} · Page ${idx+1}`;
-  ta.value = localStorage.getItem(key) || "";
-  host.style.display = "block";
-  document.getElementById("ol-note-save").onclick = () => {
-    const val = (ta.value || "").trim();
-    if (val) localStorage.setItem(key, val); else localStorage.removeItem(key);
-    toast?.("Saved note for this page");
-    host.style.display = "none";
-    renderNoteHint();
-  };
-}
+  // Cover other entry points if your app uses them
+  softWrap("openReaderAt", (orig, self, args)=>{
+    const [cid, idx] = args;
+    rememberCtx(cid, idx);
+    try { localStorage.setItem(bmKey(cid), String(idx)); } catch {}
+    const r = orig.apply(self, args);
+    setTimeout(renderNoteHint, 120);
+    return r;
+  });
 
-/* Small dot on note button if this page has a note (toggle .active class) */
-function renderNoteHint(){
-  const btn = document.getElementById("rdNote");
-  const ctx = getLessonCtx();
-  if (!btn || !ctx) { btn?.classList.remove("active"); return; }
-  const has = !!localStorage.getItem(__noteKey(ctx.cid, ctx.idx));
-  btn.classList.toggle("active", has);
-}
+  softWrap("renderReader", (orig, self, args)=>{
+    const RD = args && args[0];
+    if (RD?.cid!=null && Number.isFinite(Number(RD.i))){
+      rememberCtx(RD.cid, Number(RD.i));
+    }
+    const r = orig.apply(self, args);
+    setTimeout(renderNoteHint, 120);
+    return r;
+  });
 
-/* One global handler for rdNote / rdBookmark */
-(function wireNoteBookmarkButtons(){
-  if (window.__note_btns_wired) return;
-  window.__note_btns_wired = true;
+  // Fallback: watch #reader mutations to infer active idx from TOC
+  (function watchReaderOnce(){
+    const host = $reader();
+    if (!host) return; // will still work via wrappers once reader loads
+    const mo = new MutationObserver(()=> {
+      const ctx = getCtxFromTOC();
+      if (ctx) rememberCtx(ctx.cid, ctx.idx);
+      renderNoteHint();
+    });
+    mo.observe(host, { childList:true, subtree:true });
+  })();
+
+  // Buttons (single delegated listener)
   document.addEventListener("click", (e)=>{
     const t = e.target;
     if (!t) return;
-
-    if (t.id === "rdNote") {
-      e.preventDefault();
-      openNoteEditor();
-      return;
-    }
-    if (t.id === "rdBookmark") {
+    if (t.id === "rdNote"){ e.preventDefault(); openNoteEditor(); }
+    if (t.id === "rdBookmark"){
       const ctx = getLessonCtx();
-      if (!ctx) { toast?.("Open a lesson first"); return; }
-      localStorage.setItem(__bmKey(ctx.cid), String(ctx.idx));
+      if (!ctx){ toast?.("Open a lesson first"); return; }
+      localStorage.setItem(bmKey(ctx.cid), String(ctx.idx));
       toast?.(`Bookmarked: ${ctx.cid} · Page ${ctx.idx+1}`);
-      return;
     }
   }, true);
-})();
 
-/* First render hint if already in a lesson */
-document.addEventListener("DOMContentLoaded", ()=> setTimeout(renderNoteHint, 200));
+  // First paint hint
+  document.addEventListener("DOMContentLoaded", ()=> setTimeout(renderNoteHint, 200));
+})();
