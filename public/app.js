@@ -7754,152 +7754,103 @@ if (typeof saveCourseToCloud !== "function") {
   }, {capture:true});
 })();
 
-/* === BOOKMARK: save current page + quick-continue pill === */
-(function BookmarksFix(){
-  // --- keys ---
-  const getUID = ()=>{ try { return auth?.currentUser?.uid || "anon"; } catch { return "anon"; } };
-  const bmKey   = (cid)=> `ol_bm_${getUID()}_${cid}`;
-  const ctxKey  = "ol_last_ctx";
-
-  // --- context helper (RD → #reader dataset → last saved) ---
-  function getLessonCtx(){
-    if (window.RD && window.RD.cid!=null && Number.isFinite(+window.RD.i)) {
-      return { cid: String(window.RD.cid), idx: +window.RD.i };
+/* === STICKY NOTE: always-open modal, save only if a lesson is active === */
+(function StickyNoteAlwaysOpen(){
+  // --- tiny ctx helper (non-blocking) ---
+  function getLessonCtx() {
+    if (window.RD && window.RD.cid != null && Number.isFinite(+window.RD.i)) {
+      return { cid: window.RD.cid, idx: +window.RD.i };
     }
     const host = document.getElementById("reader");
-    if (host?.dataset?.cid && Number.isFinite(+host.dataset.idx)){
-      return { cid: String(host.dataset.cid), idx: +host.dataset.idx };
+    if (host?.dataset?.cid && Number.isFinite(+host.dataset.idx)) {
+      return { cid: host.dataset.cid, idx: +host.dataset.idx };
     }
     try {
-      const last = JSON.parse(localStorage.getItem(ctxKey) || "null");
-      if (last && last.cid!=null && Number.isFinite(+last.idx)) return { cid:String(last.cid), idx:+last.idx };
+      const last = JSON.parse(localStorage.getItem("ol_last_ctx") || "null");
+      if (last && last.cid != null && Number.isFinite(+last.idx)) return last;
     } catch {}
-    return null;
-  }
-  function rememberCtx(cid, idx){
-    const host = document.getElementById("reader");
-    if (host){ host.dataset.cid = String(cid); host.dataset.idx = String(idx); }
-    try { localStorage.setItem(ctxKey, JSON.stringify({cid:String(cid), idx:+idx||0})); } catch {}
+    return null; // no hard blocking
   }
 
-  // --- wrap goToLesson/openReaderAt/renderReader to keep ctx fresh ---
-  function softWrap(name, wrap){
-    const orig = window[name];
-    if (typeof orig === "function" && !orig.__wrapped){
-      const fn = function(){ return wrap(orig, this, arguments); };
-      fn.__wrapped = true;
-      window[name] = fn;
-      return;
+  // --- keys ---
+  const getUID = ()=>{ try { return auth?.currentUser?.uid || "anon"; } catch { return "anon"; } };
+  const noteKey = (cid, idx)=> `ol_note_${getUID()}_${cid}_${idx}`;
+
+  // --- ensure modal exists ---
+  function ensureNoteLayer() {
+    let host = document.getElementById("ol-note-layer");
+    if (host) return host;
+    host = document.createElement("div");
+    host.id = "ol-note-layer";
+    host.style.display = "none";
+    host.innerHTML = `
+      <div id="ol-note-backdrop"></div>
+      <div id="ol-note-card" role="dialog" aria-modal="true">
+        <div class="hdr">
+          <b id="ol-note-title">Note</b>
+          <button class="btn" id="ol-note-close" type="button">Close</button>
+        </div>
+        <textarea id="ol-note-ta" placeholder="Write your note for this page…"></textarea>
+        <div class="row">
+          <button class="btn" id="ol-note-cancel" type="button">Cancel</button>
+          <button class="btn primary" id="ol-note-save" type="button">Save</button>
+        </div>
+      </div>`;
+    document.body.appendChild(host);
+
+    const hide = ()=> host.style.display = "none";
+    host.querySelector("#ol-note-backdrop").onclick = hide;
+    host.querySelector("#ol-note-close").onclick   = hide;
+    host.querySelector("#ol-note-cancel").onclick  = hide;
+
+    return host;
+  }
+
+  // --- open modal (always) ---
+  function openNoteModal() {
+    const host  = ensureNoteLayer();
+    const title = host.querySelector("#ol-note-title");
+    const ta    = host.querySelector("#ol-note-ta");
+    const save  = host.querySelector("#ol-note-save");
+
+    const ctx = getLessonCtx(); // may be null
+    if (ctx) {
+      title.textContent = `Note — ${ctx.cid} · Page ${ctx.idx + 1}`;
+      ta.value = localStorage.getItem(noteKey(ctx.cid, ctx.idx)) || "";
+      ta.placeholder = "Write your note for this page…";
+      save.disabled = false;
+    } else {
+      title.textContent = "Note (no lesson open)";
+      ta.value = "";
+      ta.placeholder = "Open a lesson to attach note to a specific page.";
+      save.disabled = true; // cannot save without a target
     }
-    if (typeof orig !== "function"){
-      let tries = 0, t = setInterval(()=>{
-        const f = window[name];
-        if (typeof f === "function"){
-          clearInterval(t);
-          if (f.__wrapped) return;
-          const fn = function(){ return wrap(f, this, arguments); };
-          fn.__wrapped = true;
-          window[name] = fn;
-        } else if (++tries > 20) clearInterval(t);
-      }, 200);
-    }
-  }
-  softWrap("goToLesson", (orig, self, args)=>{
-    const [cid, idx] = args;
-    rememberCtx(cid, idx);
-    const r = orig.apply(self, args);
-    setTimeout(renderContinuePill, 80);
-    return r;
-  });
-  softWrap("openReaderAt", (orig, self, args)=>{
-    const [cid, idx] = args;
-    rememberCtx(cid, idx);
-    const r = orig.apply(self, args);
-    setTimeout(renderContinuePill, 120);
-    return r;
-  });
-  softWrap("renderReader", (orig, self, args)=>{
-    const RD = args && args[0];
-    if (RD?.cid!=null && Number.isFinite(+RD.i)) rememberCtx(RD.cid, +RD.i);
-    const r = orig.apply(self, args);
-    setTimeout(renderContinuePill, 120);
-    return r;
-  });
 
-  // --- core actions ---
-  function saveBookmarkNow(){
-    const ctx = getLessonCtx();
-    if (!ctx){ toast?.("Open a lesson first"); return; }
-    localStorage.setItem(bmKey(ctx.cid), String(ctx.idx));
-    toast?.(`Bookmarked: ${ctx.cid} · Page ${ctx.idx+1}`);
-    renderContinuePill();
-  }
-  function goToBookmark(cid){
-    const key = bmKey(cid);
-    const idx = Number(localStorage.getItem(key));
-    if (!Number.isFinite(idx)) { toast?.("No bookmark for this course yet"); return; }
-    if (typeof openReaderAt === "function") { openReaderAt(cid, idx); return; }
-    if (typeof goToLesson === "function")   { goToLesson(cid, idx);   return; }
-  }
-  window.goToBookmark = goToBookmark; // debug helper
+    host.style.display = "block";
 
-  // --- ensure a Bookmark button exists in the reader toolbar ---
-  function ensureBookmarkButton(){
-    if (document.getElementById("rdBookmark")) return;
-    const bar = document.querySelector("#reader .rd-toolbar, #reader .reader-toolbar, #rdToolbar, #reader .row");
-    if (!bar) return;
-    const btn = document.createElement("button");
-    btn.id = "rdBookmark";
-    btn.className = "btn";
-    btn.type = "button";
-    btn.title = "Add bookmark for this page";
-    btn.textContent = "🔖 Bookmark";
-    btn.style.cursor = "pointer";
-    bar.appendChild(btn);
+    // (re)wire save each time
+    save.onclick = () => {
+      const c = getLessonCtx();
+      if (!c) { /* soft guard */ return; }
+      const v = (ta.value || "").trim();
+      if (v) localStorage.setItem(noteKey(c.cid, c.idx), v);
+      else   localStorage.removeItem(noteKey(c.cid, c.idx));
+      toast?.("Saved note for this page");
+      host.style.display = "none";
+    };
   }
+  window.showNoteModal = openNoteModal; // debug helper
 
-  // click → save bookmark (supports id or data attribute)
-  if (!document.__bmClickWired){
-    document.__bmClickWired = true;
-    document.addEventListener("click", (e)=>{
-      const el = e.target.closest?.("#rdBookmark,[data-bookmark]");
-      if (!el) return;
-      e.preventDefault();
-      saveBookmarkNow();
+  // --- single delegated click: #rdNote → always open ---
+  if (!document.__noteClickWired) {
+    document.__noteClickWired = true;
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!t) return;
+      if (t.id === "rdNote") {
+        e.preventDefault();
+        openNoteModal();   // << no gating here
+      }
     }, true);
   }
-
-  // --- tiny “Continue from bookmark” pill in reader header ---
-  function renderContinuePill(){
-    ensureBookmarkButton();
-    const host = document.getElementById("reader");
-    if (!host) return;
-    let pill = document.getElementById("bm-continue");
-    const ctx = getLessonCtx();
-    const cid = ctx?.cid;
-    if (!cid) { if (pill) pill.remove(); return; }
-
-    const saved = Number(localStorage.getItem(bmKey(cid)));
-    const cur   = Number(ctx.idx ?? 0);
-    if (!Number.isFinite(saved)) { if (pill) pill.remove(); return; }
-
-    if (!pill){
-      pill = document.createElement("button");
-      pill.id = "bm-continue";
-      pill.type = "button";
-      pill.className = "btn small";
-      pill.style.marginLeft = "8px";
-      pill.style.cursor = "pointer";
-      const bar = document.querySelector("#reader .rd-toolbar, #reader .reader-toolbar, #rdToolbar, #reader .row");
-      (bar || host).appendChild(pill);
-      pill.addEventListener("click", ()=> goToBookmark(cid));
-    }
-    pill.textContent = saved > cur ? `Continue at page ${saved+1}` : `Go to bookmark (${saved+1})`;
-  }
-
-  // first paint
-  document.addEventListener("DOMContentLoaded", ()=> setTimeout(()=>{
-    ensureBookmarkButton();
-    renderContinuePill();
-  }, 200));
 })();
