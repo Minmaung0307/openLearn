@@ -29,17 +29,55 @@ import {
   setDoc,
 } from "./firebase.js";
 
-export async function ensureUserDoc(u, role) {
-  if (!u) return;
-  await setDoc(
-    doc(db, "users", u.uid),
-    {
-      email: (u.email || "").toLowerCase(),
-      role: role || "student",
-    },
-    { merge: true }
-  );
+// ---- SINGLE ensureUserDoc (keep only this one) ----
+async function ensureUserDoc(u, role) {
+  if (!u?.uid || !window.db) return;
+  const uref = doc(db, "users", u.uid);
+
+  try {
+    const snap = await getDoc(uref);
+    const email = (u.email || "").toLowerCase();
+    const incomingRole = role || "student";
+
+    if (!snap.exists()) {
+      // First time: create minimal profile
+      await setDoc(
+        uref,
+        {
+          email,
+          role: incomingRole,
+          createdAt: Date.now(),
+        },
+        { merge: true }
+      );
+      return true;
+    }
+
+    // Exists → do not downgrade staff roles accidentally
+    const cur = snap.data() || {};
+    const curRole = (cur.role || "student").toLowerCase();
+    const isStaff = ["owner", "admin", "instructor", "ta"].includes(curRole);
+
+    const update = { email };
+    // Only set role if there isn’t one yet, or current isn’t staff and incoming is higher
+    if (!cur.role) {
+      update.role = incomingRole;
+    } else if (!isStaff && incomingRole !== curRole) {
+      update.role = incomingRole; // allow upgrade from student
+    }
+
+    if (Object.keys(update).length) {
+      await setDoc(uref, update, { merge: true });
+    }
+    return true;
+  } catch (e) {
+    console.warn("ensureUserDoc failed:", e?.message || e);
+    return false;
+  }
 }
+
+// (optional) make it available globally if other inline code calls it
+window.ensureUserDoc = ensureUserDoc;
 
 export async function loadProfileCloud() {
   const u = auth.currentUser;
@@ -2300,22 +2338,22 @@ async function resolveUserRole(u) {
   return map[email] || "student";
 }
 
-async function ensureUserDoc(u, role) {
-  if (!db || !u?.uid) return;
-  const uref = doc(db, "users", u.uid);
-  const snap = await getDoc(uref);
-  if (!snap.exists()) {
-    await setDoc(
-      uref,
-      {
-        email: (u.email || "").toLowerCase(),
-        role: role || "student",
-        createdAt: Date.now(),
-      },
-      { merge: true }
-    ); // don't overwrite future admin/owner fields
-  }
-}
+// async function ensureUserDoc(u, role) {
+//   if (!db || !u?.uid) return;
+//   const uref = doc(db, "users", u.uid);
+//   const snap = await getDoc(uref);
+//   if (!snap.exists()) {
+//     await setDoc(
+//       uref,
+//       {
+//         email: (u.email || "").toLowerCase(),
+//         role: role || "student",
+//         createdAt: Date.now(),
+//       },
+//       { merge: true }
+//     ); // don't overwrite future admin/owner fields
+//   }
+// }
 
 function safeCloseModal(modalRef) {
   try {
