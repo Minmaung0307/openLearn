@@ -1,0 +1,17 @@
+{
+  "courses/Abhidhamma/meta.json": "{\n  \"id\": \"Abhidhamma\",\n  \"title\": \"စိတ်ပိုင်း\",\n  \"category\": \"Abhidhamma\",\n  \"level\": \"Beginner\",\n  \"hours\": 8,\n  \"credits\": 2,\n  \"price\": 0,\n  \"summary\": \"အဘိဓမ္မာဟူသည် အလွန်လေးနက်သော သဘောတရားများဖြစ်သည်။ လူသားအားလုံးနှင့် သက်ဆိုင်သော သဘောတရားများဖြစ်သည်။\",\n  \"benefits\": \"ဘဝကို စနစ်တကျ နေထိုင်တတ်ခြင်း\\nစိတ်ဆင်းရဲမှု့ကို ဖြေရှင်းတတ်ခြင်း\\nလူတစ်ယောက်ဖြစ်တည်မှု့ကို အသေးစိတ်သိရှိနိုင်ခြင်း\",\n  \"image\": \"/data/courses/Abhidhamma/images/cover.png\"\n}",
+  "courses/Abhidhamma/lessons/lesson1-html.html": "<!-- lesson1.html -->\n<h2>စိတ်ပိုင်း · lesson1.html</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/lesson2-html.html": "<!-- lesson2.html -->\n<h2>စိတ်ပိုင်း · lesson2.html</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/lesson3-html.html": "<!-- lesson3.html -->\n<h2>စိတ်ပိုင်း · lesson3.html</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/lesson4-html.html": "<!-- lesson4.html -->\n<h2>စိတ်ပိုင်း · lesson4.html</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/lesson5-html.html": "<!-- lesson5.html -->\n<h2>စိတ်ပိုင်း · lesson5.html</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/lesson6-html.html": "<!-- lesson6.html -->\n<h2>စိတ်ပိုင်း · lesson6.html</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/lesson7-html.html": "<!-- lesson7.html -->\n<h2>စိတ်ပိုင်း · lesson7.html</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/quizzes-lesson1-json.html": "<!-- quizzes/lesson1.json -->\n<h2>စိတ်ပိုင်း · quizzes/lesson1.json</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/quizzes-lesson2-json.html": "<!-- quizzes/lesson2.json -->\n<h2>စိတ်ပိုင်း · quizzes/lesson2.json</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/quizzes-lesson3-json.html": "<!-- quizzes/lesson3.json -->\n<h2>စိတ်ပိုင်း · quizzes/lesson3.json</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/quizzes-lesson4-json.html": "<!-- quizzes/lesson4.json -->\n<h2>စိတ်ပိုင်း · quizzes/lesson4.json</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/quizzes-lesson5-json.html": "<!-- quizzes/lesson5.json -->\n<h2>စိတ်ပိုင်း · quizzes/lesson5.json</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/quizzes-lesson6-json.html": "<!-- quizzes/lesson6.json -->\n<h2>စိတ်ပိုင်း · quizzes/lesson6.json</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma/lessons/quizzes-lesson7-json.html": "<!-- quizzes/lesson7.json -->\n<h2>စိတ်ပိုင်း · quizzes/lesson7.json</h2>\n<p>Write your content here…</p>"
+}
