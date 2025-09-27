@@ -402,7 +402,9 @@ main,
 }
 #adminTable a:hover {
   color: #1eb683;
-  background: #ecf0f0;
+  background: #ecf0f083;
+  padding: 7px;
+  text-decoration: none;
 }
 
 #pay-with-paypal {
