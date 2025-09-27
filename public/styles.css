@@ -401,8 +401,9 @@ main,
   color: #1ea2b6;
 }
 #adminTable a:hover {
-  color: #077484;
+  color: #d8b30f;
   text-decoration: none;
+  font-size: 1.2rem;
 }
 
 #pay-with-paypal {
