@@ -79,56 +79,6 @@ async function ensureUserDoc(u, role) {
 // (optional) make it available globally if other inline code calls it
 window.ensureUserDoc = ensureUserDoc;
 
-// export async function loadProfileCloud() {
-//   const u = auth.currentUser;
-//   if (!u) return null;
-//   const snap = await getDoc(doc(db, "users", u.uid));
-//   if (!snap.exists()) return null;
-//   const d = snap.data() || {};
-//   return d.profile || null;
-// }
-
-// export async function saveProfileCloud(p) {
-//   const u = auth.currentUser;
-//   if (!u) return;
-//   await setDoc(doc(db, "users", u.uid), { profile: p || {} }, { merge: true });
-// }
-
-// export async function loadProgressCloud() {
-//   const u = auth.currentUser;
-//   if (!u) return { completed: [], certs: {} };
-//   const snap = await getDoc(doc(db, "users", u.uid));
-//   if (!snap.exists()) return { completed: [], certs: {} };
-//   const d = snap.data() || {};
-//   return {
-//     completed: Array.isArray(d.completed) ? d.completed : [],
-//     certs: d.certs || {},
-//   };
-// }
-
-// export async function saveProgressCloudSafe() {
-//   try {
-//     const u = auth.currentUser;
-//     if (!u) return;
-
-//     const completed =
-//       (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
-//     // collect certs from your local store/helpers
-//     const certs =
-//       typeof getAllIssuedCerts === "function"
-//         ? getAllIssuedCerts()
-//         : window.__CERTS__ || {};
-
-//     await setDoc(
-//       doc(db, "users", u.uid),
-//       { completed, certs },
-//       { merge: true }
-//     );
-//   } catch (e) {
-//     console.warn("saveProgressCloudSafe failed:", e?.message || e);
-//   }
-// }
-
 // (right after) } from "./firebase.js";
 window.__OL_ONCE__ = window.__OL_ONCE__ || {};
 
@@ -782,31 +732,6 @@ function normalizeQuestion(q) {
 
   return out;
 }
-// function normalizeQuiz(raw) {
-//   // already in {questions:[...]} form
-//   if (raw && raw.questions) return raw;
-
-//   // your current files are arrays: [{ type, q, a, correct }]
-//   if (Array.isArray(raw)) {
-//     return {
-//       randomize: true,
-//       shuffleChoices: true,
-//       questions: raw.map((x) => {
-//         const isStrAnswer = typeof x.a === "string";
-//         return {
-//           type: x.type || "single",
-//           q: x.q || "",
-//           choices: Array.isArray(x.a) ? x.a : x.choices || [],
-//           correct: x.correct,
-//           // unify short-answer key name
-//           answers: isStrAnswer ? [String(x.a).trim()] : x.answers || [],
-//           answer: isStrAnswer ? String(x.a).trim() : x.answer || null,
-//         };
-//       }),
-//     };
-//   }
-//   return null;
-// }
 
 // ===== Quiz config (add this near the top) =====
 const QUIZ_PASS = 0.7; // 0.70 = 70% pass (လိုသလို 0.75 သို့ပြန်ခဲ့ရင် အလွယ်)
@@ -839,11 +764,6 @@ function getFeedback(q, userAnswer, isCorrect) {
 }
 
 /* ---------- cloud enroll sync (Firestore) ---------- */
-// const enrollDocRef = () => {
-//   const uid = auth?.currentUser?.uid || (getUser()?.email || "").toLowerCase();
-//   if (!uid) return null;
-//   return doc(db, "enrolls", uid);
-// };
 const enrollDocRef = () => {
   const uid = auth?.currentUser?.uid || "";
   if (!uid || !db) return null;
@@ -1418,164 +1338,6 @@ function renderAnnItem(id, a) {
   return div;
 }
 
-// function initAnnouncements() {
-//   const list = document.getElementById("annList");
-//   const btn =
-//     document.getElementById("btn-new-post") ||
-//     document.querySelector("[data-ann-new]");
-//   const aref = annsRef?.();
-//   if (!list || !aref) return;
-
-//   // ensure modal exists (support either ensureAnnModal or ensureAnnModalMarkup)
-//   const ensure =
-//     typeof ensureAnnModal === "function"
-//       ? ensureAnnModal
-//       : typeof ensureAnnModalMarkup === "function"
-//       ? ensureAnnModalMarkup
-//       : null;
-//   const H = ensure
-//     ? ensure()
-//     : {
-//         dlg: document.getElementById("annModal"),
-//         form: document.getElementById("annForm"),
-//         idEl: document.getElementById("annId"),
-//         titleEl: document.getElementById("annTitle"),
-//         bodyEl: document.getElementById("annBody"),
-//         audEl: document.getElementById("annAudience"),
-//         modalTitle: document.getElementById("annModalTitle"),
-//         btnClose: document.getElementById("annClose"),
-//         btnCancel: document.getElementById("annCancel"),
-//       };
-
-//   // live feed (dedupe by id)
-//   list.innerHTML = "";
-//   onChildAdded(aref, (snap) => {
-//     const a = snap.val() || {};
-//     const id = snap.key;
-//     const node = renderAnnItem(id, a);
-//     const old = list.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
-//     old ? old.replaceWith(node) : list.prepend(node);
-//   });
-
-//   // === OPEN NEW modal (no prompts) ===
-//   btn?.addEventListener("click", () => {
-//     if (roleRank(getRole()) < roleRank("instructor")) {
-//       return toast("Requires instructor+");
-//     }
-//     // NEW flow handled by showAnnModal
-//     if (typeof showAnnModal === "function") {
-//       showAnnModal(null); // ← this resets & opens
-//     } else {
-//       // fallback if showAnnModal not present
-//       H.form?.reset();
-//       if (H.idEl) H.idEl.value = "";
-//       if (H.audEl) H.audEl.value = "all";
-//       if (H.modalTitle) H.modalTitle.textContent = "New Announcement";
-//       H.dlg?.showModal?.();
-//       setTimeout(() => H.titleEl?.focus(), 0);
-//     }
-//   });
-
-//   // === delegated edit/delete ===
-//   list.addEventListener("click", async (e) => {
-//     const editBtn = e.target.closest("[data-ann-edit]");
-//     const delBtn = e.target.closest("[data-ann-del]");
-//     if (!editBtn && !delBtn) return;
-
-//     if (delBtn) {
-//       const id = delBtn.getAttribute("data-ann-del");
-//       if (!id) return;
-//       if (!confirm("Delete this announcement?")) return;
-//       try {
-//         await remove(ref(rtdb, `announcements/${id}`));
-//         list.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
-//         toast("Deleted");
-//       } catch {
-//         toast("Delete failed (permission?)");
-//       }
-//       return;
-//     }
-
-//     // EDIT
-//     const id = editBtn.getAttribute("data-ann-edit");
-//     const a = {
-//       id,
-//       title: editBtn.dataset.title || "",
-//       body: editBtn.dataset.body || "",
-//       audience: editBtn.dataset.audience || "all",
-//     };
-//     if (typeof showAnnModal === "function") {
-//       showAnnModal(a); // ← EDIT modal open (prefilled)
-//     } else {
-//       // fallback
-//       if (H.idEl) H.idEl.value = a.id;
-//       if (H.titleEl) H.titleEl.value = a.title;
-//       if (H.bodyEl) H.bodyEl.value = a.body;
-//       if (H.audEl) H.audEl.value = a.audience;
-//       if (H.modalTitle) H.modalTitle.textContent = "Edit Announcement";
-//       H.dlg?.showModal?.();
-//       setTimeout(() => H.titleEl?.focus(), 0);
-//     }
-//   });
-
-//   // === SAVE (submit) ===
-//   H.form?.addEventListener("submit", async (e) => {
-//     e.preventDefault();
-//     const title = (H.titleEl?.value || "").trim();
-//     const body = (H.bodyEl?.value || "").trim();
-//     const audience = (H.audEl?.value || "all").trim();
-//     if (!title || !body) return toast("Title & message required");
-
-//     const rec = {
-//       title,
-//       body,
-//       audience,
-//       author: getUser()?.email || "instructor",
-//       ts: Date.now(),
-//     };
-//     const id = (H.idEl?.value || "").trim();
-
-//     try {
-//       if (id) {
-//         await set(ref(rtdb, `announcements/${id}`), rec);
-//         toast("Announcement updated");
-//       } else {
-//         await push(annsRef(), rec);
-//         toast("Announcement posted");
-//       }
-//       try {
-//         H.dlg?.close();
-//       } catch {}
-//       H.form?.reset();
-//       if (H.modalTitle) H.modalTitle.textContent = "New Announcement";
-//     } catch {
-//       toast("Save failed (permission?)");
-//     }
-//   });
-
-//   // === close / cancel ===
-//   const doClose = () => {
-//     try {
-//       H.dlg?.close();
-//     } catch {}
-//   };
-//   H.btnClose?.addEventListener("click", doClose);
-//   H.btnCancel?.addEventListener("click", doClose);
-// }
-// document.addEventListener("DOMContentLoaded", initAnnouncements);
-
-// async function purgeAnnouncements() {
-//   if (!confirm("Delete ALL announcements?")) return;
-//   try {
-//     await set(ref(rtdb, "anns"), null);
-//     toast("Purged all announcements");
-//     document.getElementById("annList")?.replaceChildren();
-//   } catch (e) {
-//     console.warn(e);
-//     toast("Purge failed (permission?)");
-//   }
-// }
-
 /* ---------- sidebar + topbar offset (iPad/touch-friendly) ---------- */
 function initSidebar() {
   const sb = $("#sidebar"),
@@ -1850,10 +1612,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
     }
-
-    // always prefix with lesson-00 intro if first line says "lesson-0" or name contains "intro"
-    // (Actually we just respect user's plan order; if you want auto-intro, uncomment below)
-    // if (!plan.find(x => x.n === "00")) plan.unshift({ n: "00", name: "Intro", slug: "lesson-00-intro", hasQuiz:false });
 
     // create lesson html + optional quiz json
     plan.forEach((p, idx) => {
@@ -2337,23 +2095,6 @@ async function resolveUserRole(u) {
   const map = window.__EMAIL_ROLE_MAP__ || {}; // e.g., {"admin@x.com":"admin", ...}
   return map[email] || "student";
 }
-
-// async function ensureUserDoc(u, role) {
-//   if (!db || !u?.uid) return;
-//   const uref = doc(db, "users", u.uid);
-//   const snap = await getDoc(uref);
-//   if (!snap.exists()) {
-//     await setDoc(
-//       uref,
-//       {
-//         email: (u.email || "").toLowerCase(),
-//         role: role || "student",
-//         createdAt: Date.now(),
-//       },
-//       { merge: true }
-//     ); // don't overwrite future admin/owner fields
-//   }
-// }
 
 function safeCloseModal(modalRef) {
   try {
@@ -3512,12 +3253,6 @@ async function migrateProgressKey() {
   }
 }
 
-// ==== Cloud Progress Sync Helpers ====
-// Requires firebase.js exports: db, doc, getDoc, setDoc
-// And your local helpers: getUser(), getCompletedRaw(), setCompletedRaw()
-// Optional: local 'certs' map in localStorage (getIssuedCert uses it)
-
-// ---- Progress (Cloud) — single source of truth w/ backwards-compat ----
 // Reads from BOTH old (root) and new (users/{uid}.progress) shapes, merges, returns normalized {completed:[], certs:{}}
 
 async function loadProgressCloud() {
@@ -3636,31 +3371,6 @@ function getAllIssuedCertIds() {
   }
 }
 
-// async function saveProgressCloud() {
-//   try {
-//     const uid =
-//       (window.auth && auth.currentUser && auth.currentUser.uid) || null;
-//     if (!uid) return;
-//     const completed =
-//       (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
-//     const certs = getAllIssuedCertIds();
-
-//     const ref = doc(db, "users", uid);
-//     // merge to not wipe other user fields
-//     await setDoc(
-//       ref,
-//       {
-//         progress: { completed, certs },
-//       },
-//       { merge: true }
-//     );
-//   } catch (e) {
-//     console.warn("saveProgressCloud failed:", e && e.message ? e.message : e);
-//   }
-// }
-
-// ==== CERT STORAGE (local) ====
-// keep simple map in localStorage: { [courseId]: { id, name, photo, score, issuedAt } }
 
 function _certKey() {
   return "certs";
@@ -3693,7 +3403,6 @@ function genCertId() {
   );
 }
 
-// already added earlier; keep here if you don’t have it in helpers:
 // ---- Progress Save (Cloud) Safe Wrapper ----
 // Always call this → it will normalize & write into Firestore
 async function saveProgressCloudSafe(payload = null) {
@@ -3757,16 +3466,6 @@ async function markCourseProgress(courseId, status, lesson = 0) {
     localStorage.setItem("progress", JSON.stringify(obj));
   } catch {}
 }
-
-// course card/buttons ပြထားတဲ့ loop/render function အတွင်း
-// (async () => {
-//   const p = await getProgress(course.id);   // ← Cloud-first
-//   if (p && p.status === "review") {
-//     showReviewButton(course.id);
-//   } else {
-//     showContinueButton(course.id, p?.lesson || 0);
-//   }
-// })();
 
 async function syncProgressBothWays() {
   const cloud = await loadProgressCloud();
@@ -3868,8 +3567,6 @@ async function markCourseComplete(id, score = null) {
   } catch (e) {
     console.warn("auto-issue cert failed:", e?.message || e);
   }
-
-  // and keep your:  await saveProgressCloudSafe({ completed: getCompletedRaw(), ts: Date.now() });
 
   // refresh UI
   window.renderProfilePanel?.();
@@ -4080,125 +3777,6 @@ function renderProfilePanel() {
 }
 window.renderProfilePanel = renderProfilePanel;
 
-// function renderProfilePanel() {
-//   const box = $("#profilePanel");
-//   if (!box) return;
-
-//   const p = getProfile();
-//   const name = p.displayName || getUser()?.email || "Guest";
-//   const baseSrc = toImageSrc(p.photoURL);
-//   const avatar = baseSrc
-//     ? baseSrc + (baseSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
-//     : "";
-
-//   //   const completed = getCompletedRaw();                       // ← all completed
-//   const dic = new Map((ALL.length ? ALL : getCourses()).map((c) => [c.id, c]));
-
-//   //   const transcriptItems = getCompletedRaw().map(x => {
-//   //   const c = dic.get(x.id);
-//   //   return { meta:x, course:c, title: c?.title || x.id };
-//   // });
-//   const transcriptItems = getCompletedRaw()
-//     .map((x) => {
-//       const c = dic.get(x.id);
-//       return { meta: x, course: c, title: c?.title || x.id };
-//     })
-//     .filter((x) => x.course); // ✅ guard
-
-//   const certItems = transcriptItems
-//     .map((x) => ({ ...x, cert: getIssuedCert(x.course?.id) }))
-//     .filter((x) => x.cert); // only those issued
-
-//   const transcriptHtml = transcriptItems.length
-//     ? `
-//   <table class="ol-table small" style="margin-top:.35rem">
-//     <thead><tr><th>Course</th><th>Date</th><th>Score</th></tr></thead>
-//     <tbody>
-//       ${transcriptItems
-//         .map(
-//           (r) => `
-//         <tr>
-//           <td>${esc(r.title)}</td>
-//           <td>${new Date(r.meta.ts).toLocaleDateString()}</td>
-//           <td>${
-//             r.meta.score != null ? Math.round(r.meta.score * 100) + "%" : "—"
-//           }</td>
-//         </tr>`
-//         )
-//         .join("")}
-//     </tbody>
-//   </table>`
-//     : `<div class="small muted">No completed courses yet.</div>`;
-
-//   const certSection = certItems.length
-//     ? `
-//     <div style="margin-top:14px">
-//       <b class="small">Certificates</b>
-//       <table class="ol-table small" style="margin-top:.35rem">
-//         <thead><tr><th>Course</th><th style="text-align:right">Actions</th></tr></thead>
-//         <tbody>
-//           ${certItems
-//             .map(
-//               ({ course }) => `
-//             <tr>
-//               <td>${esc(course.title)}</td>
-//               <td style="text-align:right">
-//                 <button class="btn small" data-cert-view="${esc(
-//                   course.id
-//                 )}">View</button>
-//                 <button class="btn small" data-cert-dl="${esc(
-//                   course.id
-//                 )}">Download PDF</button>
-//               </td>
-//             </tr>`
-//             )
-//             .join("")}
-//         </tbody>
-//       </table>
-//     </div>`
-//     : "";
-
-//   box.innerHTML = `
-//     <div class="row" style="gap:12px;align-items:flex-start">
-//       <img src="${avatar || "/assets/default-avatar.png"}"
-//            alt=""
-//            style="width:72px;height:72px;border-radius:50%"
-//            onerror="this.onerror=null;this.src='/assets/default-avatar.png'">
-//       <div class="grow">
-//         <div class="h4" style="margin:.1rem 0">${esc(name)}</div>
-//         ${
-//           p.bio
-//             ? `<div class="muted" style="margin:.25rem 0">${esc(p.bio)}</div>`
-//             : ""
-//         }
-//         ${
-//           p.skills
-//             ? `<div class="small muted">Skills: ${esc(p.skills)}</div>`
-//             : ""
-//         }
-//         <div style="margin-top:10px"><b class="small">Transcript</b>${transcriptHtml}</div>
-//         ${certSection}
-//       </div>
-//     </div>`;
-
-//   box.querySelectorAll("[data-cert-view]").forEach((btn) => {
-//     btn.addEventListener("click", () => {
-//       const id = btn.getAttribute("data-cert-view");
-//       const c = (ALL.length ? ALL : getCourses()).find((x) => x.id === id);
-//       if (c) showCertificate(c, { issueIfMissing: false });
-//     });
-//   });
-//   box.querySelectorAll("[data-cert-dl]").forEach((btn) => {
-//     btn.addEventListener("click", () => {
-//       const id = btn.getAttribute("data-cert-dl");
-//       const c = (ALL.length ? ALL : getCourses()).find((x) => x.id === id);
-//       if (!c) return;
-//       showCertificate(c, { issueIfMissing: false });
-//       setTimeout(() => window.print(), 200);
-//     });
-//   });
-// }
-// window.renderProfilePanel = renderProfilePanel;
 
 // ---- Avatar Upload to Firebase Storage (non-destructive) ----
 import {
@@ -4233,17 +3811,9 @@ async function uploadAvatarFile(file) {
   });
   return await getDownloadURL(ref0);
 }
-// async function uploadAvatarFile(file){
-//   if (!file) throw new Error("No file selected");
-//   const userId = (auth?.currentUser?.uid || (getUser()?.email || "guest")).replace(/[^a-z0-9._-]+/gi, "_");
-//   const path   = `avatars/${userId}/${Date.now()}_${_safeName(file.name)}`;
-//   const ref    = storageRef(storage, path);
-//   await uploadBytes(ref, file, { contentType: file.type || "image/*" });
-//   return await getDownloadURL(ref);
-// }
+
 
 // ===== Cloud profile (Firestore /users/{uid}) =====
-// === Profile cloud sync (Firestore) ==================================
 function profileDocRef() {
   const uid = auth?.currentUser?.uid || "";
   if (!uid || !db) return null;
@@ -5112,13 +4682,6 @@ function renderCertificate(course, cert) {
     </div>
   `;
 }
-// မှတ်ချက် အစားထိုးထားသည်
-// အဟောင်း
-//   <div class="row" style="justify-content:center; gap:16px; margin-top:10px">
-//         <img class="qr" alt="Verify" src="${qr}">
-//       </div>
-// အသစ်
-// <div class="cert-qr"><img alt="Verify QR" src="${qr}"></div>
 
 // stamp forgery footer
 document.addEventListener("DOMContentLoaded", () => {
@@ -5298,37 +4861,6 @@ if (typeof window.hardCloseCert !== "function") {
   };
 }
 
-// function showCertificate(course, opts = { issueIfMissing: true }) {
-//   cleanupStrayCertButtons(); // ← stray buttons မဖော်မိအောင် အစဲဝင် ဖယ်
-//   const prof = getProfile();
-//   const completed = getCompletedRaw().find(x => x.id === course.id);
-//   const score = completed?.score ?? null;
-
-//   let rec = getIssuedCert(course.id);
-//   if (!rec && opts.issueIfMissing) rec = ensureCertIssued(course, prof, score);
-//   if (!rec) return toast("Certificate not issued yet");
-
-//   const dlg  = document.getElementById("certModal");
-//   const body = document.getElementById("certBody");
-//   if (!dlg || !body) return;
-
-//   body.innerHTML = renderCertificate(course, rec);
-//   dlg.showModal();
-
-//   // wire just the modal's own buttons
-//   const printBtn = dlg.querySelector("#certPrint");
-//   const closeBtn = dlg.querySelector("#certClose");
-//   printBtn?.addEventListener("click", () => window.print(), { once:true });
-//   closeBtn?.addEventListener("click", () => hardCloseCert(), { once:true });
-
-//   dlg.addEventListener("cancel", (e)=>{ e.preventDefault(); hardCloseCert(); }, { once:true });
-
-//   window.onbeforeprint = () => document.body.classList.add("printing");
-//   window.onafterprint  = () => hardCloseCert();
-
-//   // safety: one more cleanup after modal opens
-//   cleanupStrayCertButtons();
-// }
 
 async function tryFetch(path) {
   try {
@@ -5664,21 +5196,6 @@ function renderAdminTable() {
       <p style="margin-top:.5rem">${esc(c.summary || "")}</p>`;
         $("#adminViewModal")?.showModal();
 
-        // $("#avmEdit").onclick = () => {
-        //   const f = $("#courseForm");
-        //   $("#courseModal")?.showModal();
-        //   f.title.value = c.title || "";
-        //   f.category.value = c.category || "";
-        //   f.level.value = c.level || "Beginner";
-        //   f.price.value = Number(c.price || 0);
-        //   f.rating.value = Number(c.rating || 4.6);
-        //   f.hours.value = Number(c.hours || 0);
-        //   f.credits.value = Number(c.credits || 0);
-        //   f.img.value = c.image || "";
-        //   f.description.value = c.summary || "";
-        //   f.benefits.value = c.benefits || "";
-        //   $("#adminViewModal")?.close();
-        // };
         // NEW (use the unified form opener)
         $("#avmEdit").onclick = () => {
           const id = c.id; // or b.getAttribute("data-id") depending on your scope
@@ -5744,9 +5261,6 @@ function wireAdminCourseRowClicks(root = document) {
 }
 
 // ==== Open Course Form (reuse for NEW / EDIT) ====
-// Requires your HTML modal: <dialog id="courseModal"> … <form id="courseForm"> …
-// Input IDs: courseId, courseCat, courseTitle, courseLevel, courseSummary, courseBenefits,
-//            courseImage, courseHours, courseCredits, coursePrice, courseLessons, lessonPlan
 let __COURSE_FORM_MODE = "new"; // "new" | "edit"
 let __COURSE_FORM_ID = null;
 
@@ -5997,67 +5511,6 @@ window.__openAnnModalEdit = function (rec) {
   setTimeout(() => tEl?.focus(), 0);
 };
 
-// function wireAnnouncementEditButtons() {
-//   const box = document.getElementById("annList");
-//   const newBtn =
-//     document.getElementById("btn-new-post") ||
-//     document.querySelector("[data-ann-new]");
-//   if (!box) return;
-
-//   // avoid double-wiring
-//   if (box.__wired) return;
-//   box.__wired = true;
-
-//   // ---- NEW ----
-//   newBtn?.addEventListener("click", () => {
-//     if (roleRank(getRole()) < roleRank("instructor")) {
-//       return toast("Requires instructor+");
-//     }
-//     if (typeof showAnnModal === "function") {
-//       showAnnModal(null); // central helper available
-//     } else {
-//       window.__openAnnModalNew(); // fallback (manual fill)
-//     }
-//   });
-
-//   // ---- delegated EDIT / DELETE ----
-//   box.addEventListener("click", async (e) => {
-//     const editBtn = e.target.closest("[data-ann-edit]");
-//     const delBtn = e.target.closest("[data-ann-del]");
-//     if (!editBtn && !delBtn) return;
-
-//     // DELETE
-//     if (delBtn) {
-//       const id = delBtn.getAttribute("data-ann-del");
-//       if (!id) return;
-//       if (!confirm("Delete this announcement?")) return;
-//       try {
-//         if (!window.rtdb) throw new Error("No RTDB");
-//         await remove(ref(rtdb, `announcements/${id}`)); // rules expect 'announcements'
-//         box.querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.remove();
-//         toast("Deleted");
-//       } catch (err) {
-//         console.warn(err);
-//         toast("Delete failed (permission?)");
-//       }
-//       return;
-//     }
-
-//     // EDIT
-//     const id = editBtn.getAttribute("data-ann-edit");
-//     const rec = {
-//       id,
-//       title: editBtn.dataset.title || "",
-//       body: editBtn.dataset.body || "",
-//       audience: editBtn.dataset.audience || "all",
-//     };
-//     if (typeof showAnnModal === "function") {
-//       showAnnModal(rec); // central helper available
-//     } else {
-//       window.__openAnnModalEdit(rec); // fallback (manual fill)
-//     }
-//   });
-// }
 
 $("#btn-new-post")?.addEventListener("click", () => {
   const f = $("#annForm");
@@ -6098,19 +5551,6 @@ $("#postForm")?.addEventListener("submit", (e) => {
   renderAnnouncements();
 });
 
-/* ---------- Chat gating ---------- */
-// function gateChatUI() {
-//   const isFb = !!auth?.currentUser && !auth.currentUser.isAnonymous;
-//   const isLocal = !!getUser();
-//   const ok = isFb || isLocal;
-//   ["chatInput", "chatSend", "ccInput", "ccSend"].forEach((id) => {
-//     const el = document.getElementById(id);
-//     if (!el) return;
-//     el.toggleAttribute("disabled", !ok);
-//     const card = el.closest(".card");
-//     if (card) card.classList.toggle("gated", !ok);
-//   });
-// }
 
 /* ---------- Global Live Chat (RTDB if available; local fallback) ---------- */
 function initChatRealtime() {
@@ -6775,19 +6215,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     migrateProfileToScopedOnce();
     renderProfilePanel?.();
   }
-  // if (u) {
-  //   try {
-  //     await migrateProgressKey();
-  //     await syncProgressBothWays();
-  //   } catch {}
-  // }
 
   // Gate chat inputs and keep in sync
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
-    // Auth state → UI (register once here)
-    // ===== Auth state & per-user scope + Cloud sync (REPLACE YOUR BLOCK) =====
-    // === DROP-IN: replace your whole onAuthStateChanged block with this ===
+    
     onAuthStateChanged(auth, async (u) => {
       IS_AUTHED = !!u;
       setAppLocked(!IS_AUTHED);
@@ -7039,7 +6471,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!el.closest("#certModal")) el.remove();
   });
 
-  // Enable browser back to close reader -> My Learning
   // Enable browser back to close reader -> My Learning
   if (!window._olPopstateWired) {
     window._olPopstateWired = true;
@@ -7796,12 +7227,8 @@ function __prependAnnCardInList(id, rec) {
 
 /* ==== ENSURE RTDB VERSION IS ACTIVE ONLY ONCE ==== */
 (function ensureAnnRTDBOnce() {
-  if (window.__ANN_ONCE__) return; // if your RTDB init already set this, it will skip
-  // If you *didn't* include the RTDB init block yet, uncomment next line and paste your init here.
-  // initAnnouncementsOnce();
+  if (window.__ANN_ONCE__) return; // if your RTDB init already set 
 })();
-
-// ===== Cloud Override switch (reads from config.js) =====
 
 // ===== Fallback: define saveCourseToCloud if missing (uses Firestore "catalogOverrides/<id>") =====
 if (typeof saveCourseToCloud !== "function") {
@@ -7956,6 +7383,3 @@ if (typeof saveCourseToCloud !== "function") {
     document.getElementById("payModal")?.close?.();
   });
 })();
-
-// ===== Call this after DOM is ready =====
-// (Put this once in your DOMContentLoaded block)
