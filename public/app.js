@@ -533,21 +533,21 @@ function setPassedQuiz(cid, idx, score) {
   try { window.saveProgressCloud?.({ quiz: s, ts: Date.now() }); } catch {}
 }
 // window.hasPassedQuiz = hasPassedQuiz;
-window.setPassedQuiz  = setPassedQuiz;
+// window.setPassedQuiz  = setPassedQuiz;
 
 // const hasPassedQuiz = (cid, idx) => !!getQuizState()[quizKey(cid, idx)]?.passed;
 
-const setPassedQuiz = (cid, idx, score) => {
-  const s = getQuizState();
-  const k = quizKey(cid, idx);
-  const prev = s[k]?.best || 0;
-  const pass = score >= (window.QUIZ_PASS || 0.7); // ← unify here
-  s[k] = { best: Math.max(prev, score), passed: pass };
-  setQuizState(s);
-  try {
-    saveProgressCloud({ quiz: getQuizState(), ts: Date.now() });
-  } catch {}
-};
+// const setPassedQuiz = (cid, idx, score) => {
+//   const s = getQuizState();
+//   const k = quizKey(cid, idx);
+//   const prev = s[k]?.best || 0;
+//   const pass = score >= (window.QUIZ_PASS || 0.7); // ← unify here
+//   s[k] = { best: Math.max(prev, score), passed: pass };
+//   setQuizState(s);
+//   try {
+//     saveProgressCloud({ quiz: getQuizState(), ts: Date.now() });
+//   } catch {}
+// };
 
 // Add once (near top-level) to mute noisy Firestore channel terminate logs
 (function muteFirestoreTerminate400() {
