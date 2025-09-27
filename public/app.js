@@ -94,17 +94,17 @@ export async function saveProfileCloud(p) {
   await setDoc(doc(db, "users", u.uid), { profile: p || {} }, { merge: true });
 }
 
-export async function loadProgressCloud() {
-  const u = auth.currentUser;
-  if (!u) return { completed: [], certs: {} };
-  const snap = await getDoc(doc(db, "users", u.uid));
-  if (!snap.exists()) return { completed: [], certs: {} };
-  const d = snap.data() || {};
-  return {
-    completed: Array.isArray(d.completed) ? d.completed : [],
-    certs: d.certs || {},
-  };
-}
+// export async function loadProgressCloud() {
+//   const u = auth.currentUser;
+//   if (!u) return { completed: [], certs: {} };
+//   const snap = await getDoc(doc(db, "users", u.uid));
+//   if (!snap.exists()) return { completed: [], certs: {} };
+//   const d = snap.data() || {};
+//   return {
+//     completed: Array.isArray(d.completed) ? d.completed : [],
+//     certs: d.certs || {},
+//   };
+// }
 
 export async function saveProgressCloudSafe() {
   try {
@@ -3517,25 +3517,80 @@ async function migrateProgressKey() {
 // And your local helpers: getUser(), getCompletedRaw(), setCompletedRaw()
 // Optional: local 'certs' map in localStorage (getIssuedCert uses it)
 
+// ---- Progress (Cloud) — single source of truth w/ backwards-compat ----
+// Reads from BOTH old (root) and new (users/{uid}.progress) shapes, merges, returns normalized {completed:[], certs:{}}
+
 async function loadProgressCloud() {
   try {
-    const u = typeof getUser === "function" ? getUser() : null;
-    if (!u || !u.email) return { completed: [], certs: [] };
-    const uid =
-      (window.auth && auth.currentUser && auth.currentUser.uid) || null;
-    if (!uid) return { completed: [], certs: [] };
+    const cu = (typeof auth !== "undefined" && auth.currentUser) ? auth.currentUser : null;
+    if (!cu) return { completed: [], certs: {} };
 
-    const ref = doc(db, "users", uid); // users/{uid}
-    const snap = await getDoc(ref);
-    const data = snap.exists() ? snap.data() : {};
-    const cloud = data.progress || {};
-    return {
-      completed: Array.isArray(cloud.completed) ? cloud.completed : [],
-      certs: Array.isArray(cloud.certs) ? cloud.certs : [],
+    const uref = doc(db, "users", cu.uid);
+    const snap = await getDoc(uref);
+    if (!snap.exists()) return { completed: [], certs: {} };
+    const d = snap.data() || {};
+
+    // Old shape (root):
+    const rootCompleted = Array.isArray(d.completed) ? d.completed : [];
+    const rootCerts     = (d.certs && typeof d.certs === "object") ? d.certs : {};
+
+    // New shape (nested):
+    const prog          = (d.progress && typeof d.progress === "object") ? d.progress : {};
+    const nestedCompleted = Array.isArray(prog.completed) ? prog.completed : [];
+    const nestedCerts     = (prog.certs && typeof prog.certs === "object") ? prog.certs : {};
+
+    // Merge (by course id, keep newest ts and higher score)
+    const byId = new Map();
+    const pushAll = (arr) => {
+      for (const r of (arr||[])) {
+        if (!r || !r.id) continue;
+        const prev = byId.get(r.id);
+        if (!prev) {
+          byId.set(r.id, r);
+        } else {
+          const newer = (r.ts||0) > (prev.ts||0) ? r : prev;
+          const bestScore = Math.max(
+            typeof (prev.score) === "number" ? prev.score : -1,
+            typeof (r.score)   === "number" ? r.score   : -1
+          );
+          byId.set(r.id, { ...newer, score: bestScore >= 0 ? bestScore : null });
+        }
+      }
     };
-  } catch {
-    return { completed: [], certs: [] };
+    pushAll(rootCompleted);
+    pushAll(nestedCompleted);
+
+    // Merge cert maps (new wins on conflict)
+    const mergedCerts = { ...rootCerts, ...nestedCerts };
+
+    return { completed: Array.from(byId.values()), certs: mergedCerts };
+  } catch (e) {
+    console.warn("loadProgressCloud failed:", e?.message || e);
+    return { completed: [], certs: {} };
   }
+}
+
+// Saves into the NEW shape (users/{uid}.progress) and also mirrors to OLD root fields for backward-compat
+async function saveProgressCloud(progress = null) {
+  const cu = (typeof auth !== "undefined" && auth.currentUser) ? auth.currentUser : null;
+  if (!cu) throw new Error("No current user");
+
+  // Read local if not provided
+  const localCompleted = (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
+  const localCerts     = (typeof getAllIssuedCerts === "function" ? getAllIssuedCerts() : {}) || {};
+  const data = progress || { completed: localCompleted, certs: localCerts };
+
+  // Normalize
+  const completed = Array.isArray(data.completed) ? data.completed : [];
+  const certs     = (data.certs && typeof data.certs === "object") ? data.certs : {};
+
+  const uref = doc(db, "users", cu.uid);
+  // Write both nested (new) and root (old) so old clients still work
+  await setDoc(uref, {
+    progress: { completed, certs, ts: Date.now() },
+    completed,
+    certs
+  }, { merge: true });
 }
 
 function _dedupeByCourse(list) {
@@ -3581,28 +3636,28 @@ function getAllIssuedCertIds() {
   }
 }
 
-async function saveProgressCloud() {
-  try {
-    const uid =
-      (window.auth && auth.currentUser && auth.currentUser.uid) || null;
-    if (!uid) return;
-    const completed =
-      (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
-    const certs = getAllIssuedCertIds();
+// async function saveProgressCloud() {
+//   try {
+//     const uid =
+//       (window.auth && auth.currentUser && auth.currentUser.uid) || null;
+//     if (!uid) return;
+//     const completed =
+//       (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
+//     const certs = getAllIssuedCertIds();
 
-    const ref = doc(db, "users", uid);
-    // merge to not wipe other user fields
-    await setDoc(
-      ref,
-      {
-        progress: { completed, certs },
-      },
-      { merge: true }
-    );
-  } catch (e) {
-    console.warn("saveProgressCloud failed:", e && e.message ? e.message : e);
-  }
-}
+//     const ref = doc(db, "users", uid);
+//     // merge to not wipe other user fields
+//     await setDoc(
+//       ref,
+//       {
+//         progress: { completed, certs },
+//       },
+//       { merge: true }
+//     );
+//   } catch (e) {
+//     console.warn("saveProgressCloud failed:", e && e.message ? e.message : e);
+//   }
+// }
 
 // ==== CERT STORAGE (local) ====
 // keep simple map in localStorage: { [courseId]: { id, name, photo, score, issuedAt } }
