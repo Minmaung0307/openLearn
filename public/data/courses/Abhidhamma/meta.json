@@ -7,72 +7,66 @@
   "credits": 2,
   "price": 0,
   "summary": "အဘိဓမ္မာဟူသည် အလွန်လေးနက်သော သဘောတရားများဖြစ်သည်။ လူသားအားလုံးနှင့် သက်ဆိုင်သော သဘောတရားများဖြစ်သည်။",
-   "description": "အဘိဓမ္မာ သဘောသဘာဝများနှင့် အခြေခံ ဝေါဟာရများကို လေ့လာပါ။",
+  "description": "အဘိဓမ္မာ သဘောသဘာဝများနှင့် အခြေခံ ဝေါဟာရများကို လေ့လာပါ။",
   "benefits": "ဘဝကို စနစ်တကျ နေထိုင်တတ်ခြင်း\nစိတ်ဆင်းရဲမှု့ကို ဖြေရှင်းတတ်ခြင်း\nလူတစ်ယောက်ဖြစ်တည်မှု့ကို အသေးစိတ်သိရှိနိုင်ခြင်း",
   "image": "/data/courses/Abhidhamma/images/cover.png",
   "cover": "/data/courses/Abhidhamma/images/cover.png",
   "modules": [
     {
-    "id": "m1",
-    "title": "Chapter 1 - အကုသိုလ်စိတ်",
-    "lessons": [
-      { "type": "html", 
-      "title": "အကုသိုလ်စိတ်",        
-      "src": "lessons/lesson1-html.html" },
-      { "type": "quiz", "title": "Quiz 1", "src": "lessons/quizzes/lesson1.json" }
-    ]
-  },
-  {
-    "id": "m2",
-    "title": "Chapter 2 - အဟိတ်စိတ်",
-    "lessons": [
-      { "type": "html", 
-      "title": "အဟိတ်စိတ်",        
-      "src": "lessons/lesson2-html.html" },
-      { "type": "quiz", "title": "Quiz 2", "src": "lessons/quizzes/lesson2.json" }
-    ]
-  },
-  {
-    "id": "m2",
-    "title": "Chapter 3 - ကာမာဝစရသောဘနစိတ်",
-    "lessons": [
-      { "type": "html", 
-      "title": "ကာမာဝစရသောဘနစိတ်",        
-      "src": "lessons/lesson3-html.html" },
-      { "type": "quiz", "title": "Quiz 3", "src": "lessons/quizzes/lesson3.json" }
-    ]
-  },
-  {
-    "id": "m4",
-    "title": "Chapter 4 - ရူပါဝစရစိတ်",
-    "lessons": [
-      { "type": "html", "title": "ရူပါဝစရစိတ်",        "src": "lessons/lesson4-html.html" },
-      { "type": "quiz", "title": "Quiz 4", "src": "lessons/quizzes/lesson4.json" }
-    ]
-  },
-  {
-    "id": "m5",
-    "title": "Chapter 5 - အရူပါဝစရစိတ်",
-    "lessons": [
-      { "type": "html", "title": "အရူပါဝစရစိတ်",       "src": "lessons/lesson5-html.html" },
-      { "type": "quiz", "title": "Quiz 5", "src": "lessons/quizzes/lesson5.json" }
-    ]
-  },
-  {
-    "id": "m6",
-    "title": "Chapter 6 - လောကုတ္တရာစိတ်",
-    "lessons": [
-      { "type": "html", "title": "လောကုတ္တရာစိတ်",     "src": "lessons/lesson6-html.html" },
-      { "type": "quiz", "title": "Quiz 6", "src": "lessons/quizzes/lesson6.json" }
-    ]
-  },
-  {
-    "id": "m7",
-    "title": "Chapter 7 - စိတ်အကျယ်(၁၂၁)",
-    "lessons": [
-      { "type": "html", "title": "စိတ်အကျယ်(၁၂၁)",     "src": "lessons/lesson7-html.html" },
-      { "type": "quiz", "title": "Quiz 7", "src": "lessons/quizzes/lesson7.json" }
-    ]
-  }
+      "id": "m1",
+      "title": "Chapter 1 - အကုသိုလ်စိတ်",
+      "lessons": [
+        { "type": "html", "title": "အကုသိုလ်စိတ်", "src": "lessons/lesson1.html" },
+        { "type": "quiz", "title": "Quiz 1",      "src": "quizzes/lesson1.json" }
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Chapter 2 - အဟိတ်စိတ်",
+      "lessons": [
+        { "type": "html", "title": "အဟိတ်စိတ်",   "src": "lessons/lesson2.html" },
+        { "type": "quiz", "title": "Quiz 2",      "src": "quizzes/lesson2.json" }
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "Chapter 3 - ကာမာဝစရသောဘနစိတ်",
+      "lessons": [
+        { "type": "html", "title": "ကာမာဝစရသောဘနစိတ်", "src": "lessons/lesson3.html" },
+        { "type": "quiz", "title": "Quiz 3",          "src": "quizzes/lesson3.json" }
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Chapter 4 - ရူပါဝစရစိတ်",
+      "lessons": [
+        { "type": "html", "title": "ရူပါဝစရစိတ်", "src": "lessons/lesson4.html" },
+        { "type": "quiz", "title": "Quiz 4",      "src": "quizzes/lesson4.json" }
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "Chapter 5 - အရူပါဝစရစိတ်",
+      "lessons": [
+        { "type": "html", "title": "အရူပါဝစရစိတ်", "src": "lessons/lesson5.html" },
+        { "type": "quiz", "title": "Quiz 5",       "src": "quizzes/lesson5.json" }
+      ]
+    },
+    {
+      "id": "m6",
+      "title": "Chapter 6 - လောကုတ္တရာစိတ်",
+      "lessons": [
+        { "type": "html", "title": "လောကုတ္တရာစိတ်", "src": "lessons/lesson6.html" },
+        { "type": "quiz", "title": "Quiz 6",         "src": "quizzes/lesson6.json" }
+      ]
+    },
+    {
+      "id": "m7",
+      "title": "Chapter 7 - စိတ်အကျယ်(၁၂၁)",
+      "lessons": [
+        { "type": "html", "title": "စိတ်အကျယ်(၁၂၁)", "src": "lessons/lesson7.html" },
+        { "type": "quiz", "title": "Quiz 7",         "src": "quizzes/lesson7.json" }
+      ]
+    }
   ]
 }
