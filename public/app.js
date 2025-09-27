@@ -7754,14 +7754,16 @@ if (typeof saveCourseToCloud !== "function") {
   }, {capture:true});
 })();
 
-/* ===== Notes & Bookmark — Robust Context ===== */
+/* ===== Notes & Bookmark — Robust Context (v2) ===== */
 (function(){
   // ---------- helpers ----------
   const getUID = ()=> { try { return auth?.currentUser?.uid || "anon"; } catch { return "anon"; } };
   const bmKey   = (cid)=> `ol_bm_${getUID()}_${cid}`;
   const noteKey = (cid, idx)=> `ol_note_${getUID()}_${cid}_${idx}`;
 
-  function $reader(){ return document.getElementById("reader") || document.querySelector("#reader"); }
+  const $ = (s, r=document)=> r.querySelector(s);
+  function $reader(){ return $("#reader") || document.getElementById("reader") || $("#rdHost") || $("#rdContainer"); }
+
   function rememberCtx(cid, idx){
     const host = $reader();
     if (host){ host.dataset.cid = String(cid); host.dataset.idx = String(idx); }
@@ -7771,18 +7773,34 @@ if (typeof saveCourseToCloud !== "function") {
     try { const o = JSON.parse(localStorage.getItem("ol_last_ctx")||"null"); return (o && o.cid!=null) ? o : null; } catch { return null; }
   }
 
-  function getCtxFromTOC(){
-    // Try active item in TOC (supports multiple attribute styles)
-    const toc = document.getElementById("toc") || document.querySelector("#toc,.toc");
-    const host = $reader();
-    const cid = (host?.dataset?.cid) || window.RD?.cid || loadLastCtx()?.cid || null;
-    if (!toc) return null;
-    const active = toc.querySelector('[aria-current="page"], .active, [data-active="1"]') || null;
-    const link = active || toc.querySelector("[data-jump],[data-idx]");
-    const attr = link?.getAttribute?.("data-jump") ?? link?.getAttribute?.("data-idx");
-    const idx = Number(attr);
-    if (cid && Number.isFinite(idx)) return { cid, idx };
-    return null;
+  // Try to sniff from various DOMs
+  function trySeedCtxFromDOM(){
+    // 1) Any element that carries both cid & idx
+    let el = document.querySelector("[data-cid][data-idx]") || document.querySelector("[data-cid][data-page-idx]");
+    if (el){
+      const cid = el.getAttribute("data-cid");
+      const idx = Number(el.getAttribute("data-idx") ?? el.getAttribute("data-page-idx"));
+      if (cid && Number.isFinite(idx)) { rememberCtx(cid, idx); return true; }
+    }
+    // 2) TOC active
+    const toc = document.getElementById("toc") || document.querySelector("#toc,.toc,[data-toc]");
+    if (toc){
+      const active = toc.querySelector('[aria-current="page"], .active, [data-active="1"], [data-current="1"]') || null;
+      const link = active || toc.querySelector("[data-jump],[data-idx]");
+      const attr = link?.getAttribute?.("data-jump") ?? link?.getAttribute?.("data-idx");
+      const idx = Number(attr);
+      // try to find course id near toc
+      const cid = ( $reader()?.dataset?.cid ) || window.RD?.cid || toc.getAttribute("data-cid") || loadLastCtx()?.cid || null;
+      if (cid && Number.isFinite(idx)) { rememberCtx(cid, idx); return true; }
+    }
+    // 3) URL hash/query like ?cid=abc&i=2
+    try {
+      const u = new URL(location.href);
+      const cid = u.searchParams.get("cid") || u.hash.replace(/^#/, "").split(":")[0] || null;
+      const idx = Number(u.searchParams.get("i") || u.searchParams.get("idx"));
+      if (cid && Number.isFinite(idx)) { rememberCtx(cid, idx); return true; }
+    } catch {}
+    return false;
   }
 
   function getLessonCtx(){
@@ -7790,13 +7808,16 @@ if (typeof saveCourseToCloud !== "function") {
     if (window.RD && window.RD.cid != null && Number.isFinite(Number(window.RD.i))) {
       return { cid: window.RD.cid, idx: Number(window.RD.i) };
     }
-    // 2) #reader dataset
+    // 2) reader dataset
     const host = $reader();
     const dCid = host?.dataset?.cid, dIdx = Number(host?.dataset?.idx);
     if (dCid && Number.isFinite(dIdx)) return { cid: dCid, idx: dIdx };
-    // 3) TOC
-    const toc = getCtxFromTOC();
-    if (toc) return toc;
+    // 3) sniff DOM (one-shot)
+    if (trySeedCtxFromDOM()){
+      const host2 = $reader();
+      const c2 = host2?.dataset?.cid, i2 = Number(host2?.dataset?.idx);
+      if (c2 && Number.isFinite(i2)) return { cid: c2, idx: i2 };
+    }
     // 4) last known
     const last = loadLastCtx();
     if (last) return last;
@@ -7823,9 +7844,9 @@ if (typeof saveCourseToCloud !== "function") {
       </div>`;
     document.body.appendChild(host);
     const hide=()=>host.style.display="none";
-    document.getElementById("ol-note-backdrop").onclick = hide;
-    document.getElementById("ol-note-close").onclick   = hide;
-    document.getElementById("ol-note-cancel").onclick  = hide;
+    $("#ol-note-backdrop").onclick = hide;
+    $("#ol-note-close").onclick   = hide;
+    $("#ol-note-cancel").onclick  = hide;
   })();
 
   function renderNoteHint(){
@@ -7838,6 +7859,8 @@ if (typeof saveCourseToCloud !== "function") {
   }
 
   function openNoteEditor(){
+    // seed once more right before open
+    trySeedCtxFromDOM();
     const ctx = getLessonCtx();
     if (!ctx){ toast?.("Open a lesson first"); return; }
     const { cid, idx } = ctx;
@@ -7857,7 +7880,7 @@ if (typeof saveCourseToCloud !== "function") {
     };
   }
 
-  // ---------- Minimal, quiet patchers (no spam) ----------
+  // ---------- soft wrappers (cover more APIs) ----------
   function softWrap(fnName, wrapper){
     const orig = window[fnName];
     if (typeof orig === "function"){
@@ -7869,7 +7892,7 @@ if (typeof saveCourseToCloud !== "function") {
     }
     // not present yet → observe once for it
     let tries = 0;
-    const max = 20;
+    const max = 30;
     const t = setInterval(()=>{
       const f = window[fnName];
       if (typeof f === "function"){
@@ -7884,47 +7907,74 @@ if (typeof saveCourseToCloud !== "function") {
     }, 200);
   }
 
-  // When any navigation happens, remember cid/idx and auto-bookmark
+  function afterNav(cid, idx){
+    if (cid!=null && Number.isFinite(Number(idx))) {
+      rememberCtx(cid, Number(idx));
+      try { localStorage.setItem(bmKey(cid), String(idx)); } catch {}
+      setTimeout(renderNoteHint, 120);
+    } else {
+      // last ditch: sniff
+      setTimeout(()=>{ trySeedCtxFromDOM(); renderNoteHint(); }, 150);
+    }
+  }
+
+  // Originally wrapped
   softWrap("goToLesson", (orig, self, args)=>{
     const [cid, idx] = args;
-    rememberCtx(cid, idx);
-    try { localStorage.setItem(bmKey(cid), String(idx)); } catch {}
     const r = orig.apply(self, args);
-    setTimeout(renderNoteHint, 80);
+    afterNav(cid, idx);
     return r;
   });
-
-  // Cover other entry points if your app uses them
   softWrap("openReaderAt", (orig, self, args)=>{
     const [cid, idx] = args;
-    rememberCtx(cid, idx);
-    try { localStorage.setItem(bmKey(cid), String(idx)); } catch {}
     const r = orig.apply(self, args);
-    setTimeout(renderNoteHint, 120);
+    afterNav(cid, idx);
+    return r;
+  });
+  softWrap("renderReader", (orig, self, args)=>{
+    const RD = args && args[0];
+    const r = orig.apply(self, args);
+    if (RD?.cid!=null && Number.isFinite(Number(RD.i))) afterNav(RD.cid, RD.i);
+    else afterNav(window.RD?.cid, window.RD?.i);
     return r;
   });
 
-  softWrap("renderReader", (orig, self, args)=>{
-    const RD = args && args[0];
-    if (RD?.cid!=null && Number.isFinite(Number(RD.i))){
-      rememberCtx(RD.cid, Number(RD.i));
-    }
+  // NEW: also wrap these common names your app might be using
+  softWrap("openReader", (orig, self, args)=>{
     const r = orig.apply(self, args);
-    setTimeout(renderNoteHint, 120);
+    // try to read from global RD shortly after
+    setTimeout(()=> afterNav(window.RD?.cid, window.RD?.i), 120);
+    return r;
+  });
+  softWrap("renderPage", (orig, self, args)=>{
+    const r = orig.apply(self, args);
+    // many apps set RD inside renderPage
+    setTimeout(()=> afterNav(window.RD?.cid, window.RD?.i), 60);
+    return r;
+  });
+  softWrap("showPage", (orig, self, args)=>{
+    const r = orig.apply(self, args);
+    // when switching to 'reader', probe RD then DOM
+    const name = args && args[0];
+    if (name === "reader") setTimeout(()=> {
+      if (!afterNav(window.RD?.cid, window.RD?.i)) { trySeedCtxFromDOM(); renderNoteHint(); }
+    }, 120);
     return r;
   });
 
   // Fallback: watch #reader mutations to infer active idx from TOC
   (function watchReaderOnce(){
     const host = $reader();
-    if (!host) return; // will still work via wrappers once reader loads
+    if (!host) return; // wrappers will cover when reader shows up
     const mo = new MutationObserver(()=> {
-      const ctx = getCtxFromTOC();
-      if (ctx) rememberCtx(ctx.cid, ctx.idx);
-      renderNoteHint();
+      // try TOC every mutation batch
+      if (trySeedCtxFromDOM()) renderNoteHint();
     });
     mo.observe(host, { childList:true, subtree:true });
   })();
+
+  // Optional hook apps can call: window.setLessonCtx(cid, idx)
+  window.setLessonCtx = function(cid, idx){ rememberCtx(cid, idx); renderNoteHint(); };
 
   // Buttons (single delegated listener)
   document.addEventListener("click", (e)=>{
@@ -7932,6 +7982,8 @@ if (typeof saveCourseToCloud !== "function") {
     if (!t) return;
     if (t.id === "rdNote"){ e.preventDefault(); openNoteEditor(); }
     if (t.id === "rdBookmark"){
+      // try to seed once more before failing
+      trySeedCtxFromDOM();
       const ctx = getLessonCtx();
       if (!ctx){ toast?.("Open a lesson first"); return; }
       localStorage.setItem(bmKey(ctx.cid), String(ctx.idx));
@@ -7940,5 +7992,5 @@ if (typeof saveCourseToCloud !== "function") {
   }, true);
 
   // First paint hint
-  document.addEventListener("DOMContentLoaded", ()=> setTimeout(renderNoteHint, 200));
+  document.addEventListener("DOMContentLoaded", ()=> setTimeout(()=>{ trySeedCtxFromDOM(); renderNoteHint(); }, 200));
 })();
