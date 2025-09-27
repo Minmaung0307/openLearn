@@ -1809,10 +1809,10 @@ details.help + details.help {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-#profilePanel .chip:hover {
-  background: #e5e7eb !important;          /* gray-200 */
-  border-color: #9ca3af !important;        /* gray-400 */
-}
+/* #profilePanel .chip:hover {
+  background: #e5e7eb !important; 
+  border-color: #9ca3af !important;
+} */
 
 /* make link blocks look neat on their own lines too */
 #profilePanel .profile-links {
