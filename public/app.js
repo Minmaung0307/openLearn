@@ -7539,7 +7539,6 @@ function firstLockedIndex(cid, targetIdx) {
         const lockAt = firstLockedIndex(cid, idx);
         const need = Math.round((window.QUIZ_PASS || 0.7) * 100);
         window.toast?.(`Need ≥ ${need}% on earlier quiz to continue`);
-        // jump only up to the last unlocked page
         return originalGoToLesson.call(this, cid, Math.max(0, lockAt));
       }
     } catch {}
