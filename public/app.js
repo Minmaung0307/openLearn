@@ -7754,7 +7754,7 @@ if (typeof saveCourseToCloud !== "function") {
   }, {capture:true});
 })();
 
-/* === STICKY NOTE: always-open modal, save only if a lesson is active === */
+/* === STICKY NOTE: always-open modal, save only if a lesson is active (with date/time) === */
 (function StickyNoteAlwaysOpen(){
   // --- tiny ctx helper (non-blocking) ---
   function getLessonCtx() {
@@ -7776,6 +7776,40 @@ if (typeof saveCourseToCloud !== "function") {
   const getUID = ()=>{ try { return auth?.currentUser?.uid || "anon"; } catch { return "anon"; } };
   const noteKey = (cid, idx)=> `ol_note_${getUID()}_${cid}_${idx}`;
 
+  // --- helpers for JSON-safe notes (backward compatible) ---
+  function loadNote(cid, idx){
+    const raw = localStorage.getItem(noteKey(cid, idx));
+    if (!raw) return null;
+    try {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === "object" && "text" in obj) return obj;
+    } catch {
+      // old format (plain string)
+      return { text: raw, cid, idx, savedAt: null };
+    }
+    // unexpected shape → treat as plain text
+    return { text: String(raw), cid, idx, savedAt: null };
+  }
+  function saveNote(cid, idx, text){
+    const rec = {
+      text: text,
+      cid,
+      idx,
+      savedAt: new Date().toISOString()
+    };
+    localStorage.setItem(noteKey(cid, idx), JSON.stringify(rec));
+  }
+  function removeNote(cid, idx){
+    localStorage.removeItem(noteKey(cid, idx));
+  }
+  function fmt(dtISO){
+    try {
+      if (!dtISO) return "";
+      const d = new Date(dtISO);
+      return d.toLocaleString();
+    } catch { return ""; }
+  }
+
   // --- ensure modal exists ---
   function ensureNoteLayer() {
     let host = document.getElementById("ol-note-layer");
@@ -7791,7 +7825,8 @@ if (typeof saveCourseToCloud !== "function") {
           <button class="btn" id="ol-note-close" type="button">Close</button>
         </div>
         <textarea id="ol-note-ta" placeholder="Write your note for this page…"></textarea>
-        <div class="row">
+        <div class="small muted" id="ol-note-meta" style="margin:.35rem 0 0"></div>
+        <div class="row" style="margin-top:.5rem">
           <button class="btn" id="ol-note-cancel" type="button">Cancel</button>
           <button class="btn primary" id="ol-note-save" type="button">Save</button>
         </div>
@@ -7806,23 +7841,38 @@ if (typeof saveCourseToCloud !== "function") {
     return host;
   }
 
+  function renderNoteHint(){
+    const btn = document.getElementById("rdNote");
+    if (!btn) return;
+    const ctx = getLessonCtx();
+    if (!ctx){ btn.classList.remove("active"); return; }
+    const rec = loadNote(ctx.cid, ctx.idx);
+    btn.classList.toggle("active", !!(rec && rec.text));
+  }
+
   // --- open modal (always) ---
   function openNoteModal() {
     const host  = ensureNoteLayer();
     const title = host.querySelector("#ol-note-title");
     const ta    = host.querySelector("#ol-note-ta");
     const save  = host.querySelector("#ol-note-save");
+    const meta  = host.querySelector("#ol-note-meta");
 
     const ctx = getLessonCtx(); // may be null
     if (ctx) {
+      const existing = loadNote(ctx.cid, ctx.idx);
       title.textContent = `Note — ${ctx.cid} · Page ${ctx.idx + 1}`;
-      ta.value = localStorage.getItem(noteKey(ctx.cid, ctx.idx)) || "";
+      ta.value = (existing && existing.text) || "";
       ta.placeholder = "Write your note for this page…";
+      meta.textContent = existing?.savedAt
+        ? `Last saved: ${fmt(existing.savedAt)}`
+        : "";
       save.disabled = false;
     } else {
       title.textContent = "Note (no lesson open)";
       ta.value = "";
       ta.placeholder = "Open a lesson to attach note to a specific page.";
+      meta.textContent = "";
       save.disabled = true; // cannot save without a target
     }
 
@@ -7833,13 +7883,14 @@ if (typeof saveCourseToCloud !== "function") {
       const c = getLessonCtx();
       if (!c) { /* soft guard */ return; }
       const v = (ta.value || "").trim();
-      if (v) localStorage.setItem(noteKey(c.cid, c.idx), v);
-      else   localStorage.removeItem(noteKey(c.cid, c.idx));
+      if (v) saveNote(c.cid, c.idx, v);
+      else   removeNote(c.cid, c.idx);
       toast?.("Saved note for this page");
       host.style.display = "none";
+      renderNoteHint();
     };
   }
-  window.showNoteModal = openNoteModal; // debug helper
+  window.showNoteModal = openNoteModal; // optional helper
 
   // --- single delegated click: #rdNote → always open ---
   if (!document.__noteClickWired) {
@@ -7853,4 +7904,7 @@ if (typeof saveCourseToCloud !== "function") {
       }
     }, true);
   }
+
+  // first paint hint
+  document.addEventListener("DOMContentLoaded", ()=> setTimeout(renderNoteHint, 200));
 })();

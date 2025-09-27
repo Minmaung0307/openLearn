@@ -2114,11 +2114,18 @@ details.help + details.help {
   display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
 }
 #ol-note-ta {
-  width:100%; min-height: 160px;
-  background:#ffffff; color:#0f172a; 
-  border:1px solid #d1d5db; border-radius:10px;
-  padding:10px; outline: none;
+  width: 100%;
+  min-height: 150px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;        /* white */
+  color: #111827;             /* dark text */
+  font-size: 14px;
+  line-height: 1.5;
 }
+#ol-note-card .hdr b { color: #0b1220; }
+#ol-note-meta { color: #6b7280; }
 #ol-note-ta::placeholder { color:#6b7280; } /* gray-500 */
 #ol-note-card .row { margin-top:10px; justify-content:flex-end; gap:8px; }
 #ol-note-card textarea{width:100%;min-height:180px;border:1px solid #d1d5db;border-radius:8px;padding:10px;font:inherit;resize:vertical;background:#f9fafb}
