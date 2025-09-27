@@ -79,14 +79,14 @@ async function ensureUserDoc(u, role) {
 // (optional) make it available globally if other inline code calls it
 window.ensureUserDoc = ensureUserDoc;
 
-export async function loadProfileCloud() {
-  const u = auth.currentUser;
-  if (!u) return null;
-  const snap = await getDoc(doc(db, "users", u.uid));
-  if (!snap.exists()) return null;
-  const d = snap.data() || {};
-  return d.profile || null;
-}
+// export async function loadProfileCloud() {
+//   const u = auth.currentUser;
+//   if (!u) return null;
+//   const snap = await getDoc(doc(db, "users", u.uid));
+//   if (!snap.exists()) return null;
+//   const d = snap.data() || {};
+//   return d.profile || null;
+// }
 
 export async function saveProfileCloud(p) {
   const u = auth.currentUser;
@@ -4250,12 +4250,17 @@ function profileDocRef() {
   return doc(db, "profiles", uid);
 }
 
+// ---- Profile Cloud Loader ----
 async function loadProfileCloud() {
-  const ref = profileDocRef();
-  if (!ref) return null;
   try {
-    const snap = await getDoc(ref);
-    return snap.exists() ? snap.data() || null : null;
+    const u = (typeof auth !== "undefined" && auth.currentUser) ? auth.currentUser : null;
+    if (!u) return null;
+
+    const snap = await getDoc(doc(db, "users", u.uid));
+    if (!snap.exists()) return null;
+
+    const d = snap.data() || {};
+    return d.profile || null;  // keep profile field isolated
   } catch (e) {
     console.warn("loadProfileCloud failed:", e?.message || e);
     return null;
