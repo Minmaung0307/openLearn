@@ -106,28 +106,28 @@ export async function saveProfileCloud(p) {
 //   };
 // }
 
-export async function saveProgressCloudSafe() {
-  try {
-    const u = auth.currentUser;
-    if (!u) return;
+// export async function saveProgressCloudSafe() {
+//   try {
+//     const u = auth.currentUser;
+//     if (!u) return;
 
-    const completed =
-      (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
-    // collect certs from your local store/helpers
-    const certs =
-      typeof getAllIssuedCerts === "function"
-        ? getAllIssuedCerts()
-        : window.__CERTS__ || {};
+//     const completed =
+//       (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
+//     // collect certs from your local store/helpers
+//     const certs =
+//       typeof getAllIssuedCerts === "function"
+//         ? getAllIssuedCerts()
+//         : window.__CERTS__ || {};
 
-    await setDoc(
-      doc(db, "users", u.uid),
-      { completed, certs },
-      { merge: true }
-    );
-  } catch (e) {
-    console.warn("saveProgressCloudSafe failed:", e?.message || e);
-  }
-}
+//     await setDoc(
+//       doc(db, "users", u.uid),
+//       { completed, certs },
+//       { merge: true }
+//     );
+//   } catch (e) {
+//     console.warn("saveProgressCloudSafe failed:", e?.message || e);
+//   }
+// }
 
 // (right after) } from "./firebase.js";
 window.__OL_ONCE__ = window.__OL_ONCE__ || {};
@@ -3694,12 +3694,36 @@ function genCertId() {
 }
 
 // already added earlier; keep here if you don’t have it in helpers:
-async function saveProgressCloudSafe(payload) {
+// ---- Progress Save (Cloud) Safe Wrapper ----
+// Always call this → it will normalize & write into Firestore
+async function saveProgressCloudSafe(payload = null) {
   try {
-    if (typeof saveProgressCloud === "function")
+    const u = (typeof auth !== "undefined" && auth.currentUser) ? auth.currentUser : null;
+    if (!u) return;
+
+    // If a wrapper to another helper exists, prefer that
+    if (typeof saveProgressCloud === "function") {
       await saveProgressCloud(payload);
+      return;
+    }
+
+    // Fallback: write directly
+    const completed =
+      (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
+    const certs =
+      (typeof getAllIssuedCerts === "function" ? getAllIssuedCerts() : {}) || {};
+
+    await setDoc(
+      doc(db, "users", u.uid),
+      {
+        progress: { completed, certs, ts: Date.now() },
+        completed,
+        certs,
+      },
+      { merge: true }
+    );
   } catch (e) {
-    console.warn("saveProgressCloud failed:", e?.message || e);
+    console.warn("saveProgressCloudSafe failed:", e?.message || e);
   }
 }
 
