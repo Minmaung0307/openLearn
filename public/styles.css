@@ -2099,9 +2099,18 @@ details.help + details.help {
 
 /* tiny polish */
 #noteDlg .modal-title { font-size: 1rem; }
+/* Reader toolbar icon buttons */
+#rdNote, #rdBookmark, .icon-btn {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Small visual feedback when note exists / bookmarked */
 #rdNote.active, #rdBookmark.active {
   outline: 2px solid var(--primary, #2563eb);
+  outline-offset: 1px;
   border-radius: 8px;
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
 }
 .icon-btn { background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px; }
 .icon-btn:hover { background:#f3f4f6; }

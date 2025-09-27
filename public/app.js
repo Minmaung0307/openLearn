@@ -5260,31 +5260,45 @@ if (readerHost && !readerHost._delegated) {
     }
 
     // ---- Note ----
-    if (t.id === "rdNote") {
-      const cid = window.RD?.cid;
-      const idx = window.RD?.i ?? 0;
-      if (!cid) return;
+if (t.id === "rdNote") {
+  // ✅ RD fallback-aware
+  const ctx = (typeof __getLessonCtx === "function")
+    ? __getLessonCtx()
+    : (window.RD && { cid: window.RD.cid, idx: Number(window.RD.i || 0) });
 
-      const key = noteKey(cid, idx);
-      const prev = localStorage.getItem(key) || "";
-      const txt = prompt("Note for this page:", prev);
-      if (txt == null) return; // user cancelled
-      localStorage.setItem(key, txt);
-      toast?.("Saved note for this page");
-      return;
-    }
+  if (!ctx) { toast?.("Open a lesson first"); return; }
+  const { cid, idx } = ctx;
 
-    // ---- Bookmark ----
-    if (t.id === "rdBookmark") {
-      const cid = window.RD?.cid;
-      const idx = window.RD?.i ?? 0;
-      if (!cid) return;
+  const key  = noteKey(cid, idx);
+  const prev = localStorage.getItem(key) || "";
+  const txt  = prompt("Note for this page:", prev);
+  if (txt == null) return;                 // user cancelled
+  localStorage.setItem(key, txt);
 
-      const bKey = bmKey(cid);
-      localStorage.setItem(bKey, String(idx));
-      toast?.("Bookmarked this spot");
-      return;
-    }
+  // (optional) visual feedback
+  t.classList.toggle("active", !!txt.trim());
+  toast?.("Saved note for this page");
+  return;
+}
+
+// ---- Bookmark ----
+if (t.id === "rdBookmark") {
+  // ✅ RD fallback-aware
+  const ctx = (typeof __getLessonCtx === "function")
+    ? __getLessonCtx()
+    : (window.RD && { cid: window.RD.cid, idx: Number(window.RD.i || 0) });
+
+  if (!ctx) { toast?.("Open a lesson first"); return; }
+  const { cid, idx } = ctx;
+
+  const bKey = bmKey(cid);
+  localStorage.setItem(bKey, String(idx));
+
+  // (optional) visual feedback
+  t.classList.add("active");
+  toast?.("Bookmarked this spot");
+  return;
+}
 
     // ---- Finish ----
     if (t.id === "rdFinish") {
@@ -5335,6 +5349,65 @@ if (readerHost && !readerHost._delegated) {
     }
   });
 }
+
+// ===== Reader state helpers (fallbacks if window.RD missing) =====
+function __getLessonCtx() {
+  // 1) Prefer window.RD if correct
+  if (window.RD && window.RD.cid && Number.isFinite(Number(window.RD.i))) {
+    return { cid: window.RD.cid, idx: Number(window.RD.i) };
+  }
+  // 2) Try to read from #reader data attributes
+  const host = document.getElementById("reader");
+  if (host) {
+    const cid = host.getAttribute("data-cid");
+    const idx = Number(host.getAttribute("data-idx"));
+    if (cid && Number.isFinite(idx)) return { cid, idx };
+  }
+  // 3) Try active TOC item
+  const cur = document.querySelector('[data-jump].active, [data-idx].active');
+  if (cur) {
+    const cid = cur.getAttribute("data-cid") || (host && host.getAttribute("data-cid"));
+    const idxAttr = cur.getAttribute("data-jump") ?? cur.getAttribute("data-idx");
+    const idx = Number(idxAttr);
+    if (cid && Number.isFinite(idx)) return { cid, idx };
+  }
+  return null;
+}
+
+// RD state setter (call this after each navigation)
+function __setLessonCtx(cid, idx) {
+  try {
+    window.RD = window.RD || {};
+    window.RD.cid = cid;
+    window.RD.i = Number(idx)||0;
+    // reflect to DOM so fallbacks can read
+    const host = document.getElementById("reader");
+    if (host) {
+      host.setAttribute("data-cid", cid);
+      host.setAttribute("data-idx", String(window.RD.i));
+    }
+    // refresh note badge state if helper exists
+    window.updateNoteBadge?.();
+  } catch {}
+}
+
+// Patch goToLesson to guarantee state is set (only once)
+(function patchGoToLessonForNotes(){
+  if (window.__patchedGoToLessonSetCtx) return;
+  const orig = window.goToLesson;
+  if (typeof orig !== "function") {
+    // try again later until your app wires goToLesson
+    setTimeout(patchGoToLessonForNotes, 300);
+    return;
+  }
+  window.__patchedGoToLessonSetCtx = true;
+  window.goToLesson = function(cid, idx){
+    const r = orig.apply(this, arguments);
+    // after DOM updates settle, capture ctx
+    setTimeout(()=> __setLessonCtx(cid, idx), 30);
+    return r;
+  };
+})();
 
 /* =========================================================
    Part 5/6 — Gradebook, Admin, Import/Export, Announcements, Chat
