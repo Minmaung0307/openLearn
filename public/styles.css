@@ -397,10 +397,10 @@ main,
   font-weight: 600;
 }
 
-#adminTable {
+#adminTable a {
   color: #1ea2b6;
 }
-#adminTable:hover {
+#adminTable a:hover {
   color: #1eb683;
   background: #ecf0f0;
 }
