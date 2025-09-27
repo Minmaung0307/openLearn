@@ -1,0 +1,6 @@
+{
+  "courses/Abhidhamma6/meta.json": "{\n  \"id\": \"Abhidhamma6\",\n  \"title\": \"ယမိုက်\",\n  \"category\": \"Abhidhamma\",\n  \"level\": \"Beginner\",\n  \"hours\": 8,\n  \"credits\": 2,\n  \"price\": 1,\n  \"summary\": \"ခန္ဓာ အာယတန ဓာတ် စသည်တို့ကို ဘုံတို့နှင့်တကွ နားလည်စေရန် ဟောကြားထားသည့် အခြေခံသဘောတရားများဖြစ်သည်။\",\n  \"benefits\": \"ခန္ဓာသဘောနားလည်ခြင်း\\nဓာတ်သဘောနားလည်ခြင်း\\nဘုံတို့၏သဘောနားလည်ခြင်း\",\n  \"image\": \"/data/courses/Abhidhamma6/images/cover.jpg\"\n}",
+  "courses/Abhidhamma6/lessons/lesson-00.html": "<!-- ခန္ဓယမိုက် -->\n<h2>ယမိုက် · ခန္ဓယမိုက်</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma6/lessons/lesson-01.html": "<!-- အာယတနယမိုက် -->\n<h2>ယမိုက် · အာယတနယမိုက်</h2>\n<p>Write your content here…</p>",
+  "courses/Abhidhamma6/lessons/lesson-02.html": "<!-- ဓာတုယမိုက် -->\n<h2>ယမိုက် · ဓာတုယမိုက်</h2>\n<p>Write your content here…</p>"
+}

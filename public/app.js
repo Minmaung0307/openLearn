@@ -514,19 +514,52 @@ function shuffle(arr) {
   return arr;
 }
 
+// One source of truth for passing score
+window.QUIZ_PASS =
+  typeof window.QUIZ_PASS === "number" ? window.QUIZ_PASS : 0.7;
+
 const QUIZ_STATE_KEY = "ol_quiz_state"; // {"cid:idx":{best:0.8,passed:true}}
 const getQuizState = () => _read(QUIZ_STATE_KEY, {});
 const setQuizState = (o) => _write(QUIZ_STATE_KEY, o);
 const quizKey = (cid, idx) => `${cid}:${idx}`;
 const hasPassedQuiz = (cid, idx) => !!getQuizState()[quizKey(cid, idx)]?.passed;
+
 const setPassedQuiz = (cid, idx, score) => {
   const s = getQuizState();
   const k = quizKey(cid, idx);
   const prev = s[k]?.best || 0;
-  s[k] = { best: Math.max(prev, score), passed: score >= 0.75 };
+  const pass = score >= (window.QUIZ_PASS || 0.7); // ← unify here
+  s[k] = { best: Math.max(prev, score), passed: pass };
   setQuizState(s);
-  saveProgressCloud({ quiz: getQuizState(), ts: Date.now() });
+  try {
+    saveProgressCloud({ quiz: getQuizState(), ts: Date.now() });
+  } catch {}
 };
+
+function isLessonUnlocked(cid, targetIndex) {
+  const pages =
+    (window.RD && window.RD.cid === cid ? window.RD.pages : []) || [];
+  for (let i = 0; i < targetIndex; i++) {
+    const p = pages[i];
+    if (p?.type === "quiz") {
+      const passed =
+        (typeof hasPassedQuiz === "function" && hasPassedQuiz(cid, i)) ||
+        (i === window.RD?.i &&
+          (window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7));
+      if (!passed) return false;
+    }
+  }
+  return true;
+}
+
+function firstUnpassedQuizIndex(cid) {
+  const pages =
+    (window.RD && window.RD.cid === cid ? window.RD.pages : []) || [];
+  for (let i = 0; i < pages.length; i++) {
+    if (pages[i]?.type === "quiz" && !hasPassedQuiz?.(cid, i)) return i;
+  }
+  return -1;
+}
 
 // Add once (near top-level) to mute noisy Firestore channel terminate logs
 (function muteFirestoreTerminate400() {
@@ -3257,7 +3290,8 @@ async function migrateProgressKey() {
 
 async function loadProgressCloud() {
   try {
-    const cu = (typeof auth !== "undefined" && auth.currentUser) ? auth.currentUser : null;
+    const cu =
+      typeof auth !== "undefined" && auth.currentUser ? auth.currentUser : null;
     if (!cu) return { completed: [], certs: {} };
 
     const uref = doc(db, "users", cu.uid);
@@ -3267,28 +3301,32 @@ async function loadProgressCloud() {
 
     // Old shape (root):
     const rootCompleted = Array.isArray(d.completed) ? d.completed : [];
-    const rootCerts     = (d.certs && typeof d.certs === "object") ? d.certs : {};
+    const rootCerts = d.certs && typeof d.certs === "object" ? d.certs : {};
 
     // New shape (nested):
-    const prog          = (d.progress && typeof d.progress === "object") ? d.progress : {};
+    const prog = d.progress && typeof d.progress === "object" ? d.progress : {};
     const nestedCompleted = Array.isArray(prog.completed) ? prog.completed : [];
-    const nestedCerts     = (prog.certs && typeof prog.certs === "object") ? prog.certs : {};
+    const nestedCerts =
+      prog.certs && typeof prog.certs === "object" ? prog.certs : {};
 
     // Merge (by course id, keep newest ts and higher score)
     const byId = new Map();
     const pushAll = (arr) => {
-      for (const r of (arr||[])) {
+      for (const r of arr || []) {
         if (!r || !r.id) continue;
         const prev = byId.get(r.id);
         if (!prev) {
           byId.set(r.id, r);
         } else {
-          const newer = (r.ts||0) > (prev.ts||0) ? r : prev;
+          const newer = (r.ts || 0) > (prev.ts || 0) ? r : prev;
           const bestScore = Math.max(
-            typeof (prev.score) === "number" ? prev.score : -1,
-            typeof (r.score)   === "number" ? r.score   : -1
+            typeof prev.score === "number" ? prev.score : -1,
+            typeof r.score === "number" ? r.score : -1
           );
-          byId.set(r.id, { ...newer, score: bestScore >= 0 ? bestScore : null });
+          byId.set(r.id, {
+            ...newer,
+            score: bestScore >= 0 ? bestScore : null,
+          });
         }
       }
     };
@@ -3307,25 +3345,32 @@ async function loadProgressCloud() {
 
 // Saves into the NEW shape (users/{uid}.progress) and also mirrors to OLD root fields for backward-compat
 async function saveProgressCloud(progress = null) {
-  const cu = (typeof auth !== "undefined" && auth.currentUser) ? auth.currentUser : null;
+  const cu =
+    typeof auth !== "undefined" && auth.currentUser ? auth.currentUser : null;
   if (!cu) throw new Error("No current user");
 
   // Read local if not provided
-  const localCompleted = (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
-  const localCerts     = (typeof getAllIssuedCerts === "function" ? getAllIssuedCerts() : {}) || {};
+  const localCompleted =
+    (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
+  const localCerts =
+    (typeof getAllIssuedCerts === "function" ? getAllIssuedCerts() : {}) || {};
   const data = progress || { completed: localCompleted, certs: localCerts };
 
   // Normalize
   const completed = Array.isArray(data.completed) ? data.completed : [];
-  const certs     = (data.certs && typeof data.certs === "object") ? data.certs : {};
+  const certs = data.certs && typeof data.certs === "object" ? data.certs : {};
 
   const uref = doc(db, "users", cu.uid);
   // Write both nested (new) and root (old) so old clients still work
-  await setDoc(uref, {
-    progress: { completed, certs, ts: Date.now() },
-    completed,
-    certs
-  }, { merge: true });
+  await setDoc(
+    uref,
+    {
+      progress: { completed, certs, ts: Date.now() },
+      completed,
+      certs,
+    },
+    { merge: true }
+  );
 }
 
 function _dedupeByCourse(list) {
@@ -3371,7 +3416,6 @@ function getAllIssuedCertIds() {
   }
 }
 
-
 function _certKey() {
   return "certs";
 }
@@ -3407,7 +3451,8 @@ function genCertId() {
 // Always call this → it will normalize & write into Firestore
 async function saveProgressCloudSafe(payload = null) {
   try {
-    const u = (typeof auth !== "undefined" && auth.currentUser) ? auth.currentUser : null;
+    const u =
+      typeof auth !== "undefined" && auth.currentUser ? auth.currentUser : null;
     if (!u) return;
 
     // If a wrapper to another helper exists, prefer that
@@ -3420,7 +3465,8 @@ async function saveProgressCloudSafe(payload = null) {
     const completed =
       (typeof getCompletedRaw === "function" ? getCompletedRaw() : []) || [];
     const certs =
-      (typeof getAllIssuedCerts === "function" ? getAllIssuedCerts() : {}) || {};
+      (typeof getAllIssuedCerts === "function" ? getAllIssuedCerts() : {}) ||
+      {};
 
     await setDoc(
       doc(db, "users", u.uid),
@@ -3777,7 +3823,6 @@ function renderProfilePanel() {
 }
 window.renderProfilePanel = renderProfilePanel;
 
-
 // ---- Avatar Upload to Firebase Storage (non-destructive) ----
 import {
   storage,
@@ -3812,7 +3857,6 @@ async function uploadAvatarFile(file) {
   return await getDownloadURL(ref0);
 }
 
-
 // ===== Cloud profile (Firestore /users/{uid}) =====
 function profileDocRef() {
   const uid = auth?.currentUser?.uid || "";
@@ -3823,14 +3867,15 @@ function profileDocRef() {
 // ---- Profile Cloud Loader ----
 async function loadProfileCloud() {
   try {
-    const u = (typeof auth !== "undefined" && auth.currentUser) ? auth.currentUser : null;
+    const u =
+      typeof auth !== "undefined" && auth.currentUser ? auth.currentUser : null;
     if (!u) return null;
 
     const snap = await getDoc(doc(db, "users", u.uid));
     if (!snap.exists()) return null;
 
     const d = snap.data() || {};
-    return d.profile || null;  // keep profile field isolated
+    return d.profile || null; // keep profile field isolated
   } catch (e) {
     console.warn("loadProfileCloud failed:", e?.message || e);
     return null;
@@ -3840,7 +3885,8 @@ async function loadProfileCloud() {
 // ---- Profile Cloud Saver (single source of truth = users/{uid}.profile) ----
 async function saveProfileCloud(p) {
   try {
-    const u = (typeof auth !== "undefined" && auth.currentUser) ? auth.currentUser : null;
+    const u =
+      typeof auth !== "undefined" && auth.currentUser ? auth.currentUser : null;
     if (!u) return;
     await setDoc(
       doc(db, "users", u.uid),
@@ -4861,7 +4907,6 @@ if (typeof window.hardCloseCert !== "function") {
   };
 }
 
-
 async function tryFetch(path) {
   try {
     const r = await fetch(path, { cache: "no-cache" });
@@ -5027,12 +5072,22 @@ if (readerHost && !readerHost._delegated) {
       const { courseId, lesson } = window.READER_STATE;
       if (!courseId) return;
 
-      // gating: quiz/project guard (same rules as renderPage)
+      // NEW: block skipping if any previous quiz not passed
+      if (!isLessonUnlocked(courseId, lesson + 1)) {
+        const idx = firstUnpassedQuizIndex(courseId);
+        return toast(
+          `Please pass Quiz ${idx + 1} (≥ ${Math.round(
+            (window.QUIZ_PASS || 0.7) * 100
+          )}%) first`
+        );
+      }
+
+      // (your existing current-page quiz/project gating)
       const p = window.RD?.pages?.[lesson];
       if (
         p?.type === "quiz" &&
         !(
-          window.hasPassedQuiz?.(window.RD.cid, lesson) ||
+          hasPassedQuiz?.(window.RD.cid, lesson) ||
           (window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7)
         )
       ) {
@@ -5044,7 +5099,6 @@ if (readerHost && !readerHost._delegated) {
         return toast("Please upload your project file first");
       }
 
-      // mark lesson progress to Cloud (best/ passed flags are already handled in quiz)
       try {
         await window.markLessonProgress?.(
           courseId,
@@ -5053,23 +5107,32 @@ if (readerHost && !readerHost._delegated) {
           window.LAST_QUIZ_SCORE || 0
         );
       } catch {}
-
-      // move next (if last page, just stay; finishing is via Finish button)
       goToLesson(courseId, lesson + 1);
       window.renderMyLearning?.();
       return;
     }
 
-    // ---- Finish ---- (only on last page; button id = rdFinish)
+    // ---- Finish ----
     if (t.id === "rdFinish") {
       const { courseId, lesson } = window.READER_STATE;
       if (!courseId) return;
 
+      // NEW: must have all previous quizzes passed
+      if (!isLessonUnlocked(courseId, lesson + 1)) {
+        const idx = firstUnpassedQuizIndex(courseId);
+        return toast(
+          `Please pass Quiz ${idx + 1} (≥ ${Math.round(
+            (window.QUIZ_PASS || 0.7) * 100
+          )}%) first`
+        );
+      }
+
+      // (your existing current-page quiz/project gating)
       const p = window.RD?.pages?.[lesson];
       if (
         p?.type === "quiz" &&
         !(
-          window.hasPassedQuiz?.(window.RD.cid, lesson) ||
+          hasPassedQuiz?.(window.RD.cid, lesson) ||
           (window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7)
         )
       ) {
@@ -5084,7 +5147,6 @@ if (readerHost && !readerHost._delegated) {
       try {
         await window.markCourseProgress?.(courseId, "review", lesson);
       } catch {}
-      // local completion (also issues cert via showCongrats())
       window.markCourseComplete?.(courseId, window.LAST_QUIZ_SCORE || null);
       window.showCongrats?.();
       window.renderMyLearning?.();
@@ -5099,6 +5161,20 @@ if (readerHost && !readerHost._delegated) {
     }
   });
 }
+
+toc.addEventListener("click", (e) => {
+  const li = e.target.closest("[data-idx]");
+  if (!li) return;
+  const idx = Number(li.dataset.idx || 0);
+  const cid = window.RD?.cid;
+  if (!cid) return;
+
+  if (!isLessonUnlocked(cid, idx)) {
+    const bad = firstUnpassedQuizIndex(cid);
+    return toast(`Please pass Quiz ${bad + 1} first`);
+  }
+  goToLesson(cid, idx);
+});
 
 /* =========================================================
    Part 5/6 — Gradebook, Admin, Import/Export, Announcements, Chat
@@ -5511,7 +5587,6 @@ window.__openAnnModalEdit = function (rec) {
   setTimeout(() => tEl?.focus(), 0);
 };
 
-
 $("#btn-new-post")?.addEventListener("click", () => {
   const f = $("#annForm");
   f?.reset();
@@ -5550,7 +5625,6 @@ $("#postForm")?.addEventListener("submit", (e) => {
   $("#postModal")?.close();
   renderAnnouncements();
 });
-
 
 /* ---------- Global Live Chat (RTDB if available; local fallback) ---------- */
 function initChatRealtime() {
@@ -6219,7 +6293,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Gate chat inputs and keep in sync
   gateChatUI();
   if (typeof onAuthStateChanged === "function" && auth) {
-    
     onAuthStateChanged(auth, async (u) => {
       IS_AUTHED = !!u;
       setAppLocked(!IS_AUTHED);
@@ -7227,7 +7300,7 @@ function __prependAnnCardInList(id, rec) {
 
 /* ==== ENSURE RTDB VERSION IS ACTIVE ONLY ONCE ==== */
 (function ensureAnnRTDBOnce() {
-  if (window.__ANN_ONCE__) return; // if your RTDB init already set 
+  if (window.__ANN_ONCE__) return; // if your RTDB init already set
 })();
 
 // ===== Fallback: define saveCourseToCloud if missing (uses Firestore "catalogOverrides/<id>") =====

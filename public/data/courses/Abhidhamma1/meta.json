@@ -15,7 +15,7 @@
     "id": "m1",
     "title": "Chapter 1 - အကုသိုလ်စိတ်",
     "lessons": [
-      { "type": "html", "title": "အကုသိုလ်စိတ်",        "src": "lessons/lesson1.html" },
+      { "type": "html", "title": "အကုသိုလ်စိတ်",        "src": "lessons/lesson1.htmlless" },
       { "type": "quiz", "title": "Quiz 1", "src": "quizzes/lesson1.json" }
     ]
   },
