@@ -1,0 +1,63 @@
+{
+  "id": "အဘိဓမ္မာ",
+  "title": "စိတ်ပိုင်း",
+  "category": "အဘိဓမ္မာ",
+  "level": "Beginner",
+  "hours": 8,
+  "credits": 2,
+  "price": 0,
+  "summary": "အဘိဓမ္မာဟူသည် အလွန်လေးနက်သော သဘောတရားများဖြစ်သည်။ လူသားအားလုံးနှင့် သက်ဆိုင်သော သဘောတရားများဖြစ်သည်။",
+  "benefits": "ဘဝကို စနစ်တကျ နေထိုင်တတ်ခြင်း\nစိတ်ဆင်းရဲမှု့ကို ဖြေရှင်းတတ်ခြင်း\nလူတစ်ယောက်ဖြစ်တည်မှု့ကို အသေးစိတ်သိရှိနိုင်ခြင်း",
+  "image": "",
+  "cover": "/data/courses/pali-basics/images/cover.png",
+  "modules": [
+    {
+      "id": "m1",
+      "title": "အဘိဓမ္မာ",
+      "lessons": [
+        {
+          "type": "html",
+          "title": "အကုသိုလ်စိတ်",
+          "src": "lessons/lesson1.html"
+        },
+        {
+          "type": "html",
+          "title": "အဟိတ်စိတ်",
+          "src": "lessons/lesson2.html"
+        },
+        {
+          "type": "html",
+          "title": "ကာမာဝစရသောဘနစိတ်",
+          "src": "lessons/lesson3.html"
+        },
+        {
+          "type": "html",
+          "title": "ရူပါဝစရစိတ်",
+          "src": "lessons/lesson4.html"
+        },
+        {
+          "type": "html",
+          "title": "အရူပါဝစရစိတ်",
+          "src": "lessons/lesson5.html"
+        },
+        {
+          "type": "html",
+          "title": "လောကုတ္တရာစိတ်",
+          "src": "lessons/lesson6.html"
+        },
+        {
+          "type": "html",
+          "title": "စိတ်အကျယ်(၁၂၁)",
+          "src": "lessons/lesson7.html"
+        },
+        { "type": "quiz", "src": "quizzes/lesson1.json" },
+        { "type": "quiz", "src": "quizzes/lesson2.json" },
+        { "type": "quiz", "src": "quizzes/lesson3.json" },
+        { "type": "quiz", "src": "quizzes/lesson4.json" },
+        { "type": "quiz", "src": "quizzes/lesson5.json" },
+        { "type": "quiz", "src": "quizzes/lesson6.json" },
+        { "type": "quiz", "src": "quizzes/lesson7.json" }
+      ]
+    }
+  ]
+}
