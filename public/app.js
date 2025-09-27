@@ -5055,6 +5055,29 @@ if (readerHost && !readerHost._delegated) {
     const t = e.target;
     if (!t || !(t instanceof HTMLElement)) return;
 
+    // TOC / lesson list clicks (delegated)
+    const tocItem = t.closest?.("[data-idx]");
+    if (tocItem) {
+      const idx = Number(
+        tocItem.getAttribute("data-idx") ?? tocItem.dataset.idx ?? 0
+      );
+      const cid = window.RD?.cid;
+      if (!cid) return;
+
+      // Block jumping ahead if any previous quiz not passed
+      if (!isLessonUnlocked(cid, idx)) {
+        const bad = firstUnpassedQuizIndex(cid);
+        return toast(
+          `Please pass Quiz ${bad + 1} (≥ ${Math.round(
+            (window.QUIZ_PASS || 0.7) * 100
+          )}%) first`
+        );
+      }
+
+      goToLesson(cid, idx);
+      return; // stop further handling
+    }
+
     // Always keep state in sync
     window.READER_STATE.courseId = window.RD?.cid || null;
     window.READER_STATE.lesson = window.RD?.i ?? 0;
@@ -5161,20 +5184,6 @@ if (readerHost && !readerHost._delegated) {
     }
   });
 }
-
-toc.addEventListener("click", (e) => {
-  const li = e.target.closest("[data-idx]");
-  if (!li) return;
-  const idx = Number(li.dataset.idx || 0);
-  const cid = window.RD?.cid;
-  if (!cid) return;
-
-  if (!isLessonUnlocked(cid, idx)) {
-    const bad = firstUnpassedQuizIndex(cid);
-    return toast(`Please pass Quiz ${bad + 1} first`);
-  }
-  goToLesson(cid, idx);
-});
 
 /* =========================================================
    Part 5/6 — Gradebook, Admin, Import/Export, Announcements, Chat
