@@ -1938,3 +1938,8 @@ details.help + details.help {
   }
   #profilePanel a { color: #e5e7eb; }
 }
+
+#data-cert:hover {
+  color: #06b6d4;
+  background: #e8e8e8;
+}
