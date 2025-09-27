@@ -7753,3 +7753,146 @@ if (typeof saveCourseToCloud !== "function") {
     }
   }, {capture:true});
 })();
+
+/* =========================
+   Notes & Bookmark (drop-in)
+   ========================= */
+
+/* Use existing helpers if present; else light fallbacks */
+const __note_has = (k) => typeof window[k] === "function";
+if (!__note_has("noteKey")) {
+  function currentUid() { try { return auth?.currentUser?.uid || "anon"; } catch { return "anon"; } }
+  function noteKey(courseId, pageIdx){ return `ol_note_${currentUid()}_${courseId}_${pageIdx}`; }
+  function bmKey(courseId){ return `ol_bm_${currentUid()}_${courseId}`; }
+  window.readNote = (cid, idx) => localStorage.getItem(noteKey(cid, idx)) || "";
+  window.readBookmark = (cid) => {
+    const v = localStorage.getItem(bmKey(cid));
+    return v == null ? null : Number(v);
+  };
+}
+
+/* Small helper: get current lesson ctx safely */
+function getLessonCtx() {
+  const RD = window.RD;
+  if (!RD || !RD.cid || !Array.isArray(RD.pages)) return null;
+  const cid = RD.cid;
+  const idx = Number(RD.i || 0);
+  if (!Number.isFinite(idx)) return null;
+  return { cid, idx, pages: RD.pages };
+}
+
+/* Build sticky note layer (once) */
+(function ensureNoteLayer(){
+  if (document.getElementById("ol-note-layer")) return;
+  const host = document.createElement("div");
+  host.id = "ol-note-layer";
+  host.innerHTML = `
+    <div id="ol-note-backdrop"></div>
+    <div id="ol-note-card" role="dialog" aria-modal="true" aria-label="Note editor">
+      <div class="hdr">
+        <b id="ol-note-title">Note</b>
+        <button class="btn" id="ol-note-close" type="button">Close</button>
+      </div>
+      <textarea id="ol-note-ta" placeholder="Write your note for this page…"></textarea>
+      <div class="row">
+        <button class="btn" id="ol-note-cancel" type="button">Cancel</button>
+        <button class="btn primary" id="ol-note-save" type="button">Save</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(host);
+  // wire close
+  const hide = () => host.style.display = "none";
+  document.getElementById("ol-note-close").onclick = hide;
+  document.getElementById("ol-note-cancel").onclick = hide;
+  document.getElementById("ol-note-backdrop").onclick = hide;
+})();
+
+/* Open editor for current page */
+function openNoteEditor() {
+  const ctx = getLessonCtx();
+  if (!ctx) { toast?.("Open a lesson first"); return; }
+  const { cid, idx } = ctx;
+
+  const host = document.getElementById("ol-note-layer");
+  const ta = document.getElementById("ol-note-ta");
+  const title = document.getElementById("ol-note-title");
+  const key = noteKey(cid, idx);
+
+  title.textContent = `Note — ${cid} · Page ${idx + 1}`;
+  ta.value = localStorage.getItem(key) || "";
+  host.style.display = "block";
+
+  document.getElementById("ol-note-save").onclick = () => {
+    const val = (ta.value || "").trim();
+    if (val) localStorage.setItem(key, val); else localStorage.removeItem(key);
+    toast?.("Saved note for this page");
+    host.style.display = "none";
+  };
+}
+
+/* Optional: show a tiny “has note” dot on the reader header */
+function renderNoteHint() {
+  const ctx = getLessonCtx();
+  const btn = document.getElementById("rdNote");
+  if (!btn || !ctx) return;
+  const has = !!window.readNote?.(ctx.cid, ctx.idx);
+  btn.classList.toggle("active", has);
+}
+
+/* Patch goToLesson once — auto-bookmark on navigation & refresh note hint */
+(function patchGoToLessonForBookmark(){
+  if (window.__note_bm_patched) return;
+  const orig = window.goToLesson;
+  if (typeof orig !== "function") { setTimeout(patchGoToLessonForBookmark, 300); return; }
+  window.__note_bm_patched = true;
+
+  window.goToLesson = function(cid, idx){
+    try { localStorage.setItem(bmKey(cid), String(idx)); } catch {}
+    const r = orig.call(this, cid, idx);
+    // Update hint a bit later (after reader renders)
+    setTimeout(renderNoteHint, 80);
+    return r;
+  };
+})();
+
+/* If you have a “renderReader()”, also patch once to refresh hint */
+(function patchRenderReaderOnce(){
+  if (window.__note_render_patch) return;
+  const orig = window.renderReader;
+  if (typeof orig !== "function") return; // skip if not present
+  window.__note_render_patch = true;
+  window.renderReader = function(RD){
+    const r = orig.call(this, RD);
+    try { renderNoteHint(); } catch {}
+    return r;
+  };
+})();
+
+/* Single global click handler for rdNote/rdBookmark */
+(function wireNoteBookmarkButtons(){
+  if (window.__note_btns_wired) return;
+  window.__note_btns_wired = true;
+
+  document.addEventListener("click", (e)=>{
+    const t = e.target;
+    if (!t) return;
+
+    if (t.id === "rdNote") {
+      e.preventDefault();
+      openNoteEditor();
+      return;
+    }
+
+    if (t.id === "rdBookmark") {
+      const ctx = getLessonCtx();
+      if (!ctx) { toast?.("Open a lesson first"); return; }
+      localStorage.setItem(bmKey(ctx.cid), String(ctx.idx));
+      toast?.("Bookmarked this spot");
+      return;
+    }
+  }, true);
+})();
+
+/* On first load, show note hint if already on a lesson */
+document.addEventListener("DOMContentLoaded", ()=> setTimeout(renderNoteHint, 150));
