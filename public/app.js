@@ -7480,92 +7480,91 @@ if (typeof saveCourseToCloud !== "function") {
 })();
 
 
-// ===== QUIZ GATING HELPERS =====
-window.QUIZ_PASS = typeof QUIZ_PASS === "number" ? QUIZ_PASS : 0.70;
+// ========= QUIZ GATING (put at the very end of app.js) ===========
+(function () {
+  // Passing threshold (70%)
+  window.QUIZ_PASS = typeof window.QUIZ_PASS === "number" ? window.QUIZ_PASS : 0.70;
 
-// already-passed check is in your code:
-// hasPassedQuiz(cid, idx) → true/false
-function isLessonUnlocked(cid, targetIdx) {
-  if (!window.RD || window.RD.cid !== cid || !Array.isArray(window.RD.pages)) {
-    return true; // fallback
-  }
-  // All quizzes BEFORE targetIdx must be passed
-  for (let i = 0; i < targetIdx; i++) {
-    const p = window.RD.pages[i];
-    if (p?.type === "quiz") {
-      const ok =
-        (typeof window.hasPassedQuiz === "function" &&
-          window.hasPassedQuiz(cid, i)) ||
-        ((window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7) &&
-          i === window.RD.i); // allow just-passed current quiz
-      if (!ok) return false;
+  // helper: quiz pass state getters your app already has:
+  //   - window.hasPassedQuiz(cid, idx)  → boolean
+  //   - window.LAST_QUIZ_SCORE         → last quiz score in 0..1 for *current* page
+
+  function isLessonUnlocked(cid, targetIdx) {
+    const RD = window.RD;
+    if (!RD || RD.cid !== cid || !Array.isArray(RD.pages)) return true; // fallback
+    const need = window.QUIZ_PASS || 0.7;
+
+    // All quizzes BEFORE the target must be passed
+    for (let i = 0; i < targetIdx; i++) {
+      const p = RD.pages[i];
+      if (p && p.type === "quiz") {
+        const ok =
+          (typeof window.hasPassedQuiz === "function" && window.hasPassedQuiz(cid, i)) ||
+          ((window.LAST_QUIZ_SCORE || 0) >= need && i === RD.i); // allow just-passed current
+        if (!ok) return false;
+      }
     }
+    return true;
   }
-  return true;
-}
-function firstLockedIndex(cid, targetIdx) {
-  if (!window.RD || window.RD.cid !== cid || !Array.isArray(window.RD.pages)) {
+
+  function firstLockedIndex(cid, targetIdx) {
+    const RD = window.RD;
+    if (!RD || RD.cid !== cid || !Array.isArray(RD.pages)) return targetIdx;
+    const need = window.QUIZ_PASS || 0.7;
+
+    for (let i = 0; i < targetIdx; i++) {
+      const p = RD.pages[i];
+      if (p && p.type === "quiz") {
+        const ok =
+          (typeof window.hasPassedQuiz === "function" && window.hasPassedQuiz(cid, i)) ||
+          ((window.LAST_QUIZ_SCORE || 0) >= need && i === RD.i);
+        if (!ok) return i;
+      }
+    }
     return targetIdx;
   }
-  for (let i = 0; i < targetIdx; i++) {
-    const p = window.RD.pages[i];
-    if (p?.type === "quiz") {
-      const ok =
-        (typeof window.hasPassedQuiz === "function" &&
-          window.hasPassedQuiz(cid, i)) ||
-        ((window.LAST_QUIZ_SCORE || 0) >= (window.QUIZ_PASS || 0.7) &&
-          i === window.RD.i);
-      if (!ok) return i; // lock here
+
+  // --- Patch goToLesson with guard (retry until original is present) ---
+  (function guardGoToLessonOnce(){
+    if (window.__patchedNavGuard) return;
+    const orig = window.goToLesson;
+    if (typeof orig !== "function") {
+      console.warn("goToLesson not found yet; retrying in 300ms…");
+      setTimeout(guardGoToLessonOnce, 300);
+      return;
     }
-  }
-  return targetIdx;
-}
+    window.__patchedNavGuard = true;
 
-// ===== PATCH: wrap goToLesson with gating =====
-(function guardGoToLessonOnce(){
-  if (window.__patchedNavGuard) return;
-  window.__patchedNavGuard = true;
+    window.goToLesson = function (cid, idx) {
+      try {
+        if (!isLessonUnlocked(cid, idx)) {
+          const at = firstLockedIndex(cid, idx);
+          const need = Math.round((window.QUIZ_PASS || 0.7) * 100);
+          window.toast?.(`Need ≥ ${need}% on earlier quiz to continue`);
+          // Jump only up to last unlocked page (or stay if locking happened at 0)
+          return orig.call(this, cid, Math.max(0, at));
+        }
+      } catch {}
+      return orig.call(this, cid, idx);
+    };
+  })();
 
-  const originalGoToLesson = window.goToLesson;
-  if (typeof originalGoToLesson !== "function") {
-    console.warn("goToLesson not found yet; retrying in 300ms…");
-    setTimeout(guardGoToLessonOnce, 300);
-    return;
-  }
-
-  window.goToLesson = function(cid, idx){
-    try {
-      if (!isLessonUnlocked(cid, idx)) {
-        const lockAt = firstLockedIndex(cid, idx);
-        const need = Math.round((window.QUIZ_PASS || 0.7) * 100);
-        window.toast?.(`Need ≥ ${need}% on earlier quiz to continue`);
-        return originalGoToLesson.call(this, cid, Math.max(0, lockAt));
-      }
-    } catch {}
-    return originalGoToLesson.call(this, cid, idx);
-  };
-})();
-
-// ===== Optional: block locked TOC clicks too (dedupe-safe) =====
-(function guardTocOnce(){
-  if (window.__TOC_GUARD__) return;
-  window.__TOC_GUARD__ = true;
-
-  document.addEventListener("click", (e)=>{
-    // ✅ cover multiple patterns
+  // --- Block TOC / search results direct clicks to locked lessons ---
+  document.addEventListener("click", (e) => {
     const a = e.target.closest?.("[data-jump], [data-idx], [data-open-lesson]");
     if (!a || !window.RD) return;
 
-    // ✅ idx may be in data-jump OR data-idx
     const idxAttr = a.getAttribute("data-jump") ?? a.getAttribute("data-idx");
     const idx = Number(idxAttr);
-    const cid = window.RD.cid;
-    if (!Number.isFinite(idx)) return;
+    // search global quick open may carry data-cid; fallback to RD.cid
+    const cid = a.getAttribute("data-cid") || window.RD.cid;
+
+    if (!Number.isFinite(idx) || !cid) return;
 
     if (!isLessonUnlocked(cid, idx)) {
       e.preventDefault();
       const need = Math.round((window.QUIZ_PASS || 0.7) * 100);
       window.toast?.(`Need ≥ ${need}% on earlier quiz to open this lesson`);
     }
-  }, {capture:true});
+  }, { capture: true });
 })();
