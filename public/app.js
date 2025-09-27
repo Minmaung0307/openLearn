@@ -532,10 +532,10 @@ function setPassedQuiz(cid, idx, score) {
   // optional: cloud persist if you have it
   try { window.saveProgressCloud?.({ quiz: s, ts: Date.now() }); } catch {}
 }
-window.hasPassedQuiz = hasPassedQuiz;
+// window.hasPassedQuiz = hasPassedQuiz;
 window.setPassedQuiz  = setPassedQuiz;
 
-const hasPassedQuiz = (cid, idx) => !!getQuizState()[quizKey(cid, idx)]?.passed;
+// const hasPassedQuiz = (cid, idx) => !!getQuizState()[quizKey(cid, idx)]?.passed;
 
 const setPassedQuiz = (cid, idx, score) => {
   const s = getQuizState();
