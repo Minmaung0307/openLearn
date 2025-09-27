@@ -401,8 +401,8 @@ main,
   color: #1ea2b6;
 }
 #adminTable a:hover {
-  color: #1eb683;
-  background: #ecf0f083;
+  color: #fefefe;
+  background: #a6cece83;
   padding: 7px;
   text-decoration: none;
 }
