@@ -7480,148 +7480,146 @@ if (typeof saveCourseToCloud !== "function") {
 })();
 
 
-/* ====================== QUIZ GATING – FINAL DROP-IN ====================== */
+/* ====================== HARD QUIZ GATING (all quizzes must be passed) ====================== */
 (function () {
-  if (window.__QUIZ_GUARD_INSTALLED__) return;
-  window.__QUIZ_GUARD_INSTALLED__ = true;
+  if (window.__QUIZ_HARD_GUARD__) return;
+  window.__QUIZ_HARD_GUARD__ = true;
 
   const PASS = (typeof window.QUIZ_PASS === "number" ? window.QUIZ_PASS : 0.70);
 
-  function passedQuiz(cid, idx) {
+  // Use app's hasPassedQuiz if present; otherwise fall back to QUIZ_STATE
+  function hasPassed(cid, idx) {
     try {
       if (typeof window.hasPassedQuiz === "function") return !!window.hasPassedQuiz(cid, idx);
+    } catch {}
+    try {
+      const raw = localStorage.getItem("ol_quiz_state");
+      const map = raw ? JSON.parse(raw) : {};
+      return !!map[`${cid}:${idx}`]?.passed;
     } catch {}
     return false;
   }
 
-  function isLessonUnlocked(cid, targetIdx) {
+  // Require: every quiz BEFORE targetIdx must be passed — no “just passed current” exception
+  function allPriorQuizzesPassed(cid, targetIdx) {
     const RD = window.RD;
-    if (!RD || RD.cid !== cid || !Array.isArray(RD.pages)) return true;
+    if (!RD || RD.cid !== cid || !Array.isArray(RD.pages)) return true; // fallback
     for (let i = 0; i < targetIdx; i++) {
       const p = RD.pages[i];
-      if (p && p.type === "quiz") {
-        const ok =
-          passedQuiz(cid, i) ||
-          ((window.LAST_QUIZ_SCORE || 0) >= PASS && i === RD.i); // allow just-passed current quiz
-        if (!ok) return false;
+      if (p?.type === "quiz" && !hasPassed(cid, i)) {
+        return false;
       }
     }
     return true;
   }
 
-  function firstLockedIndex(cid, targetIdx) {
+  function firstUnpassedQuizIndex(cid, targetIdx) {
     const RD = window.RD;
-    if (!RD || RD.cid !== cid || !Array.isArray(RD.pages)) return targetIdx;
+    if (!RD || RD.cid !== cid || !Array.isArray(RD.pages)) return 0;
     for (let i = 0; i < targetIdx; i++) {
       const p = RD.pages[i];
-      if (p && p.type === "quiz") {
-        const ok =
-          passedQuiz(cid, i) ||
-          ((window.LAST_QUIZ_SCORE || 0) >= PASS && i === RD.i);
-        if (!ok) return i;
-      }
+      if (p?.type === "quiz" && !hasPassed(cid, i)) return i;
     }
-    return targetIdx;
+    return -1;
   }
 
-  function warnNeed() {
+  function needMsg() {
     const need = Math.round(PASS * 100);
-    window.toast?.(`Need ≥ ${need}% on earlier quiz to continue`);
+    window.toast?.(`Every quiz must be ≥ ${need}% before you continue`);
   }
 
-  /* --- 1) Guard TOC / search / any clickable jump --- */
+  /* --- 1) Guard TOC / global clicks that jump pages --- */
   document.addEventListener("click", (e) => {
     const a = e.target.closest?.("[data-jump],[data-idx],[data-open-lesson]");
     if (!a || !window.RD) return;
 
+    const cid = a.getAttribute("data-cid") || window.RD.cid;
     const idxAttr = a.getAttribute("data-jump") ?? a.getAttribute("data-idx");
     const idx = Number(idxAttr);
-    const cid = a.getAttribute("data-cid") || window.RD.cid;
     if (!cid || !Number.isFinite(idx)) return;
 
-    if (!isLessonUnlocked(cid, idx)) {
-      e.preventDefault();
-      e.stopPropagation();
-      warnNeed();
+    if (!allPriorQuizzesPassed(cid, idx)) {
+      e.preventDefault(); e.stopPropagation();
+      needMsg();
     }
   }, { capture: true });
 
   /* --- 2) Guard Next / Finish buttons inside the reader --- */
-  document.addEventListener("click", async (e) => {
+  document.addEventListener("click", (e) => {
     const t = e.target;
-    if (!t) return;
+    if (!t || !window.RD) return;
 
     if (t.id === "rdNext" || t.id === "rdFinish") {
-      const RD = window.RD;
-      if (!RD) return;
-      const cid = RD.cid;
-      const cur = RD.i || 0;
-      const page = RD.pages?.[cur];
+      const cid = window.RD.cid;
+      const cur = window.RD.i || 0;
+      const next = cur + 1;
 
-      // if this page is a quiz → must pass
-      if (page?.type === "quiz") {
-        const ok = passedQuiz(cid, cur) || (window.LAST_QUIZ_SCORE || 0) >= PASS;
-        if (!ok) {
-          e.preventDefault();
-          e.stopPropagation();
-          const need = Math.round(PASS * 100);
-          window.toast?.(`Need ≥ ${need}% to continue`);
-          return;
-        }
+      // Block moving forward unless ALL prior quizzes (before target) are passed
+      const targetIdx = (t.id === "rdFinish") ? window.RD.pages.length - 1 : next;
+      if (!allPriorQuizzesPassed(cid, targetIdx)) {
+        e.preventDefault(); e.stopPropagation();
+        needMsg();
+        return;
       }
 
-      // Final finish also guarded above; allow normal handlers to run
+      // Also require: if current page itself is a quiz, it must be passed to move on
+      const page = window.RD.pages?.[cur];
+      if (page?.type === "quiz" && !hasPassed(cid, cur)) {
+        e.preventDefault(); e.stopPropagation();
+        needMsg();
+        return;
+      }
     }
   }, { capture: true });
 
-  /* --- 3) Wrap programmatic navigation if available (limited retry) --- */
-  (function wrapNavAPIs() {
+  /* --- 3) Wrap programmatic navigation (no infinite retries) --- */
+  (function wrapNavOnce() {
     let tries = 0;
     const MAX = 10;
 
-    function attempt() {
+    function tryWrap() {
       let wrapped = false;
 
-      // goToLesson
-      if (!window.__GO_TO_LESSON_WRAPPED__ && typeof window.goToLesson === "function") {
+      if (!window.__WRAP_GTL__ && typeof window.goToLesson === "function") {
         const orig = window.goToLesson;
         window.goToLesson = function (cid, idx) {
           try {
-            if (!isLessonUnlocked(cid, idx)) {
-              warnNeed();
-              const at = firstLockedIndex(cid, idx);
-              return orig.call(this, cid, Math.max(0, at));
+            if (!allPriorQuizzesPassed(cid, idx)) {
+              needMsg();
+              const lockAt = firstUnpassedQuizIndex(cid, idx);
+              // jump back to the first unpassed quiz (or stay put if unknown)
+              if (lockAt >= 0) return orig.call(this, cid, lockAt);
+              return;
             }
           } catch {}
           return orig.call(this, cid, idx);
         };
-        window.__GO_TO_LESSON_WRAPPED__ = true;
+        window.__WRAP_GTL__ = true;
         wrapped = true;
       }
 
-      // openReaderAt (some code paths may use this directly)
-      if (!window.__OPEN_READER_AT_WRAPPED__ && typeof window.openReaderAt === "function") {
+      if (!window.__WRAP_ORA__ && typeof window.openReaderAt === "function") {
         const orig2 = window.openReaderAt;
         window.openReaderAt = function (cid, idx) {
           try {
-            if (!isLessonUnlocked(cid, idx)) {
-              warnNeed();
-              const at = firstLockedIndex(cid, idx);
-              return orig2.call(this, cid, Math.max(0, at));
+            if (!allPriorQuizzesPassed(cid, idx)) {
+              needMsg();
+              const lockAt = firstUnpassedQuizIndex(cid, idx);
+              if (lockAt >= 0) return orig2.call(this, cid, lockAt);
+              return;
             }
           } catch {}
           return orig2.call(this, cid, idx);
         };
-        window.__OPEN_READER_AT_WRAPPED__ = true;
+        window.__WRAP_ORA__ = true;
         wrapped = true;
       }
 
       if (!wrapped && tries < MAX) {
         tries++;
-        setTimeout(attempt, 300);
+        setTimeout(tryWrap, 300);
       }
     }
-    attempt();
+    tryWrap();
   })();
-
 })();
