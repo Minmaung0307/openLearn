@@ -8,8 +8,8 @@
   "price": 0,
   "summary": "အဘိဓမ္မာဟူသည် အလွန်လေးနက်သော သဘောတရားများဖြစ်သည်။ လူသားအားလုံးနှင့် သက်ဆိုင်သော သဘောတရားများဖြစ်သည်။",
   "benefits": "ဘဝကို စနစ်တကျ နေထိုင်တတ်ခြင်း\nစိတ်ဆင်းရဲမှု့ကို ဖြေရှင်းတတ်ခြင်း\nလူတစ်ယောက်ဖြစ်တည်မှု့ကို အသေးစိတ်သိရှိနိုင်ခြင်း",
-  "image": "/courses/Abhidhamma/images/cover.png",
-  "cover": "/courses/Abhidhamma/images/cover.png",
+  "image": "/courses/Abhidhamma/images/cover.jpg",
+  "cover": "/courses/Abhidhamma/images/cover.jpg",
   "modules": [
     {
       "id": "m1",
