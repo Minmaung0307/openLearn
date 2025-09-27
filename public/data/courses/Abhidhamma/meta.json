@@ -15,7 +15,7 @@
     "title": "Chapter 1 - အကုသိုလ်စိတ်",
     "lessons": [
       { "type": "html", "title": "အကုသိုလ်စိတ်",        "src": "lessons/lesson1-html.html" },
-      { "type": "quiz", "title": "Quiz 1", "src": "lessons/quizzes-lesson1-json.json" }
+      { "type": "quiz", "title": "Quiz 1", "src": "lessons/quizzes/lesson1.json" }
     ]
   },
   {
@@ -23,7 +23,7 @@
     "title": "Chapter 2 - အဟိတ်စိတ်",
     "lessons": [
       { "type": "html", "title": "အဟိတ်စိတ်",          "src": "lessons/lesson2-html.html" },
-      { "type": "quiz", "title": "Quiz 2", "src": "lessons/quizzes-lesson2-json.json" }
+      { "type": "quiz", "title": "Quiz 2", "src": "lessons/quizzes/lesson2.json" }
     ]
   },
   {
@@ -31,7 +31,7 @@
     "title": "Chapter 3 - ကာမာဝစရသောဘနစိတ်",
     "lessons": [
       { "type": "html", "title": "ကာမာဝစရသောဘနစိတ်",  "src": "lessons/lesson3-html.html" },
-      { "type": "quiz", "title": "Quiz 3", "src": "lessons/quizzes-lesson3-json.json" }
+      { "type": "quiz", "title": "Quiz 3", "src": "lessons/quizzes/lesson3.json" }
     ]
   },
   {
@@ -39,7 +39,7 @@
     "title": "Chapter 4 - ရူပါဝစရစိတ်",
     "lessons": [
       { "type": "html", "title": "ရူပါဝစရစိတ်",        "src": "lessons/lesson4-html.html" },
-      { "type": "quiz", "title": "Quiz 4", "src": "lessons/quizzes-lesson4-json.json" }
+      { "type": "quiz", "title": "Quiz 4", "src": "lessons/quizzes/lesson4.json" }
     ]
   },
   {
@@ -47,7 +47,7 @@
     "title": "Chapter 5 - အရူပါဝစရစိတ်",
     "lessons": [
       { "type": "html", "title": "အရူပါဝစရစိတ်",       "src": "lessons/lesson5-html.html" },
-      { "type": "quiz", "title": "Quiz 5", "src": "lessons/quizzes-lesson5-json.json" }
+      { "type": "quiz", "title": "Quiz 5", "src": "lessons/quizzes/lesson5.json" }
     ]
   },
   {
@@ -55,7 +55,7 @@
     "title": "Chapter 6 - လောကုတ္တရာစိတ်",
     "lessons": [
       { "type": "html", "title": "လောကုတ္တရာစိတ်",     "src": "lessons/lesson6-html.html" },
-      { "type": "quiz", "title": "Quiz 6", "src": "lessons/quizzes-lesson6-json.json" }
+      { "type": "quiz", "title": "Quiz 6", "src": "lessons/quizzes/lesson6.json" }
     ]
   },
   {
@@ -63,7 +63,7 @@
     "title": "Chapter 7 - စိတ်အကျယ်(၁၂၁)",
     "lessons": [
       { "type": "html", "title": "စိတ်အကျယ်(၁၂၁)",     "src": "lessons/lesson7-html.html" },
-      { "type": "quiz", "title": "Quiz 7", "src": "lessons/quizzes-lesson7-json.json" }
+      { "type": "quiz", "title": "Quiz 7", "src": "lessons/quizzes/lesson7.json" }
     ]
   }
   ]
