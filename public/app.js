@@ -3307,6 +3307,8 @@ async function openDetails(id) {
       handleEnroll(e.currentTarget?.getAttribute("data-details-enroll"));
       dlg?.close();
     });
+
+  window.openBookmarkIfAny?.(cid);
 }
 $("#closeDetails")?.addEventListener("click", () =>
   $("#detailsModal")?.close()
@@ -5164,6 +5166,8 @@ async function openReader(cid) {
   }
   const off = wireCourseChatRealtime(c.id);
   if (typeof off === "function") window._ccOff = off;
+
+  window.openBookmarkIfAny?.(cid);
 }
 
 // --- Event Delegation on #reader (Next/Prev/Finish/Back) ---
@@ -7975,4 +7979,168 @@ if (typeof saveCourseToCloud !== "function") {
     },
     { capture: true }
   );
+})();
+
+// ===== Reader Notes & Bookmark — DROP-IN =====
+
+// ---- scoped storage by user ----
+function __uid() {
+  try { return (window.auth && auth.currentUser && auth.currentUser.uid) || "anon"; }
+  catch { return "anon"; }
+}
+function __notesKey() { return `ol_notes_${__uid()}`; }
+function __bmkKey()   { return `ol_bookmarks_${__uid()}`; }
+function __read(k, d){ try{ return JSON.parse(localStorage.getItem(k)||"null") ?? d; }catch{ return d; } }
+function __write(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+
+// ---- notes API ----  shape: { [courseId]: { [idx]: {text, ts} } }
+function getNote(cid, idx){
+  const all = __read(__notesKey(), {});
+  return (all[cid] && all[cid][idx]) ? all[cid][idx] : null;
+}
+function setNote(cid, idx, text){
+  const all = __read(__notesKey(), {});
+  if(!all[cid]) all[cid] = {};
+  if((text||"").trim()){
+    all[cid][idx] = { text: String(text).trim(), ts: Date.now() };
+  }else{
+    // empty → delete
+    if(all[cid]) delete all[cid][idx];
+  }
+  __write(__notesKey(), all);
+}
+function hasNote(cid, idx){ return !!getNote(cid, idx); }
+
+// ---- bookmark API ---- shape: { [courseId]: { idx, ts } }
+function saveBookmark(cid, idx){
+  const all = __read(__bmkKey(), {});
+  all[cid] = { idx: Number(idx)||0, ts: Date.now() };
+  __write(__bmkKey(), all);
+}
+function getBookmark(cid){
+  const all = __read(__bmkKey(), {});
+  return all[cid] || null;
+}
+
+// ---- tiny modal for note edit (1 per app) ----
+function ensureNoteDialog(){
+  let dlg = document.getElementById("noteDlg");
+  if (dlg) return dlg;
+  dlg = document.createElement("dialog");
+  dlg.id = "noteDlg";
+  dlg.className = "ol-modal card";
+  dlg.innerHTML = `
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <b class="modal-title">Page Note</b>
+      <button type="button" class="btn small" id="noteClose">Close</button>
+    </div>
+    <textarea id="noteText" class="input" style="width:100%;min-height:120px" placeholder="Write your note for this page…"></textarea>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px">
+      <button class="btn" id="noteDelete" type="button">Delete</button>
+      <button class="btn primary" id="noteSave" type="button">Save</button>
+    </div>
+  `;
+  document.body.appendChild(dlg);
+  dlg.querySelector("#noteClose").onclick = ()=> dlg.close();
+  dlg.addEventListener("cancel", (e)=>{ e.preventDefault(); dlg.close(); });
+  return dlg;
+}
+
+function openNoteEditor(cid, idx){
+  const dlg = ensureNoteDialog();
+  const t = dlg.querySelector("#noteText");
+  const cur = getNote(cid, idx);
+  t.value = cur?.text || "";
+
+  dlg.querySelector("#noteSave").onclick = ()=>{
+    setNote(cid, idx, t.value);
+    toast?.("Note saved");
+    dlg.close();
+    updateNoteBadge();
+  };
+  dlg.querySelector("#noteDelete").onclick = ()=>{
+    setNote(cid, idx, "");
+    toast?.("Note removed");
+    dlg.close();
+    updateNoteBadge();
+  };
+
+  dlg.showModal();
+}
+
+// ---- UI badges (highlight note icon if exists) ----
+function updateNoteBadge(){
+  const cid = window.RD?.cid, i = window.RD?.i;
+  if (!cid || typeof i !== "number") return;
+  const btn = document.getElementById("rdNote");
+  if (btn) {
+    btn.classList.toggle("active", hasNote(cid, i));
+    btn.setAttribute("title", hasNote(cid,i) ? "Edit note" : "Add note");
+  }
+}
+function flashBookmarkIcon(){
+  const btn = document.getElementById("rdBookmark");
+  if (!btn) return;
+  btn.classList.add("active");
+  setTimeout(()=> btn.classList.remove("active"), 900);
+}
+
+// ---- wire buttons (single-init, uses #rdNote / #rdBookmark ids) ----
+(function wireReaderNotesOnce(){
+  if (window.__wiredReaderNotes) return;
+  window.__wiredReaderNotes = true;
+
+  document.addEventListener("click", (e)=>{
+    const el = e.target.closest?.("#rdNote, #rdBookmark");
+    if (!el) return;
+    if (!window.RD || !window.RD.cid) { toast?.("Open a lesson first"); return; }
+    const cid = window.RD.cid;
+    const idx = Number(window.RD.i || 0);
+
+    if (el.id === "rdNote") {
+      openNoteEditor(cid, idx);
+    } else if (el.id === "rdBookmark") {
+      saveBookmark(cid, idx);
+      toast?.("Bookmarked this page");
+      flashBookmarkIcon();
+    }
+  }, {capture:true});
+
+  // after every reader navigation, refresh note badge
+  const onNav = ()=>{
+    try { updateNoteBadge(); } catch {}
+  };
+  // If your app exposes goToLesson, patch post-nav
+  if (typeof window.goToLesson === "function" && !window.__notePatchedGo) {
+    window.__notePatchedGo = true;
+    const orig = window.goToLesson;
+    window.goToLesson = function(cid, idx){
+      const r = orig.apply(this, arguments);
+      setTimeout(onNav, 50);
+      return r;
+    };
+  } else {
+    // fallback: observe #reader content changes
+    const host = document.getElementById("reader");
+    if (host && !host.__noteObserver) {
+      const mo = new MutationObserver(()=> setTimeout(onNav, 30));
+      mo.observe(host, { childList:true, subtree:true });
+      host.__noteObserver = mo;
+    }
+  }
+
+  // expose a helper to jump to bookmark (you can call this after openReader)
+  window.openBookmarkIfAny = function(cid){
+    const b = getBookmark(cid);
+    if (!b) return false;
+    if (typeof window.openReaderAt === "function") {
+      openReaderAt(cid, Number(b.idx)||0);
+      return true;
+    }
+    if (typeof window.goToLesson === "function" && window.RD?.cid === cid) {
+      goToLesson(cid, Number(b.idx)||0);
+      return true;
+    }
+    return false;
+  };
 })();
