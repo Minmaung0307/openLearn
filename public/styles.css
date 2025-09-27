@@ -1993,3 +1993,106 @@ details.help + details.help {
     outline-color: #60a5fa !important;
   }
 }
+
+/* ======================
+   Course Chat Styling
+   ====================== */
+#courseChat {
+  --cc-bg: #0f172a;       /* dark background */
+  --cc-card: #1e293b;     /* chat list bg */
+  --cc-text: #f1f5f9;     /* text */
+  --cc-muted: #94a3b8;    /* muted */
+  --cc-accent: #22c55e;   /* green accent */
+  --cc-accent-2: #38bdf8; /* cyan links */
+  --cc-border: #334155;   /* border */
+
+  background: var(--cc-bg);
+  color: var(--cc-text);
+  border: 1px solid var(--cc-border);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.35);
+}
+
+#courseChat strong {
+  color: var(--cc-accent);
+  font-size: 1.1rem;
+}
+
+#courseChat .muted {
+  color: var(--cc-muted) !important;
+}
+
+#courseChat #ccList {
+  background: var(--cc-card);
+  border-radius: 10px;
+  padding: 8px;
+  overflow-y: auto;
+}
+#courseChat #ccList::-webkit-scrollbar {
+  width: 8px;
+}
+#courseChat #ccList::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 8px;
+}
+#courseChat #ccList::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+/* Messages */
+#courseChat .msg {
+  padding: 8px 12px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  display: inline-block;
+  max-width: 80%;
+  word-wrap: break-word;
+  font-size: .9rem;
+  line-height: 1.35;
+}
+#courseChat .msg.me {
+  background: #1e3a8a; /* indigo */
+  color: #f8fafc;
+  align-self: flex-end;
+}
+#courseChat .msg.other {
+  background: #064e3b; /* dark green */
+  color: #f8fafc;
+  align-self: flex-start;
+}
+#courseChat .msg.system {
+  background: #3f3f46; /* neutral */
+  color: #e5e7eb;
+  font-style: italic;
+  text-align: center;
+  display: block;
+  margin: 8px auto;
+}
+
+/* Input bar */
+#courseChat .row:last-child {
+  margin-top: 10px;
+}
+#courseChat #ccInput {
+  background: #0f172a;
+  border: 1px solid var(--cc-border);
+  border-radius: 10px;
+  color: var(--cc-text);
+  padding: 8px 10px;
+}
+#courseChat #ccInput:focus {
+  border-color: var(--cc-accent-2);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(56,189,248,.3);
+}
+#courseChat #ccSend {
+  background: var(--cc-accent);
+  color: #0b1220;
+  font-weight: bold;
+  border-radius: 10px;
+  transition: all .15s ease;
+}
+#courseChat #ccSend:hover {
+  filter: brightness(1.05);
+}
