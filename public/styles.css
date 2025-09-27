@@ -1939,7 +1939,57 @@ details.help + details.help {
   #profilePanel a { color: #e5e7eb; }
 }
 
-#data-cert:hover {
-  color: #06b6d4;
-  background: #e8e8e8;
+/* === Profile: fix low-contrast hover on action buttons === */
+#profilePanel .btn.small,
+#profilePanel a.btn.small {
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  color: #111827 !important;
+  padding: 6px 10px;
+  border-radius: 8px;
+  line-height: 1.2;
+}
+
+/* Light mode hover/focus — keep high contrast */
+#profilePanel .btn.small:hover,
+#profilePanel a.btn.small:hover,
+#profilePanel .btn.small:active,
+#profilePanel a.btn.small:active {
+  background: #111827 !important;   /* very dark */
+  border-color: #111827 !important;
+  color: #ffffff !important;         /* force readable text */
+}
+
+#profilePanel .btn.small:focus-visible,
+#profilePanel a.btn.small:focus-visible {
+  outline: 2px solid #2563eb !important; /* accessible focus ring */
+  outline-offset: 2px;
+}
+
+/* Prevent any global .btn:hover color overrides inside profile */
+#profilePanel .ol-table .btn.small,
+#profilePanel .ol-table a.btn.small {
+  color: inherit !important;
+}
+
+/* Dark mode versions */
+@media (prefers-color-scheme: dark) {
+  #profilePanel .btn.small,
+  #profilePanel a.btn.small {
+    background: #111827 !important;
+    border-color: #334155 !important;
+    color: #e5e7eb !important;
+  }
+  #profilePanel .btn.small:hover,
+  #profilePanel a.btn.small:hover,
+  #profilePanel .btn.small:active,
+  #profilePanel a.btn.small:active {
+    background: #2563eb !important;  /* blue hover for contrast */
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+  }
+  #profilePanel .btn.small:focus-visible,
+  #profilePanel a.btn.small:focus-visible {
+    outline-color: #60a5fa !important;
+  }
 }

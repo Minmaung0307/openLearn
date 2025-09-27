@@ -3707,10 +3707,10 @@ function renderProfilePanel() {
                <tr>
                  <td>${(course.title || "").replace(/</g, "&lt;")}</td>
                  <td style="text-align:right">
-                   <button id="data-cert" class="btn small" data-cert-view="${
+                   <button class="btn small" data-cert-view="${
                      course.id
                    }">View</button>
-                   <button id="data-cert" class="btn small" data-cert-dl="${
+                   <button class="btn small" data-cert-dl="${
                      course.id
                    }">Download PDF</button>
                  </td>
