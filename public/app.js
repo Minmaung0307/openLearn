@@ -7754,121 +7754,103 @@ if (typeof saveCourseToCloud !== "function") {
   }, {capture:true});
 })();
 
-/* ===== Notes & Bookmark — View List + Jump (UI Add-ons) ===== */
-(function(){
-  const getUID = ()=> { try { return auth?.currentUser?.uid || "anon"; } catch { return "anon"; } };
-  const bmKey   = (cid)=> `ol_bm_${getUID()}_${cid}`;
-  const noteKey = (cid, idx)=> `ol_note_${getUID()}_${cid}_${idx}`;
-  const $ = (s, r=document)=> r.querySelector(s);
-
-  // Already provided by previous patch:
-  const getLessonCtx = window.getLessonCtx || function(){
-    if (window.RD && window.RD.cid!=null && Number.isFinite(Number(window.RD.i))) {
-      return { cid: window.RD.cid, idx: Number(window.RD.i) };
+/* === STICKY NOTE: always-open modal, save only if a lesson is active === */
+(function StickyNoteAlwaysOpen(){
+  // --- tiny ctx helper (non-blocking) ---
+  function getLessonCtx() {
+    if (window.RD && window.RD.cid != null && Number.isFinite(+window.RD.i)) {
+      return { cid: window.RD.cid, idx: +window.RD.i };
     }
     const host = document.getElementById("reader");
-    const dCid = host?.dataset?.cid, dIdx = Number(host?.dataset?.idx);
-    if (dCid && Number.isFinite(dIdx)) return { cid: dCid, idx: dIdx };
-    try { const o = JSON.parse(localStorage.getItem("ol_last_ctx")||"null"); return (o && o.cid!=null) ? o : null; } catch {}
-    return null;
-  };
-
-  function listNotesForCourse(cid){
-    const out = [];
-    for (let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      if (!k) continue;
-      const m = k.match(/^ol_note_[^_]+_([^_]+)_(\d+)$/);
-      if (!m) continue;
-      const kc = m[1], idx = Number(m[2]);
-      if (kc === cid) {
-        const txt = localStorage.getItem(k) || "";
-        out.push({ idx, txt });
-      }
+    if (host?.dataset?.cid && Number.isFinite(+host.dataset.idx)) {
+      return { cid: host.dataset.cid, idx: +host.dataset.idx };
     }
-    out.sort((a,b)=> a.idx - b.idx);
-    return out;
+    try {
+      const last = JSON.parse(localStorage.getItem("ol_last_ctx") || "null");
+      if (last && last.cid != null && Number.isFinite(+last.idx)) return last;
+    } catch {}
+    return null; // no hard blocking
   }
 
-  function ensureListDialog(){
-    if (document.getElementById("ol-notes-list")) return;
-    const dlg = document.createElement("dialog");
-    dlg.id = "ol-notes-list";
-    dlg.className = "ol-modal card";
-    dlg.innerHTML = `
-      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
-        <b class="modal-title">My Notes</b>
-        <button class="btn small" id="ol-notes-close" type="button">Close</button>
-      </div>
-      <div id="ol-notes-body" style="max-height:50vh;overflow:auto"></div>
-    `;
-    document.body.appendChild(dlg);
-    dlg.querySelector("#ol-notes-close").onclick = ()=> dlg.close();
-  }
+  // --- keys ---
+  const getUID = ()=>{ try { return auth?.currentUser?.uid || "anon"; } catch { return "anon"; } };
+  const noteKey = (cid, idx)=> `ol_note_${getUID()}_${cid}_${idx}`;
 
-  function openNotesPanel(cid){
-    ensureListDialog();
-    const dlg = document.getElementById("ol-notes-list");
-    const body = document.getElementById("ol-notes-body");
-    const items = listNotesForCourse(cid);
-    if (!items.length){
-      body.innerHTML = `<div class="muted small">No notes yet for this course.</div>`;
-    } else {
-      body.innerHTML = items.map(it => `
-        <div class="card" style="margin-bottom:8px">
-          <div class="row" style="justify-content:space-between;align-items:center;gap:8px">
-            <div><b>Page ${it.idx+1}</b></div>
-            <div class="row" style="gap:6px">
-              <button class="btn small" data-open-note="${it.idx}">Open</button>
-              <button class="btn small" data-del-note="${it.idx}">Delete</button>
-            </div>
-          </div>
-          <div class="small muted" style="margin-top:6px; white-space:pre-wrap">${it.txt.replace(/[<>&]/g, s=>({ '<':'&lt;','>':'&gt;','&':'&amp;' }[s]))}</div>
+  // --- ensure modal exists ---
+  function ensureNoteLayer() {
+    let host = document.getElementById("ol-note-layer");
+    if (host) return host;
+    host = document.createElement("div");
+    host.id = "ol-note-layer";
+    host.style.display = "none";
+    host.innerHTML = `
+      <div id="ol-note-backdrop"></div>
+      <div id="ol-note-card" role="dialog" aria-modal="true">
+        <div class="hdr">
+          <b id="ol-note-title">Note</b>
+          <button class="btn" id="ol-note-close" type="button">Close</button>
         </div>
-      `).join("");
-      body.querySelectorAll("[data-open-note]").forEach(b=>{
-        b.onclick = ()=> { try { window.goToLesson?.(cid, Number(b.dataset.openNote)); } catch {} };
-      });
-      body.querySelectorAll("[data-del-note]").forEach(b=>{
-        b.onclick = ()=> {
-          const idx = Number(b.dataset.delNote);
-          localStorage.removeItem(noteKey(cid, idx));
-          openNotesPanel(cid); // refresh
-        };
-      });
-    }
-    dlg.showModal();
+        <textarea id="ol-note-ta" placeholder="Write your note for this page…"></textarea>
+        <div class="row">
+          <button class="btn" id="ol-note-cancel" type="button">Cancel</button>
+          <button class="btn primary" id="ol-note-save" type="button">Save</button>
+        </div>
+      </div>`;
+    document.body.appendChild(host);
+
+    const hide = ()=> host.style.display = "none";
+    host.querySelector("#ol-note-backdrop").onclick = hide;
+    host.querySelector("#ol-note-close").onclick   = hide;
+    host.querySelector("#ol-note-cancel").onclick  = hide;
+
+    return host;
   }
 
-  // One delegated listener to handle:
-  // - rdNote (open editor) is already wired by previous patch
-  // - rdNotesList (open list)
-  // - rdBookmark (Ctrl/⌘/Shift to jump)
-  document.addEventListener("click", (e)=>{
-    const t = e.target;
-    if (!t) return;
+  // --- open modal (always) ---
+  function openNoteModal() {
+    const host  = ensureNoteLayer();
+    const title = host.querySelector("#ol-note-title");
+    const ta    = host.querySelector("#ol-note-ta");
+    const save  = host.querySelector("#ol-note-save");
 
-    if (t.id === "rdNotesList"){
-      e.preventDefault();
-      const ctx = getLessonCtx();
-      if (!ctx){ toast?.("Open a lesson first"); return; }
-      openNotesPanel(ctx.cid);
-      return;
+    const ctx = getLessonCtx(); // may be null
+    if (ctx) {
+      title.textContent = `Note — ${ctx.cid} · Page ${ctx.idx + 1}`;
+      ta.value = localStorage.getItem(noteKey(ctx.cid, ctx.idx)) || "";
+      ta.placeholder = "Write your note for this page…";
+      save.disabled = false;
+    } else {
+      title.textContent = "Note (no lesson open)";
+      ta.value = "";
+      ta.placeholder = "Open a lesson to attach note to a specific page.";
+      save.disabled = true; // cannot save without a target
     }
 
-    if (t.id === "rdBookmark"){
-      const ctx = getLessonCtx();
-      if (!ctx){ toast?.("Open a lesson first"); return; }
-      const saved = localStorage.getItem(bmKey(ctx.cid));
-      // With modifier → jump back to bookmarked page (if exists)
-      if ((e.ctrlKey || e.metaKey || e.shiftKey) && saved != null){
-        const i = Number(saved);
-        if (Number.isFinite(i)) { window.goToLesson?.(ctx.cid, i); return; }
+    host.style.display = "block";
+
+    // (re)wire save each time
+    save.onclick = () => {
+      const c = getLessonCtx();
+      if (!c) { /* soft guard */ return; }
+      const v = (ta.value || "").trim();
+      if (v) localStorage.setItem(noteKey(c.cid, c.idx), v);
+      else   localStorage.removeItem(noteKey(c.cid, c.idx));
+      toast?.("Saved note for this page");
+      host.style.display = "none";
+    };
+  }
+  window.showNoteModal = openNoteModal; // debug helper
+
+  // --- single delegated click: #rdNote → always open ---
+  if (!document.__noteClickWired) {
+    document.__noteClickWired = true;
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!t) return;
+      if (t.id === "rdNote") {
+        e.preventDefault();
+        openNoteModal();   // << no gating here
       }
-      // Default → save current
-      localStorage.setItem(bmKey(ctx.cid), String(ctx.idx));
-      toast?.(`Bookmarked: ${ctx.cid} · Page ${ctx.idx+1} (Ctrl/⌘/Shift+Click to jump)`);
-      return;
-    }
-  }, true);
+    }, true);
+  }
 })();
