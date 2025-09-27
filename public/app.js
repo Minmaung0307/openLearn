@@ -532,6 +532,23 @@ function setPassedQuiz(cid, idx, score) {
   // optional: cloud persist if you have it
   try { window.saveProgressCloud?.({ quiz: s, ts: Date.now() }); } catch {}
 }
+
+// ===== Notes & Bookmark helpers (put near other localStorage helpers) =====
+function currentUid() {
+  try { return auth?.currentUser?.uid || "anon"; } catch { return "anon"; }
+}
+function noteKey(courseId, pageIdx) {
+  return `ol_note_${currentUid()}_${courseId}_${pageIdx}`;
+}
+function bmKey(courseId) {
+  return `ol_bm_${currentUid()}_${courseId}`;
+}
+window.readNote = (courseId, pageIdx) =>
+  localStorage.getItem(noteKey(courseId, pageIdx)) || "";
+window.readBookmark = (courseId) => {
+  const v = localStorage.getItem(bmKey(courseId));
+  return v == null ? null : Number(v);
+};
 // window.hasPassedQuiz = hasPassedQuiz;
 // window.setPassedQuiz  = setPassedQuiz;
 
@@ -1710,6 +1727,40 @@ async function openReaderAt(cid, pageIdx = 0) {
     }
   } catch {}
 }
+
+// Wrap openReaderAt once (put after it is defined; safe-guarded)
+(function patchOpenReaderAtOnce(){
+  if (window.__patchedOpenReaderAt) return;
+  window.__patchedOpenReaderAt = true;
+
+  const orig = window.openReaderAt || window.openReader;
+  if (typeof orig !== "function") { setTimeout(patchOpenReaderAtOnce, 300); return; }
+
+  window.openReaderAt = function(cid, idx){
+    // if idx not given or negative -> try bookmark
+    if (idx == null || idx < 0) {
+      const b = window.readBookmark?.(cid);
+      if (Number.isFinite(b) && b >= 0) idx = b;
+      else idx = 0;
+    }
+    return orig.call(this, cid, idx);
+  };
+})();
+
+// Optional: auto-update bookmark on every lesson navigation
+(function patchGoToLessonOnce(){
+  if (window.__bmPatched) return;
+  const orig = window.goToLesson;
+  if (typeof orig !== "function") { setTimeout(patchGoToLessonOnce, 300); return; }
+  window.__bmPatched = true;
+
+  window.goToLesson = function(cid, idx){
+    try {
+      localStorage.setItem(bmKey(cid), String(idx));
+    } catch {}
+    return orig.call(this, cid, idx);
+  };
+})();
 
 // ==== SEARCH INDEX (global) ====
 let SEARCH_INDEX = []; // {type, cid, title, text, href, pageIdx?, score?}
@@ -5175,6 +5226,32 @@ if (readerHost && !readerHost._delegated) {
       return;
     }
 
+    / ---- Note ----
+if (t.id === "rdNote") {
+  const cid = window.RD?.cid;
+  const idx = window.RD?.i ?? 0;
+  if (!cid) return;
+
+  const key = noteKey(cid, idx);
+  const prev = localStorage.getItem(key) || "";
+  const txt = prompt("Note for this page:", prev);
+  if (txt == null) return;            // user cancelled
+  localStorage.setItem(key, txt);
+  toast?.("Saved note for this page");
+  return;
+}
+
+// ---- Bookmark ----
+if (t.id === "rdBookmark") {
+  const cid = window.RD?.cid;
+  const idx = window.RD?.i ?? 0;
+  if (!cid) return;
+
+  const bKey = bmKey(cid);
+  localStorage.setItem(bKey, String(idx));
+  toast?.("Bookmarked this spot");
+  return;
+
     // ---- Finish ----
     if (t.id === "rdFinish") {
       const { courseId, lesson } = window.READER_STATE;
@@ -5870,6 +5947,96 @@ function wireCourseChatRealtime(courseId) {
     if (input) input.value = "";
   };
 }
+
+// === Per-course chat (single subscription, no duplicates) ===
+let __chatActiveRoomId = null;
+let __chatUnsub = null;
+let __chatSeen = new Set(); // guard against replays/dup
+
+function unmountCourseChat() {
+  __chatSeen.clear();
+  if (typeof __chatUnsub === "function") {
+    try { __chatUnsub(); } catch {}
+  }
+  __chatUnsub = null;
+  __chatActiveRoomId = null;
+}
+
+function mountCourseChat(courseId) {
+  const list  = document.getElementById("ccList");
+  const input = document.getElementById("ccInput");
+  const send  = document.getElementById("ccSend");
+  const label = document.getElementById("chatRoomLabel");
+  if (!list || !input || !send) return;
+
+  // If same room already mounted → do nothing
+  if (__chatActiveRoomId === courseId && typeof __chatUnsub === "function") return;
+
+  // Clean previous
+  unmountCourseChat();
+  list.innerHTML = "";
+  if (label) label.textContent = `room: ${courseId}`;
+
+  // ✅ Use ONE consistent RTDB path for per-course chats
+  let rdb = null;
+  try { rdb = getDatabase(); } catch {}
+  if (!rdb) return;
+
+  const roomRef = ref(rdb, `chats/${courseId}`); // <-- keep this one path only
+  __chatActiveRoomId = courseId;
+
+  // TTL prune (optional; safe)
+  pruneOldChatsRTDB?.(roomRef);
+
+  // Live stream (single listener)
+  __chatUnsub = onChildAdded(roomRef, (snap) => {
+    const key = snap.key;
+    if (__chatSeen.has(key)) return;      // ignore duplicates
+    __chatSeen.add(key);
+
+    const m = snap.val() || {};
+    const div = document.createElement("div");
+    div.className = "msg";
+    div.innerHTML =
+      `<b>${esc(m.user || "anon")}</b> ` +
+      `<span class="small muted">${m.ts ? new Date(m.ts).toLocaleTimeString() : ""}</span>` +
+      `<div>${esc(m.text || "")}</div>`;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+  });
+
+  // Avoid multiple send handlers
+  send.onclick = null;
+  input.onkeydown = null;
+
+  const doSend = async () => {
+    const text = (input.value || "").trim();
+    if (!text) return;
+    if (!auth?.currentUser || auth.currentUser.isAnonymous) {
+      return toast("Please login to chat");
+    }
+    try {
+      await push(roomRef, {
+        uid: auth.currentUser.uid,
+        user: auth.currentUser.email || "user",
+        text,
+        ts: Date.now(),
+      });
+      input.value = "";
+    } catch {
+      toast("Chat failed");
+    }
+  };
+
+  send.onclick = doSend;
+  input.onkeydown = (e) => {
+    if (e.key === "Enter") doSend();
+  };
+}
+
+// Call when opening a course (e.g. after reader opens or details panel shows)
+window.mountCourseChat = mountCourseChat;
+window.unmountCourseChat = unmountCourseChat;
 
 // === Chat TTL (10 days) ===
 const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
