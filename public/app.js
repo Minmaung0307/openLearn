@@ -88,11 +88,11 @@ window.ensureUserDoc = ensureUserDoc;
 //   return d.profile || null;
 // }
 
-export async function saveProfileCloud(p) {
-  const u = auth.currentUser;
-  if (!u) return;
-  await setDoc(doc(db, "users", u.uid), { profile: p || {} }, { merge: true });
-}
+// export async function saveProfileCloud(p) {
+//   const u = auth.currentUser;
+//   if (!u) return;
+//   await setDoc(doc(db, "users", u.uid), { profile: p || {} }, { merge: true });
+// }
 
 // export async function loadProgressCloud() {
 //   const u = auth.currentUser;
@@ -4267,11 +4267,16 @@ async function loadProfileCloud() {
   }
 }
 
-async function saveProfileCloud(local) {
-  const ref = profileDocRef();
-  if (!ref) return;
+// ---- Profile Cloud Saver (single source of truth = users/{uid}.profile) ----
+async function saveProfileCloud(p) {
   try {
-    await setDoc(ref, { ...local, ts: Date.now() }, { merge: true });
+    const u = (typeof auth !== "undefined" && auth.currentUser) ? auth.currentUser : null;
+    if (!u) return;
+    await setDoc(
+      doc(db, "users", u.uid),
+      { profile: p || {} },
+      { merge: true }
+    );
   } catch (e) {
     console.warn("saveProfileCloud failed:", e?.message || e);
   }
