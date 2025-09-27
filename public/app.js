@@ -1730,18 +1730,24 @@ async function openReaderAt(cid, pageIdx = 0) {
   }
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (let k = 0; k < 60; k++) {
-    // wait up to ~3s
     if (window.RD && Array.isArray(RD.pages) && RD.pages.length) break;
     await sleep(50);
   }
-  try {
-    if (typeof goToPage === "function") {
-      goToPage(pageIdx);
-    } else if (window.RD) {
-      RD.i = Math.max(0, Math.min(pageIdx, RD.pages.length - 1));
-      if (typeof renderReader === "function") renderReader(RD);
+  // ✅ guard: RD.pages loaded ဖြစ်မှသာ goToPage ခေါ်မယ်
+  if (window.RD && Array.isArray(RD.pages) && RD.pages.length) {
+    try {
+      if (typeof goToPage === "function") {
+        goToPage(pageIdx);
+      } else {
+        RD.i = Math.max(0, Math.min(pageIdx, RD.pages.length - 1));
+        if (typeof renderReader === "function") renderReader(RD);
+      }
+    } catch (e) {
+      console.warn("openReaderAt failed:", e);
     }
-  } catch {}
+  } else {
+    toast("Lesson not ready yet. Please try again.");
+  }
 }
 
 // Wrap openReaderAt once (put after it is defined; safe-guarded)
