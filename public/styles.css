@@ -2134,10 +2134,10 @@ details.help + details.help {
   line-height: 1.5;
 }
 #ol-note-card .hdr b { color: #0b1220; }
-#ol-note-meta { color: #6b7280; }
+#ol-note-meta { color: #c1c6ce; }
 #ol-note-ta::placeholder { color:#6b7280; } /* gray-500 */
 #ol-note-card .row { margin-top:10px; justify-content:flex-end; gap:8px; }
-#ol-note-card textarea{width:100%;min-height:180px;border:1px solid #d1d5db;border-radius:8px;padding:10px;font:inherit;resize:vertical;background:#f9fafb}
+#ol-note-card textarea{width:100%;min-height:180px;border:1px solid #d1d5db;border-radius:8px;padding:10px;font:inherit;resize:vertical;background:#faf3a9; color: rgb(39, 39, 39);}
 #ol-note-card .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
 #ol-note-card .btn{padding:6px 10px;border-radius:8px;border:1px solid #d1d5db;background:#4383a8}
 #ol-note-card .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb}
