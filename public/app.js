@@ -7861,7 +7861,8 @@ if (typeof saveCourseToCloud !== "function") {
     const ctx = getLessonCtx(); // may be null
     if (ctx) {
       const existing = loadNote(ctx.cid, ctx.idx);
-      title.textContent = `Note — ${ctx.cid} · Page ${ctx.idx + 1}`;
+      // title.textContent = `Note — ${ctx.cid} · Page ${ctx.idx + 1}`;
+      title.textContent = `MyNote`;
       ta.value = (existing && existing.text) || "";
       ta.placeholder = "Write your note for this page…";
       meta.textContent = existing?.savedAt
