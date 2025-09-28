@@ -2141,7 +2141,7 @@ details.help + details.help {
 #ol-note-card .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
 #ol-note-card .btn{padding:6px 10px;border-radius:8px;border:1px solid #d1d5db;background:#4383a8}
 #ol-note-card .btn.primary{background:#2563eb;color:#fff;border-color:#2563eb}
-#rdNote, #rdBookmark, #bm-continue { cursor: pointer; }
+#rdNote, #rdBookmark, #bm-continue { cursor: pointer; background: rgb(88, 64, 18);}
 /* Dark mode */
 @media (prefers-color-scheme: dark) {
   #ol-note-card { background: #0f172a; color:#e5e7eb; }
