@@ -2135,6 +2135,7 @@ details.help + details.help {
 }
 #ol-note-card .hdr b { color: #0b1220; }
 #ol-note-meta { color: #c1c6ce; }
+#ol-note-title { color: orange;}
 #ol-note-ta::placeholder { color:#6b7280; } /* gray-500 */
 #ol-note-card .row { margin-top:10px; justify-content:flex-end; gap:8px; }
 #ol-note-card textarea{width:100%;min-height:180px;border:1px solid #d1d5db;border-radius:8px;padding:10px;font:inherit;resize:vertical;background:#faf3a9; color: rgb(39, 39, 39);}
