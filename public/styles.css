@@ -331,7 +331,7 @@ main,
   padding-top: var(--topbar-offset);
 }
 #main {
-  margin-top: -24px;
+  margin-top: -34px;
   box-sizing: border-box;
   width: 100%;
   position: relative;
