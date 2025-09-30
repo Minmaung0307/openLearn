@@ -614,35 +614,19 @@ function hashId(s) {
   return ("00000000" + (h >>> 0).toString(16)).slice(-8);
 }
 
-function ensureCertIssued(course, profile, score) {
-  const key = certKey(course.id);
-  const all = getCerts();
-  if (all[key]) return all[key]; // already issued
-
-  const seed = [currentUidKey(), course.id, Date.now()].join("|");
-  const id = "OL-" + hashId(seed).toUpperCase();
-  const rec = {
-    id,
+function ensureCertIssued(course, profile = (typeof getProfile==="function"?getProfile():{}), score=null){
+  let rec = getIssuedCert(course.id);
+  if (rec) return rec;
+  rec = {
+    id: `${course.id}-${Date.now()}`,
     courseId: course.id,
-    issuedAt: Date.now(),
-    name: profile.displayName || getUser()?.email || "Student",
-    photo: profile.photoURL || "",
-    score: typeof score === "number" ? score : null,
+    name: profile?.displayName || (typeof getUser==="function" ? getUser()?.email : "") || "Student",
+    photo: profile?.photoURL || null,
+    score: typeof score==="number" ? score : null,
+    issuedAt: Date.now()
   };
-
-  all[key] = rec;
-  setCerts(all);
-
-  // Optional: save to Firestore /certs (fire-and-forget)
-  try {
-    if (db && auth?.currentUser) {
-      const cref = doc(db, "certs", `${currentUidKey()}_${course.id}`);
-      setDoc(cref, rec, { merge: true }).catch(() => {});
-    }
-  } catch {}
-
-  saveProgressCloud({ certs: getCerts(), ts: Date.now() });
-
+  setIssuedCert(course.id, rec);
+  try { typeof saveProgressCloudSafe==="function" && saveProgressCloudSafe(); } catch {}
   return rec;
 }
 
@@ -3450,21 +3434,11 @@ function _certKey() {
   return "certs";
 }
 
-function getIssuedCert(courseId) {
-  try {
-    const m = JSON.parse(localStorage.getItem(_certKey()) || "{}");
-    return m[courseId] || null;
-  } catch {
-    return null;
-  }
-}
-
-function setIssuedCert(courseId, cert) {
-  try {
-    const m = JSON.parse(localStorage.getItem(_certKey()) || "{}");
-    m[courseId] = cert;
-    localStorage.setItem(_certKey(), JSON.stringify(m));
-  } catch {}
+function getAllIssuedCerts() { try { return JSON.parse(localStorage.getItem(CERTS_KEY)||"{}"); } catch { return {}; } }
+function getIssuedCert(courseId){ return getAllIssuedCerts()[courseId] || null; }
+function setIssuedCert(courseId, cert){
+  const m = getAllIssuedCerts(); m[courseId] = cert;
+  localStorage.setItem(CERTS_KEY, JSON.stringify(m));
 }
 
 // small id generator
@@ -4707,67 +4681,36 @@ async function issueCertificateForCourse(course, score = null) {
   }
 }
 
-function renderCertificate(course, cert) {
-  const p = getProfile();
-  const name = cert?.name || p.displayName || getUser()?.email || "Student";
-  const avatar =
-    resolveAssetUrl(cert?.photo || p.photoURL) || "/assets/default-avatar.png";
-  // const avatar = cert?.photo || p.photoURL || "/assets/default-avatar.png";
+function renderCertificate(course, cert){
+  const name = cert?.name || "Student";
   const dateTxt = new Date(cert?.issuedAt || Date.now()).toLocaleDateString();
-  const scoreTxt =
-    typeof cert?.score === "number" ? `${Math.round(cert.score * 100)}%` : "—";
+  const scoreTxt = typeof cert?.score==="number" ? `${Math.round(cert.score*100)}%` : "—";
   const certId = cert?.id || "PENDING";
-
-  const verifyUrl = `https://openlearn.example/verify?cid=${encodeURIComponent(
-    certId
-  )}`;
-  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(
-    verifyUrl
-  )}`;
+  const verifyUrl = `https://openlearn.example/verify?cid=${encodeURIComponent(certId)}`;
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(verifyUrl)}`;
 
   return `
-    <div class="cert-doc">
-      <img src="/assets/logo.png" class="cert-logo" alt="OpenLearn Logo">
-
-      <div class="cert-qr"><img alt="Verify QR" src="${qr}"></div>
-
-      <div class="cert-head">OpenLearn Institute</div>
-      <div class="cert-sub">Certificate of Completion</div>
-
-      <img src="${esc(avatar)}" class="cert-photo" alt="Student Photo">
-      <div class="cert-name">${esc(name)}</div>
-      <div class="cert-sub">has successfully completed</div>
-
-      <div class="cert-course">${esc(course.title)}</div>
-
-      <div class="cert-meta">
-        Certificate No.: <b>${esc(certId)}</b> • Credits: ${
-    course.credits || 3
-  } • Score: ${scoreTxt} • Issued: ${dateTxt}
-      </div>
-
-      <div class="cert-signs">
-        <div class="sig">
-          <img src="/assets/sign-registrar.png" class="sig-img" alt="">
-          <div>Registrar</div>
-        </div>
-        <div class="sig">
-          <img src="/assets/sign-dean.png" class="sig-img" alt="">
-          <div>Dean of Studies</div>
-        </div>
-      </div>
-
-      <div class="cert-forgery small">
-        Printed: <span class="prt-date"></span> • Timezone: <span class="prt-tz"></span> • UA: <span class="prt-ua"></span>
-      </div>
+  <div class="cert-doc">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <img src="/assets/logo.png" alt="" style="height:48px">
+      <img src="${qr}" alt="Verify QR" style="width:90px;height:90px">
     </div>
-
-    <div id="certActions" class="row no-print" style="justify-content:flex-end; gap:8px; margin-top:10px">
-      <button class="btn" id="certPrint">Print / Save PDF</button>
-      <button class="btn" id="certClose">Close</button>
+    <h2 style="margin:.25rem 0">Certificate of Completion</h2>
+    <div style="font-size:1.25rem;font-weight:600">${escapeHtml(name)}</div>
+    <div class="muted" style="margin:.25rem 0">has successfully completed</div>
+    <div style="font-size:1.1rem;font-weight:600">${escapeHtml(course.title || course.id)}</div>
+    <div class="small muted" style="margin-top:.5rem">
+      Certificate No.: <b>${escapeHtml(certId)}</b> • Credits: ${course.credits||3}
+      • Score: ${scoreTxt} • Issued: ${dateTxt}
     </div>
-  `;
+  </div>
+  <div class="row" style="justify-content:flex-end;gap:8px;margin-top:10px">
+    <button class="btn" id="certPrint">Print / Save PDF</button>
+    <button class="btn" id="certCloseBtn">Close</button>
+  </div>`;
 }
+
+function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
 
 // stamp forgery footer
 document.addEventListener("DOMContentLoaded", () => {
@@ -4820,120 +4763,70 @@ function cleanupStrayCertButtons() {
 }
 
 // ===== Single, merged showCertificate() =====
-function showCertificate(course, { issueIfMissing = false } = {}) {
-  // ensure a cert object exists (sync)
-  let cert =
-    typeof getIssuedCert === "function" ? getIssuedCert(course.id) : null;
-  if (!cert && issueIfMissing) {
-    // Create a simple cert synchronously so UI can render immediately
-    try {
-      const p = (typeof getProfile === "function" ? getProfile() : {}) || {};
-      cert = {
-        id: typeof genCertId === "function" ? genCertId() : "OL-" + Date.now(),
-        name:
-          p.displayName ||
-          (typeof getUser === "function" ? getUser()?.email : "") ||
-          "Student",
-        photo: p.photoURL || "",
-        score: typeof LAST_QUIZ_SCORE === "number" ? LAST_QUIZ_SCORE : null,
-        issuedAt: Date.now(),
-      };
-      if (typeof setIssuedCert === "function") setIssuedCert(course.id, cert);
-      // fire-and-forget cloud persist
-      try {
-        saveProgressCloudSafe?.();
-      } catch {}
-    } catch {}
-  }
-  if (!cert) {
-    try {
-      toast?.("No certificate yet for this course.");
-    } catch {}
-    return;
-  }
+function showCertificate(course, { issueIfMissing = true } = {}){
+  if (!course) return;
+  let cert = getIssuedCert(course.id);
+  if (!cert && issueIfMissing) cert = ensureCertIssued(course);
 
-  // Prefer existing markup (#certModal + #certBody). If missing, create a lightweight dialog.
+  if (!cert) { (typeof toast==="function") && toast("No certificate yet for this course."); return; }
+
   let dlg = document.getElementById("certModal");
-  let host = document.getElementById("certBody");
-  if (!dlg || !host) {
-    // build a minimal dialog host
-    dlg = document.getElementById("certModal");
-    if (!dlg) {
-      dlg = document.createElement("dialog");
-      dlg.id = "certModal";
-      dlg.className = "ol-modal card";
-      dlg.innerHTML = `
-        <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
-          <b class="modal-title">Certificate</b>
-          <button class="btn small" id="certCloseBtn" type="button">Close</button>
-        </div>
-        <div id="certWrap"></div>
-      `;
-      document.body.appendChild(dlg);
-      dlg.querySelector("#certCloseBtn").onclick = () => dlg.close();
-    }
-    host = document.getElementById("certWrap");
+  if (!dlg){
+    // fallback create if HTML missing
+    dlg = document.createElement("dialog");
+    dlg.id = "certModal"; dlg.className = "ol-modal card";
+    dlg.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+        <b class="modal-title">Certificate</b>
+        <button class="btn small" id="certClose" type="button">Close</button>
+      </div><div id="certBody"></div>`;
+    document.body.appendChild(dlg);
   }
-
-  // Clean any duplicated action bars inside the host (if rerendering)
-  try {
-    dlg
-      .querySelectorAll("#certActions, .row.no-print")
-      .forEach((n) => n.remove());
-  } catch {}
-
-  // Render certificate HTML (this renderer already includes its own action bar)
-  const html =
-    typeof renderCertificate === "function"
-      ? renderCertificate(course, cert)
-      : `<div class="muted">renderCertificate() not found.</div>`;
-  host.innerHTML = html;
-
-  // Show dialog
+  const body = dlg.querySelector("#certBody");
+  body.innerHTML = renderCertificate(course, cert);
   dlg.showModal?.();
 
-  // Wire print / close buttons INSIDE rendered content
-  const doHardClose = () => {
-    try {
-      if (typeof hardCloseCert === "function") {
-        hardCloseCert();
-      } else {
-        dlg.close();
-      }
-    } catch {
-      dlg.close();
-    }
-  };
-  dlg
-    .querySelector("#certPrint")
-    ?.addEventListener("click", () => window.print(), { once: true });
-  dlg
-    .querySelector("#certClose")
-    ?.addEventListener("click", doHardClose, { once: true });
-
-  // Close on Esc
-  dlg.addEventListener(
-    "cancel",
-    (e) => {
-      e.preventDefault();
-      doHardClose();
-    },
-    { once: true }
-  );
-
-  // Fill meta spans if present
-  try {
-    const now = new Date();
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-    const ua = (navigator.userAgent || "").slice(0, 120);
-    const root = host;
-    root
-      .querySelector(".prt-date")
-      ?.replaceChildren(document.createTextNode(now.toLocaleString()));
-    root.querySelector(".prt-tz")?.replaceChildren(document.createTextNode(tz));
-    root.querySelector(".prt-ua")?.replaceChildren(document.createTextNode(ua));
-  } catch {}
+  dlg.querySelector("#certPrint")?.addEventListener("click", ()=> window.print(), {once:true});
+  (dlg.querySelector("#certCloseBtn") || dlg.querySelector("#certClose"))?.addEventListener("click", ()=> dlg.close(), {once:true});
 }
+
+window.showCertificate = showCertificate;
+
+// Hook: when course finished, always issue + refresh
+(function patchMarkCourseComplete(){
+  const orig = window.markCourseComplete;
+  window.markCourseComplete = function(id, score=null){
+    // call your original if exists
+    if (typeof orig === "function") try { orig.call(this, id, score); } catch {}
+    // ensure completion stored
+    try {
+      const arr = (typeof getCompletedRaw==="function"?getCompletedRaw():[]) || [];
+      if (!arr.some(x=>x.id===id)) {
+        arr.push({ id, ts: Date.now(), score: typeof score==="number"?score:null });
+        typeof setCompletedRaw==="function" && setCompletedRaw(arr);
+      }
+    } catch {}
+    // issue cert
+    const course = (window.ALL && ALL.find(c=>c.id===id)) || (typeof getCourses==="function" ? getCourses().find(c=>c.id===id) : null);
+    if (course) ensureCertIssued(course, (typeof getProfile==="function"?getProfile():{}), score);
+
+    // persist & re-render
+    try { typeof saveProgressCloudSafe==="function" && saveProgressCloudSafe(); } catch {}
+    try { window.renderProfilePanel?.(); } catch {}
+    try { window.renderMyLearning?.(); } catch {}
+    try { window.renderGradebook?.(); } catch {}
+  };
+})();
+
+// Global click binding for buttons rendered from tables/cards
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest?.("[data-cert-view],[data-cert-dl]");
+  if (!btn) return;
+  const id = btn.getAttribute("data-cert-view") || btn.getAttribute("data-cert-dl");
+  const course = (window.ALL && ALL.find(c=>c.id===id)) || (typeof getCourses==="function" ? getCourses().find(c=>c.id===id) : null);
+  if (!course) return;
+  showCertificate(course, { issueIfMissing:true });
+  if (btn.hasAttribute("data-cert-dl")) setTimeout(()=> window.print(), 150);
+});
 
 // (optional) If you want a very small hardClose helper when original isn't present:
 if (typeof window.hardCloseCert !== "function") {
