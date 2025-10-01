@@ -1,4 +1,4 @@
-<section class="abhidhamma">
+<section class="abhidhamma" style="margin-left: 24px;">
   <style>
     /* ====== details/summary styles to replace tooltip-box ====== */
     .tooltip details.tip{
@@ -34,6 +34,45 @@
       background: #0b0f1c;
       border-top: 1px solid var(--card-border, rgba(255,255,255,.12));
     }
+
+    /* === FULL BLEED VIDEO === */
+.full-bleed{
+  /* stretch to viewport width even inside centered container */
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+.ratio{
+  position: relative;
+  width: 100%;
+  /* 16:9 */
+  padding-bottom: 56.25%;
+  border-radius: 0;          /* full-bleed = no rounding */
+  overflow: hidden;
+  border: none;
+  background: #000;
+}
+.ratio iframe{
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  border: 0;
+}
+
+.video-actions{
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 8px 12px; background: rgba(0,0,0,.35);
+}
+.video-actions .btn{
+  border: 1px solid var(--card-border, rgba(255,255,255,.2));
+  background: rgba(255,255,255,.06);
+  color: #fff; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+}
+
+/* Taller aspect on mobile (maximize height) */
+@media (max-width: 640px){
+  .ratio{ padding-bottom: 62.5%; } /* ~16:10 */
+}
   </style>
 
   <!-- ===== Header ===== -->
@@ -51,8 +90,9 @@
     <section class="step-1">
       <strong class="tooltip card">
         <h2>ပရမတ္ထတရား (၄) ပါး</h2>
-        * တတ္ထ ဝုတ္တာဘိဓမ္မတ္ထာ၊ စတုဓာ ပရမတ္ထတော။ <br>
-        စိတ္တံ၊ စေတသိကံ၊ ရူပံ၊ နိဗ္ဗာနမိတိ သဗ္ဗထာ။
+        <p>* တတ္ထ ဝုတ္တာဘိဓမ္မတ္ထာ၊ စတုဓာ ပရမတ္ထတော။ <br>
+        စိတ္တံ၊ စေတသိကံ၊ ရူပံ၊ နိဗ္ဗာနမိတိ သဗ္ဗထာ။</p>
+        
         <details class="tip">
           <summary>နိဿျ (အနက်)</summary>
           <div class="tip-body">
@@ -210,17 +250,22 @@
     </div>
 
     <!-- ===== Video ===== -->
-    <section class="step5">
-      <div class="video-embed">
-        <div class="ratio">
-          <iframe
-            src="https://www.youtube.com/embed/5qudmXZqOwQ?start=4"
-            title="YouTube video"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen></iframe>
-        </div>
+    <section class="step5 full-bleed">
+  <div class="video-embed">
+    <div class="ratio" id="videoWrap">
+      <div class="video-actions">
+        <button class="btn" id="btnFs">⛶ Fullscreen</button>
       </div>
-    </section>
+      <iframe
+        id="ytFrame"
+        src="https://www.youtube.com/embed/5qudmXZqOwQ?start=4&rel=0&modestbranding=1"
+        title="YouTube video"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen>
+      </iframe>
+    </div>
+  </div>
+</section>
     <section id="author" class="video">
       <div class="video-title card">
         <h4>သင်ကြားပို့ချသူ</h4>
@@ -236,3 +281,22 @@
 
   </div>
 </section>
+<script>
+  (function(){
+    const wrap = document.getElementById('videoWrap');
+    const btn = document.getElementById('btnFs');
+    if (!wrap || !btn) return;
+
+    btn.addEventListener('click', async () => {
+      try{
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        } else {
+          await wrap.requestFullscreen();
+        }
+      } catch(e){
+        console.warn('Fullscreen not allowed', e);
+      }
+    });
+  })();
+</script>
