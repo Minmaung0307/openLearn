@@ -95,17 +95,22 @@ h2 {
   color: var(--accent, #ff7aa8);
   margin: 20px 0 14px;
   text-align: left;
-  border-left: 5px solid var(--accent, #ff7aa8);
+  /* border-left: 5px solid var(--accent, #ff7aa8); */
   padding-left: 10px;
 }
 
 h3 {
   font-size: clamp(18px, 2.5vw, 24px);
   font-weight: 700;
-  color: var(--text, #70d9ff);
-  margin: 18px 0 10px;
+  /* color: var(--text, #70d9ff); */
+  /* margin: 18px 0 10px; */
   position: relative;
-  padding-left: 12px;
+  /* padding-left: 12px; */
+  color: var(--accent, #ead984);
+  margin: 20px 0 14px;
+  text-align: left;
+  /* border-left: 4px solid var(--accent, #ead984); */
+  padding-left: 10px;
 }
 h3::before {
   /* content: "▹"; */
@@ -114,6 +119,24 @@ h3::before {
   color: var(--brand, #7aa2ff);
   font-size: 1.2em;
   line-height: 1;
+}
+h4 {
+  /* font-size: clamp(22px, 3vw, 30px); */
+  /* font-weight: 800; */
+  color: var(--accent, #84eae5);
+  margin: 20px 0 14px;
+  text-align: left;
+  /* border-left: 3px solid var(--accent, #84eae5); */
+  padding-left: 10px;
+}
+
+summary {
+  margin: 14px 0;
+}
+hr {
+  border-width: 1px;
+  border-color: #a6caca88;
+  /* width: 98%; */
 }
 
 /* Taller aspect on mobile (maximize height) */
@@ -149,7 +172,7 @@ h3::before {
             ရူပံ-ရုပ်လည်းကောင်း၊ နိဗ္ဗာနံ-နိဗ္ဗာန်လည်းကောင်း၊ ဣတိ-ဤသို့၊
             သဗ္ဗထာ-ခပ်သိမ်းသောအပြားအားဖြင့်၊ စတုဓာ-လေးပါးပြားကုန်၏။
           </div>
-        </details>
+        </details><hr>
       </strong>
 
       <div class="card pa">
@@ -179,7 +202,7 @@ h3::before {
             အရူပါဝစရံ- အရူပါဝစရစိတ်လည်းကောင်း၊ လောကုတ္တရံစ- လောကုတ္တရာစိတ်လည်းကောင်း၊
             ဣတိ-ဤသို့ ၊ စတုဗ္ဗိဓံ- လေးပါးအပြားရှိသည်၊ ဟောတိ- ဖြစ်၏။
           </div>
-        </details>
+        </details><hr>
       </strong>
       </p>
     </section>
@@ -202,7 +225,7 @@ h3::before {
                 ဧကံ-တစ်ပါးသောစိတ်လည်းကောင်း … ဣတိ-ဤသို့၊ အဋ္ဌပိ- ရှစ်ပါးလည်းဖြစ်ကုန်သော၊ ဣမာနိ-ဤစိတ်တို့သည်၊
                 လောဘ သဟဂတစိတ္တာနိ နာမ-လောဘသဟဂုတ်စိတ်တို့ မည်၏။
               </div>
-            </details>
+            </details><hr>
           </strong>
           <p>လောဘမူစိတ် (၈) ပါးဟူသည်ကား</p>
           <ul>
@@ -230,7 +253,7 @@ h3::before {
                 ဧကံ-လည်းကောင်း၊ ဣတိ-သို့၊ ဒွေ-နှစ်ပါးလည်းဖြစ်ကုန်သော၊ ဣမာနိ-ဤစိတ်တို့သည်၊
                 ပဋိဃသမ္ပယုတ္တစိတ္တာနိ နာမ-ပဋိဃသမ္ပယုတ်စိတ်တို့ မည်၏။
               </div>
-            </details>
+            </details><hr>
           </strong>
           <p>ဒေါသမူစိတ် (၂) ပါးဟူသည်ကား</p>
           <ul>
@@ -251,7 +274,7 @@ h3::before {
                 ဥပေက္ခာသဟဂတံ- သော၊ ဥဒ္ဓစ္စသမ္ပယုတ္တံ- ဥဒ္ဓစ္စသမ္ပယုတ်ဖြစ်သော၊ ဧကံ- လည်းကောင်း၊ ဣတိ- ဤသို့၊
                 ဒွေပိ- နှစ်ပါးလည်းဖြစ်ကုန်သော၊ ဣမာနိ- ဤ စိတ်တို့သည်၊ မောမူဟစိတ္တာနိ နာမ- မောမူဟစိတ်တို့ မည်၏။
               </div>
-            </details>
+            </details><hr>
           </strong>
           <p>မောဟမူစိတ် (၂) ပါးဟူသည်ကား</p>
           <ul>
@@ -274,7 +297,7 @@ h3::before {
               ဣစ္စေဝံ-ဤသို့၊ သဗ္ဗထာပိ-ခပ်သိမ်းသော အပြား အားဖြင့်လည်း၊ ဒွါဒသ - တစ်ဆယ့်နှစ်ပါးကုန်သော၊
               အကုသလစိတ္တာနိ-အကုသိုလ်စိတ်တို့သည်၊ သမတ္တာနိ-ပြီးကုန်ပြီ။
             </div>
-          </details>
+          </details><hr>
         </strong>
       </div>
 
@@ -290,7 +313,7 @@ h3::before {
               ဒွိဓာ- နှစ်ပါးပြားကုန်၏၊ မောဟမူလာနိ စ- မောဟမူစိတ်တို့သည်ကား၊ ဒွေ နှစ်ပါးတို့တည်း၊ ဣတိ- ဤသို့၊
               အကုသလာ- အကုသိုလ်စိတ်တို့သည်၊ ဒွါဒသ- တစ်ဆယ့်နှစ်ပါးတို့သည်၊ သိယုံ- ဖြစ်ကုန်၏။
             </div>
-          </details>
+          </details><hr>
         </strong>
       </div>
     </div>
